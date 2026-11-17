@@ -1016,6 +1016,8 @@ namespace Halcyonic.XR.Workspace.Editor
             var weakest = float.MaxValue;
             var weakestName = "";
             var outOfFrame = 0;
+            var unseen = 0;
+            var unseenNames = new List<string>();
             foreach (var label in root.GetComponentsInChildren<TMP_Text>(false))
             {
                 if (string.IsNullOrEmpty(label.text) || GlazeIcons.IsIcon(label) || label.textInfo == null || label.textInfo.characterCount == 0) continue;
@@ -1066,12 +1068,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     // A pixel in from each edge (AUDIT3's 15:12Z): the quad's own rim may hold the glass or the room beside the letter.
                     if (x1 - x0 > 2 && y1 - y0 > 2) glyphs.Add(new RectInt(x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2));
                 }
-                var strongest = InkBox(pixels, rect, DrawnColour(label), glyphs).Ratio;
+                // A label drawn at no opacity (a measuring or fading copy laid over the words) shows nothing to read: it is not a word a
+                // person sees, so it is not held to the words' contrast. Its box holds only the glass, and reads 1 to 1.
+                var drawn = DrawnColour(label);
+                if (drawn.a < 0.05f) { unseen++; unseenNames.Add(label.name + " \"" + Clip(label.text) + "\""); continue; }
+                var strongest = InkBox(pixels, rect, drawn, glyphs).Ratio;
                 if (strongest < weakest) { weakest = (float)strongest; weakestName = label.name + " \"" + Clip(label.text) + "\""; }
-                if (strongest < 4.5) yield return what + ": " + label.name + " \"" + Clip(label.text) + "\" reaches " + strongest.ToString("0.00", CultureInfo.InvariantCulture) + " to 1.";
+                if (strongest < 4.5) yield return what + ": " + label.name + " \"" + Clip(label.text) + "\" reaches " + strongest.ToString("0.00", CultureInfo.InvariantCulture) + " to 1 (drawn "
+                    + ColorUtility.ToHtmlStringRGB(drawn) + " at " + drawn.a.ToString("0.00", CultureInfo.InvariantCulture) + ").";
             }
             if (weakest < float.MaxValue) Debug.Log("Halcyonic: spatial kit: " + what + ": the weakest words are " + weakestName + " at " + weakest.ToString("0.00", CultureInfo.InvariantCulture) + " to 1"
-                + (outOfFrame > 0 ? "; " + outOfFrame + " labels past this view's edge, held in the main view." : "."));
+                + (outOfFrame > 0 ? "; " + outOfFrame + " labels past this view's edge, held in the main view" : "")
+                + (unseen > 0 ? "; " + unseen + " labels drawn at no opacity, not read: " + string.Join(", ", unseenNames) : "") + ".");
         }
 
         private static string Clip(string text) => text.Length <= 40 ? text : text.Substring(0, 40) + "…";

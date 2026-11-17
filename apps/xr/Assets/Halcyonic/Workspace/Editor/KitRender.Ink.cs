@@ -231,24 +231,24 @@ namespace Halcyonic.XR.Workspace.Editor
         private static int MinChannel(Color32 p) => Math.Min(p.r, Math.Min(p.g, p.b));
 
         /// <summary>
-        /// The colour <paramref name="label"/>'s words are drawn in, for their polarity: the mean of its visible characters' own vertex
+        /// The colour <paramref name="label"/>'s words are drawn in, for their polarity, with the opacity they are drawn at: the mean of its visible characters' own vertex
         /// colours (the label's colour with any run's colour on it, as TMP lays them), times its renderer's face colour where a block
         /// sets one. The label's colour property alone misses a run coloured by its words, so it could judge words the wrong way round.
         /// </summary>
         public static Color DrawnColour(TMPro.TMP_Text label)
         {
             var info = label.textInfo;
-            double r = 0, g = 0, b = 0;
+            double r = 0, g = 0, b = 0, a = 0;
             var count = 0;
             if (info != null)
                 for (var index = 0; index < info.characterCount; index++)
                 {
                     var character = info.characterInfo[index];
                     if (!character.isVisible) continue;
-                    r += character.color.r; g += character.color.g; b += character.color.b;
+                    r += character.color.r; g += character.color.g; b += character.color.b; a += character.color.a;
                     count++;
                 }
-            var drawn = count > 0 ? new Color((float)(r / count / 255.0), (float)(g / count / 255.0), (float)(b / count / 255.0), 1f) : label.color;
+            var drawn = count > 0 ? new Color((float)(r / count / 255.0), (float)(g / count / 255.0), (float)(b / count / 255.0), (float)(a / count / 255.0)) : label.color;
             if (label.TryGetComponent<Renderer>(out var renderer) && renderer.HasPropertyBlock())
             {
                 var block = new MaterialPropertyBlock();
@@ -256,7 +256,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (block.HasColor("_FaceColor"))
                 {
                     var face = block.GetColor("_FaceColor");
-                    drawn = new Color(drawn.r * face.r, drawn.g * face.g, drawn.b * face.b, 1f);
+                    drawn = new Color(drawn.r * face.r, drawn.g * face.g, drawn.b * face.b, drawn.a * face.a);
                 }
             }
             return drawn;
