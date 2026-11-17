@@ -115,7 +115,8 @@ namespace Halcyonic.XR.Workspace
             // eyes see them, its edge stroke and a leaning plate's nearer lower corners included, which one half-width at the bottom's
             // middle misses; under the redesign the older label is hidden and the tag stands instead, which that measure never saw
             // (FIELD's read of b208's appearance, 2026-11-16). The measure above stands where it reaches further.
-            if (DrawnLabel(view, eyes, yaw) is (float drawnHalf, float drawnLowest))
+            // Under the redesign alone: the older views keep the label measure their layout was fitted with (showhere at Larger, 2026-11-17).
+            if (RoomDesign.Enabled && DrawnLabel(view, eyes, yaw) is (float drawnHalf, float drawnLowest))
             {
                 halfWidth = Mathf.Max(halfWidth, drawnHalf);
                 lowest = Mathf.Min(lowest, drawnLowest);

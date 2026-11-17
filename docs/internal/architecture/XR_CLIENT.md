@@ -413,10 +413,11 @@ launch/return, process recreation and current-frame action behavior need separat
   away from its middle, so below eye level it looks higher there (`CornerElevation`), and each label
   is cleared by the edge under its outer side, or under the corner where it reaches past the panel
   (ADR 0026, 2026-10-02; on the far arc the outer labels stand over the corners, so a wide plane
-  stands where it did, and a deep label over the middle no longer lowers it). A label's extent is the label
-  as drawn, the older label or the redesign's tag, whichever stands (`WorkspaceLayout.InView`): every corner
-  of its renderers' bounds as the eyes see it, so a leaning plate's nearer lower corners and its edge stroke
-  count, and under the redesign the tag a person sees, never the hidden older label (2026-11-16). Where neither
+  stands where it did, and a deep label over the middle no longer lowers it). Under the redesign a label's extent is the
+  tag as drawn (`WorkspaceLayout.InView`): every corner of its renderers' bounds as the eyes see it, so a
+  leaning plate's nearer lower corners and its edge stroke count, and never the hidden older label
+  (2026-11-16). The older views keep the label measure their layout was fitted with (2026-11-17: the drawn
+  measure left their file page no line at Larger). Where neither
   side clears, it
   moves the least into the band and may cover a character. The band's floor is for a panel 26
   degrees tall: a taller one, grown whole for the person's larger text or holding more, as Settings
