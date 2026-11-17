@@ -163,8 +163,8 @@ namespace Halcyonic.XR.UI
         /// <summary>The finished turn's review laid as one dialog (TASKS, f6): its label, the run's own state word.</summary>
         public const string ResultLabel = RoomStanding.Finished;
 
-        /// <summary>The finished turn's review dialog's width (the sheet's f6 stands 600 dp; the bar's resting envelope holds about 530).</summary>
-        public const float ReviewDialogDp = 520f;
+        /// <summary>The finished turn's review dialog's width: tile f6's, inside the bar's own 728 dp (the lead's 03:32Z (A); XR records its envelope).</summary>
+        public const float ReviewDialogDp = 600f;
         private TextMeshPro measureBody = null!;
         private TextMeshPro measureRequest = null!;
         private TextMeshPro sentence = null!;

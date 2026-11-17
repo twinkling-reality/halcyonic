@@ -374,6 +374,9 @@ public class RoomResultTests
         Assert.That(RoomBar.FirstSentence("Star Catcher is live on the island - Updated the welcome card - public/ui/welcome.uikitml"),
             Is.EqualTo("Star Catcher is live on the island - Updated the welcome card - public/ui/welcome.uikitml"), "no sentence end: the whole words");
         Assert.That(RoomBar.FirstSentence("  "), Is.Null);
+        // AUDIT2 03:31Z: its own full stop kept; never ended at a decimal point or an abbreviation's dot.
+        Assert.That(RoomBar.FirstSentence("Star Catcher is live on the island. Updated the welcome card."), Is.EqualTo("Star Catcher is live on the island."));
+        Assert.That(RoomBar.FirstSentence("Raised the speed to 1.5 times, e.g. on level two. Then tested it."), Is.EqualTo("Raised the speed to 1.5 times, e.g. on level two."));
     }
 
     [Test]
@@ -385,16 +388,15 @@ public class RoomResultTests
         {
             // FILM's takes 5 and 6: a VR project's work to add, its preview ready: Add to Project the main action, Play in Headset the other.
             var ready = Bar(new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, Turn(Observed), Steps(), play: PlayInHeadset.Offered, add: Copy(Own(3))));
-            Assert.That((ready.AsDialog, ready.Column.Select(action => (action.Control.Action, action.Main)).ToArray()),
+            Assert.That((ready.AsDialog, ready.Column.Take(2).Select(action => (action.Control.Action, action.Main)).ToArray()),
                 Is.EqualTo((true, new[] { (RoomResult.ShowAdd, true), (RoomResult.PlayInHeadset, false) })), Show(ready));
-            Assert.That(ready.Row.Any(action => action.Control.Place == KitPlace.Close), "Close stands in the bar's own row, under the dialog");
+            Assert.That((ready.Column.Count, ready.Column[^1].Control.Place), Is.EqualTo((RoomBar.DialogMost + 1, KitPlace.Close)), "Close leaves the task: last in the dialog's row (the lead's 03:32Z (A))");
             Assert.That(ready.Overflow.Select(action => action.Control.Action), Does.Contain(RoomResult.TryBuild), "the work action behind More");
             // Take 3: no preview to show: the next work action, Try Build, keeps the slot.
             var none = Bar(new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, Turn(Observed), Steps(), add: Copy(Own(3))));
             Assert.That(none.Column.Select(action => (action.Control.Action, action.Main)).Take(2).ToArray(),
                 Is.EqualTo(new[] { (RoomResult.ShowAdd, true), (RoomResult.TryBuild, false) }), Show(none));
-            Assert.That(none.Column.Count, Is.EqualTo(RoomBar.DialogMost));
-            Assert.That(none.Row.Any(action => action.Control.Place == KitPlace.Close), "Close always stands");
+            Assert.That((none.Column.Count, none.Column[^1].Control.Place), Is.EqualTo((RoomBar.DialogMost + 1, KitPlace.Close)));
         }
         finally { RoomDesign.Enabled = was; }
     }
@@ -584,9 +586,7 @@ public class RoomResultTests
     {
         // The census (JUDGE, 2026-11-11): a task's file had no drawn way back to the Projects place.
         var result = Bar(new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, Turn(Observed), Steps()));
-        // The finished turn's review as one dialog: the file's own Close stands in the bar's row under it, once, never main (TASKS, f6).
-        Assert.That((result.AsDialog, result.Row.Concat(result.Column).Count(action => action.Control.Place == KitPlace.Close), result.Row.Single(action => action.Control.Place == KitPlace.Close).Main),
-            Is.EqualTo((true, 1, false)), Show(result));
+        Assert.That((result.Column.Last().Control.Place, result.Column.Last().Main, result.Column.Count(action => action.Control.Place == KitPlace.Close)), Is.EqualTo((KitPlace.Close, false, 1)), Show(result));
         var changes = Bar(new RoomResult(false, true, false, true, Turn(Observed), Steps(), RoomResultPage.Changes));
         Assert.That(changes.Column.Last().Control.Place, Is.EqualTo(KitPlace.Close));
         // At rest with nothing known: how the run stands (B), and the file's own Close last in the column, never main.

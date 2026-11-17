@@ -558,7 +558,7 @@ namespace Halcyonic.Client
         /// <summary>The most actions a column holds; past it the older view draws the frame (the view lays as many).</summary>
         public const int ColumnMost = 6;
 
-        /// <summary>The most actions the finished turn's review dialog stands in its row: the main one and one other, as the sheet's f6; Close in the bar's row, the rest behind More.</summary>
+        /// <summary>The most acting actions the finished turn's review dialog stands in its row, the main one and one other, Close beside them; the rest behind More.</summary>
         public const int DialogMost = 2;
 
         /// <summary>
@@ -586,8 +586,8 @@ namespace Halcyonic.Client
                     column.Insert(column.FindIndex(action => action.Main) + 1, shows);
                 }
                 var behind = new List<RoomAction>();
-                // The finished turn's review laid as one dialog holds the main action and one other in its row, on one line inside its glass
-                // (TASKS, f6; AUDIT 03:05Z); Close stands in the bar's own row under it, still always drawn.
+                // The finished turn's review laid as one dialog holds the main action, one other and Close in its row, on one line inside
+                // its glass at tile f6's width (TASKS, f6; AUDIT 03:05Z; the lead's 03:32Z (A): Close leaves the task, so it stands in the dialog).
                 var dialog = bar.DialogTitle != null;
                 while (column.Count >= (dialog ? DialogMost + 1 : ColumnMost))
                 {
@@ -597,8 +597,7 @@ namespace Halcyonic.Client
                     behind.Insert(0, column[at]);
                     column.RemoveAt(at);
                 }
-                if (dialog) bar.Row = bar.Row.Append(new RoomAction(close, main: false, icon: GlazeIcon.Close)).ToList();
-                else column.Add(new RoomAction(close, main: false, icon: GlazeIcon.Close));
+                column.Add(new RoomAction(close, main: false, icon: GlazeIcon.Close));
                 bar.Column = column;
                 bar.Overflow = behind;
             }
