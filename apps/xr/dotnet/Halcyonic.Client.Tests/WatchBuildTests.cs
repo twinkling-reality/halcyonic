@@ -177,6 +177,30 @@ public class WatchBuildTests
     }
 
     [Test]
+    public void AWindowCarriesWhatTheFileLeftOpenAboveItAndTracesEachRowToItsLine()
+    {
+        // AUDIT3's CC-a: a window that starts inside a block comment knows it, and each wrapped row knows its line and offset.
+        var watch = new WatchBuild(line => line.Length > 6 ? new[] { line.Substring(0, 6), "  " + line.Substring(6) } : new[] { line }) { MostRows = () => 3 };
+        var text = string.Join("\n", new[] { "let a = 1;", "/* open", "inside", "x */", "y = \"long string\";" });
+        watch.Due(Writing("t1", "src/a.js"), 0);
+        watch.Read("src/a.js", Text("src/a.js", text), 0.1);
+        watch.Due(Writing("t2", "src/a.js"), 2.5);
+        watch.Read("src/a.js", Text("src/a.js", text.Replace("long string", "longer string")), 2.6);
+        var panel = watch.Arc.Panels.Single();
+        var code = panel.Code!;
+        Assert.That(code.Language, Is.EqualTo(CodeLanguage.Script));
+        Assert.That(panel.LinesAbove, Is.EqualTo(3), "the window starts on the comment's last line, \"x */\"");
+        Assert.That(code.CarryIn, Is.EqualTo(CodeCarry.BlockComment), "the window starts inside the comment");
+        // Each row maps onto its line: the line's text at the row's start is the row's own text.
+        for (var row = 0; row < panel.Lines.Count; row++)
+        {
+            var content = panel.Lines[row].TrimStart(' ');
+            var line = code.Lines[code.RowLine[row]];
+            Assert.That(line.Substring(code.RowStart[row], content.Length), Is.EqualTo(content), "row " + row);
+        }
+    }
+
+    [Test]
     public void WrappedLinesLightEveryRowTheyLay()
     {
         var watch = new WatchBuild(line => line.Length > 4 ? new[] { line.Substring(0, 4), line.Substring(4) } : new[] { line });

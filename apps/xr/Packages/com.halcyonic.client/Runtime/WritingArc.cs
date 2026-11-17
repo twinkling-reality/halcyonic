@@ -27,8 +27,9 @@ namespace Halcyonic.Client
     public sealed class WritingPanel
     {
         public WritingPanel(string path, LineWords name, LineWords? folder, WritingState state, IReadOnlyList<string> lines, IReadOnlyList<int> lit,
-            long? size, bool isNew, int linesAbove = 0, int linesBelow = 0)
+            long? size, bool isNew, int linesAbove = 0, int linesBelow = 0, CodeRows? code = null)
         {
+            Code = code;
             LinesAbove = Math.Max(0, linesAbove);
             LinesBelow = Math.Max(0, linesBelow);
             Path = path;
@@ -64,10 +65,42 @@ namespace Halcyonic.Client
         /// <summary>The file did not exist before the turn.</summary>
         public bool New { get; }
 
+        /// <summary>
+        /// The window's rows as the file's own lines, for code's colours (AUDIT3's CC-a): each line tokenized whole from what
+        /// the file left open before the window, its runs mapped onto the rows it wraps to; null where none is known.
+        /// </summary>
+        public CodeRows? Code { get; }
+
         /// <summary>The file's own lines the window leaves out above its rows, and below them; 0 where none.</summary>
         public int LinesAbove { get; }
 
         public int LinesBelow { get; }
+    }
+
+    /// <summary>
+    /// A window's rows traced back to the file's own lines: the lines it shows, what the file left open before the first of
+    /// them, and for each row the line it lays (an index into <see cref="Lines"/>) and where in that line it starts.
+    /// </summary>
+    public sealed class CodeRows
+    {
+        public CodeRows(CodeLanguage language, CodeCarry carryIn, IReadOnlyList<string> lines, IReadOnlyList<int> rowLine, IReadOnlyList<int> rowStart)
+        {
+            Language = language;
+            CarryIn = carryIn;
+            Lines = lines;
+            RowLine = rowLine;
+            RowStart = rowStart;
+        }
+
+        public CodeLanguage Language { get; }
+
+        public CodeCarry CarryIn { get; }
+
+        public IReadOnlyList<string> Lines { get; }
+
+        public IReadOnlyList<int> RowLine { get; }
+
+        public IReadOnlyList<int> RowStart { get; }
     }
 
     /// <summary>

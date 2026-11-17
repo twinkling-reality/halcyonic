@@ -287,11 +287,15 @@ namespace Halcyonic.XR.UI
             headLabel.transform.localPosition = new Vector3(-width / 2f + pad, Size.y / 2f - pad, -RoomType.Units(0.5f));
             headTitle.transform.localPosition = headLabel.transform.localPosition - new Vector3(0f, RoomType.Scaled(LabelLineDp + LabelGapDp), 0f);
             // Each word and plate as the card laid it, so the arrival scales their own alphas and never overwrites a quiet one.
+            shownCode = notShown == null ? panel.Code : null;
+            colouredCode = null;
             var rowOf = new Dictionary<TMP_Text, int>();
             for (int row = 0, label = 0; row < reading.Count && notShown == null; row++)
                 if (reading[row].Text is LineWords text && !text.IsEmpty && label < card.ReadingShown.Count) rowOf[card.ReadingShown[label++]] = row;
             // Code's colours, in the file's language by the host's path, each row from what the row before left open (the
             // lead's 2026-11-17T03:36Z; CodeColouring paints the vertices, the text never changed).
+            codeLabels.Clear();
+            foreach (var (label, row) in rowOf) codeLabels.Add((label, row));
             Recolour();
             words.Clear();
             foreach (var label in GetComponentsInChildren<TMP_Text>(false))
@@ -368,11 +372,47 @@ namespace Halcyonic.XR.UI
         public void Recolour()
         {
             if (path == null) return;
+            var palette = CodeColouring.Now();
+            // By the file's own lines (AUDIT3's CC-a): each line tokenized whole from what the file left open above the window,
+            // its runs mapped onto the rows it wraps to. Nothing is worked out again for the same window, palette and paint.
+            if (shownCode is CodeRows code)
+            {
+                if (ReferenceEquals(colouredCode, code) && colouredPalette == palette && colouredRows.TrueForAll(each => each.Row != null && ReferenceEquals(GlazeRuns.Of(each.Row).Painted, each.Ranges)))
+                    return;
+                colouredRows.Clear();
+                var carry = code.CarryIn;
+                var lineRuns = new List<IReadOnlyList<CodeToken>>(code.Lines.Count);
+                foreach (var line in code.Lines) lineRuns.Add(CodeTokens.Of(line, code.Language, ref carry));
+                foreach (var (label, row) in codeLabels)
+                {
+                    if (label == null || row < 0 || row >= code.RowLine.Count) continue;
+                    var start = code.RowStart[row];
+                    var length = label.text.Length;
+                    var ranges = new List<(int Start, int End, Color32 Colour)>();
+                    foreach (var run in lineRuns[code.RowLine[row]])
+                    {
+                        var from = Mathf.Max(run.Start, start);
+                        var to = Mathf.Min(run.Start + run.Length, start + length);
+                        if (to > from && palette(run.Kind) is Color32 colour) ranges.Add((from - start, to - start, colour));
+                    }
+                    GlazeRuns.Of(label).Paint(ranges);
+                    colouredRows.Add((label, ranges));
+                }
+                colouredCode = code;
+                colouredPalette = palette;
+                return;
+            }
+            // A panel with no traced lines (a render's fixture): its rows one by one, each from the row before.
             var codeCarry = CodeCarry.None;
             var codeLanguage = CodeTokens.LanguageOf(path);
-            var codePalette = CodeColouring.Now();
-            foreach (var shownRow in card.ReadingShown) CodeColouring.Colour(shownRow, shownRow.text, codeLanguage, codePalette, ref codeCarry);
+            foreach (var shownRow in card.ReadingShown) CodeColouring.Colour(shownRow, shownRow.text, codeLanguage, palette, ref codeCarry);
         }
+
+        private CodeRows? shownCode;
+        private CodeRows? colouredCode;
+        private CodeColouring.Palette? colouredPalette;
+        private readonly List<(TMP_Text Row, IReadOnlyList<(int Start, int End, Color32 Colour)> Ranges)> colouredRows = new List<(TMP_Text, IReadOnlyList<(int, int, Color32)>)>();
+        private readonly List<(TMP_Text Label, int Row)> codeLabels = new List<(TMP_Text, int)>();
 
         /// <summary>Lays one count line, or hides it where nothing is left out; returns how tall it stands with its gap.</summary>
         private float LayCount(TextMeshPro label, int lines, string where, float width)

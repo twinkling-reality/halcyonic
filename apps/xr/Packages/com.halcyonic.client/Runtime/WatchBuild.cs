@@ -201,8 +201,8 @@ namespace Halcyonic.Client
             var name = LineWords.TheirName(cut < 0 ? path : path.Substring(cut + 1));
             LineWords? folder = cut <= 0 ? (LineWords?)null : LineWords.Theirs(path.Substring(0, cut));
             var state = file?.State ?? (settled ? WritingState.Settled : WritingState.Changing);
-            var (rows, lit, above, below) = file?.Text != null ? Window(file.Text, file.Lit) : (Array.Empty<string>(), Array.Empty<int>(), 0, 0);
-            return new WritingPanel(path, name, folder, state, rows, lit, file?.Size, file?.New ?? false, above, below);
+            var (rows, lit, above, below, code) = file?.Text != null ? Window(file, path) : (Array.Empty<string>(), Array.Empty<int>(), 0, 0, (CodeRows?)null);
+            return new WritingPanel(path, name, folder, state, rows, lit, file?.Size, file?.New ?? false, above, below, code);
         }
 
         /// <summary>
@@ -217,8 +217,10 @@ namespace Halcyonic.Client
         /// and counts the file's own lines it leaves out above and below, never an estimate (AUDIT2, 2026-11-17T03:09Z).
         /// <paramref name="changed"/> names lines; the lit indexes returned name rows of the window.
         /// </summary>
-        private (IReadOnlyList<string> Rows, IReadOnlyList<int> Lit, int LinesAbove, int LinesBelow) Window(IReadOnlyList<string> lines, IReadOnlyList<int> changed)
+        private (IReadOnlyList<string> Rows, IReadOnlyList<int> Lit, int LinesAbove, int LinesBelow, CodeRows? Code) Window(Seen file, string path)
         {
+            var lines = file.Text!;
+            var changed = file.Lit;
             var most = Math.Max(1, MostRows());
             var rows = new List<string>();
             var lineOf = new List<int>();
@@ -235,7 +237,7 @@ namespace Halcyonic.Client
                     lineOf.Add(index);
                 }
             }
-            if (rows.Count == 0) return (rows, Array.Empty<int>(), 0, 0);
+            if (rows.Count == 0) return (rows, Array.Empty<int>(), 0, 0, null);
             var end = litRows.Count > 0 ? litRows[litRows.Count - 1] + 1 : Math.Min(rows.Count, most);
             var start = Math.Max(0, end - most);
             // Whole lines only: a line cut at the window's top starts below it; one cut at its foot ends above it, unless the
@@ -248,7 +250,44 @@ namespace Halcyonic.Client
             var windowLit = litRows.Where(row => row >= start && row < end).Select(row => row - start).ToList();
             var above = lineOf[start];
             var below = lines.Count - 1 - lineOf[end - 1];
-            return (window, windowLit, above, below);
+            return (window, windowLit, above, below, CodeOf(file, path, lines, rows, lineOf, start, end));
+        }
+
+        /// <summary>
+        /// The window's rows traced to the file's lines, with what the lines above it left open (AUDIT3's CC-a): worked out
+        /// from the file's first line once per text and window start, never per frame.
+        /// </summary>
+        private CodeRows CodeOf(Seen file, string path, IReadOnlyList<string> lines, List<string> rows, List<int> lineOf, int start, int end)
+        {
+            var language = CodeTokens.LanguageOf(path);
+            var firstLine = lineOf[start];
+            if (!(file.Code is CodeRows known && ReferenceEquals(file.CodeText, lines) && file.CodeFirst == firstLine && file.CodeStart == start && file.CodeEnd == end))
+            {
+                var carry = CodeCarry.None;
+                for (var line = 0; line < firstLine; line++) CodeTokens.Of(lines[line], language, ref carry);
+                var shownLines = new List<string>();
+                var rowLine = new List<int>();
+                var rowStart = new List<int>();
+                var cursor = 0;
+                for (var row = start; row < end; row++)
+                {
+                    var line = lineOf[row] - firstLine;
+                    if (line >= shownLines.Count) { shownLines.Add(lines[lineOf[row]]); cursor = 0; }
+                    // A row is its line's indent (and a continued row's hang) as spaces, then the next run of the line's own text.
+                    var content = rows[row].TrimStart(' ');
+                    var at = content.Length == 0 ? cursor : shownLines[line].IndexOf(content, cursor, StringComparison.Ordinal);
+                    if (at < 0) at = cursor;
+                    rowLine.Add(line);
+                    rowStart.Add(at);
+                    cursor = at + content.Length;
+                }
+                file.Code = known = new CodeRows(language, carry, shownLines, rowLine, rowStart);
+                file.CodeText = lines;
+                file.CodeFirst = firstLine;
+                file.CodeStart = start;
+                file.CodeEnd = end;
+            }
+            return known;
         }
 
         private Seen Track(string path)
@@ -332,6 +371,11 @@ namespace Halcyonic.Client
             public IReadOnlyList<int> Lit = Array.Empty<int>();
             public long? Size;
             public bool New;
+            public CodeRows? Code;
+            public IReadOnlyList<string>? CodeText;
+            public int CodeFirst = -1;
+            public int CodeStart = -1;
+            public int CodeEnd = -1;
         }
     }
 }

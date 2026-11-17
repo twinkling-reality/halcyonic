@@ -40,7 +40,8 @@ namespace Halcyonic.XR.UI
         /// <summary>The palette in force: the person's choice (CodeThemes.Current); renders and checks may set another.</summary>
         public static Func<Palette> Now { get; set; } = () => Palettes.TryGetValue(CodeThemes.Current, out var palette) ? palette : Plain;
 
-        private static readonly Dictionary<TMP_Text, Laid> laid = new Dictionary<TMP_Text, Laid>();
+        /// <summary>Held weakly, so a destroyed or pooled-away row is never kept alive here (AUDIT3's CC-b).</summary>
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TMP_Text, Laid> laid = new System.Runtime.CompilerServices.ConditionalWeakTable<TMP_Text, Laid>();
 
         /// <summary>
         /// Colours <paramref name="row"/>, whose shown text is <paramref name="text"/>, in <paramref name="language"/> by
@@ -61,7 +62,7 @@ namespace Halcyonic.XR.UI
             foreach (var run in runs)
                 if (palette(run.Kind) is Color32 colour) ranges.Add((run.Start, run.Start + run.Length, colour));
             GlazeRuns.Of(row).Paint(ranges);
-            if (was == null) laid[row] = was = new Laid();
+            if (was == null) laid.Add(row, was = new Laid());
             was.Text = text;
             was.Language = language;
             was.Palette = palette;
