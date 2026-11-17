@@ -1020,18 +1020,31 @@ namespace Halcyonic.XR.Workspace
                 && (setup.Presentation.InspectedWorkstreamId != null
                     || (setup.Presentation.ContextualMomentsEnabled
                         && (setup.Presentation.Minimized || setup.Presentation.ScreenProjectId != null)));
+            // Every place that waits has its own card (the lead's 2026-11-17T19:17Z limit #2): the first place's in the one slot as before,
+            // each further place's beside its own task's character there, each with "{n} More Waiting" under it where others wait at that place.
+            var places = allowMoments ? setup.Presentation.ActiveMoments(State, task => setup.CharacterOf(task) != null) : null;
+            var lookAt = UnityEngine.Mathf.Atan2(looking.x, looking.z) * UnityEngine.Mathf.Rad2Deg;
             if (allowMoments
                 && setup.Presentation.ActiveMoment(State, task => setup.CharacterOf(task) != null) is var (workstreamId, slot)
                 && setup.CharacterOf(workstreamId) is CharacterTarget momentTarget)
             {
                 var body = WorkspaceLayout.InView(momentTarget, eyes);
-                var lookBearing = UnityEngine.Mathf.Atan2(looking.x, looking.z) * UnityEngine.Mathf.Rad2Deg;
-                plane.ShowMoment(slot, eyes, lookBearing, momentTarget.RestPosition, body.HalfWidth, workstreamId);
+                plane.ShowMoment(slot, eyes, lookAt, momentTarget.RestPosition, body.HalfWidth, workstreamId);
                 plane.Moment?.Pop(1f);
+                var firstProject = State?.Workstreams.TryGetValue(workstreamId, out var firstWork) == true ? firstWork.ProjectId : null;
+                plane.ShowMomentMoreWaiting(places?.FirstOrDefault(place => place.ProjectId == firstProject)?.MoreWaitingWords);
+                var further = new List<(string, KitMomentSlot, UnityEngine.Vector3, float, string?)>();
+                foreach (var place in places ?? (IReadOnlyList<PlaceMoment>)System.Array.Empty<PlaceMoment>())
+                {
+                    if (place.ProjectId == firstProject || setup.CharacterOf(place.WorkstreamId) is not CharacterTarget target) continue;
+                    further.Add((place.WorkstreamId, place.Slot, target.RestPosition, WorkspaceLayout.InView(target, eyes).HalfWidth, place.MoreWaitingWords));
+                }
+                plane.ShowPlaceMoments(further, eyes, lookAt);
             }
-            else if (plane.Moment != null)
+            else
             {
-                plane.HideMoment();
+                if (plane.Moment != null) plane.HideMoment();
+                plane.HidePlaceMoments();
             }
         }
     }
