@@ -1,4 +1,5 @@
-// The redesign's action (DESIGN's BUILD-SPEC-v4 1.4, FINISH-2 and FINISH-3 2026-11-05): no box and no edge, ever. A faint
+// The redesign's action (DESIGN's BUILD-SPEC-v4 1.4, FINISH-2 and FINISH-3 2026-11-05; the one language, 2026-11-17: a thin glass
+// capsule, and on the moment's one main action the accent as light, a lit rim and its soft glow, never a fill). A faint
 // halo of the panel's foot tint #343A3F round the action's core, solid inside, half at its edge, gone 12 dp out (alpha A x (1 - smoothstep(-12, 12, d))
 // on the core's 24 dp squircle); a small squircle chip at the core's left that holds the glyph; and, on Confirm while its
 // lock fills, a 2 dp ring whole outside the chip, filling clockwise from 12 o'clock. One quad, signed distances only. The values
@@ -15,6 +16,8 @@ Shader "Halcyonic/Room Halo"
         _Ring ("The ring's radius and width in dp, its fill 0 to 1, and 1 where it shows", Vector) = (19, 2, 0, 0)
         _Mark ("An answer's mark at the chip's centre: its size and corner in dp, its line's width, and the line's alpha", Vector) = (22, 11, 2, 0)
         _Fade ("The content's opacity: 1, or 0.45 while disabled", Float) = 1
+        _Rim ("The lit rim on the core's edge: its width and its glow's reach in dp, its alpha, and 1 where it shows", Vector) = (1.5, 12, 1, 0)
+        _RimColour ("The rim's colour, sRGB", Vector) = (0.953, 0.584, 0.322, 1)
     }
 
     SubShader
@@ -41,6 +44,8 @@ Shader "Halcyonic/Room Halo"
                 UNITY_DEFINE_INSTANCED_PROP(float4, _ChipColour)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _HaloColour)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Ring)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _Rim)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _RimColour)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Mark)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Fade)
             UNITY_INSTANCING_BUFFER_END(Props)
@@ -122,6 +127,20 @@ Shader "Halcyonic/Room Halo"
                     float feather = max(haloColour.a, 0.5);
                     float halo = core.w * (1.0 - smoothstep(-feather, feather, d));
                     result = Over(result, Decode(haloColour.rgb), halo);
+                }
+
+                // The main action's accent as light (the one language): a soft glow outside the core, then a lit rim on its edge.
+                float4 rim = UNITY_ACCESS_INSTANCED_PROP(Props, _Rim);
+                if (rim.w > 0.5)
+                {
+                    float2 rimExtent = core.xy * 0.5;
+                    float rimD = Squircle(p, rimExtent, min(core.z, min(rimExtent.x, rimExtent.y)));
+                    float3 rimColour = Decode(UNITY_ACCESS_INSTANCED_PROP(Props, _RimColour).rgb);
+                    float fall = 1.0 - smoothstep(0.0, max(rim.y, 1.0), rimD);
+                    float glow = rimD > 0.0 ? 0.34 * fall * fall : 0.0;
+                    result = Over(result, rimColour, rim.z * glow * fade);
+                    float edge = saturate(0.5 - (abs(rimD + rim.x * 0.5) - rim.x * 0.5) / aa);
+                    result = Over(result, rimColour, rim.z * edge * fade);
                 }
 
                 // The chip, its glyph drawn over it by the words' layer.

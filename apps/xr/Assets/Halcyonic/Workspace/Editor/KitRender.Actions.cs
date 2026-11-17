@@ -32,13 +32,13 @@ namespace Halcyonic.XR.Workspace.Editor
             var unit = RoomType.Units(1f);
             var looks = new (string Words, GlazeIcon? Icon, bool Main, RoomButtonLook? Look, float? Lock, AnswerMark Mark, bool Chosen, RoomButtonLook Expected, RoomGlyph? Glyph, int Chip, int Ink)[]
             {
-                ("Approve", GlazeIcon.Approve, true, null, null, AnswerMark.None, false, RoomButtonLook.Main, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
-                ("Deny", GlazeIcon.Deny, false, null, null, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Barred, RoomButton.RestChipColour, 0xFFFFFF),
-                ("Changes", null, false, RoomButtonLook.Pointed, null, AnswerMark.None, false, RoomButtonLook.Pointed, RoomGlyph.Changes, RoomButton.LightColour, RoomButton.InkColour),
-                ("Make VR Copy", null, true, RoomButtonLook.MainPointed, null, AnswerMark.None, false, RoomButtonLook.MainPointed, RoomGlyph.Cube, RoomButton.AccentColour, RoomButton.InkColour),
-                ("Checks", null, false, RoomButtonLook.Pressed, null, AnswerMark.None, false, RoomButtonLook.Pressed, RoomGlyph.Checks, -1, RoomButton.InkColour),
-                ("Confirm", GlazeIcon.Approve, false, null, 0.5f, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
-                ("Cancel", null, false, null, null, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Cross, RoomButton.RestChipColour, 0xFFFFFF),
+                ("Approve", GlazeIcon.Approve, true, null, null, AnswerMark.None, false, RoomButtonLook.Main, RoomGlyph.Check, RoomButton.MainPlateColour, RoomButton.RimColour),
+                ("Deny", GlazeIcon.Deny, false, null, null, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Barred, RoomButton.PlateColour, 0xFFFFFF),
+                ("Changes", null, false, RoomButtonLook.Pointed, null, AnswerMark.None, false, RoomButtonLook.Pointed, RoomGlyph.Changes, RoomButton.PlatePointedColour, 0xFFFFFF),
+                ("Make VR Copy", null, true, RoomButtonLook.MainPointed, null, AnswerMark.None, false, RoomButtonLook.MainPointed, RoomGlyph.Cube, RoomButton.MainPlatePointedColour, RoomButton.RimColour),
+                ("Checks", null, false, RoomButtonLook.Pressed, null, AnswerMark.None, false, RoomButtonLook.Pressed, RoomGlyph.Checks, RoomButton.PlateHeldColour, 0xFFFFFF),
+                ("Confirm", GlazeIcon.Approve, false, null, 0.5f, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.MainPlateColour, RoomButton.RimColour),
+                ("Cancel", null, false, null, null, AnswerMark.None, false, RoomButtonLook.Rest, RoomGlyph.Cross, RoomButton.PlateColour, 0xFFFFFF),
                 ("Light", null, false, null, null, AnswerMark.Single, false, RoomButtonLook.Rest, null, -1, 0),
                 ("Dark", null, false, null, null, AnswerMark.Single, true, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
                 ("Sound", null, false, null, null, AnswerMark.Multiple, true, RoomButtonLook.Rest, RoomGlyph.Check, RoomButton.AccentColour, RoomButton.InkColour),
@@ -69,10 +69,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(button.Glyph.Glyph == glyph, words + " carries " + (button.Glyph.Glyph?.ToString() ?? "no glyph") + ", not " + (glyph?.ToString() ?? "none"));
                 Require(button.GetComponentsInChildren<TMPro.TMP_Text>(false).All(label => !GlazeIcons.IsIcon(label)), words + " still draws an icon from the font");
             }
-            // The accent on the main actions' chips and on Confirm's behind its lock, which is the moment's main action waiting (the lead's 0529Z word), and on no other.
+            // The accent as light (the one language): the lit rim on the main actions and on Confirm behind its lock, which is the moment's
+            // main action waiting (the lead's 0529Z word), and on no other; every action's words white, never in the accent.
             var leading = looks.Count(row => row.Main || row.Lock != null);
-            Require(leading == 3 && buttons.Count(button => button.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.AccentColour) && button.Mark == AnswerMark.None) == leading,
-                "the accent is not on the main actions' chips alone");
+            Require(leading == 3 && buttons.Count(button => button.RimPainted && button.RimNow == Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.RimColour)) == leading,
+                "the accent's rim is not on the main actions alone");
+            Require(buttons.All(button => button.Words.color.r == 1f && button.Words.color.g == 1f && button.Words.color.b == 1f), "an action's words are not white");
             for (var index = 1; index < buttons.Count; index++)
             {
                 var gap = (buttons[index - 1].transform.localPosition.y - buttons[index - 1].Size.y / 2f) - (buttons[index].transform.localPosition.y + buttons[index].Size.y / 2f);
@@ -117,9 +119,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 clock += 0.075f;
                 first.Draw();
                 Require(Mathf.Abs(first.Scale - (1f + (RoomMotion.PointedScale - 1f) * RoomMotion.Pointed(0.075f))) < 1e-3f, "75 ms into pointing, its scale is " + first.Scale);
-                var light = (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.LightColour);
-                var rest = (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.RestChipColour);
-                Require((first.ChipColour - Vector4.Lerp(rest, light, RoomMotion.Pointed(0.075f))).magnitude < 1e-2f, "75 ms into pointing, its chip is not seven eighths of the way to light");
+                var light = (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.PlatePointedColour);
+                var rest = (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.PlateColour);
+                Require((first.ChipColour - Vector4.Lerp(rest, light, RoomMotion.Pointed(0.075f))).magnitude < 1e-2f, "75 ms into pointing, its plate is not seven eighths of the way to pointed");
                 clock += 0.2f;
                 first.Draw();
                 Require(Mathf.Abs(first.Scale - RoomMotion.PointedScale) < 1e-4f, "pointed, it is not 6 percent larger");
@@ -141,8 +143,8 @@ namespace Halcyonic.XR.Workspace.Editor
             reused.Show("Approve", GlazeIcon.Approve, true, true, Vector2.zero, 0f, doing: "approve\napproval-1");
             reused.Settle();
             Require(reused.LookNow() == RoomButtonLook.Main, "Approve in a pressed action's place shows " + reused.LookNow() + ", not Main");
-            Require(reused.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.AccentColour),
-                "Approve in a pressed action's place does not carry the accent on its chip");
+            Require(reused.RimPainted && reused.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.MainPlateColour),
+                "Approve in a pressed action's place does not carry the accent's rim on the main action's plate");
             reused.Hide();
 
             var height = (looks.Length - 1) * pitch + RoomType.Units(RoomButton.HeightDp);

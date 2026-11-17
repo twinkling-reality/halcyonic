@@ -197,8 +197,15 @@ namespace Halcyonic.XR.UI
         /// (the owner's 2026-11-05 glass squircles). Every kind the same: the kit's one glass token, <see cref="AskGlass"/>.
         /// </summary>
         public static RoomGlassLook DarkLook(RoomSurfaceKind kind) =>
-            new RoomGlassLook(WithAlpha(Hex(AskGlass.FaceColour), DarkAlpha), WithAlpha(Hex(AskGlass.FaceColour), DarkAlpha), Hex(0x313137), Hex(0x313137), 1f, shadow: DrawsShadow,
+            new RoomGlassLook(WithAlpha(Hex(AskGlass.FaceColour), DarkAlpha), WithAlpha(Hex(AskGlass.FaceColour), DarkAlpha), Hex(LitEdgeTop), Hex(LitEdgeFoot), 1f, shadow: DrawsShadow,
                 shadowDropDp: 24f * ShadowScale, shadowBlurDp: 60f * ShadowScale, shadowAlpha: 0.35f, innerColour: new Color(1f, 1f, 1f, AskGlass.HairlineAlpha), innerCornerDp: 0f);
+
+        /// <summary>
+        /// The hairline's top and foot (the one language: visionOS's glass catches light along its top): #5A5D66 at the top, easing
+        /// to #2B2C33 at the foot, where the reference's flat hairline read #313137 all round.
+        /// </summary>
+        public const int LitEdgeTop = 0x5A5D66;
+        public const int LitEdgeFoot = 0x2B2C33;
 
         /// <summary>
         /// Halcyonic's own Light, not the owner's reference (it has none; the lead's 13:33Z marks it ours): the same structure
@@ -391,6 +398,24 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>A label for exact text, a request as the runtime reported it: JetBrains Mono 19 dp on the same 28 dp line, its box's top left on its transform.</summary>
+        /// <summary>
+        /// The one language's label role (Mirror's Edge's wide capitals, the lead's 2026-11-17 00:54Z): our labels and states in
+        /// spaced capitals, 15 dp, 0.24 em apart, white at 0.52; titles and the person's or the agent's words keep their own case.
+        /// </summary>
+        public const float LabelDp = 15f;
+        public const float LabelTracking = 24f;
+        public const float LabelAlpha = 0.52f;
+
+        /// <summary>Sets <paramref name="label"/> in the label role: <paramref name="words"/> in spaced capitals at <see cref="LabelDp"/>.</summary>
+        public static void Label(TMP_Text label, string words)
+        {
+            Size(label);
+            label.fontSize *= LabelDp / RoomGeometry.TypeDp;
+            label.characterSpacing = LabelTracking;
+            GlazeText.SetLiteral(label, words.ToUpperInvariant());
+            label.alpha = LabelAlpha;
+        }
+
         public static TextMeshPro CreateMono(Transform parent, string name, Color colour, int order)
         {
             var label = KitType.Create(parent, name, KitRole.Mono, colour, order, TextAlignmentOptions.TopLeft, SpatialKit.ReadingLeading, room: true);

@@ -49,7 +49,8 @@ namespace Halcyonic.Client
 
         public const float BodyFootDp = 18f;
 
-        public const float PanelCornerDp = 20f;
+        /// <summary>A panel's corner: visionOS's large round corners (the one language, 2026-11-17), 32 dp.</summary>
+        public const float PanelCornerDp = 32f;
 
         public const float SentenceInsetDp = 14f;
 

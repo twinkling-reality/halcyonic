@@ -84,22 +84,27 @@ namespace Halcyonic.XR.UI
 
         private const float DisabledOpacity = 0.45f;
 
-        /// <summary>
-        /// The one accent, the brand's kingfisher orange family (the owner's ruling, 2026-11-16: orange only on the main action): the main
-        /// action's chip (#F6B074, lighter than its backing), Confirm's ring and glyph while it locks, a chosen answer's mark.
-        /// </summary>
+        /// <summary>A chosen answer's mark: the kingfisher orange family's light (#F6B074), its check in <see cref="InkColour"/>.</summary>
         public const int AccentColour = 0xF6B074;
 
-        /// <summary>The main action's chip while pointed, the light chip a pointed action takes, and the glyph's ink on a light or accent chip.</summary>
-        public const int AccentPointedColour = 0xF9C894;
-        public const int LightColour = 0xD5DADE;
+        /// <summary>The ink of a chosen answer's check on its mark.</summary>
         public const int InkColour = 0x172024;
+
+        /// <summary>
+        /// The one accent as light (the one language, the lead's 2026-11-17 00:54Z: no saturated fills): the moment's one main action
+        /// carries a lit rim and its soft glow in the kingfisher orange (#F39552), its glyph in the same orange, its words white.
+        /// </summary>
+        public const int RimColour = 0xF39552;
+
+        /// <summary>A destructive main action's rim and glyph instead: the cross's warning red (#F7857D), so a Yes that removes never looks like going on.</summary>
+        public const int DestructiveRimColour = 0xF7857D;
+
+        /// <summary>The rim's width and its glow's reach, in dp.</summary>
+        public const float RimDp = 1.5f;
+        public const float RimGlowDp = 12f;
 
         /// <summary>An action's chip at rest: a dark well, black at the page's 0.45 over the halo (0.68 in Unity's linear blend), so its white glyph holds 4.5 to 1 over a bright wall.</summary>
         public const float WellAlpha = 0.68f;
-
-        /// <summary>A held chip keeps this much of its brightness.</summary>
-        public const float HeldBrightness = 0.84f;
 
         private static readonly int CoreId = Shader.PropertyToID("_Core");
         private static readonly int QuadId = Shader.PropertyToID("_Quad");
@@ -109,6 +114,8 @@ namespace Halcyonic.XR.UI
         private static readonly int RingId = Shader.PropertyToID("_Ring");
         private static readonly int MarkId = Shader.PropertyToID("_Mark");
         private static readonly int FadeId = Shader.PropertyToID("_Fade");
+        private static readonly int RimId = Shader.PropertyToID("_Rim");
+        private static readonly int RimColourId = Shader.PropertyToID("_RimColour");
         private static Material? material;
         private static Mesh? quad;
 
@@ -546,66 +553,48 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// The backing's colours: the neutral halo (#343A3F), and the one main action's, the brand's kingfisher orange family lifted
-        /// to #F39552 (#F5A366 while pointed or held) under <see cref="MainInkColour"/>'s words, 8.8 to 1 by the colours. The walk
-        /// reads contrast from a frame's pixels, where thin strokes read about 0.6 of the colours' ratio: #ED7833 under #172024
-        /// (5.8 by the colours) read 3.4 to 3.9 to 1 in twelve moments (TASKS, 2026-11-17 00:48Z), and the old #22586A under white
-        /// (7.8 by the colours) passed; white words on the orange read only 3 to 1 by the colours.
+        /// The plate every action stands on (the one language: visionOS's thin glass for a control): the owner's Ask glass with the
+        /// page's white lift over it, solved as one colour, so on a panel it reads as the sheet's thin glass (8 percent white,
+        /// #25272E; 16 pointed, #3A3C43; held, #303239) and over the room it is still a dark capsule its white words hold on.
+        /// The main action's plate is a step lighter (10 percent, #2A2C33; pointed, #3C3E45). Its alpha in Unity's linear blend.
         /// </summary>
-        public const int HaloColour = 0x343A3F;
-        public const int MainHaloColour = 0xF39552;
-        public const int MainPointedHaloColour = 0xF5A366;
+        public const int PlateColour = 0x25272E;
+        public const int PlatePointedColour = 0x3A3C43;
+        public const int PlateHeldColour = 0x303239;
+        public const int MainPlateColour = 0x2A2C33;
+        public const int MainPlatePointedColour = 0x3C3E45;
+        public const float PlateAlpha = 0.92f;
 
-        /// <summary>The main action's words: near black, so they hold 4.5 to 1 on its orange as the walk reads a frame.</summary>
-        public const int MainInkColour = 0x07090B;
+        /// <summary>How far the plate's edge feathers each way, in dp: a crisp capsule.</summary>
+        public const float HaloFeatherDp = 1.2f;
 
         /// <summary>
-        /// The destructive kind's colours (<see cref="Prompt.Destructive"/>): the kit's failure red on its chip (#D4463B, the
-        /// cards' BadFill) and a deep red backing (#6A2621, #7A2D27 pointed or held) under white words, so a Yes that removes
-        /// or forgets something never looks like going on.
-        /// </summary>
-        public const int DestructiveChipColour = 0xD4463B;
-        public const int DestructiveHaloColour = 0x6A2621;
-        public const int DestructivePointedHaloColour = 0x7A2D27;
-
-        /// <summary>An action's chip at rest, a neutral that shows over a bright room and a dark one (#4A5258).</summary>
-        public const int RestChipColour = 0x4A5258;
-
-        /// <summary>How far the backing's edge feathers each way, in dp.</summary>
-        public const float HaloFeatherDp = 6f;
-
-        /// <summary>How far the main action's plate feathers each way, in dp: crisp.</summary>
-        public const float MainFeatherDp = 1.2f;
-
-        /// <summary>
-        /// What a look stands as (F6, 2026-11-10): the chip's colour, the backing's colour and its alpha in Unity's linear
-        /// blend, the glyph's colour and the scale. The moment's one main action carries the accent on its chip and in its
-        /// backing, also while Confirm locks; every other action is neutral. Pointed, a neutral chip turns light and every
-        /// backing denser; held, the chip dims.
+        /// What a look stands as (F6, 2026-11-10; the one language, 2026-11-17): the chip's colour (the plate's own, so a glyph stands
+        /// straight on the plate; an answer's mark keeps its own), the plate's colour and its alpha in Unity's linear blend, the
+        /// glyph's colour and the scale. Every action stands on the same thin glass; the moment's one main action, and Confirm behind
+        /// its lock, carry the accent as light (<see cref="Lit"/>), its glyph in the rim's colour. Pointed, a plate lifts; held, it dims.
         /// </summary>
         private (Vector4 Chip, Vector4 Halo, Color Glyph, float Scale) Target(RoomButtonLook look, bool locked)
         {
-            var accent = RoomSurface.Hex(AccentColour);
-            var light = RoomSurface.Hex(LightColour);
-            var ink = RoomSurface.Hex(InkColour);
             var pointed = look is RoomButtonLook.Pointed or RoomButtonLook.MainPointed;
             var held = look == RoomButtonLook.Pressed;
             var leads = main || locked;
-            var backing = RoomSurface.Hex(leads && destructive ? (pointed || held ? DestructivePointedHaloColour : DestructiveHaloColour)
-                : leads ? (pointed || held ? MainPointedHaloColour : MainHaloColour) : HaloColour);
-            var alpha = leads ? (pointed || held ? 0.96f : 0.93f) : (pointed || held ? 0.93f : 0.83f);
+            var plate = RoomSurface.Hex(held ? PlateHeldColour : leads ? (pointed ? MainPlatePointedColour : MainPlateColour) : pointed ? PlatePointedColour : PlateColour);
             Color chip;
             Color glyphColour;
-            if (mark != AnswerMark.None) (chip, glyphColour) = (chosen ? accent : new Color(1f, 1f, 1f, 0f), ink);
-            else if ((main || locked) && destructive) (chip, glyphColour) = (held ? Dim(RoomSurface.Hex(DestructiveChipColour)) : RoomSurface.Hex(DestructiveChipColour), Color.white);
-            else if (main || locked) (chip, glyphColour) = (held ? Dim(accent) : accent, ink);
-            else if (held) (chip, glyphColour) = (Dim(light), ink);
-            else if (pointed) (chip, glyphColour) = (light, ink);
-            else (chip, glyphColour) = (RoomSurface.Hex(RestChipColour), Color.white);
-            return (new Vector4(chip.r, chip.g, chip.b, chip.a), new Vector4(backing.r, backing.g, backing.b, alpha), glyphColour, RoomMotion.ActionScale(pointed ? 1f : 0f, held));
+            if (mark != AnswerMark.None) (chip, glyphColour) = (chosen ? RoomSurface.Hex(AccentColour) : new Color(1f, 1f, 1f, 0f), RoomSurface.Hex(InkColour));
+            else (chip, glyphColour) = (plate, leads ? RimNow : Color.white);
+            return (new Vector4(chip.r, chip.g, chip.b, chip.a), new Vector4(plate.r, plate.g, plate.b, PlateAlpha), glyphColour, RoomMotion.ActionScale(pointed ? 1f : 0f, held));
         }
 
-        private static Color Dim(Color colour) => new Color(colour.r * HeldBrightness, colour.g * HeldBrightness, colour.b * HeldBrightness, 1f);
+        /// <summary>Whether the accent's lit rim stands round it: the moment's one main action, and Confirm behind its lock.</summary>
+        public bool Lit => gameObject.activeSelf && (main || LockProgress != null) && mark == AnswerMark.None;
+
+        /// <summary>Whether the rim was drawn when it was last painted: read from what was drawn, never the flag alone.</summary>
+        public bool RimPainted { get; private set; }
+
+        /// <summary>The rim's colour where <see cref="Lit"/>: the kingfisher orange, or the warning red on a destructive main action.</summary>
+        public Color RimNow => RoomSurface.Hex(destructive ? DestructiveRimColour : RimColour);
 
         private void Paint(bool immediately)
         {
@@ -661,8 +650,11 @@ namespace Halcyonic.XR.UI
             var fade = (look == RoomButtonLook.Disabled ? DisabledOpacity : 1f) * move.Shown;
             var haloCorner = size == RoomButtonSize.Home ? HomeHaloCornerDp : HaloCornerDp * textScale;
             block.SetVector(CoreId, new Vector4(core.x / unit, core.y / unit, haloCorner, haloNow.w * move.Shown));
-            // The main action's plate a crisp shape (AUDIT's MUST 2: a feathered orange edge read out of focus); the others feather as ever.
-            block.SetVector(HaloColourId, new Vector4(haloNow.x, haloNow.y, haloNow.z, main || locked ? MainFeatherDp : HaloFeatherDp));
+            block.SetVector(HaloColourId, new Vector4(haloNow.x, haloNow.y, haloNow.z, HaloFeatherDp));
+            var rim = RimNow;
+            RimPainted = Lit;
+            block.SetVector(RimId, new Vector4(RimDp, RimGlowDp, 1f, RimPainted ? 1f : 0f));
+            block.SetVector(RimColourId, new Vector4(rim.r, rim.g, rim.b, 1f));
             block.SetVector(QuadId, new Vector4(-quadSize.x / 2f, -quadSize.y / 2f, quadSize.x, quadSize.y));
             block.SetVector(ChipId, new Vector4(chipCentreX / unit, 0f, chipDp, cornerDp));
             block.SetVector(ChipColourId, chipNow);
@@ -671,9 +663,8 @@ namespace Halcyonic.XR.UI
             block.SetFloat(FadeId, fade);
             halo.SetPropertyBlock(block);
             if (glyphShown is RoomGlyph shown) glyph.Show(shown, glyphDp, new Color(glyphNow.r, glyphNow.g, glyphNow.b, glyphNow.a * fade));
-            // The main action's words in the near black ink on its orange backing (8.8 to 1 by the colours), every other action's white on its own.
-            var ink = (main || locked) && !destructive ? RoomSurface.Hex(MainInkColour) : Color.white;
-            if (words.color.r != ink.r || words.color.g != ink.g || words.color.b != ink.b) words.color = new Color(ink.r, ink.g, ink.b, move.Shown);
+            // Every action's words white on its thin glass, the main one's too: the accent is its rim, never its words.
+            if (words.color.r != 1f || words.color.g != 1f || words.color.b != 1f) words.color = new Color(1f, 1f, 1f, move.Shown);
             if (!Mathf.Approximately(words.alpha, move.Shown)) words.alpha = move.Shown;
             if (shownAside != null)
             {

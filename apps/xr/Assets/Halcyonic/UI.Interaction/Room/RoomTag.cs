@@ -55,6 +55,8 @@ namespace Halcyonic.XR.UI
         private RoomGlyphView check = null!;
         private RoomGlyphView agent = null!;
         private RoomShape ground = null!;
+        private RoomShape stem = null!;
+        private RoomShape diamond = null!;
 
         /// <summary>The agent's plate's own quiet ground, where the tag's glass is hidden.</summary>
         public RoomShape Ground => ground;
@@ -76,6 +78,19 @@ namespace Halcyonic.XR.UI
         /// AUDIT2, 08:59Z: never an ellipsis on a task's name). Two lines hold a long title; a very long one takes a third.
         /// </summary>
         public const float NameWordsMostDp = 260f;
+
+        /// <summary>
+        /// The one language's world line (Death Stranding, the lead's 2026-11-17 00:54Z): from a tag's foot a thin line down to a small
+        /// diamond where its thing stands, white at 55 percent, 1 dp wide; the diamond 9 dp, its edge 1.5 dp, white.
+        /// </summary>
+        public const float StemWidthDp = 1f;
+        public const float StemAlpha = 0.55f;
+        public const float DiamondDp = 9f;
+        public const float DiamondEdgeDp = 1.5f;
+
+        /// <summary>The line under the tag while it shows one (<see cref="Show"/>'s stemDp), and its diamond.</summary>
+        public RoomShape? Stem => stem.gameObject.activeSelf ? stem : null;
+        public RoomShape? Diamond => diamond.gameObject.activeSelf ? diamond : null;
 
         /// <summary>The lines the words took as last shown.</summary>
         public int Lines { get; private set; } = 1;
@@ -124,6 +139,10 @@ namespace Halcyonic.XR.UI
             tag.mark.gameObject.SetActive(false);
             tag.check.Hide();
             tag.chip.gameObject.SetActive(false);
+            tag.stem = RoomShape.Create(go.transform, "Stem", order);
+            tag.diamond = RoomShape.Create(go.transform, "Diamond", KitType.Order.Words);
+            tag.stem.gameObject.SetActive(false);
+            tag.diamond.gameObject.SetActive(false);
             RoomBand.Underlay(tag.words);
             go.SetActive(false);
             return tag;
@@ -132,9 +151,10 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// Shows <paramref name="said"/> on one line at the person's text size, the tag as wide as the words need, with its
         /// ring where <paramref name="picked"/>, and where <paramref name="needsYou"/> the chip "Needs You" after the name;
-        /// otherwise <paramref name="chip"/>'s words, as the plate's level, in a quiet chip there, or none.
+        /// otherwise <paramref name="chip"/>'s words, as the plate's level, in a quiet chip there, or none. With <paramref name="stemDp"/>,
+        /// the world line hangs that far under the tag's foot to a diamond where its thing stands.
         /// </summary>
-        public void Show(LineWords said, bool picked = false, bool needsYou = false, string? chip = null, bool plate = false, float? mostWordsDp = null)
+        public void Show(LineWords said, bool picked = false, bool needsYou = false, string? chip = null, bool plate = false, float? mostWordsDp = null, float stemDp = 0f)
         {
             IsPlate = plate;
             gameObject.SetActive(true);
@@ -213,6 +233,19 @@ namespace Halcyonic.XR.UI
             }
             mark.gameObject.SetActive(chipped && !needsYou);
             if (!chipped || needsYou) check.Hide();
+            var stemmed = stemDp > 0f;
+            stem.gameObject.SetActive(stemmed);
+            diamond.gameObject.SetActive(stemmed);
+            if (stemmed)
+            {
+                var stemLong = RoomType.Scaled(stemDp);
+                stem.Draw(new Vector2(RoomType.Scaled(StemWidthDp), stemLong), 0f, new Color(1f, 1f, 1f, StemAlpha));
+                stem.transform.localPosition = new Vector3(0f, -Size.y / 2f - stemLong / 2f, 0f);
+                var side = RoomType.Scaled(DiamondDp);
+                diamond.Draw(new Vector2(side, side), RoomType.Scaled(1f), new Color(1f, 1f, 1f, 0f), Color.white, RoomType.Scaled(DiamondEdgeDp));
+                diamond.transform.localPosition = new Vector3(0f, -Size.y / 2f - stemLong, -RoomType.Units(0.5f));
+                diamond.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            }
             RoomInk.Follow(transform);
         }
 

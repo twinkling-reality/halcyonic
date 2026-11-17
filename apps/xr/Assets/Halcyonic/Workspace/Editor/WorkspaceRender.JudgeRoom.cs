@@ -629,12 +629,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     // painted, not the flag: the flag stood main while the chip kept a held look (XR 13:24Z, 3d98fc848).
                     if (Drawn(FileScreens.Approve, null) is RoomButton approve)
                     {
-                        bool Accented(RoomButton button)
-                        {
-                            var chip = button.ChipColour;
-                            bool Near(Color colour) => Mathf.Abs(chip.x - colour.r) < 0.02f && Mathf.Abs(chip.y - colour.g) < 0.02f && Mathf.Abs(chip.z - colour.b) < 0.02f;
-                            return Near(Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.AccentColour)) || Near(Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.AccentPointedColour));
-                        }
+                        bool Accented(RoomButton button) => button.RimPainted && button.RimNow == Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.RimColour);
                         var accented = plane.Kit.Bar.GetComponentsInChildren<RoomButton>(false)
                             .Where(button => button.GetComponentsInChildren<Renderer>(false).Any(part => part.enabled) && Accented(button)).ToList();
                         if (!approve.Main || !Accented(approve))

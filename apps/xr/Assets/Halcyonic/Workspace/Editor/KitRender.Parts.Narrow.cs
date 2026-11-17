@@ -113,9 +113,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     + (RoomBarView.LargestAt(view.LaidPanelDp) / unit).ToString("0"));
                 if (state == "57-destructive-confirm" && buttons.FirstOrDefault(button => button.Words.text.Contains("Forget Computer")) is RoomButton yes)
                 {
-                    var red = Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.DestructiveChipColour);
-                    Require(Mathf.Abs(yes.ChipColour.x - red.r) < 0.02f && Mathf.Abs(yes.ChipColour.y - red.g) < 0.02f && Mathf.Abs(yes.ChipColour.z - red.b) < 0.02f,
-                        "the destructive Yes is not drawn in the destructive red: " + yes.ChipColour);
+                    Require(yes.RimPainted && yes.RimNow == Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.DestructiveRimColour),
+                        "the destructive Yes does not stand in the destructive red's rim");
                 }
                 var here = new List<string>();
                 foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
