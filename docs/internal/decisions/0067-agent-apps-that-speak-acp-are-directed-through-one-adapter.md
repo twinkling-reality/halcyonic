@@ -35,8 +35,11 @@
    the light profile, with the person's push and cloud credentials and the project's own settings for the app
    refused, read and write (AUDIT3 AC1 and AC2, 2026-11-17). Reads outside the folder ask the person, as a run
    shows; the credentials are refused even to an approved one. Recorded not confined.
-5. Each app is registered by its own environment variable only (`HALCYONIC_ANTIGRAVITY_BIN`, `HALCYONIC_KIRO_BIN`),
-   never by a settings file, since it spends the person's own plan.
+5. Each app is registered by its own environment variable (`HALCYONIC_ANTIGRAVITY_BIN`, `HALCYONIC_KIRO_BIN`), or,
+   since 2026-11-17, by the person's own press on the Mac's setup page: Install fetches the vendor's archive and
+   checks it before unpacking, and Turn On, only where that checked copy is installed, writes the data folder's
+   `agent-apps-on.json`, read at the next start. Never by a settings file, and never on for the person, since each
+   spends the person's own plan.
 
 ## Alternatives considered
 

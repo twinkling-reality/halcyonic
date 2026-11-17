@@ -1,4 +1,4 @@
-import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { AcpRuntimeAdapter, ANTIGRAVITY, CURSOR, KIRO } from '@halcyonic/integration-acp';
@@ -32,6 +32,7 @@ import {
   TOOL_PREFIXES,
   toolFoldersFor,
 } from '@halcyonic/seatbelt';
+import { agentAppsOn } from './agent-apps-on.ts';
 import { ConfigError, type ControlPlaneConfig, readPrivateFile } from './config.ts';
 import { type HeldSecret, looksLikeCredential } from './core/redaction.ts';
 import { OMNORIUM_CREDENTIAL_FILE } from './intelligence/catalog.ts';
@@ -40,6 +41,7 @@ import { SEORAK_CREDENTIAL_FILE } from './intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from './intelligence/understanding.ts';
 import { storedAt } from './keys/provider-keys.ts';
 import { NETWORK_KEY_FILE } from './network/certificate.ts';
+import { type Pins, pinsForThisMac } from './pins.ts';
 import { HostProviders } from './providers.ts';
 import { readKeyFile } from './workspace-agent/providers/keys.ts';
 
@@ -108,6 +110,11 @@ export const CODEX_SERVER_RECORD = 'codex-server.json';
 export { CODEX_HOME_FOLDER } from './intelligence/codex-home.ts';
 
 export interface RuntimeDependencies {
+  /**
+   * The checksums this Mac's installs are checked by, where the setup page's copies of Kiro and Antigravity are
+   * found (pins.ts); this Mac's own when absent, null where Halcyonic has none.
+   */
+  readonly pins?: Pins | null;
   readonly mock: MockRuntimeAdapter;
   /**
    * The host's one list of declared hosted providers (ADR 0061), the one main.ts builds: an agent app reaches those its
@@ -237,11 +244,21 @@ export function createRuntimeAdapters(
       }),
     );
   }
-  for (const [profile, binary] of [
+  const turnedOn = agentAppsOn(dependencies.dataDir);
+  const pins = dependencies.pins === undefined ? pinsForThisMac() : dependencies.pins;
+  for (const [profile, configured] of [
     [ANTIGRAVITY, config.antigravityBinary],
     [KIRO, config.kiroBinary],
     [CURSOR, config.cursorBinary],
   ] as const) {
+    // The environment's own binary, else the checked copy the setup page installed, once the person turned it on
+    // there (ADR 0067): each spends the person's own plan, so nothing turns it on for them. The copy sits in the data
+    // folder the profile refuses; its own folder is opened to run its programs, and nothing else (acp-agents.md).
+    const installed =
+      pins === null || profile.runtimeId === 'cursor' || !turnedOn.includes(profile.runtimeId)
+        ? null
+        : join(dependencies.dataDir, pins[profile.runtimeId as 'kiro' | 'antigravity'].path);
+    const binary = configured ?? (installed !== null && existsSync(installed) ? installed : null);
     if (binary === null) continue;
     adapters.push(
       new AcpRuntimeAdapter({
@@ -260,6 +277,8 @@ export function createRuntimeAdapters(
           process.platform === 'darwin'
             ? {
                 scope: {
+                  // The setup page's checked copy sits in the data folder: programs in its own folder may run.
+                  ...(binary === installed ? { programFolder: dirname(binary) } : {}),
                   folders: [
                     dependencies.dataDir,
                     ...(dependencies.tasksDir === undefined ? [] : [dependencies.tasksDir]),

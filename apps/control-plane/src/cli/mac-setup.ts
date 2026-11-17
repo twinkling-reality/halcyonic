@@ -20,6 +20,7 @@
  * never names a remote model, and downloads nothing: what needs a download it shows as a command
  * for the person to run.
  */
+
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -57,6 +58,7 @@ import {
   readsOtherToolsSources,
   SalidiumClient,
 } from '@halcyonic/integration-salidium';
+import { agentAppsOn, setAgentAppOn } from '../agent-apps-on.ts';
 import { isCloudName } from '../companion/ollama.ts';
 import {
   ConfigError,
@@ -317,6 +319,8 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
       return argument === undefined ? usage(io) : setup.disallow(argument);
     case 'agent-apps':
       return argument === undefined ? setup.agentApps() : usage(io);
+    case 'agent-app':
+      return argument === undefined ? usage(io) : setup.agentApp(argument);
     case 'local-model':
       return argument === undefined ? usage(io) : setup.localModel(argument);
     case 'voice':
@@ -346,6 +350,17 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
   }
 }
 
+/** The agent apps over ACP the setup page installs and turns on (ADR 0067): names, how each signs in, what it spends. */
+const ACP_APPS = {
+  kiro: { name: 'Kiro 3.4.0', variable: 'HALCYONIC_KIRO_BIN', signIn: 'login', plan: 'Kiro plan' },
+  antigravity: {
+    name: 'Antigravity 1.5.10',
+    variable: 'HALCYONIC_ANTIGRAVITY_BIN',
+    signIn: 'acp --login',
+    plan: 'Google account',
+  },
+} as const;
+
 function usage(io: MacSetupIo): number {
   for (const line of [
     'Usage:',
@@ -353,6 +368,7 @@ function usage(io: MacSetupIo): number {
     '  pnpm mac-setup allow [folder]       let agents use a folder; with none, ~/HalcyonicProjects',
     '  pnpm mac-setup disallow <folder>    stop letting agents use a folder; nothing is deleted',
     '  pnpm mac-setup agent-apps           record the checked copies of OpenCode and Codex',
+    '  pnpm mac-setup agent-app <app>:on   turn Kiro or Antigravity on (its checked copy); :off, :check',
     '  pnpm mac-setup local-model <name>   give OpenCode and Codex settings of their own on an Ollama model',
     '  pnpm mac-setup voice                record the checked voice files',
     "  pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac",
@@ -546,6 +562,12 @@ class MacSetup {
       if (report.next !== undefined) next.push(report.next);
       if (report.state === 'ready') ready += 1;
       if (report.state === 'look') look = true;
+    }
+    for (const id of ['kiro', 'antigravity'] as const) {
+      const report = await this.#acpApp(id, env);
+      lines.push(report.line);
+      if (report.next !== undefined) next.push(report.next);
+      if (report.state === 'ready') ready += 1;
     }
     if (present(env.HALCYONIC_CODEX_BIN)) {
       const codex = this.#codexSettings();
@@ -820,6 +842,46 @@ class MacSetup {
       state: 'none',
       line: `${name} isn't installed for Halora. Installing it downloads it from npm; then run pnpm mac-setup agent-apps.`,
       next: install,
+    };
+  }
+
+  /** Kiro's or Antigravity's line: on from the environment, on from the person's press, installed but off, or not installed. */
+  async #acpApp(
+    id: 'kiro' | 'antigravity',
+    env: NodeJS.ProcessEnv,
+  ): Promise<{ state: 'ready' | 'none'; line: string; next?: string }> {
+    const app = ACP_APPS[id];
+    const configured = env[app.variable];
+    if (configured !== undefined && configured !== '') {
+      return {
+        state: 'ready',
+        line: `${app.name} is on, from a path set for Halora on this computer. Halora did not install or check this copy.`,
+      };
+    }
+    const pin = this.#io.pins?.[id] ?? null;
+    const path = pin === null ? null : join(this.#dataDir, pin.path);
+    if (path === null || pin === null || !existsSync(path)) {
+      return {
+        state: 'none',
+        line: `${app.name} isn't installed. Install it to use it from the headset.`,
+      };
+    }
+    if ((await this.#matches(path, pin)) !== 'matches') {
+      return {
+        state: 'none',
+        line: `${app.name} on this computer doesn't match the copy Halora checked. Install it again.`,
+      };
+    }
+    if (agentAppsOn(this.#dataDir).includes(id)) {
+      return {
+        state: 'ready',
+        line: `${app.name} is on. It uses your own ${app.plan}; if it isn't signed in yet, sign in once in Terminal.`,
+        next: `${quote(path)} ${app.signIn}`,
+      };
+    }
+    return {
+      state: 'none',
+      line: `${app.name} is installed and off. Turn it on to use your own ${app.plan} from the headset.`,
     };
   }
 
@@ -1919,6 +1981,46 @@ class MacSetup {
     if (recorded === 0) return 1;
     this.#save(next);
     await this.#afterChange(next);
+    return 0;
+  }
+
+  /**
+   * Turns Kiro or Antigravity on or off (ADR 0067), the person's own act that lets an app that spends their plan run:
+   * on only where its checked copy is installed, at the next start, as a stored key does; `check` says whether it is.
+   */
+  async agentApp(argument: string): Promise<number> {
+    const io = this.#io;
+    const match = /^(kiro|antigravity):(on|off|check)$/.exec(argument);
+    if (match === null) return usage(io);
+    const id = match[1] as 'kiro' | 'antigravity';
+    const app = ACP_APPS[id];
+    if (match[2] === 'off') {
+      setAgentAppOn(this.#dataDir, id, false);
+      io.print(`${app.name} is turned off. Restart Halora to apply.`);
+      return 0;
+    }
+    const pin = io.pins?.[id] ?? null;
+    if (pin === null) {
+      io.print(
+        `Halora has checksums for Apple silicon Macs only, so it can't check ${app.name} on this Mac.`,
+      );
+      return 1;
+    }
+    const path = join(this.#dataDir, pin.path);
+    if (!existsSync(path) || (await this.#matches(path, pin)) !== 'matches') {
+      io.print(
+        `${app.name} isn't installed, or doesn't match the copy Halora checked, so it stays off. Install it first.`,
+      );
+      return 1;
+    }
+    if (match[2] === 'check') {
+      io.print(`${app.name} is installed and checked. Turn it on to use it.`);
+      return 0;
+    }
+    setAgentAppOn(this.#dataDir, id, true);
+    io.print(
+      `${app.name} is turned on. Restart Halora to apply. If it isn't signed in yet, sign in once in Terminal: ${quote(path)} ${app.signIn}`,
+    );
     return 0;
   }
 

@@ -15,6 +15,9 @@ export interface Pins {
   readonly whisperVadModel: PinnedFile;
   /** The check's and the play's browser: chrome-headless-shell's binary, as the host copies it (S1). */
   readonly browser: PinnedFile;
+  /** The agent apps over ACP (ADR 0067): the vendor's own builds, as the setup page unpacks them. */
+  readonly kiro: PinnedFile;
+  readonly antigravity: PinnedFile;
 }
 
 /**
@@ -47,6 +50,16 @@ export const APPLE_SILICON_PINS: Pins = {
   browser: {
     path: 'browser/current',
     sha256: '0966bb448b30d115b303849668c4ebf1f00cf739bc728e4b747c1a502ee00ef2',
+  },
+  // Kiro CLI 3.4.0's universal-darwin build and Antigravity CLI 1.5.10's darwin-arm build, each from its vendor's
+  // own download, checked against the vendor's manifest (validation/acp-agents.md).
+  kiro: {
+    path: 'runtimes/kiro-3.4.0/kirocli/bin/kiro-cli',
+    sha256: '65902eb19c9d657ddfb19dc1b89b72226d75411a529dc9d0cdccadd858b0db93',
+  },
+  antigravity: {
+    path: 'runtimes/antigravity-1.5.10/antigravity',
+    sha256: '780ee763a9938a37b45c7f9d6ae31747d7c574358fd10c64d3a1cdc36faf2798',
   },
 };
 

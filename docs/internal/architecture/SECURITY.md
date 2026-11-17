@@ -891,6 +891,11 @@ What a client sees and can do about folders on the host
 The same check and actions on a page at `/setup` of the pairing page's server
 ([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md)). What it adds:
 
+- **Kiro and Antigravity** (ADR 0067): Install fetches the vendor's own archive over HTTPS only, checks it by the
+  vendor's sum before unpacking, and reads Done only when the program inside matches the pin. Turn On is the person's
+  own act that lets an app spend their plan: it writes `agent-apps-on.json` in the data folder, only where the checked
+  copy is installed, and takes effect at the next start; no settings file can turn either on, and installing does not.
+
 - **Reach.** Only what the pairing page reaches: loopback, its one-time link and cookie, its Host,
   Origin and `Sec-Fetch-Site` checks and its CSP. A view mounted on the page may add routes only
   under `/setup`, each behind the session.

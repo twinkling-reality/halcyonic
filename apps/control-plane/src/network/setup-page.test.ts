@@ -16,6 +16,7 @@ import { describe, type TestContext, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { CLAUDE_AGENT_READER } from '@halcyonic/integration-claude-code';
 import type { KeyReader } from '@halcyonic/runtime-core';
+import { agentAppsOn } from '../agent-apps-on.ts';
 import { type MacSetupIo, tunnelProgram } from '../cli/mac-setup.ts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { keysReadAtStart, ProviderKeys, storedAt } from '../keys/provider-keys.ts';
@@ -26,6 +27,8 @@ import { providersFolder, TEST_ASSISTANT_READER } from '../testing/declared-prov
 import { capturingLogger, createTestControlPlane, startTestServer } from '../testing/harness.ts';
 import {
   type CommandRunner,
+  KIRO_ARCHIVE_SHA256,
+  KIRO_ARCHIVE_URL,
   mountSetup,
   type PageSecrets,
   pageSecrets,
@@ -451,6 +454,93 @@ describe('the setup view', () => {
     await view.act('tunnel', 'off', true);
     assert.equal(readHostSettings(machine.dataDir).HALCYONIC_TUNNEL_BIN, undefined);
     assert.equal(step(await view.act('check', null, false), 'sharing').status, 'optional');
+  });
+
+  test("Kiro is installed from Kiro's own archive, checked before it is unpacked, and runs only once the person turns it on (ADR 0067)", async (t) => {
+    const binary = 'runtimes/kiro-3.4.0/kirocli/bin/kiro-cli';
+    const checked = 'the Kiro copy Halora was checked with';
+    const pins: Pins = {
+      ...APPLE_SILICON_PINS,
+      kiro: { path: binary, sha256: createHash('sha256').update(checked).digest('hex') },
+    };
+    const { view, runs, mac: machine } = setup(t, { pins });
+    const apps = step(await view.state(), 'agent_apps');
+    assert.deepEqual(
+      apps.actions
+        .filter((action) => /kiro/.test(action.arg ?? ''))
+        .map((action) => [action.action, action.arg, action.label]),
+      [
+        ['download', 'kiro', 'Install Kiro'],
+        ['agent_app', 'kiro:on', 'Turn Kiro On'],
+        ['agent_app', 'kiro:off', 'Turn Kiro Off'],
+      ],
+    );
+    const asked = await view.act('download', 'kiro', false);
+    assert.match(asked.confirm?.text ?? '', /Kiro 3\.4\.0 .*266 MB.*SHA-256 before it is unpacked/);
+    assert.equal(runs.length, 0, 'the first press downloads nothing');
+    await view.act('download', 'kiro', true);
+    const folder = join(machine.dataDir, 'runtimes', 'kiro-3.4.0');
+    const archive = join(folder, 'download.tar.gz');
+    assert.deepEqual(runs[0]?.argv, [
+      '/usr/bin/curl',
+      '-q',
+      '--fail',
+      '--location',
+      '--silent',
+      '--show-error',
+      '--proto',
+      '=https',
+      '--proto-redir',
+      '=https',
+      '--tlsv1.2',
+      '--max-filesize',
+      '400000000',
+      '--output',
+      archive,
+      KIRO_ARCHIVE_URL,
+    ]);
+    assert.equal(readFileSync(`${archive}.sha`, 'utf8'), `${KIRO_ARCHIVE_SHA256}  ${archive}\n`);
+    const next = async (count: number) => {
+      for (let tries = 0; tries < 500 && runs.length < count; tries += 1)
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      return runs[count - 1] as Run;
+    };
+    (runs[0] as Run).finish(0);
+    assert.deepEqual((await next(2)).argv, [
+      '/usr/bin/shasum',
+      '-a',
+      '256',
+      '-c',
+      `${archive}.sha`,
+    ]);
+    (runs[1] as Run).finish(0);
+    assert.deepEqual((await next(3)).argv, ['/usr/bin/tar', '-xzf', archive, '-C', folder]);
+    mkdirSync(join(machine.dataDir, binary, '..'), { recursive: true });
+    writeFileSync(join(machine.dataDir, binary), checked);
+    (runs[2] as Run).finish(0);
+    (await next(4)).finish(0);
+    const done = await ended(view);
+    assert.equal(done.job?.state, 'done');
+    assert.deepEqual(agentAppsOn(machine.dataDir), [], 'installing turns nothing on');
+    await view.act('agent_app', 'kiro:on', false);
+    await view.act('agent_app', 'kiro:on', true);
+    await ended(view);
+    assert.deepEqual(agentAppsOn(machine.dataDir), ['kiro']);
+    await view.act('agent_app', 'kiro:off', false);
+    await view.act('agent_app', 'kiro:off', true);
+    await ended(view);
+    assert.deepEqual(agentAppsOn(machine.dataDir), []);
+  });
+
+  test('an agent app is not turned on where its checked copy is not installed, nor by any other press', async (t) => {
+    const { view, mac: machine } = setup(t);
+    await view.act('agent_app', 'antigravity:on', false);
+    await view.act('agent_app', 'antigravity:on', true);
+    await ended(view);
+    assert.deepEqual(agentAppsOn(machine.dataDir), []);
+    const refused = await view.act('agent_app', 'antigravity:everything', true);
+    assert.equal(refused.confirm, null);
+    assert.deepEqual(agentAppsOn(machine.dataDir), []);
   });
 
   test('a downloaded agent app is set up only when it is the copy Halora was checked with', async (t) => {

@@ -49,6 +49,8 @@ const CONTENT = {
   whisperModel: 'speech model, for tests\n',
   whisperVadModel: 'voice activity model, for tests\n',
   browser: 'chrome-headless-shell, for tests\n',
+  kiro: 'kiro-cli 3.4.0, for tests\n',
+  antigravity: 'antigravity 1.5.10, for tests\n',
 };
 
 function sha256(text: string): string {
@@ -101,6 +103,8 @@ const PINS: Pins = {
   whisperModel: { path: 'speech/models/model.bin', sha256: sha256(CONTENT.whisperModel) },
   whisperVadModel: { path: 'speech/models/vad.bin', sha256: sha256(CONTENT.whisperVadModel) },
   browser: { path: 'browser/current', sha256: shellHash(CONTENT.browser) },
+  kiro: { path: 'runtimes/kiro/bin/kiro-cli', sha256: sha256(CONTENT.kiro) },
+  antigravity: { path: 'runtimes/antigravity/antigravity', sha256: sha256(CONTENT.antigravity) },
 };
 
 const OLLAMA_MODELS = [

@@ -912,6 +912,11 @@ export interface AgentAppScope extends HostFoldersScope {
    */
   readonly settingsHomes?: { readonly root: string; readonly own: string };
   /**
+   * The folder of the app's own program where the host installed it in its own folders (the setup page's checked
+   * copy): programs there may run, and nothing else of it opens; elsewhere in those folders nothing runs.
+   */
+  readonly programFolder?: string;
+  /**
    * Where the project is a task's own copy of a folder the person connected (ADR 0045, limits audit #3): the copy,
    * in the task copies' folder, is opened, read, written and run in, as the copy profile opens it; the folder it was
    * made from is read and never written; every other task's copy stays refused, and so do git's credential helpers
@@ -1013,6 +1018,11 @@ export function agentAppProfile(scope: AgentAppScope): string {
     `(deny file-read* file-write* ${[...credentials, ...settings, ...originalSettings].join(' ')})`,
     `(deny process-exec ${[...hostSubpaths, hostHomes, ...credentials, ...settings, ...originalSettings, ...homesRoot].join(' ')})`,
     ...copyRules.run,
+    ...(scope.programFolder === undefined
+      ? []
+      : [
+          `(allow process-exec (subpath ${JSON.stringify(resolved(scope.programFolder).replace(/\/+$/, ''))}))`,
+        ]),
     ...homes,
     ...copyRules.close,
     '',

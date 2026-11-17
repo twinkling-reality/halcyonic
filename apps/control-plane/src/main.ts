@@ -8,6 +8,7 @@ import { CODEX_KEY_READER } from '@halcyonic/integration-codex';
 import { loadScenarios, MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
 import { systemClock, systemScheduler } from '@halcyonic/runtime-core';
+import { agentAppsOn } from './agent-apps-on.ts';
 import { CheckpointStore } from './checkpoints/store.ts';
 import { localMacSetupIo } from './cli/mac-setup.ts';
 import { Companion } from './companion/companion.ts';
@@ -136,6 +137,7 @@ async function main(): Promise<void> {
   const dataFolder = unusualDataFolder(config.dataDir);
   const keysKept = (): string => keysReadAtStart(config.dataDir, providers);
   const keysAtStart = keysKept();
+  const appsOnAtStart = agentAppsOn(config.dataDir).join(',');
   // Built first, so a misconfigured runtime stops startup before anything else opens.
   const adapters = createRuntimeAdapters(config, {
     providers,
@@ -604,10 +606,11 @@ async function main(): Promise<void> {
                 }),
                 run: runCommand,
                 // A kept, replaced or removed agent key also takes effect only at a start, so it counts here.
-                appliedAtStart: `${settingsForRestart(settings)}\n${keysAtStart}`,
+                // So does an agent app turned on or off there (ADR 0067).
+                appliedAtStart: `${settingsForRestart(settings)}\n${keysAtStart}\n${appsOnAtStart}`,
                 appliedNow: () => {
                   try {
-                    return `${settingsForRestart(readHostSettings(config.dataDir))}\n${keysKept()}`;
+                    return `${settingsForRestart(readHostSettings(config.dataDir))}\n${keysKept()}\n${agentAppsOn(config.dataDir).join(',')}`;
                   } catch {
                     return 'unreadable';
                   }

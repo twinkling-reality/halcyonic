@@ -21,13 +21,19 @@ import { ClaudeAgentRuntimeAdapter, EnvironmentError } from '@halcyonic/integrat
 import { CODEX_KEY_READER, CodexRuntimeAdapter } from '@halcyonic/integration-codex';
 import { MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { OPENCODE_KEY_READER, OpenCodeRuntimeAdapter } from '@halcyonic/integration-opencode';
-import { capabilityProblems, RuntimeActionError } from '@halcyonic/runtime-core';
+import {
+  capabilityProblems,
+  RuntimeActionError,
+  type RuntimeAdapter,
+} from '@halcyonic/runtime-core';
 import { confinedProfile, SANDBOX_EXEC } from '@halcyonic/seatbelt';
+import { setAgentAppOn } from './agent-apps-on.ts';
 import { ConfigError, loadConfig } from './config.ts';
 import { looksLikeCredential, redaction, redactSecrets } from './core/redaction.ts';
 import { createDirectoryPolicy } from './directory-policy.ts';
 import { ProviderKeys } from './keys/provider-keys.ts';
 import { loadOrCreateNetworkIdentity } from './network/certificate.ts';
+import { APPLE_SILICON_PINS } from './pins.ts';
 import { HostProviders, PROVIDERS_DIR } from './providers.ts';
 import {
   AGENT_KEY_READERS,
@@ -298,6 +304,44 @@ describe('runtime composition', () => {
       assert.deepEqual(capabilityProblems(adapter), []);
     }
     await Promise.all(hosted.map((adapter) => adapter.close()));
+  });
+
+  test("Kiro and Antigravity run from the setup page's checked copy only once the person turned them on there", async () => {
+    const dataDir = mkdtempSync(join(base, 'acp-on-'));
+    const pins = {
+      ...APPLE_SILICON_PINS,
+      kiro: { path: 'runtimes/kiro/bin/kiro-cli', sha256: '1'.repeat(64) },
+      antigravity: { path: 'runtimes/antigravity/antigravity', sha256: '2'.repeat(64) },
+    };
+    const make = () =>
+      createRuntimeAdapters(loadConfig({}), {
+        mock: new MockRuntimeAdapter({ scenarios: SCENARIOS }),
+        directoryPolicy: createDirectoryPolicy([]),
+        environment: HOST,
+        dataDir,
+        pins,
+      });
+    const acp = (adapters: RuntimeAdapter[]) =>
+      adapters
+        .filter((adapter) => adapter instanceof AcpRuntimeAdapter)
+        .map((adapter) => adapter.descriptor.runtime_id);
+    // Installed, not turned on: nothing runs.
+    mkdirSync(join(dataDir, 'runtimes', 'kiro', 'bin'), { recursive: true });
+    writeFileSync(join(dataDir, pins.kiro.path), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    let made = make();
+    assert.deepEqual(acp(made), []);
+    await Promise.all(made.map((adapter) => adapter.close()));
+    // Turned on, installed: Kiro runs; Antigravity, turned on but not installed, does not.
+    setAgentAppOn(dataDir, 'kiro', true);
+    setAgentAppOn(dataDir, 'antigravity', true);
+    made = make();
+    assert.deepEqual(acp(made), ['kiro']);
+    await Promise.all(made.map((adapter) => adapter.close()));
+    // Turned off again: nothing.
+    setAgentAppOn(dataDir, 'kiro', false);
+    made = make();
+    assert.deepEqual(acp(made), []);
+    await Promise.all(made.map((adapter) => adapter.close()));
   });
 
   test("an ACP agent app gets the person's home, path and locale and the pass-through variables only", () => {
@@ -599,6 +643,7 @@ describe("which runtimes may work in a task's own copy (ADR 0045)", () => {
           directoryPolicy: createDirectoryPolicy([]),
           environment: HOST,
           dataDir,
+          pins: null,
           starterOf: (directory) =>
             directory === app || directory === appCopy ? 'web-game' : null,
           ...copies,

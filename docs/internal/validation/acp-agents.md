@@ -188,6 +188,21 @@ the profile also refuses `process-exec` in the host's folders, every `.halcyonic
 project's own settings for the app and the settings homes' folder. Under `sandbox-exec`, a copy of `/usr/bin/true` in
 each of those fails to run while the same copy in the project runs; without the rule the test fails.
 
+## Turned on from the setup page (2026-11-17)
+
+Install Kiro and Install Antigravity run the page's own commands, as its tunnel install does: `curl -q` over HTTPS
+only, a size cap, the archive checked by the vendor's own sum (Kiro's SHA-256, Antigravity's SHA-512) before `tar`
+unpacks it into `<data>/runtimes/kiro-3.4.0` or `antigravity-1.5.10`. Run by hand with exactly those commands, both
+archives matched, and the programs unpacked at the pinned paths with the pinned SHA-256 (`kirocli/bin/kiro-cli`
+65902eb1..., `antigravity` 780ee763...). Turn Kiro On or Turn Antigravity On (two presses, as every press) checks that
+copy again and writes `<data>/agent-apps-on.json`; Turn Off removes it; the change waits for a restart, which the page
+says. Installing turns nothing on.
+
+The copy sits in the data folder, which the agent-app profile refuses read and write. That stops neither app: the
+kernel runs a program from a folder the profile refuses to read (Kiro and Antigravity both started from one, signed
+out, with and without the folder opened), and a whole Antigravity turn ran from a copy there, end to end on the
+stand-in model. So the profile opens nothing for it.
+
 ## Cursor's agent CLI (2026-11-17, signed out)
 
 Docs read: cursor.com/docs/cli/installation, /cli/acp, /cli/reference/parameters, /cli/headless,
@@ -411,8 +426,8 @@ again right before `session/new`; the app's version must be the profile's, or th
   (`GEMINI_API_KEY`, `GOOGLE_*`, `KIRO_API_KEY`, `KIRO_HOME`, ...) are taken out of every launch.
 - A process exit is reported `runtime.connection.lost`; the execution is then lost (no re-attach). Every app is
   recorded and watched, so none outlives the control plane (see below).
-- Registered when `HALCYONIC_ANTIGRAVITY_BIN` or `HALCYONIC_KIRO_BIN` is set in the environment; never from a
-  settings file, since each spends the person's own plan.
+- Registered when `HALCYONIC_ANTIGRAVITY_BIN` or `HALCYONIC_KIRO_BIN` is set in the environment, or when the
+  person turned it on from the setup page (below); never from a settings file, since each spends the person's own plan.
 
 ## Tests
 

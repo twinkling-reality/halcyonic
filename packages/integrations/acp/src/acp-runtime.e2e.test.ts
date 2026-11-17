@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import {
+  constants,
+  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -71,6 +73,8 @@ async function setUp(
   replies: StandInReply[] | ((host: string) => StandInReply[]),
   options: {
     signedIn?: boolean;
+    installedInHost?: boolean;
+    programFolderOpen?: boolean;
     inCopy?: boolean;
     /** With `inCopy`: the other task's copy is recorded too, so both tasks may run at once. */
     bothCopies?: boolean;
@@ -113,9 +117,16 @@ async function setUp(
     typeof replies === 'function' ? replies(host) : replies,
   );
   t.after(() => standIn.close());
+  // As the setup page installs it: a copy in the host's own folder, which the profile refuses (a clone, not a link).
+  let binaryPath = BINARY;
+  if (options.installedInHost === true) {
+    binaryPath = join(host, 'runtimes', 'antigravity-1.5.10', 'antigravity');
+    mkdirSync(dirname(binaryPath), { recursive: true });
+    copyFileSync(BINARY, binaryPath, constants.COPYFILE_FICLONE);
+  }
   const made: ConstructorParameters<typeof AcpRuntimeAdapter>[0] = {
     profile: ANTIGRAVITY,
-    binaryPath: BINARY,
+    binaryPath,
     directoryPolicy: allowOnly(options.inCopy === true ? root : join(root, 'projects')),
     env: {
       PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
@@ -152,6 +163,9 @@ async function setUp(
             scope: {
               folders: [host, ...(options.inCopy === true ? [tasks] : [])],
               home,
+              ...(options.installedInHost === true && options.programFolderOpen !== false
+                ? { programFolder: dirname(binaryPath) }
+                : {}),
             },
             profileFolder: join(root, 'profiles'),
           }
@@ -483,6 +497,24 @@ describe('Antigravity 1.5.10 end to end, on a stand-in model', { skip: SKIP }, (
       message: null,
     });
     assert.equal(existsSync(join(run.project, 'made.txt')), false);
+  });
+
+  test("the setup page's copy, inside the host's own folder the profile refuses, runs a whole turn", {
+    skip: process.platform !== 'darwin' && 'the agent-app profile is macOS only',
+  }, async (t) => {
+    const run = await setUp(t, [command('echo made > made.txt'), [{ text: 'Made it.' }]], {
+      installedInHost: true,
+    });
+    await run.start();
+    await answer(run, 0, 'approve');
+    await run.next('runtime.turn.completed');
+    assert.equal(readFileSync(join(run.project, 'made.txt'), 'utf8'), 'made\n');
+    // The control: with its own folder not opened to run, the copy does not start.
+    const closed = await setUp(t, [[{ text: 'Never.' }]], {
+      installedInHost: true,
+      programFolderOpen: false,
+    });
+    await assert.rejects(closed.start());
   });
 
   test("in a task's own copy: it writes the copy alone, reads the project, and never another task's copy (ADR 0045)", {

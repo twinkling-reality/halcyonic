@@ -402,6 +402,12 @@ const STEP_ACTIONS: Readonly<Record<string, readonly SetupActionView[]>> = {
     { action: 'download', arg: 'opencode', label: 'Install OpenCode' },
     { action: 'download', arg: 'codex', label: 'Install Codex' },
     { action: 'agent_apps', arg: null, label: 'Check Agent Apps' },
+    { action: 'download', arg: 'kiro', label: 'Install Kiro' },
+    { action: 'agent_app', arg: 'kiro:on', label: 'Turn Kiro On' },
+    { action: 'agent_app', arg: 'kiro:off', label: 'Turn Kiro Off' },
+    { action: 'download', arg: 'antigravity', label: 'Install Antigravity' },
+    { action: 'agent_app', arg: 'antigravity:on', label: 'Turn Antigravity On' },
+    { action: 'agent_app', arg: 'antigravity:off', label: 'Turn Antigravity Off' },
   ],
   models: CHECKED_MODELS.map((model) => ({
     action: 'download',
@@ -445,6 +451,8 @@ const STEP_ACTIONS: Readonly<Record<string, readonly SetupActionView[]>> = {
 const ACTIONS: Readonly<Record<string, (arg: string | null) => readonly string[] | null>> = {
   allow: (arg) => (arg === null ? ['allow', '--yes'] : null),
   agent_apps: (arg) => (arg === null ? ['agent-apps'] : null),
+  agent_app: (arg) =>
+    arg !== null && /^(kiro|antigravity):(on|off)$/.test(arg) ? ['agent-app', arg] : null,
   local_model: (arg) =>
     arg !== null && CHECKED_MODELS.some((model) => model.name === arg)
       ? ['local-model', arg]
@@ -460,8 +468,75 @@ const ACTIONS: Readonly<Record<string, (arg: string | null) => readonly string[]
 
 /** The checked tunnel release's archive, by its address and SHA-256 (validation/sharing-a-link.md). */
 export const TUNNEL_ARCHIVE_URL = `https://github.com/cloudflare/cloudflared/releases/download/${TUNNEL_PIN.version}/cloudflared-darwin-arm64.tgz`;
+/** The vendors' own archives of the agent apps over ACP, by address and checksum (validation/acp-agents.md). */
+export const KIRO_ARCHIVE_URL =
+  'https://prod.download.cli.kiro.dev/stable/3.4.0/kirocli-universal-darwin.tar.gz';
+export const KIRO_ARCHIVE_SHA256 =
+  '936f75b61d273ea41c7aebf484b6fe8a1f30f84ac6764202bda06632bc59710e';
+export const ANTIGRAVITY_ARCHIVE_URL =
+  'https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.10-5253791805734912/darwin-arm/cli_mac_arm64.tar.gz';
+export const ANTIGRAVITY_ARCHIVE_SHA512 =
+  'f192adfc6ca61bc8f0be93b8503c1a0a4e0314f127c9a13fb7e25228343dfbba09ae1a1be083851d9e79a703e535cc19242db44675e40cf7f9a4eaa8cb9b272f';
+
 export const TUNNEL_ARCHIVE_SHA256 =
   '3586ccf397e98e5f437e60e7c307ca6ac463e110580503af8bb8e6f9ebf831bd';
+
+/**
+ * A vendor's own archive, downloaded over HTTPS only with none of the person's curl settings, checked by its
+ * checksum before anything is unpacked, unpacked into a folder of its own, and recorded only when the program inside
+ * is the checked one (the tunnel's way, ADR 0054).
+ */
+function vendorArchive(app: {
+  readonly id: string;
+  readonly title: string;
+  readonly fetches: string;
+  readonly url: string;
+  readonly algorithm: '256' | '512';
+  readonly sum: string;
+  readonly folder: string;
+  readonly maxBytes: string;
+  readonly verify: () => Promise<boolean | null>;
+}): SetupDownload[] {
+  const archive = join(app.folder, 'download.tar.gz');
+  const sumFile = `${archive}.sha`;
+  return [
+    {
+      id: app.id,
+      title: app.title,
+      fetches: app.fetches,
+      prepare: () => {
+        mkdirSync(app.folder, { recursive: true, mode: 0o700 });
+        rmSync(archive, { force: true });
+        writeFileSync(sumFile, `${app.sum}  ${archive}\n`);
+      },
+      commands: [
+        [
+          '/usr/bin/curl',
+          '-q',
+          '--fail',
+          '--location',
+          '--silent',
+          '--show-error',
+          '--proto',
+          '=https',
+          '--proto-redir',
+          '=https',
+          '--tlsv1.2',
+          '--max-filesize',
+          app.maxBytes,
+          '--output',
+          archive,
+          app.url,
+        ],
+        ['/usr/bin/shasum', '-a', app.algorithm, '-c', sumFile],
+        ['/usr/bin/tar', '-xzf', archive, '-C', app.folder],
+        ['/bin/rm', '-f', archive, sumFile],
+      ],
+      record: ['agent-app', `${app.id}:check`],
+      verify: app.verify,
+    },
+  ];
+}
 
 /** The downloads the page can run, each exactly what `pnpm mac-setup` prints for it today. */
 export function setupDownloads(
@@ -469,7 +544,7 @@ export function setupDownloads(
   which: (command: string) => string | null,
   pins: Pins | null,
 ): SetupDownload[] {
-  const pinned = (app: 'opencode' | 'codex') => () =>
+  const pinned = (app: 'opencode' | 'codex' | 'kiro' | 'antigravity') => () =>
     pins === null ? Promise.resolve(null) : matchesPin(join(dataDir, pins[app].path), pins[app]);
   const npm = which('npm') ?? 'npm';
   const ollama = which('ollama') ?? 'ollama';
@@ -518,6 +593,30 @@ export function setupDownloads(
       record: ['agent-apps'],
       verify: pinned('codex'),
     },
+    ...vendorArchive({
+      id: 'kiro',
+      title: 'Install Kiro',
+      fetches:
+        "Kiro 3.4.0 (AWS's Kiro CLI), a 266 MB archive, installed on Apple silicon Macs only, from Kiro's own download site, checked by its SHA-256 before it is unpacked. You use it under Kiro's terms, on your own Kiro plan.",
+      url: KIRO_ARCHIVE_URL,
+      algorithm: '256',
+      sum: KIRO_ARCHIVE_SHA256,
+      folder: join(dataDir, 'runtimes', 'kiro-3.4.0'),
+      maxBytes: '400000000',
+      verify: pinned('kiro'),
+    }),
+    ...vendorArchive({
+      id: 'antigravity',
+      title: 'Install Antigravity',
+      fetches:
+        "Antigravity 1.5.10 (Google's Antigravity CLI), an 85 MB archive for Apple silicon, from Google's own download site, checked by its SHA-512 before it is unpacked. You use it under Google's terms, with your own Google account.",
+      url: ANTIGRAVITY_ARCHIVE_URL,
+      algorithm: '512',
+      sum: ANTIGRAVITY_ARCHIVE_SHA512,
+      folder: join(dataDir, 'runtimes', 'antigravity-1.5.10'),
+      maxBytes: '130000000',
+      verify: pinned('antigravity'),
+    }),
     {
       // The tunnel a shared link runs (ADR 0054): the release's archive, checked by its SHA-256
       // before it is unpacked, and recorded only when the program inside is the checked one.
