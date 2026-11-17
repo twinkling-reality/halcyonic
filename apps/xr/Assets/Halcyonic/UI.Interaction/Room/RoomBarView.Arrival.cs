@@ -46,8 +46,15 @@ namespace Halcyonic.XR.UI
         /// moment shown. Its answers take a press only from then (AUDIT3's FL1: approve only what is shown), each counting its settle
         /// from the build-up's end.
         /// </summary>
-        public bool PanelBuilt => GlazeMotion.Still || !panel.gameObject.activeSelf || arrivalKey == null
+        public bool PanelBuilt => GlazeMotion.Still || !arrivalAsks || !panel.gameObject.activeSelf || arrivalKey == null
             || PanelClock() - arrivedAt - arrivalHold >= RoomMotion.PanelArrivalSeconds(panelWords.Count);
+
+        /// <summary>
+        /// Whether the moment arriving asks the person (a question or a request to approve): only its answers wait for the panel to
+        /// stand whole (AUDIT3's FL1). A page's own column (Character Colour's Choose, Preview, Apply) takes a press as it stands
+        /// (XR's 2026-11-17T22:0xZ: the gate held every column's presses and the colour walk's Apply never took).
+        /// </summary>
+        private bool arrivalAsks;
 
         /// <summary>The panel's own answers (its column), which take a press only once it stands whole (<see cref="PanelBuilt"/>).</summary>
         public IEnumerable<KitPress> AnswerPresses => column.Select(button => button.Press);
@@ -75,6 +82,7 @@ namespace Halcyonic.XR.UI
                 arrivalKey = key;
                 arrivedAt = PanelClock();
                 arrivalHold = HoldArrival(bar.State);
+                arrivalAsks = bar.State == RoomBarState.Question || bar.State == RoomBarState.Request;
                 builtBefore = PanelBuilt;
                 MomentArrived?.Invoke(bar);
             }
