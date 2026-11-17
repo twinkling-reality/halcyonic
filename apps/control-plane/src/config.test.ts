@@ -291,6 +291,7 @@ describe('configuration', () => {
       browser: { path: 'browser/current/chrome-headless-shell', sha256: pin },
       kiro: { path: 'k', sha256: '5'.repeat(64) },
       antigravity: { path: 'a', sha256: '6'.repeat(64) },
+      cursor: { path: 'u', sha256: '7'.repeat(64) },
     };
     assert.equal(loadConfig({}, pins).browser, null);
     const folder = join(base, 'chrome-headless-shell-mac-arm64');

@@ -312,6 +312,11 @@ describe('runtime composition', () => {
       ...APPLE_SILICON_PINS,
       kiro: { path: 'runtimes/kiro/bin/kiro-cli', sha256: '1'.repeat(64) },
       antigravity: { path: 'runtimes/antigravity/antigravity', sha256: '2'.repeat(64) },
+      cursor: {
+        path: 'runtimes/cursor/dist-package',
+        sha256: '3'.repeat(64),
+        folder: true as const,
+      },
     };
     const make = () =>
       createRuntimeAdapters(loadConfig({}), {
@@ -337,8 +342,18 @@ describe('runtime composition', () => {
     made = make();
     assert.deepEqual(acp(made), ['kiro']);
     await Promise.all(made.map((adapter) => adapter.close()));
+    // Cursor, pinned as its folder, runs from the launcher in it once turned on.
+    mkdirSync(join(dataDir, pins.cursor.path), { recursive: true });
+    writeFileSync(join(dataDir, pins.cursor.path, 'cursor-agent'), '#!/bin/sh\nexit 1\n', {
+      mode: 0o755,
+    });
+    setAgentAppOn(dataDir, 'cursor', true);
+    made = make();
+    assert.deepEqual(acp(made), ['kiro', 'cursor']);
+    await Promise.all(made.map((adapter) => adapter.close()));
     // Turned off again: nothing.
     setAgentAppOn(dataDir, 'kiro', false);
+    setAgentAppOn(dataDir, 'cursor', false);
     made = make();
     assert.deepEqual(acp(made), []);
     await Promise.all(made.map((adapter) => adapter.close()));

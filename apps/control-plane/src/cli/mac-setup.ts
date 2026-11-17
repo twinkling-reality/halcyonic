@@ -86,7 +86,7 @@ import { SEORAK_CREDENTIAL_FILE } from '../intelligence/evaluation.ts';
 import { SALIDIUM_CREDENTIAL_FILE } from '../intelligence/understanding.ts';
 import { keyFile } from '../keys/provider-keys.ts';
 import { managersOn } from '../own-check/own-check.ts';
-import { type PinnedFile, type Pins, pinsForThisMac, sha256File } from '../pins.ts';
+import { type PinnedFile, type Pins, pinnedDigest, pinsForThisMac } from '../pins.ts';
 import { AUDIO_OUTPUT, installAudioOutput } from '../preview/audio-output.ts';
 import {
   installLauncher,
@@ -358,14 +358,32 @@ export async function runMacSetup(args: readonly string[], io: MacSetupIo): Prom
 
 /** The agent apps over ACP the setup page installs and turns on (ADR 0067): names, how each signs in, what it spends. */
 const ACP_APPS = {
-  kiro: { name: 'Kiro 3.4.0', variable: 'HALCYONIC_KIRO_BIN', signIn: 'login', plan: 'Kiro plan' },
+  kiro: {
+    name: 'Kiro 3.4.0',
+    variable: 'HALCYONIC_KIRO_BIN',
+    signIn: 'login',
+    plan: 'Kiro plan',
+    entry: null,
+  },
   antigravity: {
     name: 'Antigravity 1.5.10',
     variable: 'HALCYONIC_ANTIGRAVITY_BIN',
     signIn: 'acp --login',
     plan: 'Google account',
+    entry: null,
+  },
+  // Pinned as its whole folder; its program is the launcher in it.
+  cursor: {
+    name: 'Cursor Agent 2026.11.13',
+    variable: 'HALCYONIC_CURSOR_BIN',
+    signIn: 'login',
+    plan: 'Cursor plan',
+    entry: 'cursor-agent',
   },
 } as const;
+
+/** An agent app the setup page installs and the person turns on (ADR 0067). */
+type AcpAppId = keyof typeof ACP_APPS;
 
 function usage(io: MacSetupIo): number {
   for (const line of [
@@ -374,7 +392,7 @@ function usage(io: MacSetupIo): number {
     '  pnpm mac-setup allow [folder]       let agents use a folder; with none, ~/HalcyonicProjects',
     '  pnpm mac-setup disallow <folder>    stop letting agents use a folder; nothing is deleted',
     '  pnpm mac-setup agent-apps           record the checked copies of OpenCode and Codex',
-    '  pnpm mac-setup agent-app <app>:on   turn Kiro or Antigravity on (its checked copy); :off, :check',
+    '  pnpm mac-setup agent-app <app>:on   turn Kiro, Antigravity or Cursor on (its checked copy); :off, :check',
     '  pnpm mac-setup local-model <name>   give OpenCode and Codex settings of their own on an Ollama model',
     '  pnpm mac-setup voice                record the checked voice files',
     "  pnpm mac-setup companion <name|off> let Create's companion ask an Ollama model on this Mac",
@@ -570,7 +588,7 @@ class MacSetup {
       if (report.state === 'look') look = true;
     }
     const offers: string[] = [];
-    for (const id of ['kiro', 'antigravity'] as const) {
+    for (const id of ['kiro', 'antigravity', 'cursor'] as const) {
       const report = await this.#acpApp(id, env);
       lines.push(report.line);
       offers.push(...report.offers);
@@ -855,7 +873,7 @@ class MacSetup {
 
   /** Kiro's or Antigravity's line: on from the environment, on from the person's press, installed but off, or not installed. */
   async #acpApp(
-    id: 'kiro' | 'antigravity',
+    id: AcpAppId,
     env: NodeJS.ProcessEnv,
   ): Promise<{ state: 'ready' | 'none'; line: string; next?: string; offers: string[] }> {
     const app = ACP_APPS[id];
@@ -889,7 +907,7 @@ class MacSetup {
         offers: [`${id}:off`],
         state: 'ready',
         line: `${app.name} is on. It uses your own ${app.plan}; if it isn't signed in yet, sign in once in Terminal.`,
-        next: `${quote(path)} ${app.signIn}`,
+        next: `${quote(app.entry === null ? path : join(path, app.entry))} ${app.signIn}`,
       };
     }
     return {
@@ -2004,9 +2022,9 @@ class MacSetup {
    */
   async agentApp(argument: string): Promise<number> {
     const io = this.#io;
-    const match = /^(kiro|antigravity):(on|off|check)$/.exec(argument);
+    const match = /^(kiro|antigravity|cursor):(on|off|check)$/.exec(argument);
     if (match === null) return usage(io);
-    const id = match[1] as 'kiro' | 'antigravity';
+    const id = match[1] as AcpAppId;
     const app = ACP_APPS[id];
     if (match[2] === 'off') {
       setAgentAppOn(this.#dataDir, id, false);
@@ -2033,7 +2051,7 @@ class MacSetup {
     }
     setAgentAppOn(this.#dataDir, id, true);
     io.print(
-      `${app.name} is turned on. Restart Halora to apply. If it isn't signed in yet, sign in once in Terminal: ${quote(path)} ${app.signIn}`,
+      `${app.name} is turned on. Restart Halora to apply. If it isn't signed in yet, sign in once in Terminal: ${quote(app.entry === null ? path : join(path, app.entry))} ${app.signIn}`,
     );
     return 0;
   }
@@ -2560,7 +2578,7 @@ class MacSetup {
     if (pin === null) return 'unknown';
     let hash = this.#hashes.get(path);
     if (hash === undefined) {
-      hash = sha256File(path);
+      hash = pinnedDigest(path, pin);
       this.#hashes.set(path, hash);
     }
     const value = await hash;

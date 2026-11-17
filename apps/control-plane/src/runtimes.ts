@@ -254,10 +254,15 @@ export function createRuntimeAdapters(
     // The environment's own binary, else the checked copy the setup page installed, once the person turned it on
     // there (ADR 0067): each spends the person's own plan, so nothing turns it on for them. The copy sits in the data
     // folder the profile refuses; its own folder is opened to run its programs, and nothing else (acp-agents.md).
+    // Cursor is pinned as its whole folder; its program is the launcher in it.
     const installed =
-      pins === null || profile.runtimeId === 'cursor' || !turnedOn.includes(profile.runtimeId)
+      pins === null || !turnedOn.includes(profile.runtimeId)
         ? null
-        : join(dependencies.dataDir, pins[profile.runtimeId as 'kiro' | 'antigravity'].path);
+        : join(
+            dependencies.dataDir,
+            pins[profile.runtimeId as 'kiro' | 'antigravity' | 'cursor'].path,
+            ...(profile.runtimeId === 'cursor' ? ['cursor-agent'] : []),
+          );
     const binary = configured ?? (installed !== null && existsSync(installed) ? installed : null);
     if (binary === null) continue;
     adapters.push(

@@ -51,6 +51,7 @@ const CONTENT = {
   browser: 'chrome-headless-shell, for tests\n',
   kiro: 'kiro-cli 3.4.0, for tests\n',
   antigravity: 'antigravity 1.5.10, for tests\n',
+  cursor: 'cursor-agent 2026.11.13, for tests\n',
 };
 
 function sha256(text: string): string {
@@ -105,6 +106,7 @@ const PINS: Pins = {
   browser: { path: 'browser/current', sha256: shellHash(CONTENT.browser) },
   kiro: { path: 'runtimes/kiro/bin/kiro-cli', sha256: sha256(CONTENT.kiro) },
   antigravity: { path: 'runtimes/antigravity/antigravity', sha256: sha256(CONTENT.antigravity) },
+  cursor: { path: 'runtimes/cursor/dist-package', sha256: sha256(CONTENT.cursor) },
 };
 
 const OLLAMA_MODELS = [

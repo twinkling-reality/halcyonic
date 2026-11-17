@@ -204,6 +204,16 @@ kernel runs a program from a folder the profile refuses to read (Kiro and Antigr
 out, with and without the folder opened), and a whole Antigravity turn ran from a copy there, end to end on the
 stand-in model. So the profile opens nothing for it.
 
+Cursor (the lead's ruling, 2026-11-17: verified on three bounded runs, offered as Kiro and Antigravity are): Install
+Cursor fetches Cursor's own archive (above), checked by the SHA-256 recorded from its download, which matched the
+`.sha256` Cursor serves beside it (its docs give none), into `<data>/runtimes/cursor-2026.11.13`. The archive is a
+bash launcher, `cursor-agent`, beside its own Node and its code, so the pin is the whole unpacked `dist-package`
+folder, as the browser's is: the digest of its manifest, 435 entries, each one's kind, mode, path and SHA-256
+(`8f6e33e4...`, the same over two unpackings), checked again at every Turn On, so no file of it changes unseen (AUDIT3
+SU1, for Cursor). Its program is the launcher in that folder, which the profile opens to run. The card says what
+Cursor keeps of the person's code follows their own Cursor account's privacy setting, which Halora can neither read
+nor set: no ACP option for it was seen.
+
 ## Cursor's agent CLI (2026-11-17, signed out)
 
 Docs read: cursor.com/docs/cli/installation, /cli/acp, /cli/reference/parameters, /cli/headless,

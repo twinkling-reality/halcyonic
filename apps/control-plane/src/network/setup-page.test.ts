@@ -21,12 +21,15 @@ import { type MacSetupIo, tunnelProgram } from '../cli/mac-setup.ts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { keysReadAtStart, ProviderKeys, storedAt } from '../keys/provider-keys.ts';
 import { APPLE_SILICON_PINS, type Pins } from '../pins.ts';
+import { browserManifest, manifestDigest } from '../preview/play.ts';
 import { HostProviders } from '../providers.ts';
 import { readHostSettings, rememberNetworkListener, writeHostSettings } from '../settings.ts';
 import { providersFolder, TEST_ASSISTANT_READER } from '../testing/declared-providers.ts';
 import { capturingLogger, createTestControlPlane, startTestServer } from '../testing/harness.ts';
 import {
   type CommandRunner,
+  CURSOR_ARCHIVE_SHA256,
+  CURSOR_ARCHIVE_URL,
   KIRO_ARCHIVE_SHA256,
   KIRO_ARCHIVE_URL,
   mountSetup,
@@ -527,6 +530,82 @@ describe('the setup view', () => {
     await view.act('agent_app', 'kiro:off', true);
     await ended(view);
     assert.deepEqual(agentAppsOn(machine.dataDir), []);
+  });
+
+  test("Cursor is installed from Cursor's own archive, checked whole, and offered as Kiro is (the lead's ruling)", async (t) => {
+    // The folder the archive unpacks, pinned whole: a launcher beside its runtime and its code.
+    const lay = (folder: string) => {
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(join(folder, 'cursor-agent'), '#!/bin/sh\n', { mode: 0o755 });
+      writeFileSync(join(folder, 'index.js'), 'the agent\n');
+    };
+    const sample = join(mkdtempSync(join(tmpdir(), 'halcyonic-cursor-pin-')), 'dist-package');
+    t.after(() => rmSync(dirname(sample), { recursive: true, force: true }));
+    lay(sample);
+    const manifest = browserManifest(sample);
+    assert.ok(Array.isArray(manifest));
+    const pins: Pins = {
+      ...APPLE_SILICON_PINS,
+      cursor: {
+        path: 'runtimes/cursor-2026.11.13/dist-package',
+        sha256: manifestDigest(manifest),
+        folder: true,
+      },
+    };
+    const { view, runs, mac: machine } = setup(t, { pins });
+    const presses = async () =>
+      step(await view.state(), 'agent_apps')
+        .actions.filter((action) => /cursor/.test(action.arg ?? ''))
+        .map((action) => action.label);
+    assert.deepEqual(await presses(), ['Install Cursor']);
+    const asked = await view.act('download', 'cursor', false);
+    assert.match(
+      asked.confirm?.text ?? '',
+      /Cursor Agent 2026\.11\.13 .*175 MB.*SHA-256 before it is unpacked/,
+    );
+    assert.match(
+      asked.confirm?.text ?? '',
+      /privacy setting, which Halora can neither read nor set/,
+    );
+    await view.act('download', 'cursor', true);
+    const folder = join(machine.dataDir, 'runtimes', 'cursor-2026.11.13');
+    const archive = join(folder, 'download.tar.gz');
+    assert.equal(runs[0]?.argv.at(-1), CURSOR_ARCHIVE_URL);
+    assert.equal(readFileSync(`${archive}.sha`, 'utf8'), `${CURSOR_ARCHIVE_SHA256}  ${archive}\n`);
+    const next = async (count: number) => {
+      for (let tries = 0; tries < 500 && runs.length < count; tries += 1)
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      return runs[count - 1] as Run;
+    };
+    (runs[0] as Run).finish(0);
+    assert.deepEqual((await next(2)).argv, [
+      '/usr/bin/shasum',
+      '-a',
+      '256',
+      '-c',
+      `${archive}.sha`,
+    ]);
+    (runs[1] as Run).finish(0);
+    assert.deepEqual((await next(3)).argv, ['/usr/bin/tar', '-xzf', archive, '-C', folder]);
+    lay(join(folder, 'dist-package'));
+    (runs[2] as Run).finish(0);
+    (await next(4)).finish(0);
+    assert.equal((await ended(view)).job?.state, 'done');
+    assert.deepEqual(await presses(), ['Turn Cursor On']);
+    // Any file of it changed after install: not the checked copy, so it stays off, and is offered to install again.
+    writeFileSync(join(folder, 'dist-package', 'index.js'), 'something else\n');
+    await view.act('agent_app', 'cursor:on', false);
+    await view.act('agent_app', 'cursor:on', true);
+    await ended(view);
+    assert.deepEqual(agentAppsOn(machine.dataDir), []);
+    assert.deepEqual(await presses(), ['Install Cursor']);
+    // As unpacked again, it turns on, and then offers only Turn Off.
+    writeFileSync(join(folder, 'dist-package', 'index.js'), 'the agent\n');
+    await view.act('agent_app', 'cursor:on', false);
+    await view.act('agent_app', 'cursor:on', true);
+    await ended(view);
+    assert.deepEqual(agentAppsOn(machine.dataDir), ['cursor']);
+    assert.deepEqual(await presses(), ['Turn Cursor Off']);
   });
 
   test('an agent app is not turned on where its checked copy is not installed, nor by any other press', async (t) => {

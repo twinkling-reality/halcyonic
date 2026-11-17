@@ -396,7 +396,7 @@ export interface SetupActionView {
 }
 
 /** The agent apps whose Install, Turn On and Turn Off depend on their state on this Mac (`Step.offers`). */
-const STATEFUL_APPS = new Set(['kiro', 'antigravity']);
+const STATEFUL_APPS = new Set(['kiro', 'antigravity', 'cursor']);
 
 /** Whether a press is drawn only in the states its step offers it in. */
 function stateful(view: SetupActionView): boolean {
@@ -417,6 +417,9 @@ const STEP_ACTIONS: Readonly<Record<string, readonly SetupActionView[]>> = {
     { action: 'download', arg: 'antigravity', label: 'Install Antigravity' },
     { action: 'agent_app', arg: 'antigravity:on', label: 'Turn Antigravity On' },
     { action: 'agent_app', arg: 'antigravity:off', label: 'Turn Antigravity Off' },
+    { action: 'download', arg: 'cursor', label: 'Install Cursor' },
+    { action: 'agent_app', arg: 'cursor:on', label: 'Turn Cursor On' },
+    { action: 'agent_app', arg: 'cursor:off', label: 'Turn Cursor Off' },
   ],
   models: CHECKED_MODELS.map((model) => ({
     action: 'download',
@@ -461,7 +464,7 @@ const ACTIONS: Readonly<Record<string, (arg: string | null) => readonly string[]
   allow: (arg) => (arg === null ? ['allow', '--yes'] : null),
   agent_apps: (arg) => (arg === null ? ['agent-apps'] : null),
   agent_app: (arg) =>
-    arg !== null && /^(kiro|antigravity):(on|off)$/.test(arg) ? ['agent-app', arg] : null,
+    arg !== null && /^(kiro|antigravity|cursor):(on|off)$/.test(arg) ? ['agent-app', arg] : null,
   local_model: (arg) =>
     arg !== null && CHECKED_MODELS.some((model) => model.name === arg)
       ? ['local-model', arg]
@@ -484,6 +487,10 @@ export const KIRO_ARCHIVE_SHA256 =
   '936f75b61d273ea41c7aebf484b6fe8a1f30f84ac6764202bda06632bc59710e';
 export const ANTIGRAVITY_ARCHIVE_URL =
   'https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.10-5253791805734912/darwin-arm/cli_mac_arm64.tar.gz';
+export const CURSOR_ARCHIVE_URL =
+  'https://downloads.cursor.com/lab/2026.11.13-eacade1/darwin/arm64/agent-cli-package.tar.gz';
+export const CURSOR_ARCHIVE_SHA256 =
+  '087220ccf1e124dcdf2753601422892042a45a2c577ef0ea25b8a5b0e47bb691';
 export const ANTIGRAVITY_ARCHIVE_SHA512 =
   'f192adfc6ca61bc8f0be93b8503c1a0a4e0314f127c9a13fb7e25228343dfbba09ae1a1be083851d9e79a703e535cc19242db44675e40cf7f9a4eaa8cb9b272f';
 
@@ -553,7 +560,7 @@ export function setupDownloads(
   which: (command: string) => string | null,
   pins: Pins | null,
 ): SetupDownload[] {
-  const pinned = (app: 'opencode' | 'codex' | 'kiro' | 'antigravity') => () =>
+  const pinned = (app: 'opencode' | 'codex' | 'kiro' | 'antigravity' | 'cursor') => () =>
     pins === null ? Promise.resolve(null) : matchesPin(join(dataDir, pins[app].path), pins[app]);
   const npm = which('npm') ?? 'npm';
   const ollama = which('ollama') ?? 'ollama';
@@ -625,6 +632,18 @@ export function setupDownloads(
       folder: join(dataDir, 'runtimes', 'antigravity-1.5.10'),
       maxBytes: '130000000',
       verify: pinned('antigravity'),
+    }),
+    ...vendorArchive({
+      id: 'cursor',
+      title: 'Install Cursor',
+      fetches:
+        "Cursor Agent 2026.11.13 (Cursor's agent CLI), a 175 MB archive for Apple silicon, from Cursor's own download site, checked by its SHA-256 before it is unpacked, and every file of it checked again before it is turned on. You use it under Cursor's terms, on your own Cursor plan. What Cursor keeps of your code follows your own Cursor account's privacy setting, which Halora can neither read nor set.",
+      url: CURSOR_ARCHIVE_URL,
+      algorithm: '256',
+      sum: CURSOR_ARCHIVE_SHA256,
+      folder: join(dataDir, 'runtimes', 'cursor-2026.11.13'),
+      maxBytes: '250000000',
+      verify: pinned('cursor'),
     }),
     {
       // The tunnel a shared link runs (ADR 0054): the release's archive, checked by its SHA-256

@@ -6,6 +6,11 @@ import { arch, platform } from 'node:os';
 export interface PinnedFile {
   readonly path: string;
   readonly sha256: string;
+  /**
+   * Set where the pin is a whole folder's: `sha256` is then the digest of the folder's manifest, every entry's kind,
+   * mode and path and every file's SHA-256 (as the browser's, AUDIT M1), so no file of it can change unseen.
+   */
+  readonly folder?: true;
 }
 
 export interface Pins {
@@ -18,6 +23,8 @@ export interface Pins {
   /** The agent apps over ACP (ADR 0067): the vendor's own builds, as the setup page unpacks them. */
   readonly kiro: PinnedFile;
   readonly antigravity: PinnedFile;
+  /** Cursor's agent CLI: a launcher beside its own Node and its code, so pinned as its whole folder (AUDIT3 SU1). */
+  readonly cursor: PinnedFile;
 }
 
 /**
@@ -61,6 +68,13 @@ export const APPLE_SILICON_PINS: Pins = {
     path: 'runtimes/antigravity-1.5.10/antigravity',
     sha256: '780ee763a9938a37b45c7f9d6ae31747d7c574358fd10c64d3a1cdc36faf2798',
   },
+  // Cursor's agent CLI 2026.11.13-eacade1 for darwin-arm64, from Cursor's own download: its `dist-package` folder as
+  // the setup page unpacks it, 435 entries, by the digest of their manifest (validation/acp-agents.md).
+  cursor: {
+    path: 'runtimes/cursor-2026.11.13/dist-package',
+    sha256: '8f6e33e46e9559c769f695fee357eee0c98e7b72e42e1de50279476cc697e6ee',
+    folder: true,
+  },
 };
 
 /** The pins for this computer's platform and processor; null where Halcyonic has none. */
@@ -79,8 +93,17 @@ export async function sha256File(path: string): Promise<string | null> {
   return hash.digest('hex');
 }
 
-/** Whether a file is the one pinned: null where there is no pin for this processor. */
+/** Whether a file, or a folder pinned whole, is the one pinned: null where there is no pin for this processor. */
 export async function matchesPin(path: string, pin: PinnedFile | null): Promise<boolean | null> {
   if (pin === null) return null;
-  return (await sha256File(path)) === pin.sha256;
+  return (await pinnedDigest(path, pin)) === pin.sha256;
+}
+
+/** What a path's pin is compared with: its file's SHA-256, or its folder's manifest digest; null where unreadable. */
+export async function pinnedDigest(path: string, pin: PinnedFile): Promise<string | null> {
+  if (pin.folder !== true) return sha256File(path);
+  // Loaded only for a folder's pin, so no plain file's check pulls in the preview's code.
+  const { browserManifest, manifestDigest } = await import('./preview/play.ts');
+  const manifest = browserManifest(path);
+  return Array.isArray(manifest) ? manifestDigest(manifest) : null;
 }
