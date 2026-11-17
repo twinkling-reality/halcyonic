@@ -150,11 +150,6 @@ namespace Halcyonic.Client
         /// The folder the request sends, as it sends it, or null when it sends none: compared by
         /// <see cref="SameRequest"/> and by a build, since two places can share a name the words show.
         /// </param>
-        /// <param name="titleCut">
-        /// Halcyonic cut <paramref name="title"/>, the part of the objective the title holds as typed
-        /// (<see cref="NewWorkDraft.TitleSource"/>): its own ellipsis follows, as written, never spelled
-        /// as a code point the way a typed one is.
-        /// </param>
         /// <summary>The labels whose values a build checks against what it sends (<see cref="Shows"/>).</summary>
         public const string ProjectLabel = "Project";
         public const string ModelIdLabel = "Model ID";
@@ -164,9 +159,9 @@ namespace Halcyonic.Client
         public const string FirstTaskNamesTaskLabel = "First Task and Name";
 
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
-            string? folder = null, string? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false)
+            string? folder = null, string? folderBefore = null, ProjectLocationChoice? folderChoice = null, bool neverAsk = false)
             : this(project, title, LineWords.Unspelled(runtime), LineWords.Unspelled(model), LineWords.Written(modelFacts), LineWords.Unspelled(modelRef), objective,
-                folder == null ? null : LineWords.Unspelled(folder), folderBefore == null ? null : LineWords.Unspelled(folderBefore), titleCut, folderChoice, neverAsk)
+                folder == null ? null : LineWords.Unspelled(folder), folderBefore == null ? null : LineWords.Unspelled(folderBefore), folderChoice, neverAsk)
         {
         }
 
@@ -185,7 +180,7 @@ namespace Halcyonic.Client
         /// Halcyonic's; outside text, raw, spelled here and leaning.
         /// </summary>
         public NewWorkReview(string project, string title, LineWords runtime, LineWords model, LineWords modelFacts, LineWords modelRef, string objective,
-            LineWords? folder = null, LineWords? folderBefore = null, bool titleCut = false, ProjectLocationChoice? folderChoice = null, bool neverAsk = false,
+            LineWords? folder = null, LineWords? folderBefore = null, ProjectLocationChoice? folderChoice = null, bool neverAsk = false,
             LineWords? level = null, LineWords? tools = null,
             LineWords? startFrom = null, bool plan = false)
         {
@@ -200,17 +195,14 @@ namespace Halcyonic.Client
             }
             else if (folder != null) Add("Folder", folder, ReviewItemKind.Folder);
             if (startFrom != null) Add(StarterChoice.ReviewLabel, startFrom, ReviewItemKind.Starter);
-            // A title the start cut (NewWorkDraft.Title: the objective's first MaxTitleLength characters and Halcyonic's ellipsis) is no
-            // row of its own: its words are the first task's, shown whole below, and the first task's label says it names the task too.
-            // So no shortened name and no ellipsis stands in the review, and nothing sent goes unshown (the lead's 2026-11-17T15:43Z (C)).
-            if (!titleCut) items.Add(new ReviewItem("Task Name", LineWords.Shown(Safe(title)), ReviewItemKind.TaskName));
+            items.Add(new ReviewItem("Task Name", LineWords.Shown(Safe(title)), ReviewItemKind.TaskName));
             Add("Agent App", runtime, ReviewItemKind.AgentApp);
             Add("Model", model, ReviewItemKind.Model);
             if (level is LineWords asks) Add("Level", asks, ReviewItemKind.Level);
             Add("Model Location", modelFacts, ReviewItemKind.ModelLocation);
             if (tools is LineWords uses) Add("Tool Use", uses, ReviewItemKind.ModelTools);
             Add(ModelIdLabel, modelRef, ReviewItemKind.ModelId);
-            Add(FirstTaskLabel, objective, ReviewItemKind.FirstTask, titleCut ? FirstTaskNamesTaskLabel : null);
+            Add(FirstTaskLabel, objective, ReviewItemKind.FirstTask);
             // Beside the first task, before Yes: what it names that the person should check (TaskWarnings).
             foreach (var note in TaskWarnings.Of(objective)) items.Add(new ReviewItem(note, LineWords.None));
         }

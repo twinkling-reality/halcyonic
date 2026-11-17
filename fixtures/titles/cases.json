@@ -1,0 +1,147 @@
+[
+  {
+    "name": "a short sentence stays whole",
+    "text": "Fix it.",
+    "title": "Fix it."
+  },
+  {
+    "name": "the first sentence when it is short",
+    "text": "Make a kite game. It should follow my hand and climb when I raise it.",
+    "title": "Make a kite game."
+  },
+  {
+    "name": "a question keeps its mark",
+    "text": "Can you make the kite climb faster? And dip slower too.",
+    "title": "Can you make the kite climb faster?"
+  },
+  {
+    "name": "an exclamation keeps its mark",
+    "text": "Ship it! Then tell me.",
+    "title": "Ship it!"
+  },
+  {
+    "name": "a long sentence is cut between words, its comma dropped",
+    "text": "Make a kite that follows my hand, climbs when I raise it, and dips when I lower it",
+    "title": "Make a kite that follows my hand, climbs when I raise it"
+  },
+  {
+    "name": "a colon left at the cut is dropped",
+    "text": "Build the menu screen for the settings page with parts: headers and a list of rows",
+    "title": "Build the menu screen for the settings page with parts"
+  },
+  {
+    "name": "a dash left at the cut is dropped",
+    "text": "Rework the shelf layout so all the cards line up in rows - then add a gap",
+    "title": "Rework the shelf layout so all the cards line up in rows"
+  },
+  {
+    "name": "an abbreviation's stop is no end",
+    "text": "Use e.g. the blue kite for the first level.",
+    "title": "Use e.g. the blue kite for the first level."
+  },
+  {
+    "name": "a version and a file name are no end",
+    "text": "Update index.html to v1.2 and add the menu. Then test it.",
+    "title": "Update index.html to v1.2 and add the menu."
+  },
+  {
+    "name": "a line feed ends the title",
+    "text": "Fix the login\nThen the signup page",
+    "title": "Fix the login"
+  },
+  {
+    "name": "a lone carriage return ends the title",
+    "text": "Fix the login\rThen the signup page",
+    "title": "Fix the login"
+  },
+  {
+    "name": "a carriage return and line feed end the title",
+    "text": "Fix the login\r\nThen the signup page",
+    "title": "Fix the login"
+  },
+  {
+    "name": "a line separator ends the title",
+    "text": "Fix the login\u2028then the signup page",
+    "title": "Fix the login"
+  },
+  {
+    "name": "the first line with words, its spaces trimmed",
+    "text": "\n\n   Fix the login   \nmore",
+    "title": "Fix the login"
+  },
+  {
+    "name": "a bidirectional override is dropped",
+    "text": "Fix \u202ethe login",
+    "title": "Fix the login"
+  },
+  {
+    "name": "a zero width space is dropped",
+    "text": "Fix\u200b the login",
+    "title": "Fix the login"
+  },
+  {
+    "name": "a tab and a no-break space are spaces",
+    "text": "Fix\tthe\u00a0login",
+    "title": "Fix the login"
+  },
+  {
+    "name": "a private use character stays, for the label to spell",
+    "text": "\ue769 Fix it",
+    "title": "\ue769 Fix it"
+  },
+  {
+    "name": "an emoji at the sixtieth character is kept whole",
+    "text": "Draw the kites with a smile on its face and a sun above it \ud83d\ude00 then more",
+    "title": "Draw the kites with a smile on its face and a sun above it \ud83d\ude00"
+  },
+  {
+    "name": "an emoji with a skin tone at the sixtieth character is one",
+    "text": "Draw the kites with a smile on its face and a sun above it \ud83d\udc4d\ud83c\udffd then more",
+    "title": "Draw the kites with a smile on its face and a sun above it \ud83d\udc4d\ud83c\udffd"
+  },
+  {
+    "name": "a letter and its accent at the sixtieth character are one",
+    "text": "Draw the kites with a smile on its face and a sun above it e\u0301 then more",
+    "title": "Draw the kites with a smile on its face and a sun above it e\u0301"
+  },
+  {
+    "name": "a flag at the sixtieth character is one",
+    "text": "Draw the kites with a smile on its face and a sun above it \ud83c\uddec\ud83c\udde7 then more",
+    "title": "Draw the kites with a smile on its face and a sun above it \ud83c\uddec\ud83c\udde7"
+  },
+  {
+    "name": "a long path keeps its end from a slash",
+    "text": "/Users/someone/dev/projects/very-long-folder-name/another-level/src/components/KiteGame.tsx please fix",
+    "title": "/another-level/src/components/KiteGame.tsx"
+  },
+  {
+    "name": "a long link keeps its end, without its query",
+    "text": "https://example.com/some/really/long/path/to/a/page/that/goes/on/and/on/index.html?token=abc123secret#top look",
+    "title": "/really/long/path/to/a/page/that/goes/on/and/on/index.html"
+  },
+  {
+    "name": "a short link loses its query",
+    "text": "Open https://kite.example/play?token=abc123 now",
+    "title": "Open https://kite.example/play now"
+  },
+  {
+    "name": "sixty characters in one word stay whole",
+    "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa more",
+    "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "name": "a longer word with no slash keeps its last sixty",
+    "text": "baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa more",
+    "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "name": "nothing to name it by",
+    "text": "\u200b\u200b",
+    "title": "New Task"
+  },
+  {
+    "name": "only spaces",
+    "text": "   \n  ",
+    "title": "New Task"
+  }
+]

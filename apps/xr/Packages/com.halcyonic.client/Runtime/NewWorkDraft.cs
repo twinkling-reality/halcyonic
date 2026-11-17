@@ -1,6 +1,8 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
 using Halcyonic.Contracts;
 
 namespace Halcyonic.Client
@@ -179,54 +181,124 @@ namespace Halcyonic.Client
             }
         }
 
-        /// <summary>The longest workstream title, Halcyonic's ellipsis included.</summary>
-        public const int MaxTitleLength = 200;
+        /// <summary>The most characters a title made from the person's words holds.</summary>
+        public const int MadeTitleLength = 60;
+
+        /// <summary>The title of a task whose words hold nothing to name it by.</summary>
+        public const string UnnamedTask = "New Task";
 
         /// <summary>
-        /// The workstream's title: the objective as one plain line (<see cref="LabelText.Plain"/>), and
-        /// where that would pass <see cref="MaxTitleLength"/>, cut between two of the person's
-        /// characters, never inside one or inside a code point Plain spelled, with Halcyonic's own
-        /// ellipsis.
+        /// The workstream's title, made from the objective by the one rule the plane holds as well
+        /// (apps/control-plane/src/core/task-title.ts, which says the rule step by step), pinned by one
+        /// table of cases both suites read (fixtures/titles/cases.json), so the review shows the name the
+        /// task gets. Halcyonic adds no ellipsis; a label spells what cannot be seen (<see cref="LabelText"/>).
         /// </summary>
-        public string Title
+        public string Title => TitleOf(Objective);
+
+        private static readonly char[] LineBreaks = { '\n', '\r', '\v', '\f', (char)0x85, (char)0x2028, (char)0x2029 };
+        private static readonly string[] NotAnEnd = { "e.g.", "i.e.", "vs.", "cf." };
+        private static readonly char[] LeftAtACut = { ' ', ',', ';', ':', '-', (char)0x2013, (char)0x2014 };
+
+        /// <summary>The title Halcyonic gives a task made from <paramref name="text"/>, the person's own words.</summary>
+        public static string TitleOf(string? text)
         {
-            get
+            var line = FirstLine(text ?? "");
+            if (line == null) return UnnamedTask;
+            var sentence = FirstSentence(string.Join(" ", Array.ConvertAll(line.Split(' '), WithoutQuery)));
+            if (CharactersOf(sentence).Count <= MadeTitleLength) return sentence;
+            var words = sentence.Split(' ');
+            if (CharactersOf(words[0]).Count > MadeTitleLength) return EndOf(words[0]);
+            var title = words[0];
+            for (var index = 1; index < words.Length; index++)
             {
-                var (typed, cut) = TitleSource;
-                return LabelText.Plain(typed) + (cut ? "…" : "");
+                var longer = title + " " + words[index];
+                if (CharactersOf(longer).Count > MadeTitleLength) break;
+                title = longer;
             }
+            var kept = title.TrimEnd(LeftAtACut);
+            return kept.Length == 0 ? UnnamedTask : kept;
         }
 
         /// <summary>
-        /// What of the objective the title holds, as the person typed it, and whether Halcyonic cut it
-        /// there, so a review can spell the typed text and show the ellipsis as Halcyonic's own.
+        /// The characters of <paramref name="text"/> as the person sees them, each whole: a code point with
+        /// the marks and emoji skin tones that follow it, or a pair of regional indicators (a flag).
         /// </summary>
-        public (string Typed, bool Cut) TitleSource => TitleSourceOf(Objective);
-
-        /// <summary>What of <paramref name="objective"/> a title holds, as typed, and whether Halcyonic cut it there.</summary>
-        public static (string Typed, bool Cut) TitleSourceOf(string objective)
+        public static List<string> CharactersOf(string text)
         {
-            objective = (objective ?? "").Trim();
-            if (LabelText.Plain(objective).Length <= MaxTitleLength) return (objective, false);
-            // Where each character ends; Plain of a longer prefix never gets shorter.
-            var ends = new List<int>();
-            for (var index = 0; index < objective.Length; index++)
+            var characters = new List<string>();
+            for (var index = 0; index < text.Length; index++)
             {
-                if (char.IsHighSurrogate(objective[index]) && index + 1 < objective.Length && char.IsLowSurrogate(objective[index + 1])) index++;
-                ends.Add(index + 1);
+                var width = char.IsSurrogatePair(text, index) ? 2 : 1;
+                var point = text.Substring(index, width);
+                var code = width == 2 ? char.ConvertToUtf32(text, index) : text[index];
+                var category = CharUnicodeInfo.GetUnicodeCategory(text, index);
+                index += width - 1;
+                var last = characters.Count - 1;
+                var joins = last >= 0
+                    && (category == UnicodeCategory.NonSpacingMark || category == UnicodeCategory.SpacingCombiningMark
+                        || category == UnicodeCategory.EnclosingMark
+                        || (code >= 0x1F3FB && code <= 0x1F3FF)
+                        || (IsRegionalIndicator(code) && characters[last].Length == 2 && char.IsSurrogatePair(characters[last], 0)
+                            && IsRegionalIndicator(char.ConvertToUtf32(characters[last], 0))));
+                if (joins) characters[last] += point;
+                else characters.Add(point);
             }
-            int low = 0, high = ends.Count - 1, fits = 0;
-            while (low <= high)
+            return characters;
+        }
+
+        private static bool IsRegionalIndicator(int code) => code >= 0x1F1E6 && code <= 0x1F1FF;
+
+        /// <summary>The first line with words: hidden code points dropped, every space one, none at either end.</summary>
+        private static string? FirstLine(string text)
+        {
+            foreach (var raw in text.Split(LineBreaks))
             {
-                var middle = (low + high) / 2;
-                if (LabelText.Plain(objective.Substring(0, ends[middle])).Length <= MaxTitleLength - 1)
+                var kept = new StringBuilder();
+                for (var index = 0; index < raw.Length; index++)
                 {
-                    fits = ends[middle];
-                    low = middle + 1;
+                    var width = char.IsSurrogatePair(raw, index) ? 2 : 1;
+                    var category = CharUnicodeInfo.GetUnicodeCategory(raw, index);
+                    if (raw[index] == '\t' || category == UnicodeCategory.SpaceSeparator)
+                    {
+                        if (kept.Length > 0 && kept[kept.Length - 1] != ' ') kept.Append(' ');
+                    }
+                    else if (category != UnicodeCategory.Control && category != UnicodeCategory.Format && category != UnicodeCategory.Surrogate)
+                        kept.Append(raw, index, width);
+                    index += width - 1;
                 }
-                else high = middle - 1;
+                var line = kept.ToString().TrimEnd(' ');
+                if (line.Length > 0) return line;
             }
-            return (objective.Substring(0, fits).TrimEnd(), true);
+            return null;
+        }
+
+        /// <summary>A link without its query or fragment, which often hold a token.</summary>
+        private static string WithoutQuery(string word)
+        {
+            if (word.IndexOf("://", StringComparison.Ordinal) < 0) return word;
+            var at = word.IndexOfAny(new[] { '?', '#' });
+            return at < 0 ? word : word.Substring(0, at);
+        }
+
+        /// <summary>The first sentence, ending at ". ", "? " or "! ", never at an abbreviation's stop.</summary>
+        private static string FirstSentence(string line)
+        {
+            for (var at = 0; at < line.Length - 1; at++)
+            {
+                if ((line[at] != '.' && line[at] != '?' && line[at] != '!') || line[at + 1] != ' ') continue;
+                var from = line.LastIndexOf(' ', at) + 1;
+                if (Array.IndexOf(NotAnEnd, line.Substring(from, at + 1 - from).ToLowerInvariant()) < 0) return line.Substring(0, at + 1);
+            }
+            return line;
+        }
+
+        /// <summary>A word longer than a title, by its end: from a "/" among its last characters, where one is.</summary>
+        private static string EndOf(string word)
+        {
+            var all = CharactersOf(word);
+            var end = all.GetRange(Math.Max(0, all.Count - MadeTitleLength), Math.Min(all.Count, MadeTitleLength));
+            var slash = end.IndexOf("/");
+            return string.Concat(slash >= 0 && slash < end.Count - 1 ? end.GetRange(slash, end.Count - slash) : end);
         }
 
     }

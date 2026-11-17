@@ -44,6 +44,9 @@ export interface PrepareSources {
   ) => Promise<{ rows: readonly HeldRow[]; digest: string } | null>;
 }
 
+/** A typed task name longer than the contract takes, refused in Halora's words (AUDIT2, 2026-11-17). */
+const TASK_NAME_TOO_LONG = 'A task name can be up to 200 characters. Shorten it, then start again.';
+
 /** Fields whose words are one line: a name or a title, never a paragraph. */
 const ONE_LINE = new Set(['name', 'title', 'folder_name']);
 
@@ -148,11 +151,16 @@ export async function prepareCommand(
     }
     switch (field.need) {
       case 'text': {
-        const words =
-          typeof value === 'string'
-            ? cleanWords(value, ONE_LINE.has(name), MAX_LENGTH.get(`${type}.${name}`) ?? 32000)
-            : '';
+        const max = MAX_LENGTH.get(`${type}.${name}`) ?? 32000;
+        const words = typeof value === 'string' ? cleanWords(value, ONE_LINE.has(name), max) : '';
         if (words === '') return refuse('invalid_state', `${field.label} needs words.`);
+        // A task name the person or the assistant typed is theirs: kept to the contract's length, never cut.
+        if (
+          type === 'workstream.create' &&
+          name === 'title' &&
+          [...cleanWords(value as string, true, Number.POSITIVE_INFINITY)].length > max
+        )
+          return refuse('invalid_state', TASK_NAME_TOO_LONG);
         payload[name] = words;
         break;
       }

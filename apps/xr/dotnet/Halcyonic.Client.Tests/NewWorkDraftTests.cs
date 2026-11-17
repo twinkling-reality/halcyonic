@@ -1,41 +1,51 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Halcyonic.Contracts;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
 namespace Halcyonic.Client.Tests;
 
 public class NewWorkDraftTests
 {
-    [Test]
-    public void ALongTitleIsCutBetweenTheTypedCharactersWithHalcyonicsEllipsis()
+    /// <summary>The one table of cases the plane's rule (task-title.ts) is held to as well.</summary>
+    private static IEnumerable<TestCaseData> TitleCases() =>
+        JArray.Parse(File.ReadAllText(Repository.PathTo("fixtures/titles/cases.json")))
+            .Select(each => new TestCaseData((string)each["text"]!).Returns((string)each["title"]!).SetName("Title: " + (string)each["name"]!));
+
+    [TestCaseSource(nameof(TitleCases))]
+    public string ATitleIsMadeShortAndTrueByTheRuleThePlaneHolds(string objective)
     {
         var draft = Draft();
-        draft.Objective = "Fix it.";
-        Assert.That(draft.TitleSource, Is.EqualTo(("Fix it.", false)));
-        Assert.That(draft.Title, Is.EqualTo("Fix it."));
+        draft.Objective = objective;
+        Assert.That(draft.Title, Is.EqualTo(NewWorkDraft.TitleOf(objective)));
+        return draft.Title;
+    }
 
+    [Test]
+    public void AMadeTitleIsNeverEmptyNeverOverSixtyCharactersAndHoldsNoEllipsisOfHalcyonics()
+    {
         foreach (var objective in new[]
         {
             new string('W', 4000),
             string.Concat(Enumerable.Repeat("a\u200B", 300)),
-            string.Concat(Enumerable.Repeat("🙂", 300)),
+            string.Concat(Enumerable.Repeat("\U0001F642", 300)),
             new string('W', 198) + "   \n\n  tail that runs on",
+            new string('\u200B', 300),
         })
         {
-            draft.Objective = objective;
-            var (typed, cut) = draft.TitleSource;
-            Assert.That(cut, Is.True);
-            Assert.That(draft.Title, Is.EqualTo(LabelText.Plain(typed) + "\u2026"));
-            Assert.That(draft.Title.Length, Is.LessThanOrEqualTo(NewWorkDraft.MaxTitleLength));
-            Assert.That(objective.StartsWith(typed, StringComparison.Ordinal), Is.True, "the typed part is a prefix of the objective");
-            var plain = LabelText.Plain(typed);
-            Assert.That(plain.Split("‹U+").Length, Is.EqualTo(plain.Split('›').Length), "never inside a spelled code point");
-            Assert.That(char.IsHighSurrogate(typed[^1]), Is.False, "never inside a character");
+            var title = NewWorkDraft.TitleOf(objective);
+            Assert.That(title, Is.Not.Empty);
+            Assert.That(NewWorkDraft.CharactersOf(title).Count, Is.LessThanOrEqualTo(NewWorkDraft.MadeTitleLength));
+            Assert.That(title, Does.Not.Contain("\u2026"));
+            Assert.That(char.IsHighSurrogate(title[^1]), Is.False, "never inside a character");
         }
-        draft.Objective = new string('\u200B', 300);
-        Assert.That(draft.Title, Does.EndWith("‹U+200B›\u2026"), "a spelled code point is kept whole before the ellipsis");
+        Assert.That(NewWorkDraft.TitleOf(new string('\u200B', 300)), Is.EqualTo(NewWorkDraft.UnnamedTask));
+        // Held in each suite, since a JSON reader may turn an unpaired surrogate into U+FFFD before the rule sees it.
+        Assert.That(NewWorkDraft.TitleOf("Fix \uD800the login"), Is.EqualTo("Fix the login"));
+        Assert.That(NewWorkDraft.TitleOf("Fix the login\uDC00"), Is.EqualTo("Fix the login"));
     }
 
     private static readonly CommandFactory Commands = new(new ClientInfo { Name = "halcyonic-xr", Version = "test", DeviceLabel = "Quest" });
@@ -190,9 +200,9 @@ public class NewWorkDraftTests
         draft.Objective = new string('x', 4001);
         Assert.That(draft.Problem, Does.Contain("4,000"));
         draft.Objective = "Fix <b>search</b>\nwith tests";
-        Assert.That(draft.Title, Is.EqualTo("Fix <b>search</b> with tests"));
+        Assert.That(draft.Title, Is.EqualTo("Fix <b>search</b>"), "a line break ends the title; markup stays as typed");
         var built = Built(draft).Workstream;
-        Assert.That(built.Payload.Title, Is.EqualTo("Fix <b>search</b> with tests"));
+        Assert.That(built.Payload.Title, Is.EqualTo("Fix <b>search</b>"));
         Assert.That(built.Payload.Objective, Is.EqualTo(draft.Objective));
     }
 

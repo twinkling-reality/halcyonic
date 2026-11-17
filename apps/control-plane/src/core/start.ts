@@ -16,6 +16,7 @@ import { admitCommand, startOptionsRefusal } from '@halcyonic/domain';
 import type { ControlPlane } from './control-plane.ts';
 import { answersInConnectedCopy, answersOwnWork } from './host-answers.ts';
 import { cleanWords, type GivenValue } from './prepare.ts';
+import { taskTitleOf } from './task-title.ts';
 import { reviewDigest } from './review.ts';
 import { saidIn } from './reviews.ts';
 import { readRuntimeModels } from './runtime-models.ts';
@@ -50,8 +51,7 @@ const RUN_VALUES = new Set([
   'spending_cap_usd',
 ]);
 
-/** A task's title and goal, made by the host from the person's idea, at the fields' own lengths. */
-const TITLE_LENGTH = 200;
+/** A task's goal, the person's idea whole, at the field's own length; its title is made short and true (task-title.ts). */
 const GOAL_LENGTH = 4000;
 
 export interface StartReview {
@@ -117,8 +117,9 @@ export async function prepareStart(
     )
       return refuse('invalid_state', `${name} is not given here.`);
   const idea = input.values.instruction;
-  const title = typeof idea === 'string' ? cleanWords(idea, true, TITLE_LENGTH) : '';
-  if (title === '') return refuse('invalid_state', 'Instruction needs words.');
+  if (typeof idea !== 'string' || cleanWords(idea, false, GOAL_LENGTH) === '')
+    return refuse('invalid_state', 'Instruction needs words.');
+  const title = taskTitleOf(idea);
   const values: Record<string, GivenValue> = { ...input.values };
   const read: Record<string, string> = { ...input.lists };
   // Every choice not given is the list's default, by the host's own facts, with the list's digest as read now.
@@ -234,7 +235,7 @@ export async function prepareStart(
     { project_id: projectId, workstream_id: null, execution_id: null },
     {
       title,
-      objective: cleanWords(idea as string, false, GOAL_LENGTH),
+      objective: cleanWords(idea, false, GOAL_LENGTH),
     },
     {},
   );

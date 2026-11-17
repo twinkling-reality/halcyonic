@@ -65,7 +65,7 @@ namespace Halcyonic.Client
             LineWords NamedOrNone(string? name) => name == null ? LineWords.Ours("none") : Raw(name);
             var folder = sends?.DescribeRuns(name: Raw) ?? NamedOrNone(currentFolder?.Name);
             var before = moves ? NamedOrNone(currentFolder?.Name) : null;
-            var (title, titleCut) = NewWorkDraft.TitleSourceOf(idea.FirstTask);
+            var title = NewWorkDraft.TitleOf(idea.FirstTask);
             var runtime = draft.Runtime!;
             return new NewWorkReview(
                 idea.Name,
@@ -79,7 +79,6 @@ namespace Halcyonic.Client
                 idea.FirstTask,
                 folder,
                 before,
-                titleCut,
                 sends?.ToContract(),
                 draft.StartsNeverAsk,
                 // The level the start will use, its own row (AUDIT: the review names it before the start); a practice run asks nothing.

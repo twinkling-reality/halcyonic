@@ -46,6 +46,21 @@ test('one preparation builds a command from values and indices, never from a pro
     title: 'Night',
     objective: null,
   });
+  // A title the person typed stays as typed, to the contract's 200, and one longer is refused, never cut.
+  const typed = `${'Night sky '.repeat(19)}over city`;
+  assert.equal([...typed].length, 199);
+  const kept = await commands.prepare(
+    given(projectScope, 'workstream.create', { title: `${typed}.` }),
+  );
+  assert.ok(kept.ok && kept.command.command_type === 'workstream.create');
+  assert.equal(kept.command.payload.title, `${typed}.`);
+  const long = await commands.prepare(
+    given(projectScope, 'workstream.create', { title: `${typed}..` }),
+  );
+  assert.deepEqual(long.ok ? null : { code: long.code, message: long.message }, {
+    code: 'invalid_state',
+    message: 'A task name can be up to 200 characters. Shorten it, then start again.',
+  });
   assert.equal((await post(task.command)).status, 202);
   await until(() => server.controlPlane.projection.workstreams(project.project_id).length === 1);
   const workstream = server.controlPlane.projection.workstreams(project.project_id)[0];

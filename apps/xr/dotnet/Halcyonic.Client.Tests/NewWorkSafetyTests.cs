@@ -41,26 +41,16 @@ public class NewWorkSafetyTests
     }
 
     [Test]
-    public void HalcyonicsOwnEllipsisShowsAsWrittenAndATypedOneAsItsCodePoint()
+    public void ATypedEllipsisInATitleShowsAsItsCodePointAndHalcyonicAddsNone()
     {
-        var draft = new NewWorkDraft(new CommandFactory(new ClientInfo { Name = "test" })) { Objective = new string('W', 150) + "\u2026" + new string('X', 300) };
-        var (typed, cut) = draft.TitleSource;
-        var review = new NewWorkReview("Project", typed, "Runtime", "Model", "unknown", "ref", draft.Objective, titleCut: cut);
-        Assert.That(cut, Is.True);
-        // A cut title is no row of its own (the lead's 2026-11-17T15:43Z (C)): its words are the first task's start, shown whole, and
-        // the first task's row says it names the task too, so no shortened name and no ellipsis of ours stands in the review.
-        Assert.That(review.Items.Any(item => item.Kind == ReviewItemKind.TaskName), Is.False, "no Task Name row where the title is cut");
-        var first = review.Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel);
-        Assert.That(first.RowLabel, Is.EqualTo("First Task and Name"));
-        Assert.That(first.Value, Does.Contain(new string('W', 150) + "\\u{2026}X"), "the person's ellipsis, by its code point");
-        Assert.That(review.Items.All(item => !item.Value.Contains('\u2026') && !item.Runs.Text.Contains('\u2026')), Is.True, "no ellipsis of ours drawn anywhere");
+        var draft = new NewWorkDraft(new CommandFactory(new ClientInfo { Name = "test" })) { Objective = "Make it pop\u2026 then ship it. More after." };
+        var review = new NewWorkReview("Project", draft.Title, "Runtime", "Model", "unknown", "ref", draft.Objective);
+        var title = review.Items.Single(item => item.Label == "Task Name").Value;
+        Assert.That(draft.Title, Is.EqualTo("Make it pop\u2026 then ship it."));
+        Assert.That(title, Is.EqualTo("Make it pop\\u{2026} then ship it."), "the person's ellipsis, by its code point, and none of Halcyonic's");
         Assert.That(review.Items.All(item => item.Value.All(value => value >= 0x20 && value <= 0x7E)), Is.True, "outside words show as printable ASCII; the labels are ours");
-        // What the start sends as the title is the shown task's own start, folded to one line, and our one mark (AUDIT3's C2): if the
-        // title ever becomes anything else, the dropped row must come back.
-        Assert.That(draft.Objective.StartsWith(typed, StringComparison.Ordinal), Is.True, "the title's words are the first task's start");
-        Assert.That(draft.Title, Is.EqualTo(LabelText.Plain(typed) + "\u2026"), "the title adds only folded spacing and the one mark");
         Assert.That(new NewWorkReview("Project", "Short", "Runtime", "Model", "unknown", "ref", "Short").Items[1].Value, Is.EqualTo("Short"));
-        // An uncut title keeps its own row, as ever.
+        // The title keeps its own row, and the first task its own label.
         var whole = new NewWorkReview("Project", "Short", "Runtime", "Model", "unknown", "ref", "Short");
         Assert.That((whole.Items.Single(item => item.Kind == ReviewItemKind.TaskName).RowLabel, whole.Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel).RowLabel),
             Is.EqualTo(("Task Name", (string?)"First Task")));

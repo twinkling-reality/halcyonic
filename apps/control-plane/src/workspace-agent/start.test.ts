@@ -377,6 +377,18 @@ test('an existing project takes a new task and its run, two commands, its own fo
   const after = s.step(id, step.step_id);
   assert.equal(after.made?.project_id, projectId);
   assert.equal(s.h.controlPlane.projection.workstreams(projectId).length, 1);
+  assert.equal(s.h.controlPlane.projection.workstreams(projectId)[0]?.title, 'Add a map');
+  // A long idea names its task by its first sentence, short and true, and is sent whole as the first task.
+  const idea =
+    'Add a map of the whole coast with every harbour marked. Then show the tides for each one, by the hour.';
+  const long = await s.press({ instruction: idea }, {}, projectId);
+  s.confirm(long.id, long.step);
+  await settle();
+  const made = s.step(long.id, long.step.step_id).made;
+  assert.ok(made?.workstream_id && made.execution_id);
+  const task = s.h.controlPlane.projection.workstream(made.workstream_id);
+  assert.equal(task?.title, 'Add a map of the whole coast with every harbour marked.');
+  assert.equal(task?.objective, idea);
 });
 
 test('the cost words follow the route the run takes: a key the person added, the app on its own, this computer', async (t) => {
