@@ -53,7 +53,7 @@ namespace Halcyonic.Client
         {
             CodeTheme.Halora => "Soft colours by kind of code, made for the glass.",
             CodeTheme.Plain => "All code in white, as before.",
-            CodeTheme.HighContrast => "Stronger colours for the clearest reading.",
+            CodeTheme.HighContrast => "Brighter colours, set further apart.",
             _ => throw new ArgumentOutOfRangeException(nameof(theme), theme, "a code theme of no known kind"),
         };
 

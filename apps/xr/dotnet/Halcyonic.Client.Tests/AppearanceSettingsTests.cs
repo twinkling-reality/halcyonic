@@ -736,7 +736,7 @@ public class AppearanceSettingsTests
             {
                 ("Halora", (string?)"Soft colours by kind of code, made for the glass.", (string?)"Current"),
                 ("Plain", "All code in white, as before.", null),
-                ("High Contrast", "Stronger colours for the clearest reading.", null),
+                ("High Contrast", "Brighter colours, set further apart.", null),
             }));
             Assert.That(page.Footer.All.Single(each => each.Prompt.Main).Prompt.Words, Is.EqualTo("Preview Colours"));
 
