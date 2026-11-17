@@ -37,11 +37,23 @@ namespace Halcyonic.Client
             Changed?.Invoke();
             return true;
         }
+        /// <summary>How far a turn may step the shelf aside along its own length to fit, in metres, and the step it tries by.</summary>
+        public const float TurnStepsAsideMost = 0.15f, TurnStepAside = 0.01f;
+
         public bool Move(Vector3 delta, float turn = 0f)
         {
             if (Candidate is not AgentShelfPose pose) return false;
             var next = new AgentShelfPose(pose.Position + delta, pose.Yaw + turn);
-            return Suggest(Generation, next);
+            if (Suggest(Generation, next)) return true;
+            if (turn == 0f) return false;
+            // A turn the shelf's place cannot hold (its ends would meet the plane or leave the field) steps aside along the turned shelf's own
+            // length to the nearest place that holds it, so a press always turns it where the room allows (the room yields, never refuses).
+            var radians = next.Yaw * MathF.PI / 180f;
+            var along = new Vector3(MathF.Cos(radians), 0f, -MathF.Sin(radians));
+            for (var step = TurnStepAside; step <= TurnStepsAsideMost + 1e-5f; step += TurnStepAside)
+                foreach (var sign in new[] { 1f, -1f })
+                    if (Suggest(Generation, new AgentShelfPose(next.Position + along * step * sign, next.Yaw))) return true;
+            return false;
         }
         public bool Apply(Func<AgentShelfPose, bool> publish)
         {
