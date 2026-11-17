@@ -92,7 +92,11 @@ namespace Halcyonic.Client
             var to = Turned(placed, moved);
             if (!WorkspacePlacement.Clears(to, bodies, composition.Size)) return "a character";
             if (field is ViewField measured && !MenuPage.Inside(composition, to, measured)) return "the field";
-            if (field is ViewField seen && stageYaw is float centre && !WithinReach(to, centre, seen)) return "the stage's reach";
+            // Never further out of the stage's reach than it stands (the lead's 2026-11-17T21:3xZ): places stand beside the clear front
+            // (PlaceBearings), so a plane before the person may already stand past the reach of a head turned to the stage, and then a grab
+            // must still move it, up, down or toward the stage, only never further away.
+            if (field is ViewField seen && stageYaw is float centre && ReachOvershoot(to, centre, seen) > Math.Max(0f, ReachOvershoot(Turned(placed, Moved), centre, seen)) + 1e-3f)
+                return "the stage's reach";
             if (holds != null && !holds(moved)) return "the plane's own";
             return null;
         }
@@ -121,6 +125,15 @@ namespace Halcyonic.Client
         /// margin, as seen with the head turned to the stage's centre at <paramref name="stageYaw"/>: a drag
         /// never takes the plane, and an approval that may come to it, out of sight of the stage.
         /// </summary>
+        /// <summary>How many degrees the plane's centre at <paramref name="at"/> stands outside <see cref="WithinReach"/>'s field; 0 inside it.</summary>
+        public static float ReachOvershoot(PanelDirection at, float stageYaw, ViewField field)
+        {
+            var margin = ViewField.EdgeMarginDegrees;
+            var across = WorkspacePlacement.DeltaAngle(stageYaw, at.Yaw);
+            return (float)Math.Max(0.0, Math.Max(Math.Max(across - (field.Right - margin), -across - (field.Left - margin)),
+                Math.Max(at.Elevation - (field.Up - margin), -at.Elevation - (field.Down - margin))));
+        }
+
         public static bool WithinReach(PanelDirection at, float stageYaw, ViewField field)
         {
             var margin = ViewField.EdgeMarginDegrees;

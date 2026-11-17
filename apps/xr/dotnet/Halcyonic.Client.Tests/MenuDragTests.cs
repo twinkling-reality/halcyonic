@@ -139,4 +139,22 @@ public class MenuDragTests
         var turned = MenuDrag.Turned(new PanelDirection(170f, -20f, true, true), (20f, -2f));
         Assert.That((turned.Yaw, turned.Elevation, turned.Clear, turned.Above), Is.EqualTo((-170f, -22f, true, true)));
     }
+
+    [Test]
+    public void APlaneAlreadyPastTheStagesReachStillMovesByItsHandleOnlyNeverFurtherAway()
+    {
+        // The seated places stand beside the clear front (about 47 degrees right and on), so the plane before the person can stand past the
+        // reach of a head turned to the stage; a grab there lifted nothing (ShelfWalkCheck on 6465ee73a: 'the plane did not move').
+        var quest3S = new ViewField(48, 48, 45, 45);
+        var stage = 52f;
+        Assert.That(MenuDrag.WithinReach(Placed, stage, quest3S), Is.False, "the case: already past the reach");
+        var up = new MenuDrag(Placed, (0f, 0f), 0f, -20f, MenuAndFile(), Array.Empty<BodyInView>(), field: quest3S, stageYaw: stage);
+        Assert.That(up.Follow(0f, -16f), Is.True, "a 4 degree lift moves it");
+        Assert.That(up.Moved.Elevation, Is.EqualTo(4f).Within(1e-3f));
+        var toward = new MenuDrag(Placed, (0f, 0f), 0f, -20f, MenuAndFile(), Array.Empty<BodyInView>(), field: quest3S, stageYaw: stage);
+        Assert.That(toward.Follow(6f, -20f), Is.True, "toward the stage moves it");
+        var away = new MenuDrag(Placed, (0f, 0f), 0f, -20f, MenuAndFile(), Array.Empty<BodyInView>(), field: quest3S, stageYaw: stage);
+        Assert.That(away.Follow(-10f, -20f), Is.False, "never further from the stage");
+        Assert.That(away.Refused, Is.EqualTo("the stage's reach"));
+    }
 }
