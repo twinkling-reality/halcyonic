@@ -329,22 +329,25 @@ public class AgentPanelActivity extends Activity {
         Typeface medium = Typeface.create("sans-serif-medium", Typeface.NORMAL);
         int widest = PanelKit.widthOf(state.toUpperCase(java.util.Locale.ROOT), PanelKit.LABEL, medium, PanelKit.LABEL_TRACKING, density);
         card.addView(PanelKit.label(this, state, density), new LinearLayout.LayoutParams(-1, -2));
-        TextView title = PanelKit.title(this, task, density);
-        card.addView(title, below(PanelKit.LABEL_GAP, density));
-        widest = Math.max(widest, PanelKit.widthOf(task, PanelKit.TITLE, medium, 0, density));
+        // One title, what is asked (f4; AUDIT2's 19:58Z order), then the task that asks in body type, quieter.
         Object need = summary.get("need");
         Object detail = summary.get("detail");
+        String asked = need != null ? PanelJson.text(need) : task;
+        card.addView(PanelKit.title(this, asked, density), below(PanelKit.LABEL_GAP, density));
+        widest = Math.max(widest, PanelKit.widthOf(asked, PanelKit.TITLE, medium, 0, density));
         if (need != null) {
-            String needWords = PanelJson.text(need);
-            card.addView(PanelKit.title(this, needWords, density), below(PanelKit.CONTENT_GAP, density));
-            widest = Math.max(widest, PanelKit.widthOf(needWords, PanelKit.TITLE, medium, 0, density));
+            TextView which = PanelKit.body(this, task, density); which.setTextColor(PanelHud.W2);
+            card.addView(which, below(PanelKit.LABEL_GAP / 2f, density));
+            widest = Math.max(widest, PanelKit.widthOf(task, PanelKit.TYPE, Typeface.DEFAULT, 0, density));
+        }
+        if (need != null) {
+            String needWords = asked;
             if (detail != null) {
                 String words = PanelJson.text(detail);
                 if (!"Agent's Question".equals(needWords)) {
-                    // The command in the well, the well's glass on the card's edge (f4), its ticks reaching back into the pad.
-                    int reach = PanelKit.wellReach(density);
+                    // The command in the well, the well spanning the text column on the card's edge, its ticks on its own corners.
                     LinearLayout.LayoutParams at = new LinearLayout.LayoutParams(-1, -2);
-                    at.setMargins(-reach, PanelKit.px(PanelKit.LABEL_GAP, density), -reach, 0);
+                    at.setMargins(0, PanelKit.px(PanelKit.CONTENT_GAP, density), 0, 0);
                     card.addView(PanelKit.well(this, words, density), at);
                     widest = Math.max(widest, PanelKit.widthOf(words, PanelKit.MONO, Typeface.MONOSPACE, 0, density) + 2 * PanelKit.px(PanelKit.WELL_PAD, density));
                 } else {
@@ -357,6 +360,8 @@ public class AgentPanelActivity extends Activity {
         // One row of presses on the same left edge (the lead's 19:38Z), each the row's widest width.
         int width = PanelKit.pressWidth(this, "Open Task", PanelKit.Glyph.OPEN, density);
         LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
+        // Right-aligned to the pad, as f4 sets its presses (the lead's 19:58Z (1)).
+        row.setGravity(android.view.Gravity.END);
         Button press = PanelKit.press(this, "Open Task", true, PanelKit.Glyph.OPEN, width, density);
         hold(press, openTask);
         row.addView(press);
@@ -433,9 +438,9 @@ public class AgentPanelActivity extends Activity {
         String sentence = "Choose a task in Halora to follow it here.";
         card.addView(PanelKit.label(this, "Halora", density), new LinearLayout.LayoutParams(-1, -2));
         card.addView(PanelKit.body(this, sentence, density), below(PanelKit.LABEL_GAP, density));
-        int width = Math.max(PanelKit.pressWidth(this, "More", PanelKit.Glyph.NONE, density), PanelKit.pressWidth(this, "Open Halora", PanelKit.Glyph.WINDOW, density));
-        LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
-        Button more = PanelKit.press(this, "More", false, PanelKit.Glyph.NONE, width, density);
+        int width = Math.max(PanelKit.pressWidth(this, "More", PanelKit.Glyph.MORE, density), PanelKit.pressWidth(this, "Open Halora", PanelKit.Glyph.WINDOW, density));
+        LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(android.view.Gravity.END);
+        Button more = PanelKit.press(this, "More", false, PanelKit.Glyph.MORE, width, density);
         hold(more, () -> { compactPanel = false; authority.compact(false); show(); });
         LinearLayout.LayoutParams moreAt = new LinearLayout.LayoutParams(width, PanelKit.px(PanelKit.CORE, density));
         moreAt.setMargins(0, 0, PanelKit.px(PanelKit.ROW_GAP, density), 0);

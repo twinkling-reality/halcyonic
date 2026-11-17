@@ -30,7 +30,8 @@ final class PanelKit {
     static final float LABEL = 18, LABEL_TRACKING = 0.24f, TITLE = 24, TYPE = 20, MONO = 19, LINE = 28;
     static final float LABEL_GAP = 8, CONTENT_GAP = 14, PRESSES_GAP = 28, ROW_GAP = 32;
     static final float CORE = 48, CORE_CORNER = 24, CHIP = 32, GLYPH = 20, CHIP_PAD = 8, WORDS_GAP = 10, RIGHT_PAD = 20;
-    static final float WELL_PAD = 16, WELL_CORNER = 16, TICK_ARM = 18, TICK_LINE = 1.5f, TICK_OUT = 10;
+    // The ticks stand on the well's own corners, inside it (FIELD's 35990422e: TickOutDp 0), the well on the shared edge.
+    static final float WELL_PAD = 16, WELL_CORNER = 16, TICK_ARM = 18, TICK_LINE = 1.5f, TICK_OUT = 0;
     static final float STRIP_CORNER = 28, STRIP_PAD_V = 12, STRIP_PAD_H = 24, STRIP_GAP = 16;
 
     /** The Ask glass, opaque; the well's thick glass over it; the ticks; the label role's white. */
@@ -81,7 +82,7 @@ final class PanelKit {
 
     /**
      * The command in the well, as LayDialog stands it: mono on the kit's line, literal, on the well's thick glass with its corner
-     * ticks round it. The well's glass stands on the card's shared left edge (f4); its ticks reach 10 back into the pad, never past it.
+     * ticks on its own corners. The well spans the text column on the card's shared left edge (FIELD's 35990422e).
      */
     static FrameLayout well(Context context, String code, float density) {
         TextView words = text(context, code, MONO, density);
@@ -125,9 +126,6 @@ final class PanelKit {
         }
     }
 
-    /** How far the ticks reach out of the card's content: the well's glass stands on the shared edge (f4), its ticks 10 out, inside the pad. */
-    static int wellReach(float density) { return px(TICK_OUT, density); }
-
     /** A press's width for its words: the chip and its glyph, the gap, the words, the right pad (RoomButton's core). */
     static int pressWidth(Context context, String words, Glyph glyph, float density) {
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG); paint.setTextSize(px(TYPE, density));
@@ -140,8 +138,8 @@ final class PanelKit {
      * A press as RoomButton draws it: the core 48 tall, its corner 24, the glyph 20 in the chip 32 at its left, the words 10
      * after the chip, 20 at the right. The main action on the lighter thin plate; every other on the plain glass. No rim, no hue.
      */
-    /** A press's glyph: the open arrow (Open Task), the window (Open Halora), or none (More, as the headset draws More words alone). */
-    enum Glyph { OPEN, WINDOW, NONE }
+    /** A press's glyph: the open arrow (Open Task), the window (Open Halora), three dots (More, the kit's More), or none. */
+    enum Glyph { OPEN, WINDOW, MORE, NONE }
 
     static Button press(Context context, String words, boolean main, Glyph glyph, int width, float density) {
         Button button = new Button(context);
@@ -158,7 +156,7 @@ final class PanelKit {
         plates.addState(new int[] {android.R.attr.state_hovered}, plate(main ? PanelHud.MAIN_POINTED : PanelHud.CAPSULE_POINTED, density));
         plates.addState(new int[0], plate(main ? PanelHud.MAIN_PLATE : PanelHud.CAPSULE, density));
         button.setBackground(glyph == Glyph.NONE ? plates
-            : new android.graphics.drawable.LayerDrawable(new Drawable[] {plates, new ChipGlyph(glyph == Glyph.WINDOW, density)}));
+            : new android.graphics.drawable.LayerDrawable(new Drawable[] {plates, new ChipGlyph(glyph, density)}));
         button.setLayoutParams(new LinearLayout.LayoutParams(width, core));
         return button;
     }
@@ -188,23 +186,33 @@ final class PanelKit {
     /** The glyph at the chip's centre: 8 in, then half the chip; drawn white, the size the kit draws it. */
     private static final class ChipGlyph extends Drawable {
         private final PanelHud.Glyph glyph;
+        private final Paint dots = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final boolean more;
         private final float density;
 
-        ChipGlyph(boolean workspaceGlyph, float density) {
+        ChipGlyph(Glyph kind, float density) {
             this.density = density;
-            glyph = new PanelHud.Glyph(workspaceGlyph, Color.WHITE, px(GLYPH, density));
+            more = kind == Glyph.MORE;
+            glyph = new PanelHud.Glyph(kind == Glyph.WINDOW, Color.WHITE, px(GLYPH, density));
+            dots.setColor(Color.WHITE); dots.setStyle(Paint.Style.FILL);
         }
 
         @Override public void draw(Canvas canvas) {
             int size = px(GLYPH, density);
             int left = getBounds().left + px(CHIP_PAD + (CHIP - GLYPH) / 2f, density);
             int top = getBounds().centerY() - size / 2;
+            if (more) {
+                // Three dots across the glyph's middle, the kit's More.
+                float u = size / 24f, y = top + 12 * u;
+                for (float x : new float[] {6, 12, 18}) canvas.drawCircle(left + x * u, y, 1.8f * u, dots);
+                return;
+            }
             glyph.setBounds(left, top, left + size, top + size);
             glyph.draw(canvas);
         }
 
-        @Override public void setAlpha(int alpha) { glyph.setAlpha(alpha); }
-        @Override public void setColorFilter(ColorFilter filter) { glyph.setColorFilter(filter); }
+        @Override public void setAlpha(int alpha) { glyph.setAlpha(alpha); dots.setAlpha(alpha); }
+        @Override public void setColorFilter(ColorFilter filter) { glyph.setColorFilter(filter); dots.setColorFilter(filter); }
         @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
 
