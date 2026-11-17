@@ -485,8 +485,12 @@ namespace Halcyonic.XR.UI
             FootLine = bar.Foot / zoom;
             PlaceHandle(zoom);
             TextBands = new[] { new TextBand(-size.x / 2f, size.x / 2f, -size.y / 2f, size.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
+            // While a dialog stands, Watch It Work's arc folds away and comes back when it goes, so no live layer ever stands over the
+            // dialog (the lead's 2026-11-17T19:38Z kit fault 3; visionos-window-example.png: the one window in front, nothing stacked on it).
+            dialogStands = room.AsDialog;
+            if (writingArc != null && watchDrawn && writingArc.gameObject.activeSelf == dialogStands) writingArc.gameObject.SetActive(!dialogStands);
             // The working field stands round the panel's place where the bar now stands (a plate or row under it moves it up).
-            if (watchDrawn) StandWatch(writingArc!.Size);
+            if (watchDrawn && !dialogStands) StandWatch(writingArc!.Size);
             ShowWork(room, zoom);
             foreach (var press in bar.Presses) press.Accepting = () => Accepting();
         }
@@ -565,7 +569,9 @@ namespace Halcyonic.XR.UI
                 writingArc.gameObject.SetActive(true);
                 var size = writingArc.Show(arc);
                 watchDrawn = size.y > 0f;
-                if (watchDrawn)
+                // Folded while a dialog stands; its reads still lay it, so it stands at once as the dialog goes.
+                if (dialogStands) writingArc.gameObject.SetActive(false);
+                else if (watchDrawn)
                 {
                     watchOverhang = Overhang(writingArc, size);
                     StandWatch(size);
@@ -580,6 +586,9 @@ namespace Halcyonic.XR.UI
 
         /// <summary>Whether Watch It Work's arc stands drawn: before its first read no panel stands, and the working field keeps its place.</summary>
         private bool watchDrawn;
+
+        /// <summary>Whether the bar stands as a dialog now (RoomBar.AsDialog): Watch It Work's arc folds away while it does.</summary>
+        private bool dialogStands;
 
         /// <summary>
         /// The arc in the panel's place (AUDIT's 07:33Z), over the foot line and never over the bar: its foot a gap over the bar's

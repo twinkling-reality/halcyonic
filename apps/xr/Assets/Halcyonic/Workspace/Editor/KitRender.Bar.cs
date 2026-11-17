@@ -632,6 +632,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 // A question's frame is reported drawn as a frame would report it, with the redesign still on: not while the band holds an unread part.
                 if (questioning || ResultStates.Contains(state)) host.DrawnForRender();
                 else host.SettleForRender();
+                if (state == "33-ask")
+                {
+                    // Watch It Work open when the agent asks: its arc folds away while the dialog stands, so no live layer stands over it (the
+                    // lead's 2026-11-17T19:38Z kit fault 3), and nothing of it is left in the frame drawn after.
+                    var titleWas = RoomWritingArc.ListTitle;
+                    RoomWritingArc.ListTitle = _ => BuildListWords;
+                    try { host.ShowWatch(BuildArcOf(2)); }
+                    finally { RoomWritingArc.ListTitle = titleWas; }
+                    Require(host.Bar.Shown is RoomBar asked && asked.AsDialog, "the approval does not stand as a dialog");
+                    Require(host.WatchArc == null || !host.WatchArc.gameObject.activeInHierarchy, "Watch It Work's arc stands over the approval's dialog");
+                    host.ShowWatch(null);
+                    host.SettleForRender();
+                }
                 if (state == "36-work-watch")
                 {
                     // The turn's files arrive one a second, as the director lays them from its reads (FIELD's 47-build-three), each move settled.
