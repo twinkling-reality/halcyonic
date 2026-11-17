@@ -437,3 +437,30 @@ Checks recorded before this keep the verdict they were recorded with: no migrati
 checked bare before it reads failed until it is checked again. A client built before `starter_only` meets a verdict
 literal it does not know; the headset's strict realtime validator drops the whole message carrying it, so the control
 plane and the headset build move together, never the plane first.
+
+## Amendment, 2026-11-17: each task's own copy is checked and previewed side by side
+
+Amended 2026-11-17, limits audit #5 and #6: the host ran one check per project at a time, each new check stopped the
+project's running preview, and a project had one preview. A swarm (several tasks of one project, each in its own copy,
+ADR 0045) could not show its variants side by side. Now the host keys every check, preview start, running preview and
+record file by the project and the task or none. The rule "one check or start at a time, and no start while a check
+runs" holds per folder: the project's own folder, and each task's own copy. A check of a task stops only that task's
+preview (`new_check`), never another task's or the project's.
+
+`project.preview.start` and `project.preview.stop` take an optional `workstream_id`, and `project.preview.started` and
+`project.preview.stopped` carry it. A task's preview serves the latest passed check of that task's own copy, with its
+files current, on a port of the same range, which stays bounded (40, `preview_ports_full`). A task without a copy of its
+own, or without such a check, is refused in plain words. `WorkstreamView.preview` shows a task's running preview. The
+project's `latestCheck` and `preview` keep their meaning: the latest check of all, a task's included, and the project's
+own preview. Play on the Mac and sharing stay with the project's own preview, and a task's preview stopping stops
+neither.
+
+The headset's relay gate reads a task's preview by the same rules it reads the project's, each of that task: its
+preview, its own latest check, passed and with every agent's reads confined, and the host's own record of its server,
+never a port the request names. The file route takes the task in its path
+(`/api/projects/:id/tasks/:task/preview/...`), so the page's own query reaches its server untouched; the stream takes a
+`task` query. Without a task, both behave as before.
+
+Because checks of different tasks now finish side by side, AutoFix judges a check by the check its own command
+recorded, never the project's latest, and an agent's failed lines come from the latest check of its own folder.
+PROJECTION_STATE_FORMAT 30.
