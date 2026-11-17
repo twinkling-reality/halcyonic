@@ -559,6 +559,65 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
     assert.equal(JSON.stringify(asked).includes(held), false);
   });
 
+  test("a command over 32000 characters, in each runtime's parts, is recorded whole enough to deny and never approvable (AUDIT3 AC-L)", () => {
+    const long = `echo ${'x'.repeat(33000)}`;
+    const shapes = [
+      {
+        tool_name: 'Bash',
+        summary: `[in its shell, which started in the task's folder] ${long}`,
+        command: {
+          text: long,
+          runs_in: { kind: 'session_shell' },
+          background: false,
+          input_to_running: false,
+        },
+      },
+      {
+        tool_name: 'commandExecution',
+        summary: `${long}\nin /w\nand network access to example.com (https)`,
+        command: {
+          text: long,
+          runs_in: { kind: 'folder', path: '/w' },
+          background: false,
+          input_to_running: false,
+          network: { host: 'example.com', protocol: 'https' },
+        },
+      },
+      {
+        tool_name: 'shell',
+        summary: `[in the task's folder] ${long}`,
+        command: {
+          text: long,
+          runs_in: { kind: 'task_folder' },
+          background: false,
+          input_to_running: false,
+        },
+      },
+    ];
+    for (const shape of shapes) {
+      const { sink, recorded } = recordingSink();
+      sink(
+        observation('runtime.approval.requested', {
+          approval_id: 'a',
+          subject: { kind: 'tool_use', ...shape },
+          complete: true,
+        }),
+      );
+      const asked = recorded[0]?.payload as {
+        subject: { summary: string; command: ApprovalCommand };
+        complete: boolean;
+        too_long?: { length: number };
+      };
+      // Recorded, never lost: the event is the contract's, so the ask reaches the person, who can only deny it.
+      assert.ok(asked, shape.tool_name);
+      assert.ok(validatePayload(asked).ok, shape.tool_name);
+      assert.equal(asked.complete, false, shape.tool_name);
+      assert.ok((asked.too_long?.length ?? 0) > 32000, shape.tool_name);
+      assert.ok([...asked.subject.command.text].length <= 32000, shape.tool_name);
+      assert.ok([...asked.subject.summary].length <= 32000, shape.tool_name);
+    }
+  });
+
   test('a command whose part is cut to the contract is never approvable (2026-11-16)', () => {
     const { sink, recorded } = recordingSink();
     sink(
