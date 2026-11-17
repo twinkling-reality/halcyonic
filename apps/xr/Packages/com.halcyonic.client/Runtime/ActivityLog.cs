@@ -285,7 +285,7 @@ namespace Halcyonic.Client
                         ? ToolWords(subject.ToolName) + Ours(", ") + LineWords.Theirs(CaptureNames.Request(subject.Summary))
                         : (LineWords?)null);
                 case RuntimeApprovalResolvedEvent resolved:
-                    return Entry(ActivityKind.Approval, resolved.Payload.Decision == ApprovalResolution.Approved ? "Approved" : "Denied");
+                    return Entry(ActivityKind.Approval, resolved.Payload.Decision == ApprovalResolution.Approved ? "Approved" : KitMomentWords.Declined);
                 case RuntimeConnectionLostEvent lost:
                     // The reason is the agent app's diagnostic, naming it, a request or a path: never shown.
                     return Entry(ActivityKind.Connection, StateLanguage.LostTouch);
@@ -326,7 +326,7 @@ namespace Halcyonic.Client
         /// <summary>What a command asks for, in plain words, or null for one that has none yet.</summary>
         private static string? Verb(CommandEnvelope command) => command switch
         {
-            ExecutionRespondToApprovalCommand respond => respond.Payload.Decision == ApprovalDecision.Approve ? "Approval" : "Denial",
+            ExecutionRespondToApprovalCommand respond => respond.Payload.Decision == ApprovalDecision.Approve ? "Approval" : "Decline",
             ExecutionInterruptCommand _ => "Stop",
             ExecutionSendInstructionCommand _ => "Instruction",
             ExecutionStartCommand _ => "Start",

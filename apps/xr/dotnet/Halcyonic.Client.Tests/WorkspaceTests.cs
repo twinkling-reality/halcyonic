@@ -262,7 +262,8 @@ public class ActivityLogTests
         Assert.That(refactor, Does.Contain("Instruction Refused: that isn't supported. See Activity."), "by the refusal's code, never its message");
         Assert.That(refactor, Has.None.Contains("instruct_while_running").And.None.Contains("Runtime mock"));
         Assert.That(refactor[^1], Is.EqualTo("Round Stopped"));
-        Assert.That(log.For(ExecutionOf(events, "Drop the legacy sessions table")).Select(entry => entry.Text), Does.Contain("Denied"));
+        Assert.That(log.For(ExecutionOf(events, "Drop the legacy sessions table")).Select(entry => entry.Text), Does.Contain(KitMomentWords.Declined), "one act, one word: the headset says Declined where it declines");
+        Assert.That(log.For(ExecutionOf(events, "Drop the legacy sessions table")).Select(entry => entry.Text), Does.Contain("Decline Sent"), "the send of a decline says Decline, as its button does");
     }
 
     [Test]
