@@ -910,6 +910,47 @@ describe('production native agent panel', () => {
     assert.equal(at('running').needs_you, false);
     assert.equal(at('waiting_for_human', 0, 1).needs_you, true);
   });
+  test("the compact detail is the agent's own words for what waits: a question's text, and nothing where an approval names none (AUDIT3 S7)", () => {
+    const base = model();
+    const read = (approvals: unknown[], questions: unknown[]) =>
+      JSON.parse(
+        run(
+          'monitor',
+          JSON.stringify({
+            ...base,
+            workstreams: base.workstreams.map((work) => ({
+              ...work,
+              title: 'Make the game',
+              status: 'running',
+            })),
+            executions: base.executions.map((execution) => ({
+              ...execution,
+              status: 'waiting_for_human',
+              runtime: { ...execution.runtime, synthetic: false },
+              pending_approvals: approvals,
+              pending_questions: questions,
+            })),
+          }),
+          projectId,
+          workId,
+        ),
+      );
+    const asked = read(
+      [],
+      [{ question_id: 'q0', prompts: [{ key: 'a', text: 'Which colour scheme?' }] }],
+    );
+    assert.equal(asked.need, "Agent's Question");
+    assert.equal(asked.detail, 'Which colour scheme?');
+    const unnamed = read(
+      [{ approval_id: 'a0', subject: { kind: 'tool_use', tool_name: 'bash' } }],
+      [],
+    );
+    assert.equal(unnamed.need, 'Run Command?');
+    assert.equal(unnamed.detail, null);
+    const noSubject = read([{ approval_id: 'a1' }], []);
+    assert.equal(noSubject.need, 'Approval Requested');
+    assert.equal(noSubject.detail, null);
+  });
   test('compact task projection uses the selected tuple and separates live, recorded and simulated provenance', () => {
     const base = model();
     const selected = {
