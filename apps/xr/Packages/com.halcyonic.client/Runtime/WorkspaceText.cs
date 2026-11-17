@@ -725,10 +725,30 @@ namespace Halcyonic.Client
         /// The agent's own sentence of what an approval asks (<see cref="ToolUseSubject.Summary"/>), theirs, laid above the
         /// command's well, or alone where there is no command: whole, its folder named as the capture extra names it
         /// (<see cref="CaptureNames.Request"/>), and a markdown code span's backticks removed, as they are markup, not words
-        /// (<see cref="WithoutCodeMarks"/>); nothing else in it changes. Null where the approval names no tool.
+        /// (<see cref="WithoutCodeMarks"/>); nothing else in it changes. Where the sentence begins or ends with the command the
+        /// well holds, as an adapter builds it from the command's parts (Codex: the command, then the folder it runs in and any
+        /// network; Claude Code: its shell's bracket, then the command), the command is not said twice: the sentence keeps only
+        /// its other words, how and where the command runs, and is null where nothing else is left. Null where the approval
+        /// names no tool.
         /// </summary>
-        public static string? Description(ApprovalView? approval) =>
-            approval?.Subject is ToolUseSubject tool ? WithoutCodeMarks(CaptureNames.Request(tool.Summary)) : null;
+        public static string? Description(ApprovalView? approval)
+        {
+            if (approval?.Subject is not ToolUseSubject tool) return null;
+            var said = WithoutCodeMarks(CaptureNames.Request(tool.Summary));
+            if (BareCommand(approval) is not string command) return said;
+            foreach (var bare in new[] { CaptureNames.Request(command), command }.Distinct())
+            {
+                if (bare.Length == 0) continue;
+                var trimmed = said.Trim();
+                string? rest = trimmed.StartsWith(bare, System.StringComparison.Ordinal) ? trimmed.Substring(bare.Length)
+                    : trimmed.EndsWith(bare, System.StringComparison.Ordinal) ? trimmed.Substring(0, trimmed.Length - bare.Length)
+                    : null;
+                if (rest == null) continue;
+                rest = rest.Trim();
+                return rest.Length == 0 ? null : rest;
+            }
+            return said;
+        }
 
         /// <summary>
         /// <paramref name="text"/> with the backticks of each markdown code span removed, the span's words kept as written:

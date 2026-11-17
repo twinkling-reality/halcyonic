@@ -483,6 +483,24 @@ public class RoomBarTests
         Assert.That(asked.Description?.Text, Is.EqualTo("Print today's date with date"), "the sentence's code span loses its backticks; the command keeps its own");
     }
 
+    [TestCase("pnpm test\nin /work/app\nand network access to registry.npmjs.org (https)", "in /work/app and network access to registry.npmjs.org (https)")]
+    [TestCase("[in its shell, which started in the task's folder] pnpm test", "[in its shell, which started in the task's folder]")]
+    [TestCase("[in its shell, which started in the task's folder, in the background] pnpm test", "[in its shell, which started in the task's folder, in the background]")]
+    [TestCase("Send input to a running command: pnpm test", "Send input to a running command:")]
+    [TestCase("pnpm test", null)]
+    [TestCase("Run `pnpm test` before the release", "Run pnpm test before the release")]
+    public void TheSentenceAboveTheWellNeverSaysTheCommandAgainButKeepsHowAndWhereItRuns(string summary, string? expected)
+    {
+        // Codex and Claude Code build the summary from the command's parts, so it begins or ends with the command the well holds.
+        var workspace = Asking(new ToolUseSubject { ToolName = "Bash", Summary = summary, Command = Bare("pnpm test") });
+        var (asked, confirming, _) = AskedAndConfirming(workspace);
+        foreach (var bar in new[] { asked, confirming })
+        {
+            Assert.That((bar.Mono, bar.Body.Text), Is.EqualTo((true, "pnpm test")), "the well holds the command alone");
+            Assert.That(bar.Description?.Text, Is.EqualTo(expected), "the sentence holds what the well does not, never the command again");
+        }
+    }
+
     [Test]
     public void WithoutItsBareCommandAnApprovalDrawsNoWellOnlyTheAgentsSentence()
     {
