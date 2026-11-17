@@ -173,9 +173,22 @@ namespace Halcyonic.Client
         /// What a person must know of recorded or demonstration work wherever it is shown, word for word: the first sentence of
         /// <see cref="Describe"/>. The redesign stands it over everything the bar shows (RoomBar.Notice).
         /// </summary>
-        public static string Notice(bool recordedRun) => recordedRun
-            ? "Recorded: real agent work, played back here. Nothing here is live."
-            : "Demo: a scripted run that answers you, on this headset. Nothing here is live.";
+        public static string Notice(bool recordedRun)
+        {
+            var sentence = Sentence(recordedRun);
+            return Label(recordedRun) + ": " + char.ToLowerInvariant(sentence[0]) + sentence.Substring(1);
+        }
+
+        /// <summary>
+        /// The notice's label, drawn apart in the label role (the one language, the lead's 2026-11-17 01:32Z; AUDIT2 and JUDGE 01:33Z):
+        /// "Recorded" or "Demo". <see cref="Notice"/> is built from it and <see cref="Sentence"/>, never a third copy of the words.
+        /// </summary>
+        public static string Label(bool recordedRun) => recordedRun ? "Recorded" : "Demo";
+
+        /// <summary>The notice's sentence, drawn under its label in body type, its own case, word for word.</summary>
+        public static string Sentence(bool recordedRun) => recordedRun
+            ? "Real agent work, played back here. Nothing here is live."
+            : "A scripted run that answers you, on this headset. Nothing here is live.";
 
         /// <summary>
         /// The line above the stage while the demonstration is shown. Its first sentence names what plays

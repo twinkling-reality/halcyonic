@@ -77,6 +77,10 @@ namespace Halcyonic.XR.UI
         /// <summary>The notice over everything the bar shows (RoomBar.Notice): the bar's own surface as wide as its words, at most the panel's, its words whole.</summary>
         private RoomSurface? notice;
         private TextMeshPro? noticeWords;
+        private TextMeshPro? noticeLabel;
+
+        /// <summary>The notice's label (RoomBar.NoticeLabel) in the label role, while it shows; null otherwise.</summary>
+        public TextMeshPro? NoticeLabel => NoticePlate != null && noticeLabel != null && noticeLabel.gameObject.activeSelf ? noticeLabel : null;
 
         /// <summary>The notice's plate as last laid, for the checks: null where none stands.</summary>
         public RoomSurface? NoticePlate => notice != null && notice.gameObject.activeSelf ? notice : null;
@@ -612,11 +616,22 @@ namespace Halcyonic.XR.UI
                 // The bar's own surface and rounding, so the notice reads as the bar's, never a stray tag (the critic, 2026-11-12).
                 notice = RoomSurface.Create(transform, "Notice", RoomSurfaceKind.Bar, KitType.Order.Plate);
                 noticeWords = RoomType.Create(notice.transform, "Notice words", Color.white, KitType.Order.Words, TextAlignmentOptions.TopLeft);
+                noticeLabel = RoomType.Create(notice.transform, "Notice label", Color.white, KitType.Order.Words, TextAlignmentOptions.TopLeft);
+                noticeLabel.textWrappingMode = TextWrappingModes.NoWrap;
             }
             notice.gameObject.SetActive(true);
             var pad = RoomType.Units(NoticePadDp) * GlazeText.Scale;
+            // The one language: the label apart, in the label role, over the sentence in body type, its own case, word for word.
+            var labelled = bar.NoticeLabel != null && bar.NoticeSentence != null;
+            noticeLabel!.gameObject.SetActive(labelled);
+            var labelTall = 0f;
+            if (labelled)
+            {
+                RoomType.Label(noticeLabel, bar.NoticeLabel!);
+                labelTall = KitType.Lay(noticeLabel, width - 2f * pad, 1).Height + RoomType.Scaled(4f);
+            }
             var runs = GlazeRuns.Of(noticeWords!);
-            runs.Set(said);
+            runs.Set(labelled ? LineWords.Ours(bar.NoticeSentence!) : said);
             noticeWords!.textWrappingMode = TextWrappingModes.Normal;
             // Never one word alone on its last line (JUDGE's judge room, 19:20Z: "live." alone).
             var laid = RoomCardView.Balanced(noticeWords, width - 2f * pad, 3);
@@ -625,15 +640,20 @@ namespace Halcyonic.XR.UI
             var measure = noticeWords.rectTransform.sizeDelta.x;
             // The plate as wide as its words laid, never wider than the panel: the same pad on either side (the critic, 2026-11-12).
             noticeWords.ForceMeshUpdate(true);
-            var wordsWidth = Mathf.Min(width - 2f * pad, Mathf.Max(noticeWords.GetRenderedValues(true).x, 0f));
+            var wordsWidth = Mathf.Min(width - 2f * pad, Mathf.Max(noticeWords.GetRenderedValues(true).x, labelled ? noticeLabel.GetRenderedValues(true).x : 0f, 0f));
             var plate = wordsWidth + 2f * pad;
-            var tall = laid.Height + 2f * pad;
+            var tall = labelTall + laid.Height + 2f * pad;
             notice.Draw(new Vector2(plate, tall));
             var left = centred ? panelTopLeft.x + (width - plate) / 2f : panelTopLeft.x;
             notice.transform.localPosition = new Vector3(left + plate / 2f, panelTopLeft.y + RoomType.Units(NoticeGapDp) + tall / 2f, 0f);
             noticeWords.rectTransform.pivot = new Vector2(0f, 1f);
             noticeWords.rectTransform.sizeDelta = new Vector2(measure, laid.Height);
-            noticeWords.transform.localPosition = new Vector3(-plate / 2f + pad, tall / 2f - pad, -RoomType.Units(0.5f));
+            noticeWords.transform.localPosition = new Vector3(-plate / 2f + pad, tall / 2f - pad - labelTall, -RoomType.Units(0.5f));
+            if (labelled)
+            {
+                noticeLabel.rectTransform.pivot = new Vector2(0f, 1f);
+                noticeLabel.transform.localPosition = new Vector3(-plate / 2f + pad, tall / 2f - pad, -RoomType.Units(0.5f));
+            }
         }
 
         private void Update()

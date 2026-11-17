@@ -505,7 +505,12 @@ namespace Halcyonic.Client
             // else by what the connection says it shows; live work, a practice run included, carries none.
             var task = binding.Plain ? null : binding.Model.Marks.FirstOrDefault(mark => mark.Kind is WorkMarkKind.Recorded or WorkMarkKind.Demo)?.Kind;
             if ((task ?? (shown is WorkMarkKind.Recorded or WorkMarkKind.Demo ? shown : null)) is WorkMarkKind recorded)
-                bar.Notice = LineWords.Ours(DemonstrationFallback.Notice(recordedRun: recorded == WorkMarkKind.Recorded));
+            {
+                var recordedRun = recorded == WorkMarkKind.Recorded;
+                bar.Notice = LineWords.Ours(DemonstrationFallback.Notice(recordedRun));
+                bar.NoticeLabel = DemonstrationFallback.Label(recordedRun);
+                bar.NoticeSentence = DemonstrationFallback.Sentence(recordedRun);
+            }
             return bar;
         }
 

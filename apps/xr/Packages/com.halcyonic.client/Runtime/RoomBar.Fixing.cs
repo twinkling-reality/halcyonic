@@ -21,6 +21,10 @@ namespace Halcyonic.Client
         /// </summary>
         public LineWords? Notice { get; set; }
 
+        /// <summary>The notice's two parts as the bar draws them (DemonstrationFallback.Label and Sentence): its label apart, then its sentence.</summary>
+        public string? NoticeLabel { get; set; }
+        public string? NoticeSentence { get; set; }
+
         /// <summary>The fixing card's title and its quieter line while a try is under way (the addendum's A7 and A17).</summary>
         public const string FixingTitle = "Fixing";
         public const string FixingLine = "The agent tries again on its own.";

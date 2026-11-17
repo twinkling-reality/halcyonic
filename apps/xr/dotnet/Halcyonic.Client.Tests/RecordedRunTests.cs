@@ -35,6 +35,20 @@ public class RecordedRunTests
 
     /// <summary>The recorded run the judge build bundles, where it has one (ADR 0035): read as one, and naming no brand.</summary>
     [Test]
+    public void TheNoticeIsItsLabelAndItsSentenceFromOneSourceAndTheLabelStandsApart()
+    {
+        foreach (var recorded in new[] { true, false })
+        {
+            var sentence = DemonstrationFallback.Sentence(recorded);
+            Assert.That(DemonstrationFallback.Notice(recorded), Is.EqualTo(DemonstrationFallback.Label(recorded) + ": " + char.ToLowerInvariant(sentence[0]) + sentence.Substring(1)));
+            Assert.That(char.IsUpper(sentence[0]), Is.True, "the sentence drawn under its label starts with its own capital");
+        }
+        Assert.That((DemonstrationFallback.Label(true), DemonstrationFallback.Label(false)), Is.EqualTo(("Recorded", "Demo")));
+        Assert.That(DemonstrationFallback.Notice(true), Is.EqualTo("Recorded: real agent work, played back here. Nothing here is live."));
+        Assert.That(DemonstrationFallback.Notice(false), Is.EqualTo("Demo: a scripted run that answers you, on this headset. Nothing here is live."));
+    }
+
+    [Test]
     public void TheBundledRecordedRunIsOneAndNamesNoBrand()
     {
         var path = Repository.PathTo("apps/xr/Assets/Halcyonic/Resources/HalcyonicRecordedRun.json");

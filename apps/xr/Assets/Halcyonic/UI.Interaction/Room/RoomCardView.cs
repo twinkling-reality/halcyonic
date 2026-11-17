@@ -687,12 +687,12 @@ namespace Halcyonic.XR.UI
             {
                 // Deep grounds of the tone's hue, near solid, the light ink over them: a faint tint vanished over the bright room
                 // (the critic, 2026-11-11), where the recap's solid head held.
-                RoomTone.Good => (Rgb(GoodFill), Color.white, RoomGlyph.Check),
-                RoomTone.Bad => (Rgb(BadFill), Color.white, RoomGlyph.Alert),
-                RoomTone.Working => (Rgb(WorkingFill), Color.white, RoomGlyph.Wrench),
-                // Attention's amber is light: its glyph dark on it, so it reads as wanted, never as dirt.
-                RoomTone.Attention => (Rgb(Attention), Rgb(AttentionInk), RoomGlyph.Bubble),
-                _ => (Rgb(QuietFill), Color.white, RoomGlyph.Minus),
+                // The one language (AUDIT 2026-11-17 01:32Z, MUST 1): a thin line mark with no tile; a state's colour on the mark alone.
+                RoomTone.Good => (Color.clear, Rgb(PassedInk), RoomGlyph.Check),
+                RoomTone.Bad => (Color.clear, Rgb(FailedInk), RoomGlyph.Alert),
+                RoomTone.Working => (Color.clear, Color.white, RoomGlyph.Wrench),
+                RoomTone.Attention => (Color.clear, Rgb(Attention), RoomGlyph.Bubble),
+                _ => (Color.clear, Color.white, RoomGlyph.Minus),
             };
             if (status.Mark != RoomKind.None) glyph = GlyphOf(status.Mark);
             var left = S(StatusMarkDp + StatusGapDp);
@@ -1364,14 +1364,15 @@ namespace Halcyonic.XR.UI
                 // (the lead, 2026-11-11: "Edited in Both" in the failure's tint read 2.89 to 1 over the bright room).
                 var (ground, ink, note) = tone switch
                 {
-                    RoomTone.Good => (Rgb(PassedGround, ToneTileAlpha * 2f), Rgb(PassedInk), White(NoteAlpha)),
-                    RoomTone.Bad => (Rgb(FailedGround, ToneTileAlpha * 2f), Rgb(FailedInk), White(NoteAlpha)),
-                    RoomTone.Working => (Rgb(Accent, 0.16f), Rgb(Accent), White(NoteAlpha)),
-                    RoomTone.Attention => (Rgb(Attention, 0.16f), Rgb(Attention), White(NoteAlpha)),
-                    // A neutral row's mark in a quiet tile, as a slot's (the critic, 2026-11-11: a bare glyph read as no mark).
-                    _ => (White(RowTileAlpha), White(0.85f), White(NoteAlpha)),
+                    // The one language (AUDIT 2026-11-17 01:32Z, MUST 1): every row's mark a thin line glyph with no tile; a state's
+                    // colour on the mark alone (passed, failed, waiting for you), never orange, which is the main action's light alone.
+                    RoomTone.Good => (Color.clear, Rgb(PassedInk), White(RoomType.LabelAlpha)),
+                    RoomTone.Bad => (Color.clear, Rgb(FailedInk), White(RoomType.LabelAlpha)),
+                    RoomTone.Working => (Color.clear, Color.white, White(RoomType.LabelAlpha)),
+                    RoomTone.Attention => (Color.clear, Rgb(Attention), White(RoomType.LabelAlpha)),
+                    _ => (Color.clear, White(0.85f), White(RoomType.LabelAlpha)),
                 };
-                if (row.Chosen) (ground, ink) = (Rgb(Accent, 0.24f), Rgb(AccentNote));
+                if (row.Chosen) ink = Color.white;
                 // A row picked from carries a chevron at its right, the note before it, and takes a press across its whole width.
                 // An answer is pressed to choose it, in place: no chevron, as nothing opens.
                 var picked = row.Press != null;
@@ -1388,10 +1389,11 @@ namespace Halcyonic.XR.UI
                 TextMeshPro? noteLabel = null;
                 if (row.Note != null)
                 {
-                    if (stacked) (noteLabel, noteTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.HostPlain(row.Note), nameLeft, 0f, width - nameLeft - chevronRoom, 3);
+                    // A row's state or value words in the label role (AUDIT 2026-11-17 01:32Z, MUST 2): spaced capitals at white 0.52.
+                    if (stacked) (noteLabel, noteTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, note, LineWords.HostPlain(row.Note), nameLeft, 0f, width - nameLeft - chevronRoom, 3, labelRole: true);
                     else
                     {
-                        (noteLabel, _) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, note, LineWords.HostPlain(row.Note), 0f, 0f, width / 2f, 1);
+                        (noteLabel, _) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, note, LineWords.HostPlain(row.Note), 0f, 0f, width / 2f, 1, labelRole: true);
                         noteWidth = RoomCursor.WordsWidth(noteLabel, 0f);
                     }
                 }
@@ -1471,8 +1473,8 @@ namespace Halcyonic.XR.UI
                     var corner = row.Mark == AnswerMark.Multiple ? S(RoomButton.MarkBoxCornerDp) : markSize / 2f;
                     if (row.Chosen)
                     {
-                        Plate(new Vector2(markSize, markSize), corner, Rgb(ChosenAtRest), markCentre, "answer mark chosen");
-                        Glyph(RoomGlyph.Check, RoomButton.MarkCheckDp, Rgb(Dark), markCentre, "answer chosen");
+                        Plate(new Vector2(markSize, markSize), corner, Color.clear, markCentre, "answer mark chosen", Color.white, S(1.5f));
+                        Glyph(RoomGlyph.Check, RoomButton.MarkCheckDp, Color.white, markCentre, "answer chosen");
                     }
                     else Plate(new Vector2(markSize, markSize), corner, Color.clear, markCentre, "answer mark", White(RoomButton.MarkLineAlpha), S(1.5f));
                 }
@@ -1481,7 +1483,7 @@ namespace Halcyonic.XR.UI
                 {
                     var tileCentre = new Vector2(S(RowTileDp) / 2f, -middle);
                     Plate(new Vector2(S(RowTileDp), S(RowTileDp)), S(RowTileCornerDp), ground, tileCentre, "row tile " + row.Kind,
-                        row.Chosen ? Rgb(Accent, 0.70f) : Color.clear, row.Chosen ? S(1.5f) : 0f);
+                        row.Chosen ? White(0.74f) : Color.clear, row.Chosen ? S(1.5f) : 0f);
                     Glyph(glyph, RowGlyphDp, ink, tileCentre, "row " + row.Kind);
                 }
                 down = top + rowTall + S(RowPadDp);
@@ -1610,8 +1612,11 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>Lays words of <paramref name="role"/> at a size and line pitch of their own, their box's top left at (x, y); returns the label and how tall its lines stand.</summary>
+        /// <summary>Each pooled label's own tracking, so one laid in the label role takes its own back when the pool hands it on.</summary>
+        private readonly Dictionary<TextMeshPro, float> baseTracking = new Dictionary<TextMeshPro, float>();
+
         private (TextMeshPro Label, float Tall) Text(KitRole role, float dp, float lineDp, Color colour, LineWords words, float x, float y, float width, int lines,
-            TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft)
+            TextAlignmentOptions alignment = TextAlignmentOptions.TopLeft, bool labelRole = false)
         {
             if (!texts.TryGetValue(role, out var pool)) texts[role] = pool = new List<TextMeshPro>();
             textsUsed.TryGetValue(role, out var used);
@@ -1625,6 +1630,10 @@ namespace Halcyonic.XR.UI
             var label = pool[used];
             textsUsed[role] = used + 1;
             label.gameObject.SetActive(true);
+            // The label role draws its words in spaced capitals by the face's own style, so the words themselves stay as given.
+            if (!baseTracking.ContainsKey(label)) baseTracking[label] = label.characterSpacing;
+            label.fontStyle = labelRole ? label.fontStyle | FontStyles.UpperCase : label.fontStyle & ~FontStyles.UpperCase;
+            label.characterSpacing = labelRole ? RoomType.LabelTracking : baseTracking[label];
             label.alignment = alignment;
             label.color = colour;
             label.fontSize = GlazeTokens.FontSize(S(dp) / RoomType.Units(1f) * RoomType.Units(1f));
