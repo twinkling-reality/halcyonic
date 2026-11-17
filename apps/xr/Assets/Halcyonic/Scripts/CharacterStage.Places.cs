@@ -119,10 +119,8 @@ namespace Halcyonic.XR
                     others[place.ProjectId] = stood;
                     PlaceCreated?.Invoke(place.ProjectId, stood.Sign);
                 }
-                var yaw = ahead + bearing.YawDegrees;
-                var facing = Quaternion.Euler(0f, yaw, 0f);
-                var feet = arc.position.y - bearing.Drop;
-                stood.Root.SetPositionAndRotation(new Vector3(eyes.x, feet, eyes.z) + facing * Vector3.forward * bearing.Distance, facing);
+                var (at, facing) = PlacePose(eyes, ahead, arc.position.y, bearing);
+                stood.Root.SetPositionAndRotation(at, facing);
                 // Its characters: those that leave go, those that come stand, each shown as the shelf shows its own.
                 var shown = place.Shown.Where(state.Workstreams.ContainsKey).ToList();
                 foreach (var id in stood.Views.Keys.Where(id => !shown.Contains(id)).ToList())
@@ -151,16 +149,11 @@ namespace Halcyonic.XR
         {
             var distance = bearing.Distance;
             var scale = radius;
-            // The pitch from the widest tag as drawn, never under a body and a degree and a half (FIELD's PlacePitch).
             var widestTag = 0f;
             var tallestTag = 0f;
             foreach (var view in stood.Views.Values)
                 if (DrawnTagSize?.Invoke(view) is Vector2 size) { widestTag = Mathf.Max(widestTag, size.x); tallestTag = Mathf.Max(tallestTag, size.y); }
-            if (widestTag <= 0f) widestTag = WidestTagMetres * distance / PlaceBearings.RingOneDistance;
-            var tagDegrees = PlacePitch.DegreesOf(widestTag, distance);
-            var bodyDegrees = PlacePitch.DegreesOf(BodyWidth * scale, distance);
-            var pitch = (float)PlacePitch.MetresOf(PlacePitch.PitchDegrees(tagDegrees, bodyDegrees), distance);
-            var rowMost = Mathf.Min(PlacePitch.RowMost(tagDegrees, bodyDegrees), Places.Rule.FullMost);
+            var (pitch, rowMost) = PlaceRows(widestTag, scale, distance, Places.Rule);
             for (var index = 0; index < shown.Count; index++)
             {
                 var view = stood.Views[shown[index]];
@@ -173,27 +166,92 @@ namespace Halcyonic.XR
             // The floor arc spans the place, tags and all, about the eyes at its distance, under the feet, a tick at each end.
             var half = (float)PlaceBearings.SpanDegrees / 2f;
             var middle = stood.Root.eulerAngles.y;
-            var height = stood.Root.position.y;
-            var points = stood.Arc.positionCount;
-            for (var step = 0; step < points; step++)
-            {
-                var yaw = middle - half + 2f * half * step / (points - 1);
-                stood.Arc.SetPosition(step, new Vector3(eyes.x, height, eyes.z) + Quaternion.Euler(0f, yaw, 0f) * Vector3.forward * distance);
-            }
+            DrawFloorArc(stood.Arc, stood.Ticks, eyes, stood.Root.position.y, distance, middle - half, middle + half);
             var width = distance / PlaceBearings.RingOneDistance;
-            stood.Arc.widthMultiplier = FloorArcWidth * width;
-            for (var end = 0; end < 2; end++)
-            {
-                var foot = stood.Arc.GetPosition(end == 0 ? 0 : points - 1);
-                stood.Ticks[end].SetPosition(0, foot - Vector3.up * FloorTickHeight * width / 2f);
-                stood.Ticks[end].SetPosition(1, foot + Vector3.up * FloorTickHeight * width / 2f);
-                stood.Ticks[end].widthMultiplier = FloorArcWidth * width;
-            }
             // The sign hangs under the place's lowest tag, at the front row's middle, sized for its distance (the room's units are 1 at it).
             var under = tallestTag > 0f ? tallestTag : WidestTagMetres * 0.3f;
             stood.Sign.localPosition = new Vector3(0f, -(under + SignGap * width), 0f);
             stood.Sign.rotation = Quaternion.LookRotation(stood.Sign.position - eyes, Vector3.up);
             stood.Sign.localScale = Vector3.one * Vector3.Distance(stood.Sign.position, eyes);
+        }
+
+        private LineRenderer? shelfArc;
+        private LineRenderer[]? shelfTicks;
+
+        /// <summary>
+        /// The person's shelf under the redesign stands on a floor arc as every place does, the slab under its characters retired (the lead's
+        /// 2026-11-17T19:25Z ruling 3: the places' floor arcs replace it): the arc about the eyes through the shelf's middle, as wide as its
+        /// places, a tick at each end. The older shelf keeps its slab.
+        /// </summary>
+        private void StandShelfFloorArc()
+        {
+            var redesign = RoomDesign.Enabled && !BesideAWindow;
+            if (shelfSurface != null && shelfSurface.gameObject.activeSelf == redesign) shelfSurface.gameObject.SetActive(!redesign);
+            var drawn = redesign && arc.gameObject.activeInHierarchy;
+            if (!drawn)
+            {
+                if (shelfArc != null && shelfArc.gameObject.activeSelf) { shelfArc.gameObject.SetActive(false); foreach (var tick in shelfTicks!) tick.gameObject.SetActive(false); }
+                return;
+            }
+            if (shelfArc == null)
+            {
+                floorArcMaterial ??= new Material(Shader.Find("Sprites/Default"));
+                shelfArc = FloorLine(transform, "Shelf floor arc", 24, FloorArcAlpha);
+                shelfTicks = new[] { FloorLine(transform, "Shelf floor arc tick", 2, FloorTickAlpha), FloorLine(transform, "Shelf floor arc tick", 2, FloorTickAlpha) };
+            }
+            if (!shelfArc.gameObject.activeSelf) { shelfArc.gameObject.SetActive(true); foreach (var tick in shelfTicks!) tick.gameObject.SetActive(true); }
+            var eyes = shelfViewer;
+            float YawOf(Vector3 point) => Mathf.Atan2(point.x - eyes.x, point.z - eyes.z) * Mathf.Rad2Deg;
+            var half = ShelfWidth / 2f - MinimumFittedWidth / 2f;
+            var left = YawOf(arc.TransformPoint(new Vector3(-half, 0f, 0f)));
+            var right = YawOf(arc.TransformPoint(new Vector3(half, 0f, 0f)));
+            var distance = new Vector2(arc.position.x - eyes.x, arc.position.z - eyes.z).magnitude;
+            DrawFloorArc(shelfArc, shelfTicks!, eyes, arc.position.y, distance, left, left + Mathf.DeltaAngle(left, right));
+        }
+
+        /// <summary>Lays a floor arc about <paramref name="eyes"/> at <paramref name="height"/> and <paramref name="distance"/> from one yaw to another, a tick at each end.</summary>
+        private static void DrawFloorArc(LineRenderer line, LineRenderer[] ticks, Vector3 eyes, float height, float distance, float fromYaw, float toYaw)
+        {
+            var points = line.positionCount;
+            for (var step = 0; step < points; step++)
+            {
+                var yaw = Mathf.Lerp(fromYaw, toYaw, step / (float)(points - 1));
+                line.SetPosition(step, new Vector3(eyes.x, height, eyes.z) + Quaternion.Euler(0f, yaw, 0f) * Vector3.forward * distance);
+            }
+            var width = distance / PlaceBearings.RingOneDistance;
+            line.widthMultiplier = FloorArcWidth * width;
+            for (var end = 0; end < 2; end++)
+            {
+                var foot = line.GetPosition(end == 0 ? 0 : points - 1);
+                ticks[end].SetPosition(0, foot - Vector3.up * FloorTickHeight * width / 2f);
+                ticks[end].SetPosition(1, foot + Vector3.up * FloorTickHeight * width / 2f);
+                ticks[end].widthMultiplier = FloorArcWidth * width;
+            }
+        }
+
+        /// <summary>
+        /// Where a place whose bearing is <paramref name="bearing"/> stands for the eyes at <paramref name="eyes"/>, ahead at <paramref name="ahead"/>
+        /// degrees of the world's yaw, the person's shelf at <paramref name="shelfHeight"/>: its floor arc's middle, at the bearing's distance
+        /// and drop, and its facing, away from the eyes.
+        /// </summary>
+        public static (Vector3 At, Quaternion Facing) PlacePose(Vector3 eyes, float ahead, float shelfHeight, PlaceBearing bearing)
+        {
+            var facing = Quaternion.Euler(0f, ahead + bearing.YawDegrees, 0f);
+            return (new Vector3(eyes.x, shelfHeight - bearing.Drop, eyes.z) + facing * Vector3.forward * bearing.Distance, facing);
+        }
+
+        /// <summary>
+        /// A place's pitch in metres and how many stand in its front row: the pitch from its widest tag as drawn (<paramref name="widestTag"/>
+        /// metres, or the longest name's before any has drawn), never under a body and a degree and a half (FIELD's <see cref="PlacePitch"/>);
+        /// the row as many as the place's span holds with its outer tags inside it, and never more than <paramref name="rule"/>'s one row.
+        /// </summary>
+        public static (float Pitch, int RowMost) PlaceRows(float widestTag, float scale, float distance, PlaceRule rule)
+        {
+            if (widestTag <= 0f) widestTag = WidestTagMetres * distance / PlaceBearings.RingOneDistance;
+            var tagDegrees = PlacePitch.DegreesOf(widestTag, distance);
+            var bodyDegrees = PlacePitch.DegreesOf(BodyWidth * scale, distance);
+            var pitch = (float)PlacePitch.MetresOf(PlacePitch.PitchDegrees(tagDegrees, bodyDegrees), distance);
+            return (pitch, Mathf.Min(PlacePitch.RowMost(tagDegrees, bodyDegrees), rule.FullMost));
         }
 
         /// <summary>

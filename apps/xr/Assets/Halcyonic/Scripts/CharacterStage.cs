@@ -443,6 +443,7 @@ namespace Halcyonic.XR
             {
                 arc.gameObject.SetActive(false);
                 ShowOtherPlacesWithShelf();
+                StandShelfFloorArc();
                 onSurface = false;
                 placedOnce = false;
                 return;
@@ -461,6 +462,7 @@ namespace Halcyonic.XR
             }
             Glide();
             ShowOtherPlacesWithShelf();
+            StandShelfFloorArc();
         }
 
         /// <summary>
