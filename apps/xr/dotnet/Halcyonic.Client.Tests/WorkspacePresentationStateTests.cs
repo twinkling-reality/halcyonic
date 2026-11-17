@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using Halcyonic.Contracts;
 using Newtonsoft.Json.Linq;
