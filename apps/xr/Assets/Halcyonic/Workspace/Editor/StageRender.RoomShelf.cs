@@ -118,6 +118,8 @@ namespace Halcyonic.XR.Workspace.Editor
                             Directory.CreateDirectory(clip);
                             var seen = new List<float>();
                             var amber = new List<int>();
+                            // The light the ring adds over the whole frame: its breath shows in how bright it is, not how many pixels it covers.
+                            var lights = new List<float>();
                             for (var frame = 0; frame < 48; frame++)
                             {
                                 Advance(view, 1f / 12f);
@@ -126,6 +128,7 @@ namespace Halcyonic.XR.Workspace.Editor
                                 // The ring in the pixels: those it changes, the frame drawn again with the ring alone hidden. The ring is white
                                 // since the no-hue chrome (the lead's 2026-11-17T19:15Z), so its hue no longer tells it from the tag's white.
                                 var lit = 0;
+                                var light = 0f;
                                 if (view.NeedsYouRing is MeshRenderer ringShown)
                                 {
                                     ringShown.enabled = false;
@@ -134,10 +137,15 @@ namespace Halcyonic.XR.Workspace.Editor
                                     var with = still.GetPixels32();
                                     var without = bare.GetPixels32();
                                     for (var pixel = 0; pixel < with.Length && pixel < without.Length; pixel++)
-                                        if (Mathf.Abs(Luma(with[pixel]) - Luma(without[pixel])) >= RingPixelStep) lit++;
+                                    {
+                                        var change = Mathf.Abs(Luma(with[pixel]) - Luma(without[pixel]));
+                                        if (change >= RingPixelStep) lit++;
+                                        light += change;
+                                    }
                                     UnityEngine.Object.DestroyImmediate(bare);
                                 }
                                 amber.Add(lit);
+                                lights.Add(light);
                                 File.WriteAllBytes(Path.Combine(clip, "frame-" + frame.ToString("00", System.Globalization.CultureInfo.InvariantCulture) + ".png"), still.EncodeToPNG());
                                 UnityEngine.Object.DestroyImmediate(still);
                                 if (view.NeedsYouRing is MeshRenderer ring)
@@ -152,7 +160,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             // Seen at a glance at its dim end, and plainly rising and falling (the lead's 2026-11-17T03:24Z).
                             Debug.Log("Halcyonic: room shelf: " + name + ": the floor ring's pixels per frame " + string.Join(" ", amber));
                             if (amber.Min() < NeedsYouRingAmberFloor) failures.Add(name + ": the floor ring is not seen at its dim end: " + amber.Min() + " ring pixels, under " + NeedsYouRingAmberFloor);
-                            if (amber.Max() < amber.Min() * 1.3f) failures.Add(name + ": the floor ring does not rise and fall: " + amber.Min() + " to " + amber.Max() + " pixels");
+                            if (lights.Max() < lights.Min() * 1.3f) failures.Add(name + ": the floor ring's light does not rise and fall: " + lights.Min().ToString("0") + " to " + lights.Max().ToString("0"));
                         }
                     }
                     finally
