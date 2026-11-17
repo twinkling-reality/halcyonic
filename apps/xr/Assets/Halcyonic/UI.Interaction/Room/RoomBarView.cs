@@ -564,7 +564,11 @@ namespace Halcyonic.XR.UI
                 rises[index] = index == places - 1 ? cores[index].y / 2f
                     : rises[index + 1] + Mathf.Max(target, cores[index + 1].y) / 2f + KitType.Units(SpatialKit.TargetGapDegrees) + Mathf.Max(target, cores[index].y) / 2f;
             var columnHeight = places == 0 ? 0f : Mathf.Max(Mathf.Max(target, cores[places - 1].y), rises[0] + Mathf.Max(target, cores[0].y) / 2f);
-            var total = panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
+            // With the steps' panel standing, its presses stand INSIDE its foot, one right-aligned row of one width, never loose beside
+            // it (AUDIT's kit pass at 9 (1); visionos-window-example.png: the window's control sits inside the window).
+            var inPanel = bar.Steps.Count > 0 && places > 0;
+            var rowTall = inPanel ? Enumerable.Range(0, places).Max(index => Mathf.Max(target, cores[index].y)) : 0f;
+            var total = inPanel ? panelWidth : panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
             var rowed = bar.Row.Count > 0;
             // Where the row does not stand, the agent's plate stands in its place: a name tag, never pressed (FIELD's part).
             var plated = !rowed && bar.Plate != null;
@@ -577,8 +581,8 @@ namespace Halcyonic.XR.UI
             var pad = RoomType.Scaled(RoomGeometry.PanelPadDp);
             var stepsTall = listed ? LaySteps(bar.Steps, panelWidth - 2f * pad, bar.StepsUsage) : 0f;
             if (!listed) HideSteps();
-            var panelHeight = listed ? stepsTall + 2f * pad : 0f;
-            var above = Mathf.Max(stops ? columnHeight : 0f, panelHeight);
+            var panelHeight = listed ? stepsTall + 2f * pad + (inPanel ? RoomType.Scaled(RoomGeometry.BodyFootDp) + rowTall : 0f) : 0f;
+            var above = inPanel ? panelHeight : Mathf.Max(stops ? columnHeight : 0f, panelHeight);
             var below = rowed || plated || !stops ? RoomType.Units(RowFeetDp) : 0f;
             var foot = (below - above) / 2f;
             if (listed)
@@ -609,11 +613,15 @@ namespace Halcyonic.XR.UI
                 LayPlate(bar, new Vector3(0f, foot - below + target / 2f, -RoomType.Units(0.5f)));
             }
             var rowWidth = rowed ? Size.x : 0f;
+            var rowGap = KitType.Units(SpatialKit.TargetGapDegrees);
             for (var index = 0; index < places; index++)
             {
                 var action = bar.Column[index];
-                column[index].Show(action.Words, action.Icon, action.Main, available: true,
-                    new Vector2(-total / 2f + panelWidth + gap + widest / 2f, foot + rises[index]), widest,
+                // In the panel's foot the last (Stop) stands at the right, each before it a press width and a gap to its left.
+                var at = inPanel
+                    ? new Vector2(-total / 2f + panelWidth - pad - widest / 2f - (places - 1 - index) * (widest + rowGap), foot + pad + rowTall / 2f)
+                    : new Vector2(-total / 2f + panelWidth + gap + widest / 2f, foot + rises[index]);
+                column[index].Show(action.Words, action.Icon, action.Main, available: true, at, widest,
                     doing: RoomButton.Doing(action.Control), detail: action.Detail, route: action.Place == KitPlace.Section);
                 controls[column[index]] = action.Control;
             }
