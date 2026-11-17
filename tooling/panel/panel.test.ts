@@ -1164,7 +1164,10 @@ describe('production native agent panel', () => {
       'decided in onCreate, before anything is shown',
     );
     // F2 and F5: the panel reads no extra of its own intent, so an intent carrying either launch setting does nothing.
-    assert.doesNotMatch(activity, /getExtras\(|get[A-Za-z]*Extra\(|halcyonic\.generic|halcyonic\.panelcapture/);
+    assert.doesNotMatch(
+      activity,
+      /getExtras\(|get[A-Za-z]*Extra\(|halcyonic\.generic|halcyonic\.panelcapture/,
+    );
     // F1 and F1a: allowed only when debuggable AND the development-only class is packaged (a build-time gate).
     const capture = readFileSync(join(SOURCES, 'PanelCapture.java'), 'utf8');
     assert.match(capture, /FLAG_DEBUGGABLE\) == 0\) return false/);
@@ -1200,8 +1203,16 @@ describe('production native agent panel', () => {
     );
     const generic = presets.match(/if \(ReadExtra\("halcyonic\.generic"\)\)\s*\{([^}]*)\}/)?.[1];
     assert.ok(generic !== undefined, 'the generic names keep their own setting');
-    assert.doesNotMatch(generic, /AllowCapture/, 'the names setting never makes the panel capturable');
-    assert.equal(presets.match(/AllowCapture\(\)/g)?.length, 1, 'one place allows capture, under its own setting');
+    assert.doesNotMatch(
+      generic,
+      /AllowCapture/,
+      'the names setting never makes the panel capturable',
+    );
+    assert.equal(
+      presets.match(/AllowCapture\(\)/g)?.length,
+      1,
+      'one place allows capture, under its own setting',
+    );
     const callers = execFileSync('git', ['grep', '-l', 'AllowCapture()', '--', 'apps/xr/Assets'], {
       cwd: ROOT,
       encoding: 'utf8',
