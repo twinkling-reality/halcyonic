@@ -175,7 +175,7 @@ namespace Halcyonic.XR.UI
         /// Shows what the agent said, or its question's prompt, from its first part: arriving where the band holds nothing,
         /// replacing what it holds otherwise. The same words again change nothing; no words at all make it leave.
         /// </summary>
-        public void Show(string? said)
+        public void Show(string? said, bool firstSentenceAlone = false)
         {
             var laid = RoomWords.Laid(said);
             if (laid.Length == 0)
@@ -183,7 +183,8 @@ namespace Halcyonic.XR.UI
                 Leave();
                 return;
             }
-            if (phase != Phase.Hidden && phase != Phase.Leaving && front.Laid == laid) return;
+            if (phase != Phase.Hidden && phase != Phase.Leaving && front.Laid == laid && front.FirstSentenceAlone == firstSentenceAlone) return;
+            front.FirstSentenceAlone = back.FirstSentenceAlone = firstSentenceAlone;
             Turn(laid, 0);
         }
 
@@ -412,6 +413,12 @@ namespace Halcyonic.XR.UI
             public readonly RoomMove[] Moves = new RoomMove[RoomWords.LinesAPart];
             public RoomWords? Words;
             public string Laid = "";
+
+            /// <summary>
+            /// Where the words are a result's (the review card, TASKS take 3: the agent's first sentence alone under its result),
+            /// the first part ends at the first sentence's end in its three lines, not the last; the rest page as ever.
+            /// </summary>
+            public bool FirstSentenceAlone;
             private bool[] cut = System.Array.Empty<bool>();
             private int[] partStarts = System.Array.Empty<int>();
 
@@ -515,7 +522,12 @@ namespace Halcyonic.XR.UI
                     var from = info.characterInfo[info.lineInfo[first].firstCharacterIndex].index;
                     var to = info.characterInfo[info.lineInfo[first + RoomWords.LinesAPart - 1].lastCharacterIndex].index + 1;
                     var stop = -1;
-                    foreach (var end in RoomWords.SentenceEnds(text)) if (end > from && end <= to) stop = end;
+                    foreach (var end in RoomWords.SentenceEnds(text))
+                    {
+                        if (end <= from || end > to) continue;
+                        stop = end;
+                        if (first == 0 && FirstSentenceAlone) break;
+                    }
                     if (stop < 0)
                     {
                         cuts.Add(true);

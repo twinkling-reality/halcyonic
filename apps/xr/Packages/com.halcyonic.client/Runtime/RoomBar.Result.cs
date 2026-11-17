@@ -179,22 +179,36 @@ namespace Halcyonic.Client
                     // FIELD's result card (A17): the task's name as its title, the check and the files changed (or waiting to be
                     // added) as slots, an ended chain of tries as its status first. No sentence: the check is a slot now.
                     // Where the result says nothing, how the run stands (B).
-                    card = RoomPanelCards.Result(result, frame.SubjectRuns, binding.Model.AutoFix, result.Add?.Slot) ?? binding.Model.Standing;
+                    // The review card (TASKS, take 3): Checks and Changes are the card's own facts, each one press from the result, so
+                    // they leave the column; the column keeps the acts.
+                    var changesPress = Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next).Control;
+                    var checksPress = ChecksOf()?.Control;
+                    card = RoomPanelCards.Result(result, frame.SubjectRuns, binding.Model.AutoFix, result.Add?.Slot, changesPress, checksPress) ?? binding.Model.Standing;
+                    var onCard = card?.Slots.Select(slot => slot.Press).Where(press => press != null).ToList() ?? new List<KitControl?>();
                     // Kept, said (the lead's R1): once the host recorded the add and nothing newer waits, the card's status says
                     // so, with no line, since nothing on the headset can undo it yet; a chain of tries that ended keeps its status.
-                    if (result.Add?.State == RoomAddState.Added) card = Said(card, frame.SubjectRuns, new RoomCardStatus(RoomAdd.AddedWords, null, RoomTone.Good));
+                    // The check's own outcome gives way to it (the review card's status is the outcome until then; its count stays a fact).
+                    if (result.Add?.State == RoomAddState.Added)
+                    {
+                        var added = new RoomCardStatus(RoomAdd.AddedWords, null, RoomTone.Good);
+                        card = card != null && fixedLine == null && card.Status is RoomCardStatus outcome && outcome.Title is RoomPanelCards.AllPassing or RoomPanelCards.ChecksFailed
+                            ? card.WithStatus(added) : Said(card, frame.SubjectRuns, added);
+                    }
                     // The photo or video the person gave the task heads its card, where the host made a still of it (ADR 0066).
                     card = card?.WithStill(binding.Model.Still);
                     if (ranOut && instruct != null) column.Add(new RoomAction(instruct, main: true, WorkspaceText.Label(WorkspaceAction.Instruct)));
                     // SCREENS's Carry Out Plan leads a plan at rest (FIELD's words; the glyph FIELD's).
                     if (result.Start is { CanCarryOut: true } && column.Count == 0) column.Add(Own(RoomResult.CarryOutPlan, RunStart.CarryOutPlan, main: true, GlazeIcon.Next));
-                    // A13: the task's work to add to its project leads where there is some; where the project changed the same
-                    // files, Let Agent Fix leads to FIELD's card naming them.
-                    if (result.Add?.State == RoomAddState.Ready) column.Add(Own(RoomResult.ShowAdd, RoomAdd.AddToProject, main: column.Count == 0, GlazeIcon.Next));
-                    else if (result.Add?.State == RoomAddState.Conflict) column.Add(Own(RoomResult.ShowConflict, RoomAdd.LetAgentFix, main: column.Count == 0, GlazeIcon.Next));
+                    // The review card (TASKS, take 3; AUDIT 23:47Z): a project not yet VR leads with Make VR Version as before; else Try
+                    // Build is the one accent where it stands; the work to add to its project (A13) after it, still its own review's
+                    // press (AUDIT3's R2), where the project changed the same files Let Agent Fix to FIELD's card naming them; then
+                    // a VR project's Request Change.
+                    // Where the project changed the same files, that leads, as before: nothing can be added until it is fitted.
+                    if (result.Add?.State == RoomAddState.Conflict) column.Add(Own(RoomResult.ShowConflict, RoomAdd.LetAgentFix, main: column.Count == 0, GlazeIcon.Next));
                     if (result.CanMakeVr) column.Add(Own(RoomResult.MakeVrVersion, KitScreenModel.Words(KitScreenAction.MakeAVrVersion), main: column.Count == 0, GlazeIcon.Next));
-                    else if (result.IsVr && instruct != null && !ranOut) column.Add(new RoomAction(instruct, main: column.Count == 0, KitScreenModel.Words(KitScreenAction.ChangeIt)));
                     if (result.CanTry) column.Add(Own(RoomResult.TryBuild, KitScreenModel.Words(KitScreenAction.TryIt), main: column.Count == 0, GlazeIcon.OpenNow));
+                    if (result.Add?.State == RoomAddState.Ready) column.Add(Own(RoomResult.ShowAdd, RoomAdd.AddToProject, main: column.Count == 0, GlazeIcon.Next));
+                    if (!result.CanMakeVr && result.IsVr && instruct != null && !ranOut) column.Add(new RoomAction(instruct, main: column.Count == 0, KitScreenModel.Words(KitScreenAction.ChangeIt)));
                     // DEVICE's Play in Headset beside Try Build, where it stands. Where it does not, it is not drawn: an action that
                     // cannot act has no disabled look (BUILD-SPEC-v4 1.4); where its refusal's words stand is FIELD's to say.
                     // The project's places from its one list (LINK's ProjectPlaces): Play in Headset where the list has it, by its kind, never its label.
@@ -207,8 +221,9 @@ namespace Halcyonic.Client
                     if (result.CanShare) column.Add(Own(RoomResult.ShowShare, ShareText.Share, main: column.Count == 0, GlazeIcon.Next));
                     // The one Changes (the lead, 11:15Z): always offered at rest, its page saying Nothing Changed where none did and the plain
                     // not-seen words where the computer could not say, as a desk always has its Changes (JUDGE's live-17: unreached otherwise).
-                    column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
-                    if (ChecksOf() is RoomAction atRestChecks) column.Add(atRestChecks);
+                    // Where the card does not hold them as facts (no count, no check), they stand in the column as before.
+                    if (!onCard.Any(press => press?.Action == RoomResult.ShowChanges)) column.Add(Own(RoomResult.ShowChanges, RoomResult.ChangesWords, main: false, GlazeIcon.Next));
+                    if (ChecksOf() is RoomAction atRestChecks && !onCard.Any(press => press?.Action == atRestChecks.Control.Action && press?.Key == atRestChecks.Control.Key)) column.Add(atRestChecks);
                     // The agent's words stand on the band beside its result, never beside how a run stands (B): nothing extra.
                     // Beside how a run stands, only that turn's own words, on the band, read by parts and never cut (the card stays whole).
                     band = card != null && ReferenceEquals(card, binding.Model.Standing)

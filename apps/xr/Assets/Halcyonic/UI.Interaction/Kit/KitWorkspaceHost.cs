@@ -395,8 +395,9 @@ namespace Halcyonic.XR.UI
             if (turned is { } kept && ReferenceEquals(kept.Frame, binding.Frame)) { for (var turn = 0; turn < kept.Turns && room.Turn(); turn++) { } }
             else turned = null;
             // The agent's own words stand on the band, never in the panel; the same words again keep the part it shows.
-            // In the question's dialog the agent's words stand at the top of the panel instead (RoomBar.AsDialog).
-            if (room.Band != null && !room.AsDialog) band.Show(room.Band);
+            // In the question's dialog the agent's words stand at the top of the panel instead (RoomBar.AsDialog). Beside a result, the
+            // agent's first sentence stands alone on the band's first part (TASKS's review card, take 3).
+            if (room.Band != null && !room.AsDialog) band.Show(room.Band, firstSentenceAlone: room.Result);
             // The heard draft's words on the band, the codec's subtitle (RoomBar.AsSubtitle), while they stand whole in two lines; longer
             // words keep the draft's panel, paged on whole words as ever (AUDIT 2026-11-16 23:47Z, mend 4).
             else if (room.AsSubtitle && room.Body.Text != longHeard) band.Show(room.Body.Text);

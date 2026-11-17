@@ -21,6 +21,10 @@ namespace Halcyonic.Client
         public const string Failed = "Failed";
         public const string AllPassing = "All Passing";
         public const string ChecksFailed = "Checks Failed";
+
+        /// <summary>The review card's checks fact: how many of the computer's own check steps passed, of all of them ("4 of 4 Checks Passed", AUDIT2 23:51Z).</summary>
+        public static string ChecksCount(int passed, int of) =>
+            passed.ToString(System.Globalization.CultureInfo.InvariantCulture) + " of " + of.ToString(System.Globalization.CultureInfo.InvariantCulture) + " Checks Passed";
         public const string NotSeen = "Not Seen";
         public const string NotSeenLine = "The computer could not say what changed";
 
@@ -54,7 +58,9 @@ namespace Halcyonic.Client
         /// <param name="task">The task's name, theirs.</param>
         /// <param name="toAdd">The files waiting to be added (<see cref="RoomAdd.Slot"/>), which stands in the count's place.</param>
         /// <param name="changes">The control that opens Changes: the files' slot takes it, so what changed is one press from the result.</param>
-        public static RoomCard? Result(RoomResult result, LineWords task, AutoFixView? fix = null, RoomSlot? toAdd = null, KitControl? changes = null)
+        /// <param name="checks">The control that opens Checks: the checks' slot takes it, so how the check went is one press from the result.</param>
+        public static RoomCard? Result(RoomResult result, LineWords task, AutoFixView? fix = null, RoomSlot? toAdd = null, KitControl? changes = null,
+            KitControl? checks = null)
         {
             var ended = RoomBar.FixedCard(fix);
             // "All Passing" is the computer's check speaking for these files: it stands only while the result has that check
@@ -62,12 +68,18 @@ namespace Halcyonic.Client
             if (fix?.Reason == AutoFixEndReason.Passed && result.Passed != true) ended = null;
             if (!result.Any && ended == null) return null;
             var slots = new List<RoomSlot>();
-            // The check's outcome in the Checks page's own words, one word per state (AUDIT2 2026-11-16 10:05Z W1); where the card's
-            // status already names it (a chain of tries that ended), the slot does not say it twice (W2).
+            // The review card (TASKS, take 3; Detroit's Analysis conclusion): the check's outcome is the card's one large line, its
+            // status, in the Checks page's own words (AUDIT2 2026-11-16 10:05Z W1), and the checks a fact under it, one press from
+            // the result: how many of the computer's own steps passed. Where a chain of tries that ended already names the outcome,
+            // its status stands and the outcome is not said twice (W2).
+            RoomCardStatus? outcome = null;
             if (result.Passed is bool passed && ended?.Status == null)
-                slots.Add(new RoomSlot(passed ? RoomKind.Passed : RoomKind.Failed, LineWords.Ours(passed ? AllPassing : ChecksFailed)));
+                outcome = new RoomCardStatus(passed ? AllPassing : ChecksFailed, null, passed ? RoomTone.Good : RoomTone.Attention);
             // A check whose verdict is not known: said as such, with no mark of passed or failed (VRIFY, AUDIT2's words).
             else if (result.PartlyChecked) slots.Add(new RoomSlot(RoomKind.None, LineWords.Ours(KitMomentWords.PartlyChecked)));
+            if (result.Passed != null && result.Steps.Count > 0)
+                slots.Add(new RoomSlot(result.Passed == true ? RoomKind.Passed : RoomKind.Failed,
+                    LineWords.Ours(ChecksCount(result.Steps.Count(step => step.Result == CheckStepResult.Passed), result.Steps.Count)), press: checks));
             if (toAdd is RoomSlot waiting) slots.Add(new RoomSlot(waiting.Kind, waiting.Value, waiting.Mono, waiting.Press ?? changes));
             else if (result.FilesChanged is long count) slots.Add(new RoomSlot(RoomKind.ToAdd, LineWords.Ours(RoomAdd.Files(count)), press: changes));
             // SCREENS's run start (FIELD's 1424Z words): a run the Mac says is not kept to its folder, and a task that is a plan.
@@ -80,7 +92,8 @@ namespace Halcyonic.Client
                 : (RoomCardStatus?)null)
                 // Where the computer's own check gives no outcome, the card says what the Checks page says (JUDGE's ALERT 05:04Z):
                 // a check under way, or the demonstration's simulated checks, said as simulated; never "Nothing checked yet".
-                ?? (result.CheckRunning ? new RoomCardStatus(TaskSteps.Checking, null, RoomTone.Working) : result.Simulated);
+                ?? (result.CheckRunning ? new RoomCardStatus(TaskSteps.Checking, null, RoomTone.Working) : result.Simulated)
+                ?? outcome;
             // Where Play in Headset is not drawn and why matters to the person, its reason stands at the card's foot.
             var refusal = result.Play is PlayInHeadset play ? HeadsetPlay.RefusalLine(play) : null;
             return new RoomCard(task, head: RoomCardHead.Picture, status: status, slots: slots, trackAt: ended?.TrackAt, trackOf: ended?.TrackOf,
