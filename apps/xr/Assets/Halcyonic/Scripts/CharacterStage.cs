@@ -514,9 +514,6 @@ namespace Halcyonic.XR
             if (flyingId != null && releasedAt == null) releasedAt = FlightClock();
         }
 
-        /// <summary>How far the thin line hangs under the called character's tag beside the panel, in dp.</summary>
-        public const float FlightStemDp = 40f;
-
         /// <summary>How near the person's head the flight may come, and how far above the eyes, in metres.</summary>
         public const float FlightClearOfHeadM = 0.5f;
 
@@ -564,8 +561,9 @@ namespace Halcyonic.XR
             // 2026-11-17T02:15Z: the tag fades in once the bot settles); back on its shelf, it stands there again.
             var tagged = flight.Along <= 0f || flight.TagShown >= 0.5f;
             if (view.Labels.gameObject.activeSelf != tagged) view.Labels.gameObject.SetActive(tagged);
-            // Beside the panel, its name rides on the thin line; on its shelf, none.
-            view.LabelStemDp = flight.Along >= 1f && flight.TagShown >= 0.5f ? FlightStemDp : 0f;
+            // Away from its shelf the tag hangs no line and no diamond: the diamond marks the shelf where the character stands, and beside
+            // the panel there is no floor for it to mark (AUDIT's 2026-11-17T21:4xZ). They come back with it on its shelf.
+            view.LabelStemDp = 0f;
             StandHome();
             var home = view.transform.position;
             // The floor ring stays on the floor where it stood and fades over the lift-off (the lead's 2026-11-17T18:32Z): the call

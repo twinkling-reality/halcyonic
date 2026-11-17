@@ -344,6 +344,9 @@ namespace Halcyonic.XR.Workspace.Editor
                             .Where(each => each.enabled && each.gameObject.activeInHierarchy && (each.GetComponent<TMPro.TMP_SubMesh>() is TMPro.TMP_SubMesh sub ? sub.textComponent != null && sub.textComponent.enabled : each.GetComponentInParent<RoomShape>() != null)).ToList();
                         if (early.Count > 0) failures.Add(name + ": the panel's marks stand before it arrives: " + string.Join(", ", early.Select(each => each.name).Distinct()));
                     }
+                    // Away from its shelf the tag hangs no line and no diamond: no floor beside the panel for it to mark (AUDIT's 21:4xZ).
+                    if (stage.FlightNow.Along > 0f && view.Labels.GetComponentsInChildren<RoomShape>(false).Any(each => each.name == "Diamond"))
+                        failures.Add(name + ": the tag's diamond hangs in the air beside the panel");
                     // Beside the panel the tag never stands over its face, as the eyes see it (AUDIT's 20:25Z MUST 1).
                     if (stage.FlightNow.Along >= 1f && view.Labels.gameObject.activeInHierarchy && bar.PanelArrival.Shown > 0.5f)
                     {
