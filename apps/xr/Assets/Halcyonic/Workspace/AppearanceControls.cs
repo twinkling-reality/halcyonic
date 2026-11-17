@@ -22,6 +22,8 @@ namespace Halcyonic.XR.Workspace
             // choice at once: FIELD's one setter (RoomSurface.Theme) redraws every surface.
             PanelThemes.Changed += Follow;
             PanelThemes.Set(settings.Panels);
+            // The kept Code Colours, in force before any code view draws.
+            CodeThemes.Set(settings.Code);
             Follow(PanelThemes.Current);
         }
 
