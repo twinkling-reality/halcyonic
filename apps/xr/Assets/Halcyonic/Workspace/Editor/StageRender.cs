@@ -139,8 +139,21 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 foreach (var count in PlaceCounts)
                 {
-                    CharacterStage.ShelfCapacity = count;
-                    failures.AddRange(ShelfPageHoldsTheTag(folder, "place-" + count + "-needs", FilmShelfName, true).Select(failure => "at " + count + " in a place, " + failure));
+                    // The shelf stands what its place's rule stands (RoomPlaces): every one up to a crowd, then the crowd's front, and one to a
+                    // row only its front, the one that needs the person; the rest gathered behind "{n} More" (the lead's 2026-11-17T22:4xZ).
+                    var rule = PlaceRule.Default;
+                    var standing = rule.FormOf(count) == PlaceForm.Crowd ? Math.Min(count, rule.CrowdShown) : count;
+                    CharacterStage.ShelfCapacity = standing;
+                    var page = ShelfPageHoldsTheTag(folder, "place-" + count + "-needs", FilmShelfName, true, firstNeedsOnly: true, gathered: count - standing);
+                    if (lastShelfRow == 1 && standing > 1)
+                    {
+                        Debug.Log("Halcyonic: agent shelf: at " + count + " in a place the shelf lays one to a row, so it gathers " + (count - 1) + " behind its More.");
+                        standing = 1;
+                        CharacterStage.ShelfCapacity = standing;
+                        page = ShelfPageHoldsTheTag(folder, "place-" + count + "-needs", FilmShelfName, true, firstNeedsOnly: true, gathered: count - standing);
+                    }
+                    Debug.Log("Halcyonic: agent shelf: at " + count + " in a place the shelf stands " + standing + " in rows of " + lastShelfRow + ", " + (count - standing) + " gathered.");
+                    failures.AddRange(page.Select(failure => "at " + count + " in a place, " + failure));
                 }
             }
             finally { CharacterStage.ShelfCapacity = was; }
@@ -445,7 +458,12 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The longest filmed task name (FILM's run sheet), drawn beside New Project's place for the look.</summary>
         private const string FilmShelfName = "Make a game where I catch falling stars.";
 
-        private static List<string> ShelfPageHoldsTheTag(string folder, string name, string title, bool needs)
+        /// <summary>The row the last shelf page was laid in (<see cref="CharacterStage.LayOwnShelf"/>): one to a row, the page gathers.</summary>
+        private static int lastShelfRow;
+
+        /// <param name="firstNeedsOnly">Only the first task needs the person, the rest work: a place's crowd stands every one that needs the person.</param>
+        /// <param name="gathered">How many the page's place gathers behind "{n} More", whose count must draw.</param>
+        private static List<string> ShelfPageHoldsTheTag(string folder, string name, string title, bool needs, bool firstNeedsOnly = false, int gathered = 0)
         {
             var failures = new List<string>();
             var holder = new GameObject("Drawn tags on a shelf page");
@@ -463,21 +481,46 @@ namespace Halcyonic.XR.Workspace.Editor
                 var pitch = CharacterStage.PitchOf(places, width);
                 float PlaceX(int place) => -pitch * (places - 1) / 2f + pitch * place;
                 var views = new List<CharacterView>();
+                // The person's shelf as a place (the lead's 2026-11-17T22:4xZ ruling), laid by the stage's own rule: under the shelf's middle, its tags
+                // bounded as a place's within the fitted shelf's span, the pitch from the widest tag as drawn, rows rising until clear.
+                var shelf = new GameObject("Person's shelf").transform;
+                shelf.SetParent(holder.transform, false);
+                shelf.SetPositionAndRotation(pose.position, pose.rotation);
+                var distance = new Vector2(pose.position.x - eyes.x, pose.position.z - eyes.z).magnitude;
                 for (var index = 0; index < capacity; index++)
                 {
-                    var view = CharacterView.Create(holder.transform, "shelf-tag-" + index);
-                    // Front row then back row, as the stage stands them (CharacterStage.CharacterPlace, FIELD's places sheet).
-                    var (local, size) = CharacterStage.CharacterPlace(index, pitch);
-                    view.transform.SetPositionAndRotation(pose.position + local, Quaternion.Euler(0f, 180f, 0f));
-                    view.transform.localScale = Vector3.one * AgentShelfDraft.Scale * size;
+                    var view = CharacterView.Create(shelf, "shelf-tag-" + index);
+                    view.Grounded = true;
+                    view.TagMostDegrees = CharacterStage.PlaceTagMostDegreesIn(CharacterStage.OwnShelfSpanDegrees(distance));
                     var tag = RoomNameTag.On(view);
-                    view.Show(needs
+                    view.Show(needs && (!firstNeedsOnly || index == 0)
                         ? new CharacterPresentation("shelf-tag-" + index, title, CharacterActivity.WaitingForHuman, "Needs You", AttentionLevel.ActionRequired, Array.Empty<string>(), 2, false, false, false)
                         : new CharacterPresentation("shelf-tag-" + index, title, CharacterActivity.Working, CharacterPresenter.LabelOf(CharacterActivity.Working), AttentionLevel.None, Array.Empty<string>(), 0, false, false, false));
-                    view.PlaceShelfLabel(eyes);
                     // Picked, the widest a tag draws: its ring is the one a person sees on the task they point at (AUDIT3's D1).
                     tag.Picked = true;
                     views.Add(view);
+                }
+                foreach (var view in views) Advance(view, 1f);
+                WorkspaceRender.ForceMeshes(holder);
+                (_, lastShelfRow, _) = CharacterStage.LayOwnShelf(views, AgentShelfDraft.Scale, distance, PlaceRule.Default, eyes);
+                // A gathered page says its count at its sign, "{n} More", as a place of the room does (AUDIT's 21:5xZ MUST).
+                if (gathered > 0)
+                {
+                    WorkspaceRender.ForceMeshes(holder);
+                    var point = new GameObject("Place sign point").transform;
+                    point.SetParent(shelf, false);
+                    var morePoint = new GameObject("Place more point").transform;
+                    morePoint.SetParent(shelf, false);
+                    CharacterStage.StandSignPoints(shelf, views, CharacterStage.OwnShelfSpanDegrees(distance), -1f, distance, eyes, point, morePoint);
+                    var ids = Enumerable.Range(0, capacity + gathered).Select(task => "shelf-tag-" + task).ToList();
+                    var standing = new RoomPlace("shelf-project", "Shelf project", ids, firstNeedsOnly ? 1 : capacity, PlaceForm.Crowd, capacity);
+                    var sign = RoomPlaceSignView.Create(point);
+                    sign.StandPressAt(morePoint);
+                    sign.Show(standing, new RoomPlaces());
+                    sign.Press?.Settle();
+                    var countWords = sign.Press?.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => { text.ForceMeshUpdate(); return text.GetParsedText(); })
+                        .FirstOrDefault(text => text.Contains("More"));
+                    if (countWords == null) failures.Add("the shelf gathers " + gathered + " and draws no count at its place, at text scale " + GlazeText.Scale.ToString("0.00", CultureInfo.InvariantCulture));
                 }
                 // New Project's place, as RoomNewProjectPlace stands it: at the front lip of the shelf's first place, facing the eyes, sized
                 // for them as the labels are, its middle on the tags' line under the characters' feet.

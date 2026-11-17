@@ -245,7 +245,8 @@ namespace Halcyonic.XR
         /// </summary>
         public static System.Func<float>? NewProjectReach { get; set; }
 
-        private static (int Places, int Version, float RestHalf, float Field, float Width)? fitted;
+        // One fit a count of places: the person's shelf asks its own count's and its fullest row's (OwnShelfSpanDegrees) each refresh.
+        private static readonly Dictionary<int, (int Version, float RestHalf, float Field, float Width)> fitted = new Dictionary<int, (int, float, float, float)>();
 
         /// <summary>The narrowest a fitted shelf is laid, in metres: its places' margin (<see cref="PitchOf"/>) and nothing between them.</summary>
         private const float MinimumFittedWidth = 0.1f;
@@ -265,7 +266,7 @@ namespace Halcyonic.XR
             var rest = restOf();
             var measured = ViewField.Current ?? MenuPage.Quest3S;
             var side = (float)System.Math.Min(measured.Left, measured.Right);
-            if (fitted is { } was && was.Places == places && was.Version == GlazeText.Version && Mathf.Approximately(was.RestHalf, rest) && Mathf.Approximately(was.Field, side))
+            if (fitted.TryGetValue(places, out var was) && was.Version == GlazeText.Version && Mathf.Approximately(was.RestHalf, rest) && Mathf.Approximately(was.Field, side))
                 return was.Width;
             var fit = side - ViewField.EdgeMarginDegrees - rest - WorkspacePlacement.ClearanceDegrees;
             var most = 2f * AgentShelfSearch.MinimumDistance * Mathf.Tan(Mathf.Max(1f, fit) * Mathf.Deg2Rad / 2f);
@@ -284,7 +285,7 @@ namespace Halcyonic.XR
                 }
                 width = low;
             }
-            fitted = (places, GlazeText.Version, rest, side, width);
+            fitted[places] = (GlazeText.Version, rest, side, width);
             Debug.Log("Halcyonic: the shelf fits " + fit.ToString("0.0") + " degrees wide beside the plane at rest at text size " + GlazeText.Scale.ToString("0.##")
                 + ": laid " + width.ToString("0.000") + " m wide (natural " + natural.ToString("0.000") + "), its places " + PitchOf(places, width).ToString("0.000") + " m apart"
                 + (!narrows && Envelope(natural, places) > most ? "; no narrower shelf fits, so the natural width stands." : "."));
@@ -691,9 +692,20 @@ namespace Halcyonic.XR
                     views[id] = view;
                     CharacterCreated?.Invoke(id, view);
                 }
+                // Under the redesign the person's shelf is a place (the lead's 2026-11-17T22:4xZ): its tags bounded as a place's are, in its span.
+                view.TagMostDegrees = RoomDesign.Enabled && onSurface ? PlaceTagMostDegreesIn(OwnShelfSpanDegrees(Across(arc.position, shelfViewer))) : null;
                 view.Show(CharacterPresenter.Present(session.State.Workstreams[id], session.State, live));
                 view.BadgeOnly = BesideAWindow;
                 MoveToSlot(id, view, slot);
+            }
+            ownPlace = RoomDesign.Enabled ? place : null;
+            LayOwnShelfNow();
+            // A shelf found one to a row stands its crowd on the next refresh, once, as a place of the room does.
+            if (ownGatherPending)
+            {
+                ownGatherPending = false;
+                Refresh();
+                return;
             }
             Refreshed?.Invoke();
         }
@@ -751,6 +763,7 @@ namespace Halcyonic.XR
                 }
                 Stand(pair.Value, standing.Angle, standing.Lift, 1f);
             }
+            LayOwnShelfNow();
             Debug.Log("Halcyonic: placed the stage " + (onSurface ? "on its surface" : "in front of the person") + " because " + reason + ".");
         }
 
@@ -845,6 +858,7 @@ namespace Halcyonic.XR
 
         private void Glide()
         {
+            var settledNow = false;
             foreach (var pair in views)
             {
                 var standing = standings[pair.Key];
@@ -855,7 +869,10 @@ namespace Halcyonic.XR
                 standing.Angle = progress >= 1f ? standing.To : Mathf.Lerp(standing.From, standing.To, eased);
                 standing.Lift = progress >= 1f ? standing.LiftTo : Mathf.Lerp(standing.LiftFrom, standing.LiftTo, eased);
                 Stand(pair.Value, standing.Angle, standing.Lift, 1f + 0.15f * Mathf.Sin(Mathf.PI * progress));
+                if (progress >= 1f) settledNow = true;
             }
+            // A glide ends where the place's rule stands the team.
+            if (settledNow) LayOwnShelfNow();
         }
 
         /// <summary>

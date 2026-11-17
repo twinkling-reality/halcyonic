@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Halcyonic.XR.UI
 {
     /// <summary>
-    /// The signs of the projects' places other than the person's shelf (the lead's 2026-11-17T18:56Z; AUDIT2's 18:57Z): each place's project
+    /// The signs of the projects' places, the person's shelf's too where it gathers (the lead's 2026-11-17T18:56Z and 22:4xZ; AUDIT2's 18:57Z): each place's project
     /// name once, and its "{n} More" or "Show Fewer" press, a <see cref="RoomPlaceSignView"/> hung from the point the stage gives
     /// (<see cref="CharacterStage.PlaceCreated"/>), brought up to date each time the stage refreshes. A press spreads or gathers that place
     /// only, and the stage stands it again; nothing is journaled (presentation only, AUDIT3's MP1).
@@ -56,6 +56,12 @@ namespace Halcyonic.XR.UI
             {
                 standing.Add(place.ProjectId);
                 if (SignOf(place.ProjectId) is { } sign) sign.Show(place, stage.Places);
+            }
+            // The person's shelf, a place too (the lead's 2026-11-17T22:4xZ): its sign stands where it gathers or is spread open.
+            if (stage.OwnPlace is { } own && stage.MorePointOf(own.ProjectId) != null)
+            {
+                standing.Add(own.ProjectId);
+                if (SignOf(own.ProjectId) is { } sign) sign.Show(own, stage.Places);
             }
             // A place that left took its sign's point with it.
             var gone = new List<string>();

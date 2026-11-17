@@ -4747,6 +4747,17 @@ and material blocks. The current actual results and coverage boundaries are reco
 [character-rendering.md](../validation/character-rendering.md#character-features-on-the-optional-shelf-2026-10-13).
 Unity consumer gates, mutation checks, stereo/device cost and wearer acceptance remain distinct.
 
+Under the redesign every project with work is a place in the room (`RoomPlaces`). The person's
+shelf is the selected task's project's place, laid by the same rule as the others
+(`CharacterStage.LayOwnShelf` over `LayPlace`, the lead's 2026-11-17 ruling). Its width bound is the
+fitted shelf (`FittedWidth`) at one full row and New Project's place. Each tag is bounded to its
+share of that span (`PlaceTagMostDegreesIn`), and the pitch comes from the widest tag as drawn.
+Further rows rise until no tag covers a nearer row's bodies. A shelf that holds only one to a row
+gathers its team behind "{n} More", as any place does. Its front stands, along with every task that
+needs the person, and the sign stands only while the shelf gathers or is spread open. The older
+shelf keeps one character a page (`CharacterPlace`). `StageRender.AgentShelfCheck` lays its pages by
+`LayOwnShelf` at 1, 3, 6 and 10 tasks.
+
 Actual unchanged-render probes isolated a shell/feature composition dependency: isolated
 features and shells were stable, while the overlapping pair changed a few edge pixels at fixed
 poses. Earlier feature order alone left ghost and Clover/Horns failures. Private feature-only

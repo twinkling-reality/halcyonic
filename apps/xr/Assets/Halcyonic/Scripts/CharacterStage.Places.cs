@@ -264,6 +264,62 @@ namespace Halcyonic.XR
             DrawFloorArc(stood.Arc, stood.Ticks, eyes, stood.Root.position.y + arcY, distance, middle - half, middle + half);
         }
 
+        private RoomPlace? ownPlace;
+        private bool ownGatherPending;
+        private Transform? ownRoot, ownSign, ownMore;
+        private string? ownSignFor;
+
+        /// <summary>The place the person's shelf stands under the redesign (the selected task's project's), or null.</summary>
+        public RoomPlace? OwnPlace => ownPlace;
+
+        /// <summary>
+        /// Lays the person's shelf as a place (the lead's 2026-11-17T22:4xZ ruling): every settled character of its place by <see cref="LayOwnShelf"/>,
+        /// within the fitted shelf's span; one to a row, it gathers behind "{n} More" as a place of the room does; and where it gathers or is spread,
+        /// its sign stands as theirs do (<see cref="PlaceCreated"/>). Nothing under the older shelf, which keeps <see cref="CharacterPlace"/>.
+        /// </summary>
+        private void LayOwnShelfNow()
+        {
+            if (ownPlace is not RoomPlace place || !onSurface || arc == null) { StandOwnSign(null, null); return; }
+            var laid = new List<CharacterView>();
+            foreach (var id in place.Shown)
+                if (views.TryGetValue(id, out var view) && standings.TryGetValue(id, out var standing) && standing.Settled) laid.Add(view);
+            if (laid.Count == 0) { StandOwnSign(null, null); return; }
+            var distance = Across(arc.position, shelfViewer);
+            var (_, rowMost, _) = LayOwnShelf(laid, radius, distance, Places.Rule, shelfViewer);
+            if (rowMost == 1 && laid.Count > 1 && Places.OneARow.Add(place.ProjectId)) ownGatherPending = true;
+            StandOwnSign(place, laid);
+        }
+
+        /// <summary>The person's shelf's sign, where its place gathers a crowd or is spread open: none otherwise, so a shelf of a few stands as ever.</summary>
+        private void StandOwnSign(RoomPlace? place, IReadOnlyList<CharacterView>? laid)
+        {
+            var wanted = place != null && laid != null && (place.More > 0 || Places.Spread.Contains(place.ProjectId));
+            if (!wanted || ownSignFor != place!.ProjectId)
+            {
+                if (ownSign != null) for (var child = ownSign.childCount - 1; child >= 0; child--) Destroy(ownSign.GetChild(child).gameObject);
+                ownSignFor = null;
+            }
+            if (!wanted) return;
+            if (ownRoot == null)
+            {
+                ownRoot = new GameObject("Own place").transform;
+                ownRoot.SetParent(arc, false);
+                ownSign = new GameObject("Place sign point").transform;
+                ownSign.SetParent(ownRoot, false);
+                ownMore = new GameObject("Place more point").transform;
+                ownMore.SetParent(ownRoot, false);
+            }
+            ownRoot.localPosition = Vector3.right * OwnShelfAcross(radius);
+            ownRoot.localRotation = Quaternion.identity;
+            // Its More at the shelf's right end, away from New Project's place at its left.
+            StandSignPoints(ownRoot, laid!, OwnShelfSpanDegrees(Across(arc.position, shelfViewer)), -1f, Across(arc.position, shelfViewer), shelfViewer, ownSign!, ownMore!);
+            if (ownSignFor == null)
+            {
+                ownSignFor = place!.ProjectId;
+                PlaceCreated?.Invoke(place.ProjectId, ownSign!);
+            }
+        }
+
         private LineRenderer? shelfArc;
         private LineRenderer[]? shelfTicks;
 
@@ -366,7 +422,8 @@ namespace Halcyonic.XR
         }
 
         /// <summary>The point a place's "{n} More" stands at (<see cref="StandSignPoints"/>); null for a place not standing.</summary>
-        public Transform? MorePointOf(string projectId) => others.TryGetValue(projectId, out var stood) ? stood.More : null;
+        public Transform? MorePointOf(string projectId) => others.TryGetValue(projectId, out var stood) ? stood.More
+            : ownSignFor == projectId ? ownMore : null;
 
         /// <summary>
         /// Where a place whose bearing is <paramref name="bearing"/> stands for the eyes at <paramref name="eyes"/>, ahead at <paramref name="ahead"/>
@@ -400,8 +457,10 @@ namespace Halcyonic.XR
         /// back-row tag stands over a front-row body as the eyes see them (AUDIT3's R1: seen from a seated person's eyes, a row behind
         /// appears higher, so a tag hung under its feet would cover the heads in front). Returns the pitch, the row and the back row's rise.
         /// </summary>
+        /// <param name="across">How far right of the root's middle the team's middle stands, in the root's metres: the person's shelf stands its
+        /// team right of New Project's place (<see cref="LayOwnShelf"/>); a place of the room stands it on its middle.</param>
         public static (float Pitch, int RowMost, float Rise) LayPlace(IReadOnlyList<CharacterView> views, float scale, float distance, PlaceRule rule, Vector3 eyes,
-            float spanDegrees = PlaceBearings.SpanDegrees)
+            float spanDegrees = PlaceBearings.SpanDegrees, float across = 0f)
         {
             var count = views.Count;
             var rise = BackRowRise;
@@ -412,7 +471,7 @@ namespace Halcyonic.XR
                 {
                     var (local, size) = PlaceSpot(index, count, rowMost, pitch, rise);
                     var view = views[index];
-                    view.transform.localPosition = local;
+                    view.transform.localPosition = local + Vector3.right * across;
                     view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
                     view.transform.localScale = Vector3.one * scale * size;
                     view.PlaceShelfLabel(eyes);
@@ -485,6 +544,31 @@ namespace Halcyonic.XR
             HoldBackRowType(views, rowMost, eyes);
             return (pitch, rowMost, rise);
         }
+
+        /// <summary>
+        /// The person's shelf's span as the eyes see it from <paramref name="distance"/>: the character places of the fitted shelf at its fullest row
+        /// (<see cref="FittedWidth"/> of one row's count and New Project's place, the lead's 2026-11-14T02:21Z ruling 1 (a)), New Project's place left
+        /// out. The lead's 2026-11-17T22:4xZ ruling: the person's shelf is a place laid by <see cref="LayPlace"/>, the fitted width its width bound;
+        /// one span whatever the count, so a tag's bound never changes as tasks come and go.
+        /// </summary>
+        public static float OwnShelfSpanDegrees(float distance)
+        {
+            var row = PlaceRule.Default.FullMost;
+            var pitch = PitchOf(row + 1, FittedWidth(row + 1));
+            return 2f * Mathf.Atan(row * pitch / 2f / Mathf.Max(1e-3f, distance)) * Mathf.Rad2Deg;
+        }
+
+        /// <summary>How far right of the shelf's middle its team's middle stands, in the shelf's metres: right of New Project's place.</summary>
+        public static float OwnShelfAcross(float scale) =>
+            RoomDesign.Enabled ? 0.5f * PitchOf(ShelfPlaces, FittedWidth(ShelfPlaces)) * scale / AgentShelfDraft.Scale : 0f;
+
+        /// <summary>
+        /// Lays the person's shelf's team, <paramref name="views"/> in its place's order under the shelf (each view's parent), as a place: its tags
+        /// bounded as a place's are within the fitted shelf's span (<see cref="OwnShelfSpanDegrees"/>), the pitch from its widest tag as drawn, its
+        /// rows rising until clear (<see cref="LayPlace"/>), the team right of New Project's place. The stage and its check lay it by this one rule.
+        /// </summary>
+        public static (float Pitch, int RowMost, float Rise) LayOwnShelf(IReadOnlyList<CharacterView> views, float scale, float distance, PlaceRule rule, Vector3 eyes) =>
+            LayPlace(views, scale, distance, rule, eyes, OwnShelfSpanDegrees(distance), OwnShelfAcross(scale));
 
         /// <summary>
         /// A back row's tags keep the front row's type size as seen and never stand larger (the lead's 2026-11-17T20:4xZ MUST): each back-row
