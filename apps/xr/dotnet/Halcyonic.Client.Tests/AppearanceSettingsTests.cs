@@ -755,7 +755,9 @@ public class AppearanceSettingsTests
             Assert.That((card.Label, card.Title?.Text, card.Title?.AnyTheirs, card.SampleLanguage), Is.EqualTo((CodeThemes.PreviewLabel, "High Contrast", (bool?)false, CodeLanguage.Script)));
             Assert.That(card.Sample, Is.EqualTo(CodeThemes.Example));
             var bar = RoomBar.OfFrame(column.Frame!, VoiceStage.Idle)!;
-            Assert.That(bar.Card, Is.SameAs(card), "the room's reader shows the frame's own card");
+            Assert.That((bar.Card?.Label, bar.Card?.Title?.Text, bar.Card?.SampleLanguage), Is.EqualTo((card.Label, card.Title?.Text, (CodeLanguage?)card.SampleLanguage)),
+                "the room's reader shows the frame's own card");
+            Assert.That(bar.Card!.Sample, Is.EqualTo(CodeThemes.Example), "its copy keeps the code");
             Assert.That(bar.Facts, Is.Null.Or.Empty, "no rows of words stand beside the card");
             Assert.That(bar.GeneralPart.Pages, Is.EqualTo(1), "the preview stands on one page");
             Assert.That(column.Frame!.Footer.All.Select(each => each.Prompt.Words), Does.Contain("Apply Colours").And.Contain("Cancel"));

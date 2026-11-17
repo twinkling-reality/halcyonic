@@ -443,6 +443,14 @@ namespace Halcyonic.XR.UI
                 var (line, start) = sampleRows[index];
                 var length = label.text.Length;
                 var ranges = new List<(int Start, int End, Color32 Colour)>();
+                // Paint only a row whose words are exactly its slice of the line (AUDIT3's N-b): a spelled character or a shifted
+                // offset leaves the row in its own white rather than colour the wrong letters.
+                var source = sampleCard.Sample[line];
+                if (start + length > source.Length || string.CompareOrdinal(source, start, label.text, 0, length) != 0)
+                {
+                    GlazeRuns.Of(label).Paint(ranges);
+                    continue;
+                }
                 foreach (var run in lineRuns[line])
                 {
                     var from = Mathf.Max(run.Start, start);
