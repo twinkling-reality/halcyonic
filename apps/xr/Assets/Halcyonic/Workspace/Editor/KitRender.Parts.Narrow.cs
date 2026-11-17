@@ -273,18 +273,31 @@ namespace Halcyonic.XR.Workspace.Editor
             Place(plane, eyes, 0f, shot.Elevation);
             Require(view.LaidWhole, "the card does not stand whole");
             var drawn = new List<string>();
+            var capitals = new List<string>();
             foreach (var label in view.GetComponentsInChildren<TMPro.TMP_Text>(false))
             {
                 label.ForceMeshUpdate(true);
                 var said = label.GetParsedText();
                 if (said.Trim().Length == 0) continue;
-                drawn.Add(string.Join(" ", said.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)));
+                var line = string.Join(" ", said.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+                drawn.Add(line);
+                if ((label.fontStyle & TMPro.FontStyles.UpperCase) != 0) capitals.Add(line);
                 Require(!label.isTextOverflowing && !said.Contains("…"), "\"" + said + "\" is cut");
                 Require(!said.Contains(KitMomentWords.Dot.Trim()), "\"" + said + "\" joins facts on a dot");
             }
             foreach (var row in rows)
-                foreach (var part in new[] { row.Label!, row.Name.Text, row.Note!, row.Under!.Text })
+            {
+                foreach (var part in new[] { row.Label!, row.Name.Text, row.Under!.Text })
                     Require(drawn.Contains(part), "\"" + part + "\" is not drawn as a line of its own: " + string.Join(" | ", drawn));
+                // The note is our state or value word, drawn in the label role (the one language): exactly its words in capitals, by the
+                // face's capitals style; a note that names a file or a folder keeps its own case (RoomListRow.NoteInLabelRole).
+                var note = RoomListRow.NoteInLabelRole(row.Note) ? row.Note!.ToUpperInvariant() : row.Note!;
+                Require(drawn.Contains(note), "\"" + note + "\" is not drawn as a line of its own: " + string.Join(" | ", drawn));
+                Require(RoomListRow.NoteInLabelRole(row.Note) == capitals.Contains(note), "\"" + row.Note + "\" is drawn in the wrong case's style");
+                // Never a name in capitals: a pooled label once in the label role gives its capitals up (AUDIT2's 03:40Z pooled case).
+                Require(!capitals.Contains(row.Name.Text) && !capitals.Contains(row.Under!.Text) && !capitals.Contains(row.Label!),
+                    "a row's name, label or quieter line is drawn in the label role's capitals");
+            }
             Debug.Log("Halcyonic: parts: " + name + ": drawn: " + string.Join(" | ", drawn) + ".");
             return shot;
         }
