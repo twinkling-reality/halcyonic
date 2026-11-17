@@ -136,7 +136,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// band; a long message; Changes and its second page's way on; Checks passed and failed; and a project with a
         /// check and no observed turn.
         /// </summary>
-        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-checks-partly", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused", "38-result-play-not-in-build", "38-result-add", "38-add", "38-add-last", "38-conflict", "38-result-checking", "38-result-simulated", "38-result-unchecked", "38-result-full", "38-result-starter" };
+        private static readonly string[] ResultStates = { "38-result", "38-result-long", "38-changes", "38-changes-long", "38-checks", "38-checks-failed", "38-checks-partly", "38-project", "38-result-agent", "38-result-stopped", "38-result-play", "38-result-play-refused", "38-result-play-not-in-build", "38-result-add", "38-add", "38-add-last", "38-conflict", "38-result-checking", "38-result-simulated", "38-result-unchecked", "38-result-full", "38-result-starter", "38-result-review" };
 
         /// <summary>The agent's newest message in the result's states, DESIGN's own, synthetic.</summary>
         private const string ResultSays = "I added the golden balloon and removed the old backup file.";
@@ -211,6 +211,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-result-unchecked" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: null, ResultTurn(false), null),
                 "38-result-starter" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: null, ResultTurn(false), null, simulated: StarterChecks),
                 "38-result-add" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, add: CopyFor(10, conflicted: false), addReview: "synthetic-review"),
+                // The review card as take 3 films it (TASKS): a VR project's passed result with work to add, Try Build and Add to Project.
+                "38-result-review" => new RoomResult(isVr: true, canMakeVr: false, canTry: true, passed: true, ResultTurn(false), passing, add: CopyFor(3, conflicted: false), addReview: "synthetic-review"),
                 "38-add" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, RoomResultPage.Add, add: CopyFor(10, conflicted: false), addReview: "synthetic-review"),
                 "38-add-last" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, RoomResultPage.Add, part: 1, add: CopyFor(10, conflicted: false), addReview: "synthetic-review"),
                 "38-conflict" => new RoomResult(isVr: false, canMakeVr: true, canTry: false, passed: true, ResultTurn(false), passing, RoomResultPage.Conflict, add: CopyFor(3, conflicted: true)),
@@ -333,11 +335,12 @@ namespace Halcyonic.XR.Workspace.Editor
                 "38-checks-failed" => (VoiceStage.Idle, false, RoomBarState.Rest, "Checks failed: the steps the check reached, Changes and Back, the instruction the row's Type, synthetic data"),
                 "38-result-agent" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent offers never ask: the agent and its level in the row beside it, synthetic data"),
                 "38-result-stopped" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the agent's tries at a failed check ran out: that line first, Write Instruction leading, synthetic data"),
-                "38-result-add" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the task's own copy holds work to add: Add to Project leading, synthetic data"),
+                "38-result-add" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the task's own copy holds work to add: Make VR Copy leading, Add to Project beside it, synthetic data"),
+                "38-result-review" => (VoiceStage.Idle, false, RoomBarState.Rest, "The review card as take 3 films it: All Passing, 4 of 4 Checks Passed and 3 Files one press each, Try Build leading, Add to Project, synthetic data"),
                 "38-add" => (VoiceStage.Idle, false, RoomBarState.Rest, "Add to Project's review: the task, where its work goes, the first five of ten files, Add to Project, Next Page and Back, synthetic data"),
                 "38-add-last" => (VoiceStage.Idle, false, RoomBarState.Rest, "Add to Project's review, its last page: the last five files, Add to Project, one press, and Back, synthetic data"),
                 "38-conflict" => (VoiceStage.Idle, false, RoomBarState.Rest, "Where the project changed the same file: FIELD's card naming it, Let Agent Fix and Back, synthetic data"),
-                "38-result-full" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result offering every action at once: Close kept last in the column, Share behind More, synthetic data"),
+                "38-result-full" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result offering every action at once: Close kept last in the column, Checks and Changes the card's facts, synthetic data"),
                 "38-result-play" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the project's checked preview can open on the headset: Play in Headset beside Try Build, synthetic data"),
                 "38-result-play-refused" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result where the preview reads outside its project: no Play in Headset, its reason at the card's foot, synthetic data"),
                 "38-result-play-not-in-build" => (VoiceStage.Idle, false, RoomBarState.Rest, "The result on a paired release build, which carries no relay: no Play in Headset, its reason at the card's foot, synthetic data"),
@@ -1002,15 +1005,21 @@ namespace Halcyonic.XR.Workspace.Editor
                             Require(!(label.text ?? "").Contains(message.Substring(0, 16)), "the agent's words stand off the band, in " + label.name);
                         Require((bar.BandNextButton != null) == (state == "38-result-long"), state == "38-result-long" ? "no way to the long message's next part" : "a way to a next part the band does not have");
                         if (state == "38-result-long") Require(bar.BandNextButton!.LookNow() == RoomButtonLook.Rest && shown.Column.Any(action => action.Main), "the message's next part is the main action over the result's own");
-                        // FIELD's result card (A17): the check and the files as slots, an ended chain of tries as its status; no
-                        // sentence, nothing joined on a dot, every label of the card whole.
+                        // The review card (TASKS, take 3): the check's outcome its status, its one large line; its checks and the files as
+                        // facts, each one press from the result; an ended chain of tries as its status; no sentence, nothing joined on a
+                        // dot, every label of the card whole.
                         var stopped = state == "38-result-stopped";
                         var unclaimed = state is "38-result-checking" or "38-result-simulated" or "38-result-unchecked" or "38-result-starter";
-                        // The outcome in the Checks page's own word, and never twice where the status already names it (AUDIT2 10:05Z W1, W2).
-                        var all = RoomPanelCards.AllPassing;
-                        var slots = state == "38-project" ? new[] { all } : stopped ? new[] { "4 Files" } : state == "38-result-add" ? new[] { all, "10 Files" }
-                            : unclaimed ? new[] { "4 Files" } : new[] { all, "4 Files" };
-                        var statusTitle = stopped ? RoomBar.StoppedTitle : state == "38-result-checking" ? TaskSteps.Checking : state == "38-result-simulated" ? SimulatedChecks.Title : state == "38-result-starter" ? StarterChecks.Title : null;
+                        // The outcome in the Checks page's own word, said once, as the status (AUDIT2 10:05Z W1, W2); the checks as how many passed (AUDIT2 23:51Z).
+                        var passedAll = RoomPanelCards.ChecksCount(4, 4);
+                        var slots = state == "38-project" ? new[] { passedAll } : stopped ? new[] { RoomPanelCards.ChecksCount(1, 4), "4 Files" }
+                            : state == "38-result-add" ? new[] { passedAll, "10 Files" } : state == "38-result-review" ? new[] { passedAll, "3 Files" }
+                            : unclaimed ? new[] { "4 Files" } : new[] { passedAll, "4 Files" };
+                        var statusTitle = stopped ? RoomBar.StoppedTitle : state == "38-result-checking" ? TaskSteps.Checking : state == "38-result-simulated" ? SimulatedChecks.Title
+                            : state == "38-result-starter" ? StarterChecks.Title : unclaimed ? null : RoomPanelCards.AllPassing;
+                        // Each fact is a press to its page.
+                        if (!unclaimed)
+                            Require(shown.Card?.Slots.Count > 0 && shown.Card.Slots.All(slot => slot.Press != null), "a fact on the review card is not one press to its page");
                         Require(shown.Card != null && !shown.Card.AnyDot && shown.Card.Slots.Select(slot => slot.Value.Text).SequenceEqual(slots) && shown.Sentence == null
                             && (shown.Card.Status?.Title == statusTitle) && (state != "38-result-simulated" || shown.Card.Status?.Line == SimulatedChecks.Line)
                             && (state != "38-result-starter" || shown.Card.Status?.Line == StarterChecks.Line),
@@ -1035,17 +1044,18 @@ namespace Halcyonic.XR.Workspace.Editor
                             }
                         }
                         if (stopped) Require(shown.Column[0].Place == KitPlace.Field && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1, "Write Instruction does not lead where the tries ran out");
-                        else if (state == "38-result-add") Require(shown.Column[0].Control.Action == RoomResult.ShowAdd && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1,
-                            "Add to Project does not lead where the task holds work to add");
+                        else if (state == "38-result-review") Require(shown.Column[0].Control.Action == RoomResult.TryBuild && shown.Column[0].Main && shown.Column.Count(action => action.Main) == 1
+                            && shown.Column.Any(action => action.Control.Action == RoomResult.ShowAdd && !action.Main), "Try Build does not lead the review card with Add to Project quiet beside it");
                         else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Copy does not lead");
+                        if (state == "38-result-add") Require(shown.Column.Any(action => action.Control.Action == RoomResult.ShowAdd && !action.Main), "Add to Project does not stand where the task holds work to add");
                         if (state == "38-result-full")
                         {
                             var drawnColumn = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
-                            Require(shown.Column.Count == RoomBar.ColumnMost && shown.Column[shown.Column.Count - 1].Control.Place == KitPlace.Close
+                            Require(shown.Column[shown.Column.Count - 1].Control.Place == KitPlace.Close
                                 && drawnColumn.Count >= shown.Column.Count && bar.ControlOf(drawnColumn[shown.Column.Count - 1]) == shown.Column[shown.Column.Count - 1].Control,
                                 "a full result does not draw Close last in its column: " + string.Join(", ", shown.Column.Select(action => action.Words)));
-                            Require(shown.Overflow.Any(action => action.Control.Action == RoomResult.ShowShare) && shown.Row.Any(action => action.Control.Action == RoomBar.More),
-                                "the action a full column cannot hold is not reached by More");
+                            Require(shown.Column.Any(action => action.Control.Action == RoomResult.ShowShare) && shown.Overflow.Count == 0,
+                                "a full result's acts do not stand in its column with its facts on the card");
                         }
                     }
                     else
