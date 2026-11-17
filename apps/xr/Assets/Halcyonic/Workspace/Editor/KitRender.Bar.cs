@@ -1054,13 +1054,22 @@ namespace Halcyonic.XR.Workspace.Editor
                             && shown.Column.Any(action => action.Control.Action == RoomResult.TryBuild && !action.Main), "Add to Project does not lead the review card with Try Build quiet beside it");
                         else Require(shown.Column[0].Control.Action == RoomResult.MakeVrVersion && shown.Column[0].Main, "Make VR Copy does not lead");
                         if (state == "38-result-add") Require(shown.Column.Any(action => action.Control.Action == RoomResult.ShowAdd && !action.Main), "Add to Project does not stand where the task holds work to add");
+                        // The review's actions stand on ONE line inside its glass, as tile f6 (AUDIT 03:05Z MUST 1), and Close in the bar's row.
+                        if (shown.AsDialog)
+                        {
+                            var rowYs = bar.Column.Where(button => button.gameObject.activeSelf).Select(button => Mathf.Round(button.transform.localPosition.y * 1000f)).Distinct().Count();
+                            Require(rowYs == 1, "the review's actions stand on " + rowYs + " lines, not one");
+                            Require(shown.Row.Any(action => action.Control.Place == KitPlace.Close), "Close does not stand beside the review");
+                        }
                         if (state == "38-result-full")
                         {
                             var drawnColumn = bar.Column.Where(button => button.gameObject.activeSelf).ToList();
-                            Require(shown.Column[shown.Column.Count - 1].Control.Place == KitPlace.Close
-                                && drawnColumn.Count >= shown.Column.Count && bar.ControlOf(drawnColumn[shown.Column.Count - 1]) == shown.Column[shown.Column.Count - 1].Control,
-                                "a full result does not draw Close last in its column: " + string.Join(", ", shown.Column.Select(action => action.Words)));
-                            // As one dialog the review's row holds the main action, one other and Close; Share goes behind More.
+                            // As one dialog Close stands in the bar's own row under it; else last in the column.
+                            Require(shown.AsDialog ? shown.Row.Any(action => action.Control.Place == KitPlace.Close)
+                                : shown.Column[shown.Column.Count - 1].Control.Place == KitPlace.Close
+                                    && drawnColumn.Count >= shown.Column.Count && bar.ControlOf(drawnColumn[shown.Column.Count - 1]) == shown.Column[shown.Column.Count - 1].Control,
+                                "a full result does not draw Close: " + string.Join(", ", shown.Column.Select(action => action.Words)));
+                            // As one dialog the review's row holds the main action and one other; Share goes behind More.
                             Require(shown.AsDialog ? shown.Column.Count == RoomBar.DialogMost && shown.Overflow.Any(action => action.Control.Action == RoomResult.ShowShare)
                                     && shown.Row.Any(action => action.Control.Action == RoomBar.More)
                                 : shown.Column.Any(action => action.Control.Action == RoomResult.ShowShare) && shown.Overflow.Count == 0,

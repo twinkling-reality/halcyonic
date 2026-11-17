@@ -558,8 +558,8 @@ namespace Halcyonic.Client
         /// <summary>The most actions a column holds; past it the older view draws the frame (the view lays as many).</summary>
         public const int ColumnMost = 6;
 
-        /// <summary>The most actions the finished turn's review dialog stands in its row, Close among them (the main one, one other and Close, as the sheet's f6 stands two); the rest behind More.</summary>
-        public const int DialogMost = 3;
+        /// <summary>The most actions the finished turn's review dialog stands in its row: the main one and one other, as the sheet's f6; Close in the bar's row, the rest behind More.</summary>
+        public const int DialogMost = 2;
 
         /// <summary>
         /// A task's file always offers its way back to the Projects place (FIELD's parts note; JUDGE's census, 2026-11-11):
@@ -586,8 +586,10 @@ namespace Halcyonic.Client
                     column.Insert(column.FindIndex(action => action.Main) + 1, shows);
                 }
                 var behind = new List<RoomAction>();
-                // The finished turn's review laid as one dialog holds its row at the main action, one other and Close (TASKS, f6): its row stands inside its glass.
-                while (column.Count >= (bar.DialogTitle != null ? DialogMost : ColumnMost))
+                // The finished turn's review laid as one dialog holds the main action and one other in its row, on one line inside its glass
+                // (TASKS, f6; AUDIT 03:05Z); Close stands in the bar's own row under it, still always drawn.
+                var dialog = bar.DialogTitle != null;
+                while (column.Count >= (dialog ? DialogMost + 1 : ColumnMost))
                 {
                     var at = column.FindLastIndex(action => !action.Main && !StaysInColumn(action));
                     if (at < 0) at = column.FindLastIndex(action => !action.Main);
@@ -595,7 +597,8 @@ namespace Halcyonic.Client
                     behind.Insert(0, column[at]);
                     column.RemoveAt(at);
                 }
-                column.Add(new RoomAction(close, main: false, icon: GlazeIcon.Close));
+                if (dialog) bar.Row = bar.Row.Append(new RoomAction(close, main: false, icon: GlazeIcon.Close)).ToList();
+                else column.Add(new RoomAction(close, main: false, icon: GlazeIcon.Close));
                 bar.Column = column;
                 bar.Overflow = behind;
             }
