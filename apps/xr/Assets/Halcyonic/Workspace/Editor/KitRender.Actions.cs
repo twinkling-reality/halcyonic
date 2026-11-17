@@ -179,7 +179,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (row.Glyph is not RoomGlyph glyph) continue;
                     var at = buttons[index].Glyph.transform;
                     // Beside the glyph's box, inside the chip; and on the middle of the glyph's first shape.
-                    var chip = At(at, row.Mark == AnswerMark.None ? new Vector2(-0.62f, 0f) : new Vector2(-0.58f, 0f));
+                    // An answer's mark is a ring now (a white ring, chosen or not): its ground read just inside the ring, above the check's
+                    // left arm, never on the ring's own line.
+                    var chip = At(at, row.Mark == AnswerMark.None ? new Vector2(-0.62f, 0f) : new Vector2(-0.42f, 0.3f));
                     var middle = RoomGlyphs.Of(glyph)[0].Middles().First();
                     var ink = At(at, new Vector2(middle.x / RoomGlyphs.Grid - 0.5f, 0.5f - middle.y / RoomGlyphs.Grid));
                     if (row.Chip >= 0)
