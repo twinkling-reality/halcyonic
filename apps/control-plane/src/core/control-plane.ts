@@ -563,7 +563,42 @@ export class ControlPlane {
       live: this.journal.info.origin === 'live',
     }).attach(this.publisher);
     if (this.#checkpointEvery !== null) this.#attachCheckpoints(this.#checkpointEvery);
+    this.#attachExecutionLog();
     if (this.previews !== null || this.ownChecks !== null) this.#attachAutoCheck();
+  }
+
+  /**
+   * One log line as each execution starts running and one as it reaches an end status, its ids and that status only,
+   * never a sentence, a path or the agent's text (AGENTS.md), so a recording can be matched to its run (DEVICE,
+   * 2026-11-17). Read from the projection after each event, so the line says what the journal says.
+   */
+  #attachExecutionLog(): void {
+    const ended = new Set(['completed', 'failed', 'interrupted', 'unknown']);
+    const last = new Map<string, string>();
+    this.publisher.subscribe(({ event }) => {
+      if (event.execution_id === null) return;
+      const view = this.projection.execution(event.execution_id);
+      if (view === undefined) return;
+      const before = last.get(view.execution_id);
+      if (before === view.status) return;
+      const { project_id, workstream_id, execution_id, status } = view;
+      const runtime_id = view.runtime.runtime_id;
+      if (ended.has(status)) {
+        last.delete(execution_id);
+        if (before !== undefined && !ended.has(before))
+          this.#logger.info(
+            { project_id, workstream_id, execution_id, runtime_id, status },
+            'execution ended',
+          );
+        return;
+      }
+      last.set(execution_id, status);
+      if (status === 'running' && (before === undefined || before === 'starting'))
+        this.#logger.info(
+          { project_id, workstream_id, execution_id, runtime_id },
+          'execution started',
+        );
+    });
   }
 
   /**

@@ -64,6 +64,10 @@ narrows what a review must look at and proves nothing about a call it passes.
 OK means nothing private can reach the site. Paths are under `apps/control-plane/src` unless named.
 
 **The control plane.**
+- `core/control-plane.ts` `#attachExecutionLog` (2026-11-17, DEVICE): one info line, "execution started", as each
+  execution first runs, and one, "execution ended", as it reaches completed, failed, interrupted or unknown. Each carries
+  `project_id`, `workstream_id`, `execution_id`, `runtime_id`, and at the end `status`; never an instruction, a path or
+  the agent's text. OK; `control-plane.test.ts` pins both lines whole.
 - The logger: Fastify's request lines log method, URL, host, remote address and port, never
   headers or bodies; the response line logs the status only, so the proof header is never logged
   (both shown at trace level). The 5xx handler logs the error locally and answers in fixed words;

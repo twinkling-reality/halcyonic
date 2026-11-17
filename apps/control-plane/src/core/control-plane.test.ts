@@ -104,6 +104,33 @@ async function createWorkstream(
 }
 
 describe('command lifecycle', () => {
+  test('an execution logs one line as it starts and one as it ends, ids and its status only (DEVICE, 2026-11-17)', async () => {
+    const { logger, entries } = capturingLogger();
+    const harness = createTestControlPlane({ logger });
+    const { controlPlane, commands, time } = harness;
+    const workstreamId = await createWorkstream(harness);
+    controlPlane.commands.submit(commands.startExecution(workstreamId, FEATURE), 'internal');
+    await time.runUntilIdle();
+    const workstream = controlPlane.projection.workstream(workstreamId);
+    const executionId = workstream?.current_execution_id;
+    assert.ok(workstream && executionId);
+    const ids = {
+      project_id: workstream.project_id,
+      workstream_id: workstreamId,
+      execution_id: executionId,
+      runtime_id: 'mock',
+    };
+    const lines = entries.filter((entry) => entry.message.startsWith('execution '));
+    assert.deepEqual(
+      lines.map((entry) => [entry.level, entry.message, entry.context]),
+      [
+        ['info', 'execution started', ids],
+        ['info', 'execution ended', { ...ids, status: 'completed' }],
+      ],
+      'each once, with ids and the end status only: no sentence, path or agent text',
+    );
+  });
+
   test('a start command completes only once the runtime confirms, and the work streams in', async () => {
     const harness = createTestControlPlane();
     const { controlPlane, commands, time, journal } = harness;
