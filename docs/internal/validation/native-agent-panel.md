@@ -323,7 +323,7 @@ not a claim made by the JVM ordering regressions.
 
 Source and focused host/API checks verified 2026-10-13.
 
-The production Activity offers explicit **Compact panel** and **Expand task controls** actions
+The production Activity offers explicit **Compact** and **Expand** actions (named Compact panel and Expand task controls until 2026-11-17)
 for its selected task. The choice survives Activity recreation as local presentation state; it is
 not added to the shared continuation contract, journal or command envelope. Compact shows the
 complete safe plain project/task identity, the current host-projected run state (or task state
@@ -338,7 +338,13 @@ task's name; its state as one of the headset's own words (Working, Checking, Nee
 Not Started, Not Known), never Ready, which needs the computer's own check the panel cannot read; what it needs in words
 while it needs them (Run Command? before Agent's Question), never a count; and Open Task (the one orange, only then, to
 the expanded task where the answer lives) and Open Workspace (quiet). The name, the navigation, the Expand action, the
-provenance and the monitor line are hidden in compact, save the offline line and the synthetic preview's own line. The
+provenance and the monitor line are hidden in compact, save the offline line and the synthetic preview's own line. At rest (no approval or question waiting) compact is only the state line naming
+the task and the quiet Open Workspace under it; the card arrives when the task needs the person (the lead, 2026-11-17). The
+expanded view takes the same words since 2026-11-17 (AUDIT2, 00:09Z): the project's and task's names alone as headings,
+the state word and the agent's name (Coding Agent under the capture switch), an approval named as the headset's moment
+names it (Run Command? only for a command tool, otherwise Use and the tool's name, Approval Requested where none is named),
+Approve and Decline, Agent's Question, Ask, Activity, What It Did, Other Apps, Compact and Expand, The Agent Says over
+reported text, and no dot-joined row anywhere. The
 offline line is "Your computer is not available.", since the panel cannot know whether pairing is offered (AUDIT2, 22:59Z).
 The card is drawn in the panel's own views (PanelHud): a solid fill, one hairline, four corner ticks, and while it needs
 the person one orange and one soft glow, never animated. Not yet seen on the headset.

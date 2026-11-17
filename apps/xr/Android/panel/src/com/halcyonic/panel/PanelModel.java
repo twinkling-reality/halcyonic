@@ -62,8 +62,9 @@ final class PanelModel {
         if (project == null || work == null || !projectId.equals(work.get("project_id"))) throw PanelJson.invalid();
         Map<String, Object> run = execution(workId);
         boolean synthetic = run != null && PanelJson.bool(PanelJson.object(run.get("runtime")).get("synthetic"));
-        String source = origin.equals("fixture") ? "Recorded state" : "Live host state";
-        if (synthetic) source += " · simulated agent";
+        // Read for its shape only: a synthetic agent is no longer named on the panel (AUDIT2, 00:09Z); the source is one word.
+        String source = origin.equals("fixture") ? "Recorded" : "Live";
+
         int approvals = run == null ? 0 : PanelJson.array(run.get("pending_approvals")).size();
         int questions = run == null ? 0 : PanelJson.array(run.get("pending_questions")).size();
         String status = PanelJson.text((run == null ? work : run).get("status"));
@@ -74,7 +75,7 @@ final class PanelModel {
             "source", source, "permissions", (long) approvals, "questions", (long) questions, "has_agent", run != null,
             "state_word", run == null ? NOT_STARTED : stateWord(status),
             "needs_you", run != null && (approvals > 0 || questions > 0 || "waiting_for_human".equals(status)),
-            "need", run == null ? null : need(approvals, questions),
+            "need", run == null ? null : need(PanelJson.array(run.get("pending_approvals")), questions),
             "mark", monogram(projectName));
     }
     static final String NOT_STARTED = "Not Started";
@@ -94,11 +95,25 @@ final class PanelModel {
             default: return "Not Known";
         }
     }
-    /** What a waiting task needs, in the headset's words, the approval first; null when nothing waits. */
-    static String need(long approvals, long questions) {
-        if (approvals > 0) return "Run Command?";
+    /** What a waiting task needs, in the headset's words, the first approval before any question; null when nothing waits. */
+    static String need(List<Object> approvals, long questions) {
+        if (!approvals.isEmpty()) return approvalLabel(PanelJson.object(approvals.get(0)));
         if (questions > 0) return "Agent's Question";
         return null;
+    }
+    /** The tools that run a command, as the headset names them (WorkspaceText.RunsCommand); an unknown name is not one. */
+    private static final List<String> COMMAND_TOOLS = Arrays.asList("shell", "bash", "commandexecution");
+    /**
+     * An approval's label as the headset's moment gives it (WorkspaceText.NeedOf, KitMoment): Run Command? only where its tool
+     * runs a command, the tool's own name where it is another tool, and Approval Requested where it names none (AUDIT2, 00:09Z).
+     */
+    static String approvalLabel(Map<String, Object> approval) {
+        Object value = approval.get("subject");
+        if (!(value instanceof Map)) return "Approval Requested";
+        Map<String, Object> subject = PanelJson.object(value);
+        if (!"tool_use".equals(subject.get("kind")) || !(subject.get("tool_name") instanceof String)) return "Approval Requested";
+        String tool = PanelText.plain((String) subject.get("tool_name"));
+        return COMMAND_TOOLS.contains(tool.toLowerCase(Locale.ROOT)) ? "Run Command?" : "Use " + tool;
     }
     /** The headset's mark of a name (KitScreenModel.MonogramOf): the first letters of its first two words, or its first two letters. */
     static String monogram(String name) {

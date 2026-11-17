@@ -852,7 +852,7 @@ describe('production native agent panel', () => {
       return JSON.parse(raw);
     };
     const base = model();
-    const at = (status: string, approvals = 0, questions = 0) =>
+    const at = (status: string, approvals = 0, questions = 0, tool = 'bash') =>
       parsed(
         `${status} ${approvals} ${questions}`,
         run(
@@ -870,6 +870,7 @@ describe('production native agent panel', () => {
               runtime: { ...execution.runtime, synthetic: false },
               pending_approvals: Array.from({ length: approvals }, (_, i) => ({
                 approval_id: `a${i}`,
+                subject: { kind: 'tool_use', tool_name: tool, summary: 'pnpm test' },
               })),
               pending_questions: Array.from({ length: questions }, (_, i) => ({
                 question_id: `q${i}`,
@@ -899,6 +900,9 @@ describe('production native agent panel', () => {
     // What it needs, the approval first, and only while something waits.
     assert.equal(at('waiting_for_human', 1, 1).need, 'Run Command?');
     assert.equal(at('waiting_for_human', 0, 1).need, "Agent's Question");
+    // Run Command? only where the tool runs a command, as the headset's moment names it (AUDIT2, 00:09Z).
+    assert.equal(at('waiting_for_human', 1, 0, 'commandExecution').need, 'Run Command?');
+    assert.equal(at('waiting_for_human', 1, 0, 'Edit').need, 'Use Edit');
     assert.equal(at('running').need, null);
     assert.equal(at('running').needs_you, false);
     assert.equal(at('waiting_for_human', 0, 1).needs_you, true);
@@ -923,7 +927,7 @@ describe('production native agent panel', () => {
       project: 'Fixture',
       task: 'Review complete task identity',
       state: 'Working',
-      source: 'Live host state · simulated agent',
+      source: 'Live',
       permissions: 0,
       questions: 0,
       has_agent: true,
@@ -933,14 +937,17 @@ describe('production native agent panel', () => {
       mark: 'FI',
     });
     const recorded = { ...selected, journal: { ...selected.journal, origin: 'fixture' } };
-    assert.equal(JSON.parse(read(recorded)).source, 'Recorded state · simulated agent');
+    assert.equal(JSON.parse(read(recorded)).source, 'Recorded');
     const pending = {
       ...selected,
       executions: selected.executions.map((execution) => ({
         ...execution,
         status: 'waiting_for_human',
         runtime: { ...execution.runtime, synthetic: false },
-        pending_approvals: [{ approval_id: 'permission1' }, { approval_id: 'permission2' }],
+        pending_approvals: [
+          { approval_id: 'permission1', subject: { kind: 'tool_use', tool_name: 'bash', summary: 'pnpm test' } },
+          { approval_id: 'permission2' },
+        ],
         pending_questions: [{ question_id: 'question1', prompts: [{ key: 'a' }, { key: 'b' }] }],
       })),
     };
@@ -948,7 +955,7 @@ describe('production native agent panel', () => {
       project: 'Fixture',
       task: 'Review complete task identity',
       state: 'Needs your decision',
-      source: 'Live host state',
+      source: 'Live',
       permissions: 2,
       questions: 1,
       has_agent: true,

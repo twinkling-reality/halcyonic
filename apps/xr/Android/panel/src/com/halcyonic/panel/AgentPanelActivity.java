@@ -219,7 +219,7 @@ public class AgentPanelActivity extends Activity {
         button.setBackground(surface); button.setTextColor(Color.rgb(238, 244, 255)); button.setPadding(dp(16), dp(10), dp(16), dp(10));
         LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2); layout.setMargins(0, dp(6), 0, dp(6)); button.setLayoutParams(layout);
     }
-    private static String stateName(String value) { return PanelModel.stateName(value); }
+    private static String stateName(String value) { return PanelModel.stateWord(value); }
     private void shell() {
         LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34)); shellRoot = root;
         brand = text(root, "Halora", 28);
@@ -227,18 +227,18 @@ public class AgentPanelActivity extends Activity {
         root.addView(connection, new LinearLayout.LayoutParams(-1, -2));
         connection.setText("Connecting to your computer…");
         LinearLayout nav = new LinearLayout(this); nav.setOrientation(LinearLayout.HORIZONTAL); root.addView(nav); navRow = nav;
-        for (String name : new String[] {"Projects", "Workspace", "Other apps"}) {
+        for (String name : new String[] {"Projects", "Workspace", "Other Apps"}) {
             Button b = new Button(this); b.setAllCaps(false); b.setText(name); b.setMinHeight(dp(52)); styleButton(b, name); b.setContentDescription(name); LinearLayout.LayoutParams navLayout = new LinearLayout.LayoutParams(0, -2, 1); navLayout.setMargins(dp(3), dp(4), dp(3), dp(4)); nav.addView(b, navLayout);
             b.setOnClickListener(v -> {
                 if (!authority.navigate() || (busy && name.equals("Projects"))) return;
                 cancelVoice();
                 if (name.equals("Projects")) { if (!saveState()) return; projectId = workId = executionId = null; draft = "";loadRequest(null); selectionChanged(); }
                 else if (name.equals("Workspace")) { cancelNetwork(); returnToWorkspace(); }
-                else { if (!saveState() && !saveSelectedContext()) return; cancelNetwork(); try { startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception error) { connection.setText("Other apps could not open."); } }
+                else { if (!saveState() && !saveSelectedContext()) return; cancelNetwork(); try { startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Exception error) { connection.setText("Other Apps could not open."); } }
             });
         }
         presentationButton = new Button(this); presentationButton.setAllCaps(false); presentationButton.setMinHeight(dp(52));
-        styleButton(presentationButton, "Compact panel"); root.addView(presentationButton);
+        styleButton(presentationButton, "Compact"); root.addView(presentationButton);
         presentationButton.setOnClickListener(view -> { if (visible && authority.navigate()) changePresentation(!compactPanel); });
         presentationButton.setVisibility(View.GONE);
         developmentControls = new LinearLayout(this); developmentControls.setOrientation(LinearLayout.VERTICAL); root.addView(developmentControls);
@@ -273,7 +273,7 @@ public class AgentPanelActivity extends Activity {
     private String monitorFreshness(boolean paused) {
         if (preview) return "Synthetic preview: no live work, and nothing is sent.";
         String when = checkedAt == 0 ? "Not checked yet" : "Last checked " + new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.ROOT).format(new java.util.Date(checkedAt));
-        return (paused ? "Updates paused" : "Read-only task monitor") + " · " + when;
+        return (paused ? "Updates paused" : "Read-only task monitor") + ". " + when + ".";
     }
     /**
      * The compact panel beside the person's show (take 10; SCREENS' brief, AUDIT2's words of 23:49Z): four things and nothing
@@ -514,7 +514,7 @@ public class AgentPanelActivity extends Activity {
             PanelProjectOutput.Link link = files.readProjectOutputs().find(outputScope(selection));
             final PanelProjectOutput.Component previous = link == null ? null : link.component;
             LinearLayout body = outputDialog("Linked app", selection, previous);
-            text(body, "Project · " + outputProjectName(selection), 20);
+            text(body, outputProjectName(selection), 20);
             text(body, "Installed build may differ from current source.", 18);
             if (previous == null) text(body, "No app linked on this headset.", 18);
             else {
@@ -524,8 +524,8 @@ public class AgentPanelActivity extends Activity {
                 button(body, "Remove link", () -> outputAction(outputLease, selection, previous, null, false));
             }
             button(body, previous == null ? "Choose installed app" : "Change linked app", () -> outputChooser(selection, previous));
-            text(body, "Other apps opens Home if an app cannot be found or opened here.", 18);
-        } catch (Exception error) { outputRefused("Saved links could not be read. Use Other apps to open Home."); }
+            text(body, "Other Apps opens Home if an app cannot be found or opened here.", 18);
+        } catch (Exception error) { outputRefused("Saved links could not be read. Use Other Apps to open Home."); }
     }
     private void outputChooser(PanelUiState.Context selection, PanelProjectOutput.Component previous) {
         final PanelProjectOutput.Lease old = outputLease;
@@ -540,13 +540,13 @@ public class AgentPanelActivity extends Activity {
                 if (!outputCurrent(lease)) { outputRefused("This app choice expired. Choose it again."); return; }
                 body.removeAllViews();
                 text(body, "Choose an app for " + outputProjectName(selection) + ". It will not open yet.", 20);
-                if (catalog.apps.isEmpty()) text(body, "No apps were found. Close this view and use Other apps to open Home.", 18);
-                if (catalog.truncated) text(body, "Only the first 256 apps are shown. Use Other apps for more.", 18);
+                if (catalog.apps.isEmpty()) text(body, "No apps were found. Close this view and use Other Apps to open Home.", 18);
+                if (catalog.truncated) text(body, "Only the first 256 apps are shown. Use Other Apps for more.", 18);
                 for (PanelProjectOutput.App app : catalog.apps) button(body, outputAppName(catalog, app), () -> {
                     if (!outputCurrent(lease) || catalog.find(app.component) != app) { outputRefused("This app choice expired. Choose it again."); return; }
                     outputConfirmation(selection, previous, app);
                 });
-            } catch (Exception error) { outputRefused("Apps could not be listed. Use Other apps to open Home."); }
+            } catch (Exception error) { outputRefused("Apps could not be listed. Use Other Apps to open Home."); }
         });
     }
     private String outputProjectName(PanelUiState.Context selection) {
@@ -581,8 +581,8 @@ public class AgentPanelActivity extends Activity {
                 });
                 outputRefused(result == PanelProjectOutput.OpenResult.REQUESTED ? "App open requested."
                     : result == PanelProjectOutput.OpenResult.UNSAVED ? "Your drafts could not be saved, so the app was not opened."
-                    : result == PanelProjectOutput.OpenResult.UNAVAILABLE ? "Linked app unavailable. Change the link or use Other apps to open Home."
-                    : "The app could not open. Choose it again or use Other apps to open Home.");
+                    : result == PanelProjectOutput.OpenResult.UNAVAILABLE ? "Linked app unavailable. Change the link or use Other Apps to open Home."
+                    : "The app could not open. Choose it again or use Other Apps to open Home.");
             } else {
                 try {
                     if (chosen != null && PanelAppLauncher.current(this, chosen) == null) { outputRefused("This app is unavailable. Choose an installed app again."); return; }
@@ -666,7 +666,7 @@ public class AgentPanelActivity extends Activity {
             requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, 7301); return;
         }
         try {
-            voiceCapture = new PanelVoiceCapture(); voiceStatus.setText("Listening · release to add words, or cancel.");
+            voiceCapture = new PanelVoiceCapture(); voiceStatus.setText("Listening. Release to add words, or cancel.");
             final PanelVoiceCapture capture = voiceCapture;
             ui.postDelayed(() -> { if (voiceLease == lease && voiceCapture == capture) capture.stop(true); }, PanelVoice.MAX_MS);
             capture.read(speechWorker, (wav, cancelled, failed) -> ui.post(() -> {
@@ -675,7 +675,7 @@ public class AgentPanelActivity extends Activity {
                 if (!PanelVoice.usableClip(wav, voiceCurrent(snapshot, identity), cancelled)) {
                     cancelVoice(); voiceStatus.setText(failed ? "Microphone unavailable. Your words are unchanged." : cancelled ? "Recording cancelled. Your words are unchanged." : "Speak for at least half a second. Your words are unchanged."); return;
                 }
-                voiceStatus.setText("Writing down · your words stay local until you review and send.");
+                voiceStatus.setText("Writing down. Nothing goes to the agent until you review and send it.");
                 voiceAudio = new PanelVoice.Audio(wav);
                 transcribeVoice(lease, voiceAudio);
             }));
@@ -795,7 +795,7 @@ public class AgentPanelActivity extends Activity {
             if (!commandId.equals(command.get("command_id"))) continue;
             return PanelModel.commandStatus(command);
         }
-        return identity != null && identity.scheme.equals("ws") ? "USB development connection · local owner. Agents work on your computer." : "Connected to your paired computer. Agents work there independently.";
+        return identity != null && identity.scheme.equals("ws") ? "USB development connection. Agents work on your computer." : "Connected to your paired computer. Agents work there independently.";
     }
 
     private void show() {
@@ -804,7 +804,7 @@ public class AgentPanelActivity extends Activity {
         // Project/task lists are local navigation, not restoration of hidden task action controls.
         if (workId == null && snapshot != null) authority.projected();
         presentationButton.setVisibility(workId == null ? View.GONE : View.VISIBLE);
-        presentationButton.setText(compactPanel ? "Expand task controls" : "Compact panel");
+        presentationButton.setText(compactPanel ? "Expand" : "Compact");
         presentationButton.setContentDescription(presentationButton.getText());
         developmentControls.setVisibility(compactPanel && workId != null ? View.GONE : View.VISIBLE);
         // Compact beside the person's show is the card alone (take 10): no name, no navigation, no monitor line, save the
@@ -828,14 +828,14 @@ public class AgentPanelActivity extends Activity {
             }
             Map<String, Object> project = snapshot.projects.get(projectId);
             if (project == null) { projectId = null; show(); return; }
-            text(content, "Project · " + PanelText.plain(PanelJson.text(project.get("name"))), 23);
+            text(content, PanelText.plain(PanelJson.text(project.get("name"))), 23);
             if (workId == null) {
                 projectOutputControls();
                 text(content, "Tasks", 26);
                 for (Map<String, Object> work : snapshot.workstreams.values()) if (projectId.equals(work.get("project_id"))) {
                     Map<String, Object> taskRun = snapshot.execution(PanelJson.text(work.get("workstream_id")));
                     boolean simulated = taskRun != null && PanelJson.bool(PanelJson.object(taskRun.get("runtime")).get("synthetic"));
-                    String label = PanelText.plain(PanelJson.text(work.get("title"))) + "\n" + stateName(PanelJson.text(work.get("status"))) + (simulated ? " · simulated" : "");
+                    String label = PanelText.plain(PanelJson.text(work.get("title"))) + "\n" + stateName(PanelJson.text(work.get("status")));
                     button(content, label, () -> { if (!saveState()) return; workId = PanelJson.text(work.get("workstream_id")); Map<String, Object> run = snapshot.execution(workId); executionId = run == null ? null : PanelJson.text(run.get("execution_id")); continuation = null; restoreDraft(); selectionChanged(); });
                 }
                 return;
@@ -847,25 +847,25 @@ public class AgentPanelActivity extends Activity {
                 text(content, "Checking this task before enabling controls…", 20);
                 return;
             }
-            text(content, "Task · " + PanelText.plain(PanelJson.text(work.get("title"))), 25);
+            text(content, PanelText.plain(PanelJson.text(work.get("title"))), 25);
             if (work.get("objective") != null) text(content, "Objective\n" + PanelText.plain(PanelJson.text(work.get("objective"))), 18);
             Map<String, Object> run = snapshot.execution(workId);
             if (run == null) { executionId = null; projectOutputControls(); text(content, "This task has no current agent. Start work in Workspace.", 20); return; }
             executionId = PanelJson.text(run.get("execution_id"));
             projectOutputControls();
             Map<String, Object> runtime = PanelJson.object(run.get("runtime"));
-            text(content, "Agent · " + PanelText.plain(PanelJson.text(runtime.get("display_name"))) + (PanelJson.bool(runtime.get("synthetic")) ? " · simulated" : "") + "\nAgent status · " + stateName(PanelJson.text(run.get("status"))), 19);
+            text(content, stateName(PanelJson.text(run.get("status"))) + "\n" + (capturable ? "Coding Agent" : PanelText.plain(PanelJson.text(runtime.get("display_name")))), 19);
             final PanelUiState.Context displayed = actionContext();
-            button(content,surface.equals("request")?"Task controls":"Ask workspace",()->{if(!saveState())return;surface=surface.equals("request")?"task":"request";agentOffer=requestView=null;show();saveSelectedContext();if(!preview)poll(true);});
-            button(content, "Read recorded activity", this::activity);
-            if (!preview) button(content, "Read results", this::results);
+            button(content,surface.equals("request")?"Task controls":"Ask",()->{if(!saveState())return;surface=surface.equals("request")?"task":"request";agentOffer=requestView=null;show();saveSelectedContext();if(!preview)poll(true);});
+            button(content, "Activity", this::activity);
+            if (!preview) button(content, "What It Did", this::results);
             for (Object item : PanelJson.array(run.get("pending_approvals"))) {
                 Map<String, Object> request = PanelJson.object(item);
-                button(content, "Review agent permission request", () -> approval(request, displayed));
+                button(content, PanelModel.approvalLabel(request), () -> approval(request, displayed));
             }
             for (Object item : PanelJson.array(run.get("pending_questions"))) {
                 Map<String, Object> question = PanelJson.object(item);
-                button(content, "Read agent question", () -> question(question, displayed));
+                button(content, "Agent's Question", () -> question(question, displayed));
             }
             for (PanelContinuation earlier : preview ? new ArrayList<PanelContinuation>() : drafts.earlier(identity.key, snapshot.journal, workId, executionId)) {
                 final Map<String,Object> earlierRequest=earlier.value.get("request")==null?null:PanelJson.object(earlier.value.get("request"));
@@ -879,7 +879,7 @@ public class AgentPanelActivity extends Activity {
             }
             if(surface.equals("request")){showRequest(displayed);if(snapshot.interrupt(run))button(content,"Stop this agent",()->reviewed("Stop this agent?","The agent must confirm before its runtime turn is stopped.","Send stop request",displayed,()->send("execution.interrupt",PanelJson.map("execution_id",displayed.execution),null,null,displayed)));return;}
             if (snapshot.instruct(run)) {
-                text(content, spoken ? "Your instruction · from speech, review every word" : "Your instruction", 20);
+                text(content, "Your instruction", 20); if (spoken) text(content, "From speech. Read every word.", 17);
                 instruction = new EditText(this); instruction.setText(draft); instruction.setTextColor(Color.WHITE); instruction.setContentDescription("Your instruction"); instruction.setTextSize(20); instruction.setMinLines(3); instruction.setMaxLines(8);
                 instruction.setFilters(new InputFilter[] {ordinaryTextLimit()}); instruction.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
                 content.addView(instruction, new LinearLayout.LayoutParams(-1, -2));
@@ -934,7 +934,7 @@ public class AgentPanelActivity extends Activity {
                     PanelToolResults.ListView list = (PanelToolResults.ListView) received;
                     List<Map<String,Object>> summaries = list.summaries;
                     text(body, "Current files and software correctness are not verified.", 18);
-                    text(body, "Showing " + summaries.size() + " of " + list.total + " recorded results" + (list.earlier > 0 ? " · earlier results omitted from this list" : "") + ".", 17);
+                    text(body, "Showing " + summaries.size() + " of " + list.total + " recorded results" + "." + (list.earlier > 0 ? " Earlier ones are not in this list." : ""), 17);
                     if (!list.availability.equals("available")) text(body, list.availability.equals("unsupported") ? "This agent app does not support new result records. Earlier records remain readable." : list.availability.equals("unknown") ? "Support for new result records is unknown. Earlier records remain readable." : "Result recording is unavailable here. Earlier records remain readable.", 18);
                     if (summaries.isEmpty()) text(body, "No results have been recorded for this task.", 20);
                     for (Object item : summaries) {
@@ -953,7 +953,7 @@ public class AgentPanelActivity extends Activity {
                         LinearLayout selectedFile=column();
                         for (Object item : files) {
                             Map<String,Object> file = PanelJson.object(item);
-                            button(body,file.get("path")==null?"File path unavailable":PanelText.plain(PanelJson.text(file.get("path")))+(PanelJson.bool(file.get("path_complete"))?"":" · shortened"),()->{if(resultCurrent(lease))resultFile(selectedFile,file,lease);});
+                            button(body,file.get("path")==null?"File path unavailable":PanelText.plain(PanelJson.text(file.get("path")))+(PanelJson.bool(file.get("path_complete"))?"":"\nShortened"),()->{if(resultCurrent(lease))resultFile(selectedFile,file,lease);});
                         }
                         body.addView(selectedFile);
                         if(!files.isEmpty())text(selectedFile,"Choose a file to read its recorded patch.",18);
@@ -972,8 +972,8 @@ public class AgentPanelActivity extends Activity {
         resultPage(page, pages, 0, lease);
     }
     private void resultFile(LinearLayout parent,Map<String,Object> file,PanelToolResults.Lease lease){
-        parent.removeAllViews();text(parent,PanelJson.text(file.get("kind"))+" · "+(file.get("path")==null?"File path unavailable":PanelText.plain(PanelJson.text(file.get("path")))),20);
-        if(file.get("move_path_scope")!=null)text(parent,file.get("move_path")==null?"Destination path unavailable":"Destination · "+PanelText.plain(PanelJson.text(file.get("move_path")))+(PanelJson.bool(file.get("move_path_complete"))?"":" · shortened"),18);
+        parent.removeAllViews();text(parent,PanelJson.text(file.get("kind"))+"\n"+(file.get("path")==null?"File path unavailable":PanelText.plain(PanelJson.text(file.get("path")))),20);
+        if(file.get("move_path_scope")!=null)text(parent,file.get("move_path")==null?"Destination path unavailable":"To\n"+PanelText.plain(PanelJson.text(file.get("move_path")))+(PanelJson.bool(file.get("move_path_complete"))?"":"\nShortened"),18);
         resultBody(parent,PanelToolResults.body(file.get("patch")),lease);
     }
     private void resultPage(LinearLayout page, List<String> pages, int index, PanelToolResults.Lease lease) {
@@ -989,11 +989,11 @@ public class AgentPanelActivity extends Activity {
         reviewed("Review your instruction", PanelText.plain(text), "Send instruction", scope, () -> send("execution.send_instruction", PanelJson.map("execution_id", preview ? executionId : scope.execution, "text", text), null, null, scope));
     }
     private void showRequest(PanelUiState.Context scope) {
-        text(content,"Ask workspace",25);
+        text(content,"Ask",25);
         text(content,"Direct this task in your own words. The workspace can read context and continue authorized work. Agent permissions and questions still need your decision.",18);
         if(preview){text(content,"Synthetic preview: workspace requests are not available here. No model or agent action is sent.",18);return;}
         requestAvailability=text(content,"Checking workspace availability…",17);
-        text(content,requestSpoken?"Your request · from speech, review every word":"Your request",20);
+        text(content,"Your request",20); if(requestSpoken) text(content,"From speech. Read every word.",17);
         requestEditor=new EditText(this);requestEditor.setText(requestText);requestEditor.setTextColor(Color.WHITE);requestEditor.setTextSize(20);requestEditor.setMinLines(3);requestEditor.setMaxLines(8);requestEditor.setContentDescription("Your workspace request");requestEditor.setFilters(new InputFilter[]{ordinaryTextLimit()});requestEditor.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);content.addView(requestEditor,new LinearLayout.LayoutParams(-1,-2));
         voiceEditor(content, requestEditor, "request");
         requestActions=new LinearLayout(this);requestActions.setOrientation(LinearLayout.VERTICAL);content.addView(requestActions,new LinearLayout.LayoutParams(-1,-2));showRequestActions(scope);
@@ -1001,18 +1001,18 @@ public class AgentPanelActivity extends Activity {
     private void showRequestActions(PanelUiState.Context scope){
         if(requestActions==null||requestAvailability==null)return;requestActions.removeAllViews();
         boolean offered=agentOffer!=null&&"available".equals(agentOffer.get("availability"));
-        requestAvailability.setText(offered?"Workspace model · "+PanelText.plain(PanelJson.text(agentOffer.get("model")))+"\nServed on this Mac":agentOffer==null?"Checking workspace availability…":"Workspace unavailable\n"+PanelText.plain(PanelJson.text(PanelJson.object(agentOffer.get("reason")).get("message"))));
+        requestAvailability.setText(offered?"Model\n"+PanelText.plain(PanelJson.text(agentOffer.get("model")))+"\nOn Your Computer":agentOffer==null?"Checking workspace availability…":"Workspace unavailable\n"+PanelText.plain(PanelJson.text(PanelJson.object(agentOffer.get("reason")).get("message"))));
         if(requestPending!=null){text(requestActions,"Waiting to confirm the last send. Its original reference is saved. It will not be sent again.",18);final String pending=requestPending;if(knownUnsent(scope,pending,requestId))button(requestActions,"Clear unsent request",()->reviewed("Clear this unsent request?","This request was saved before sending and was never attempted. Your words stay here. Clearing it does not send anything.","Clear unsent request",scope,()->clearUnsent(scope,pending)));return;}
         final String selectedRequest=requestId;
         if(selectedRequest==null){if(offered)button(requestActions,"Review workspace request",()->{rememberDraft();final String words=requestText;if(!words.trim().isEmpty())reviewed("Review your workspace request",PanelText.plain(words),"Send workspace request",scope,()->sendWorkspace("workspace.request.submit",PanelJson.map("project_id",scope.project,"workstream_id",scope.work,"execution_id",scope.execution,"text",words),scope,null));});return;}
         if(requestView==null){text(requestActions,"This saved request is being checked against the current task. Its reference and your words are retained.",18);return;}
         String state=PanelJson.text(requestView.get("status"));
-        text(requestActions,"Request · "+requestState(state)+"\nA response is model-reported; it does not certify software completion.",18);
+        text(requestActions,requestState(state)+"\nA response is model-reported; it does not certify software completion.",18);
         if(requestView.get("reply")!=null){Map<String,Object> reply=PanelJson.object(requestView.get("reply"));button(requestActions,"Workspace reply",()->reviewed("Reported workspace reply",PanelText.plain(PanelJson.text(reply.get("text")))+"\n\nReported by "+PanelText.plain(PanelJson.text(reply.get("model")))+" on this Mac. Actions and software output remain separate evidence.","Done",scope,this::closeReview));}
         if(!PanelJson.array(requestView.get("steps")).isEmpty())button(requestActions,"Actions",()->{
             StringBuilder whole=new StringBuilder("Actions\nSending an instruction and finishing the agent’s turn are separate outcomes. Earlier actions remain in task activity.\n");
-            whole.append("Earlier actions · ").append(requestView.get("earlier_steps")).append('\n');
-            for(Object item:PanelJson.array(requestView.get("steps"))){Map<String,Object> step=PanelJson.object(item);whole.append('\n').append(toolLabel(PanelJson.text(step.get("tool_name")))).append(" · ").append(PanelWorkspaceRequest.receiptWords(step)).append('\n').append(PanelText.plain(PanelJson.text(step.get("summary")))).append('\n');if(step.get("command_status")!=null)whole.append("Send · ").append(PanelText.plain(PanelJson.text(step.get("command_status")))).append('\n');if(step.get("runtime_status")!=null)whole.append("Agent turn · ").append(stateName(PanelJson.text(step.get("runtime_status")))).append('\n');}
+            whole.append("Earlier actions\n").append(requestView.get("earlier_steps")).append('\n');
+            for(Object item:PanelJson.array(requestView.get("steps"))){Map<String,Object> step=PanelJson.object(item);whole.append('\n').append(toolLabel(PanelJson.text(step.get("tool_name")))).append('\n').append(PanelWorkspaceRequest.receiptWords(step)).append('\n').append(PanelText.plain(PanelJson.text(step.get("summary")))).append('\n');if(step.get("command_status")!=null)whole.append("Send\n").append(PanelText.plain(PanelJson.text(step.get("command_status")))).append('\n');if(step.get("runtime_status")!=null)whole.append("Agent turn\n").append(stateName(PanelJson.text(step.get("runtime_status")))).append('\n');}
             reviewed("Actions",whole.toString(),"Done",scope,this::closeReview);
         });
         if(!state.equals("stopped")){
@@ -1101,14 +1101,14 @@ public class AgentPanelActivity extends Activity {
         try {
             Map<String, Object> subject = PanelJson.object(request.get("subject"));
             if (!"tool_use".equals(subject.get("kind"))) throw PanelJson.invalid();
-            String whole = "Agent request\nTool · " + PanelText.plain(PanelJson.text(subject.get("tool_name"))) + "\n\n" + PanelText.plain(PanelJson.text(subject.get("summary")));
+            String whole = PanelModel.approvalLabel(request) + "\n" + PanelText.plain(PanelJson.text(subject.get("tool_name"))) + "\n\n" + PanelText.plain(PanelJson.text(subject.get("summary")));
             boolean canRespond = snapshot.capability(snapshot.execution(workId), "respond_to_approval") && PanelModel.running(snapshot.execution(workId));
             boolean canApprove = canRespond && PanelJson.bool(request.get("approvable"));
             if (!canRespond) { reviewed("Read the agent’s request", whole + "\n\nThis runtime cannot receive a permission response here.", "Done", this::closeReview); return; }
             LinearLayout body = dialog("Read the agent’s request"); text(body, whole + (canApprove ? "" : "\n\nThis request was shortened and cannot be approved."), 20);
             ScrollView scroll = (ScrollView) body.getParent(); LinearLayout root = (LinearLayout) scroll.getParent();
-            if (canApprove) gatedButton(root, body, scroll, "Approve this request", scope, () -> send("execution.respond_to_approval", PanelJson.map("execution_id", preview ? executionId : scope.execution, "approval_id", request.get("approval_id"), "decision", "approve", "message", null), request, null, scope));
-            gatedButton(root, body, scroll, "Deny this request", scope, () -> send("execution.respond_to_approval", PanelJson.map("execution_id", preview ? executionId : scope.execution, "approval_id", request.get("approval_id"), "decision", "deny", "message", null), request, null, scope));
+            if (canApprove) gatedButton(root, body, scroll, "Approve", scope, () -> send("execution.respond_to_approval", PanelJson.map("execution_id", preview ? executionId : scope.execution, "approval_id", request.get("approval_id"), "decision", "approve", "message", null), request, null, scope));
+            gatedButton(root, body, scroll, "Decline", scope, () -> send("execution.respond_to_approval", PanelJson.map("execution_id", preview ? executionId : scope.execution, "approval_id", request.get("approval_id"), "decision", "deny", "message", null), request, null, scope));
         } catch (Exception error) { connection.setText("This request cannot be read safely. Open Workspace."); }
     }
     private void question(Map<String, Object> request, PanelUiState.Context scope) {
@@ -1152,7 +1152,7 @@ public class AgentPanelActivity extends Activity {
                 String text = written.get(i) == null ? null : written.get(i).getText().toString(); if (text != null && text.trim().isEmpty()) text = null;
                 answers.add(PanelJson.map("key", p.get("key"), "selected", selected, "text", text));
                 summary.append('\n').append(PanelText.plain(PanelJson.nullableText(p.get("header")))).append('\n').append(PanelText.plain(PanelJson.text(p.get("text")))).append('\n');
-                for (Object option : PanelJson.array(p.get("options"))) { Map<String, Object> o = PanelJson.object(option); summary.append("Offered · ").append(PanelText.plain(PanelJson.text(o.get("label")))).append('\n').append(PanelText.plain(PanelJson.nullableText(o.get("description")))).append('\n'); }
+                for (Object option : PanelJson.array(p.get("options"))) { Map<String, Object> o = PanelJson.object(option); summary.append(PanelText.plain(PanelJson.text(o.get("label")))).append('\n').append(PanelText.plain(PanelJson.nullableText(o.get("description")))).append('\n'); }
                 summary.append("Your answer\n");
                 for (Object label : selected) summary.append("• ").append(PanelText.plain(PanelJson.text(label))).append('\n');
                 if (text != null) summary.append(PanelText.plain(text)).append('\n');
@@ -1232,7 +1232,7 @@ public class AgentPanelActivity extends Activity {
     }
 
     private void activity() {
-        if (preview) { reviewed("Synthetic activity", "Reported · This is the public synthetic preview. No work ran from this panel and no live activity was read.", "Done", this::closeReview); return; }
+        if (preview) { reviewed("Synthetic activity", "The Agent Says\nThis is the public synthetic preview. No work ran from this panel and no live activity was read.", "Done", this::closeReview); return; }
         if (snapshot == null || identity == null || busy) return;
         final PanelIdentity target = identity; final String work = workId, journal = snapshot.journal; final int requestGeneration = generation;
         busy = true; PanelTransport next = new PanelTransport(files::connection); transport = next;
@@ -1248,7 +1248,7 @@ public class AgentPanelActivity extends Activity {
                     Map<String, Object> event = PanelJson.object(PanelJson.object(item).get("event"));
                     text.append('\n').append(PanelText.plain(PanelJson.text(event.get("event_type")))).append('\n');
                     Map<String, Object> payload = PanelJson.object(event.get("payload"));
-                    for (String field : new String[] {"text", "message", "summary"}) if (payload.get(field) instanceof String) text.append("Reported · ").append(PanelText.plain((String) payload.get(field))).append('\n');
+                    for (String field : new String[] {"text", "message", "summary"}) if (payload.get(field) instanceof String) text.append("The Agent Says\n").append(PanelText.plain((String) payload.get(field))).append('\n');
                 }
                 whole = text.toString();
             } catch (Exception error) { whole = "Activity could not be read. Check your connection in Workspace."; }

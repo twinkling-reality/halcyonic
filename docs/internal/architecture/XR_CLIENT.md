@@ -4482,8 +4482,8 @@ finite em meet the existing apparent 14 dp minimum; otherwise they use the alrea
 
 ### Compact native task monitor
 
-The native panel's explicit Compact panel action keeps the selected task in a read-only content
-view; Expand task controls restores actions only after a fresh authenticated snapshot. Local mode
+The native panel's explicit Compact action keeps the selected task in a read-only content
+view; Expand restores actions only after a fresh authenticated snapshot. Local mode
 choice survives Activity recreation separately from the shared continuation contract. Existing
 private stores retain both ordinary instruction/request drafts and the original pending UUID
 before either transition; save failure blocks the transition. Compaction revokes modal/input,
