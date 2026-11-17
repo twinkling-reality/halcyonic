@@ -39,8 +39,16 @@ writeFileSync(join(HOME, 'marker.txt'), 'outside-marker\n');
 for (const name of ['gh', 'security', 'curl', 'git', 'ssh', 'wget', 'nc'])
   writeFileSync(join(SHIMS, name), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
 
-/** A Messages API that asks for one Bash call of `command` for the prompt, then answers Done. */
-function fakeApi(command: string) {
+/** Every tool name the CLI offered the model, from its requests. */
+const OFFERED = new Set<string>();
+
+/** One tool call the fake API asks for: a Bash command as text, or any tool by name and input. */
+type Call = string | { readonly name: string; readonly input: Record<string, unknown> };
+
+/** A Messages API that asks for the one tool call `call` for the prompt, then answers Done. */
+function fakeApi(call: Call) {
+  const name = typeof call === 'string' ? 'Bash' : call.name;
+  const input = typeof call === 'string' ? { command: call, description: 'Probe' } : call.input;
   return createServer((req, res) => {
     let raw = '';
     req.on('data', (chunk) => {
@@ -55,7 +63,12 @@ function fakeApi(command: string) {
         res.writeHead(200, { 'content-type': 'application/json' }).end('{"input_tokens":10}');
         return;
       }
-      const body = (raw === '' ? {} : JSON.parse(raw)) as { stream?: boolean; model?: string };
+      const body = (raw === '' ? {} : JSON.parse(raw)) as {
+        stream?: boolean;
+        model?: string;
+        tools?: { name?: string }[];
+      };
+      for (const offered of body.tools ?? []) if (offered.name) OFFERED.add(offered.name);
       const tool = raw.includes('TOOL first') && !raw.includes('tool_result');
       const message = {
         id: `msg_${randomUUID()}`,
@@ -69,8 +82,8 @@ function fakeApi(command: string) {
         ? {
             type: 'tool_use',
             id: `toolu_${randomUUID().slice(0, 8)}`,
-            name: 'Bash',
-            input: { command, description: 'Probe' },
+            name,
+            input,
           }
         : { type: 'text', text: 'Done.' };
       const stop = tool ? 'tool_use' : 'end_turn';
@@ -98,7 +111,7 @@ function fakeApi(command: string) {
         delta: tool
           ? {
               type: 'input_json_delta',
-              partial_json: JSON.stringify({ command, description: 'Probe' }),
+              partial_json: JSON.stringify(input),
             }
           : { type: 'text_delta', text: 'Done.' },
       });
@@ -114,9 +127,9 @@ function fakeApi(command: string) {
   });
 }
 
-/** Whether Claude Code asked before running `command`, launched as a run outside the closed profile is. */
-async function asks(command: string): Promise<boolean> {
-  const server = fakeApi(command);
+/** Whether Claude Code asked before making `call`, launched as a run outside the closed profile is. */
+async function asks(call: Call): Promise<boolean> {
+  const server = fakeApi(call);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   let asked = false;
@@ -136,8 +149,8 @@ async function asks(command: string): Promise<boolean> {
           CLAUDE_CONFIG_DIR: CONFIG,
           TMPDIR: `${ROOT}/`,
         },
-        canUseTool: async (name) => {
-          if (name === 'Bash') asked = true;
+        canUseTool: async () => {
+          asked = true;
           return { behavior: 'deny', message: 'Denied by the test.' };
         },
       },
@@ -149,7 +162,7 @@ async function asks(command: string): Promise<boolean> {
   return asked;
 }
 
-test('outside the closed profile, every git command that reads or reaches a remote asks, as do credentials, the network and reads outside the folder (AUDIT3, 2026-11-17)', {
+test('outside the closed profile, every git command that reads or reaches a remote asks, as do credentials, the network and every read or search outside the folder (AUDIT3, 2026-11-17)', {
   skip: SKIP,
   timeout: 600_000,
 }, async () => {
@@ -169,7 +182,25 @@ test('outside the closed profile, every git command that reads or reaches a remo
     `cat ${HOME}/marker.txt`,
     `grep -r marker ${HOME}`,
     'cat README.md > copy.txt',
+    // AUDIT3 M1: forms that hide a git command from a prefix rule.
+    'git -C . remote -v',
+    'git --no-pager remote -v',
+    'git -c core.pager=cat config --get remote.origin.url',
+    'GIT_DIR=.git git remote -v',
+    'cd . && git remote -v',
+    'ls && git remote -v',
+    'git remote -v | cat',
+    'command git remote -v',
+    "sh -c 'git remote -v'",
+    "bash -c 'git config --get remote.origin.url'",
   ];
+  // AUDIT3 M2: the other tools that read or reach the network.
+  const askingTools = [
+    { name: 'Read', input: { file_path: join(HOME, 'marker.txt') } },
+    { name: 'WebFetch', input: { url: 'http://127.0.0.1:9/page', prompt: 'Say what it says.' } },
+    { name: 'WebSearch', input: { query: 'halora probe' } },
+  ];
+  const unaskedTools = [{ name: 'Read', input: { file_path: join(PROJECT, 'README.md') } }];
   // Claude Code's own read-only set inside the folder, as the person's own Claude Code runs it at the desk.
   const unasked = [
     'ls',
@@ -178,13 +209,24 @@ test('outside the closed profile, every git command that reads or reaches a remo
     'git status',
     'git log --oneline',
   ];
+  // This CLI offers no Grep or Glob tool (it answers a call to either "No such tool available"), so a search runs
+  // only through Bash, which the rules above hold. A CLI that offers them again fails here, to be probed first.
+  const key = (call: Call) =>
+    typeof call === 'string' ? call : `${call.name} ${JSON.stringify(call.input)}`;
   const seen: Record<string, boolean> = {};
-  for (const command of [...asking, ...unasked]) seen[command] = await asks(command);
+  for (const call of [...asking, ...askingTools, ...unasked, ...unaskedTools])
+    seen[key(call)] = await asks(call);
   assert.deepEqual(
     seen,
     Object.fromEntries([
-      ...asking.map((command) => [command, true]),
-      ...unasked.map((command) => [command, false]),
+      ...[...asking, ...askingTools].map((call) => [key(call), true]),
+      ...[...unasked, ...unaskedTools].map((call) => [key(call), false]),
     ]),
+  );
+  assert.ok(OFFERED.has('Bash') && OFFERED.has('Read'), [...OFFERED].join(', '));
+  assert.deepEqual(
+    [...OFFERED].filter((name) => name === 'Grep' || name === 'Glob'),
+    [],
+    'Claude Code offers a search tool again: probe it outside the folder before this CLI is used',
   );
 });
