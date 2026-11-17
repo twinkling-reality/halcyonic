@@ -55,6 +55,7 @@ namespace Halcyonic.XR.Workspace.Editor
             try
             {
                 RoomDesign.Enabled = true;
+                CharacterStage.SayLayout = true;
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 // Made after the new scene, which unloads every asset nothing references.
                 texture = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
@@ -189,6 +190,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     UnityEngine.Object.DestroyImmediate(texture);
                 }
                 RoomDesign.Enabled = was;
+                CharacterStage.SayLayout = false;
                 WorkspaceRender.KeepFontAssetsAsCommitted();
             }
             return failures;

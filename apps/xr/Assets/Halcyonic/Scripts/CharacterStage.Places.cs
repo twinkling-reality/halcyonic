@@ -26,6 +26,9 @@ namespace Halcyonic.XR
         /// parts as <see cref="DrawnTagSize"/> is, so a place's back row can rise until its tags clear the front row's bodies as the eyes see them.</summary>
         public static System.Func<CharacterView, Vector3[]?>? DrawnTagCorners { get; set; }
 
+        /// <summary>Whether a place's layout says each pass it reads (its renders set it, for the places check's log); nothing else does.</summary>
+        public static bool SayLayout { get; set; }
+
         /// <summary>Lays <paramref name="view"/>'s tag again with its words as they are, after its bound changed (published by the room's parts).</summary>
         public static System.Action<CharacterView>? RedrawTag { get; set; }
 
@@ -342,6 +345,7 @@ namespace Halcyonic.XR
                 var tagDistance = views.Take(Mathf.Min(rowMost, count)).Average(view => Across(view.Labels.position, eyes));
                 pitch = (float)PlacePitch.MetresOf(pitchDegrees, tagDistance);
                 rowMost = Mathf.Min(PlacePitch.RowMost(widestSeen, bodyDegrees), rule.FullMost);
+                if (SayLayout) Debug.Log("Halcyonic: places: layout pass " + settle + ": widest tag " + widestSeen.ToString("0.00") + " degrees, body " + bodyDegrees.ToString("0.00") + ", rows of " + rowMost + ".");
                 Lay();
                 if (settle > 0 && rowMost == rowWas) break;
             }
