@@ -1,7 +1,8 @@
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import type {
   ApprovalDecision,
   ApprovalLevel,
@@ -33,6 +34,8 @@ import {
 import { approvalRequest, toolNameOf } from './approvals.ts';
 import type { AcpProfile } from './profiles.ts';
 import { type RequestId, RpcConnection, RpcError, RpcUnanswered } from './rpc.ts';
+
+const run = promisify(execFile);
 
 /** The ACP protocol version this adapter speaks (agentclientprotocol.com, `initialize`). */
 export const ACP_PROTOCOL_VERSION = 1;
@@ -289,6 +292,8 @@ class AcpSession {
   #sessionId: string | null = null;
   #turn: Turn | null = null;
   #message = '';
+  /** Each tool call as the app last reported it, its fields merged update by update (ACP `ToolCallUpdate`). */
+  readonly #calls = new Map<string, Record<string, unknown>>();
   #profileFile: string | null = null;
   #closing = false;
   #alive = false;
@@ -312,6 +317,7 @@ class AcpSession {
 
   /** Launches the app, checks its version, opens a session in the folder and reports it started. */
   async open(confirmAgain: () => string): Promise<string> {
+    const named = await this.#versionLine();
     const rpc = this.#launch_();
     let initialized: unknown;
     try {
@@ -332,7 +338,8 @@ class AcpSession {
       throw this.#startError(error);
     }
     const info = record(record(initialized)?.agentInfo);
-    const version = text(info?.version);
+    // Kiro's v3 engine names no version once signed in: its own `--version` line, read before the launch, does.
+    const version = text(info?.version) ?? named;
     if (
       record(initialized)?.protocolVersion !== ACP_PROTOCOL_VERSION ||
       version !== this.#options.profile.version
@@ -370,6 +377,7 @@ class AcpSession {
       );
     }
     this.#sessionId = sessionId;
+    await this.#askingMode(rpc, sessionId, record(record(created)?.modes));
     this.#alive = true;
     this.#emit(
       'runtime.execution.started',
@@ -535,6 +543,26 @@ class AcpSession {
     clearTimeout(kill);
   }
 
+  /**
+   * The version the app's own `--version` line names, for a profile that reads it there (`versionLine`), or null.
+   * A line that does not name one, or no answer in time, reads as none, and the start is refused.
+   */
+  async #versionLine(): Promise<string | null> {
+    const line = this.#options.profile.versionLine;
+    if (line === null) return null;
+    try {
+      const { stdout } = await run(this.#options.binaryPath, line.args, {
+        cwd: this.#directory,
+        env: { PATH: this.#options.env.PATH ?? '/usr/bin:/bin' },
+        timeout: 15_000,
+      });
+      const match = line.pattern.exec(stdout.trim());
+      return match?.[1] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   #launch_(): RpcConnection {
     const { profile, binaryPath, hostFolders } = this.#options;
     const env: Record<string, string> = { ...this.#options.env };
@@ -636,6 +664,7 @@ class AcpSession {
   #toolUpdate(update: Record<string, unknown>, kind: string): void {
     const toolCallId = text(update.toolCallId);
     if (toolCallId === null || toolCallId === '' || toolCallId.length > 400) return;
+    this.#remember(toolCallId, update);
     if (!this.#toolsStarted.has(toolCallId) && this.#turn !== null) {
       this.#toolsStarted.add(toolCallId);
       const title = text(update.title);
@@ -653,10 +682,12 @@ class AcpSession {
     for (const approval of this.#approvals.values()) {
       if (approval.toolCallId !== toolCallId || approval.answered === null) continue;
       const decided = approval.answered.decision;
-      // A refused call is settled `failed`; an allowed one goes on to run (`in_progress`, `completed`).
+      // A refused call is settled `failed`, and Antigravity reports it `in_progress` first, so only `failed` shows a
+      // denial taken. An allowed one goes on: it runs (`in_progress`), ends, or fails in running, as an approved
+      // read the agent-app profile refuses may, with no `in_progress` before it.
       const applied =
         decided === 'approved'
-          ? status === 'in_progress' || status === 'completed'
+          ? status === 'in_progress' || status === 'completed' || status === 'failed'
           : status === 'failed';
       if (applied) this.#resolveApproval(approval, decided, kind);
     }
@@ -672,6 +703,42 @@ class AcpSession {
         },
         observed(`${kind}.${status}`),
       );
+    }
+  }
+
+  /** Merges an update of a tool call into what the app said of it before: a field it gives replaces the old one. */
+  #remember(toolCallId: string, update: Record<string, unknown>): void {
+    const known = this.#calls.get(toolCallId) ?? {};
+    for (const [key, value] of Object.entries(update)) {
+      if (value !== undefined && value !== null && key !== 'sessionUpdate') known[key] = value;
+    }
+    this.#calls.set(toolCallId, known);
+  }
+
+  /**
+   * Starts the session in the mode the profile verified asks the person before it acts, switching to it
+   * (`session/set_mode`) where the app started in another, such as an allow-by-itself mode; refused otherwise.
+   */
+  async #askingMode(
+    rpc: RpcConnection,
+    sessionId: string,
+    modes: Record<string, unknown> | null,
+  ): Promise<void> {
+    const wanted = this.#options.profile.askingMode;
+    const current = text(modes?.currentModeId);
+    if (current === wanted) return;
+    const available = (Array.isArray(modes?.availableModes) ? modes.availableModes : []).map(
+      (mode) => text(record(mode)?.id),
+    );
+    const refused = new RuntimeActionError(
+      'mode_unavailable',
+      `${this.#name} could not start in its mode that asks you before it acts.`,
+    );
+    if (!available.includes(wanted)) throw refused;
+    try {
+      await rpc.request('session/set_mode', { sessionId, modeId: wanted }, HANDSHAKE_MS);
+    } catch {
+      throw refused;
     }
   }
 
@@ -713,7 +780,10 @@ class AcpSession {
     this.#approvals.set(approvalId, approval);
     if (toolCallId !== null)
       this.#toolUpdate({ ...toolCall, sessionUpdate: 'tool_call' }, 'tool_call');
-    const asked = approvalRequest(toolCall, this.#options.profile, this.#directory);
+    // The request's tool call is an update of the call the app already reported (ACP): what it left out, such as
+    // Kiro's input, is what the app said of the same call before (validation/acp-agents.md).
+    const whole = toolCallId === null ? toolCall : (this.#calls.get(toolCallId) ?? toolCall);
+    const asked = approvalRequest(whole, this.#options.profile, this.#directory);
     this.#emit(
       'runtime.approval.requested',
       {

@@ -62,6 +62,7 @@ function setUp(
     profile?: AcpProfile;
     version?: string;
     fixtureText?: string;
+    versionLine?: string;
     env?: Record<string, string>;
   } = {},
 ): Run {
@@ -77,7 +78,7 @@ function setUp(
   const binary = join(root, 'app');
   writeFileSync(
     binary,
-    `#!/bin/sh\nenv | cut -d= -f1 > '${variables}'\nprintf '%s\\n' "$@" > '${join(root, 'args.txt')}'\nprintf '%s' "$KIRO_HOME" > '${join(root, 'kiro-home.txt')}'\nexec '${process.execPath}' '${FAKE}' '${replay}'\n`,
+    `#!/bin/sh\nif [ "$1" = "--version" ]; then echo '${options.versionLine ?? 'kiro-cli 3.4.0'}'; exit 0; fi\nenv | cut -d= -f1 > '${variables}'\nprintf '%s\\n' "$@" > '${join(root, 'args.txt')}'\nprintf '%s' "$KIRO_HOME" > '${join(root, 'kiro-home.txt')}'\nexec '${process.execPath}' '${FAKE}' '${replay}'\n`,
   );
   chmodSync(binary, 0o755);
   writeFileSync(log, '');
@@ -317,6 +318,32 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
     assert.equal(types(run).includes('runtime.approval.resolved'), false);
   });
 
+  test('an approval counts as taken when the call fails in running, with no in progress before it', async (t) => {
+    const recorded = readFileSync(join(FIXTURES, 'antigravity-command-deny.jsonl'), 'utf8').split(
+      '\n',
+    );
+    const answered = recorded.findIndex((line) => line.includes('"expectResponse"'));
+    // The recorded refusal, with its in-progress report taken out: the call goes from asked straight to failed.
+    assert.ok(recorded[answered + 1]?.includes('"in_progress"'));
+    const cut = [...recorded.slice(0, answered + 1), ...recorded.slice(answered + 2)].join('\n');
+    const run = setUp(t, 'cut', { fixtureText: cut });
+    await start(run);
+    const asked = await run.next('runtime.approval.requested');
+    if (asked.type !== 'runtime.approval.requested') return;
+    await run.adapter.respondToApproval({
+      execution: TEST_EXECUTION,
+      approval_id: asked.payload.approval_id,
+      decision: 'approve',
+      message: null,
+    });
+    const resolved = run.observations.find((o) => o.type === 'runtime.approval.resolved');
+    assert.deepEqual(resolved?.payload, {
+      approval_id: asked.payload.approval_id,
+      decision: 'approved',
+    });
+    await run.next('runtime.turn.completed');
+  });
+
   test('stopping during an approval cancels the turn and withdraws the request', async (t) => {
     const run = setUp(t, 'antigravity-command-cancel.jsonl');
     await start(run);
@@ -450,7 +477,130 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
   });
 });
 
+describe('ACP adapter: the mode that asks', () => {
+  /** The recorded two-turn trace, its session started in `mode` with only `available` offered. */
+  function startedIn(mode: string, available: readonly string[]): string {
+    return readFileSync(join(FIXTURES, 'antigravity-two.jsonl'), 'utf8')
+      .split('\n')
+      .map((line) => {
+        if (!line.includes('"answer": "session/new"')) return line;
+        const step = JSON.parse(line);
+        step.result.modes = {
+          currentModeId: mode,
+          availableModes: available.map((id) => ({ id, name: id })),
+        };
+        return [
+          JSON.stringify(step),
+          '{"expect": "session/set_mode"}',
+          '{"answer": "session/set_mode", "result": {}}',
+        ].join('\n');
+      })
+      .join('\n');
+  }
+
+  test('a session the app starts in a mode that allows by itself is switched to the asking mode first', async (t) => {
+    const run = setUp(t, 'cut', {
+      fixtureText: startedIn('auto', ['default', 'accept-edits', 'auto']),
+    });
+    await start(run);
+    await run.next('runtime.turn.completed');
+    const sent = run.sent().map((message) => message.method);
+    assert.deepEqual(sent.slice(0, 4), [
+      'initialize',
+      'session/new',
+      'session/set_mode',
+      'session/prompt',
+    ]);
+    const switched = run.sent().find((message) => message.method === 'session/set_mode');
+    assert.deepEqual(switched?.params, {
+      sessionId: '11579b02-6764-4e01-932b-629ccfeb8eef',
+      modeId: 'default',
+    });
+  });
+
+  test('a session that cannot be put in the asking mode is not started', async (t) => {
+    const run = setUp(t, 'cut', { fixtureText: startedIn('auto', ['auto', 'accept-edits']) });
+    await assert.rejects(
+      start(run),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'mode_unavailable' &&
+        error.effect === 'none',
+    );
+    assert.deepEqual(types(run), []);
+    assert.equal(
+      run.sent().some((message) => message.method === 'session/prompt'),
+      false,
+    );
+  });
+});
+
 describe('ACP adapter on Kiro 3.4.0 traces', () => {
+  test('signed in: each request shows the input Kiro reported for its call; commands whole, writes only denied', async (t) => {
+    const run = setUp(t, 'kiro-signed-in-deny.jsonl', { profile: KIRO });
+    await start(run);
+    const asked: { summary: string; complete: boolean; kind: string }[] = [];
+    for (let index = 0; index < 6; index++) {
+      const request = await run.next('runtime.approval.requested', index);
+      if (request.type !== 'runtime.approval.requested') return;
+      asked.push({
+        summary: request.payload.subject.summary,
+        complete: request.payload.complete,
+        kind: request.payload.subject.tool_name,
+      });
+      await run.adapter.respondToApproval({
+        execution: TEST_EXECUTION,
+        approval_id: request.payload.approval_id,
+        decision: 'deny',
+        message: null,
+      });
+    }
+    await run.next('runtime.turn.completed');
+    const commands = asked.filter((request) => request.kind === 'execute');
+    assert.deepEqual(
+      commands.map((request) => [JSON.parse(request.summary).command, request.complete]),
+      [
+        ['echo "hello" > hello.txt', true],
+        ['ls -la', true],
+        ['true', true],
+      ],
+    );
+    const writes = asked.filter((request) => request.kind === 'edit');
+    assert.equal(writes.length, 3);
+    for (const write of writes) {
+      assert.equal(write.complete, false);
+      assert.match(write.summary, /hello\.txt/);
+    }
+    // `pwd` ran without a request, by Kiro's own rules; it is reported as a tool all the same.
+    const tools = run.observations.filter((o) => o.type === 'runtime.tool.started').length;
+    assert.equal(tools, 7);
+    for (const answer of run
+      .sent()
+      .filter((message) => message.method === undefined && 'result' in message)) {
+      assert.deepEqual((answer.result as { outcome: unknown }).outcome, {
+        outcome: 'selected',
+        optionId: 'reject',
+      });
+    }
+    assertValidObservations(run.observations);
+  });
+
+  test('signed in, Kiro names no version in initialize: its own version line does, and another one is refused', async (t) => {
+    const run = setUp(t, 'kiro-signed-in-deny.jsonl', {
+      profile: KIRO,
+      versionLine: 'kiro-cli 3.5.0',
+    });
+    await assert.rejects(
+      start(run),
+      (error: unknown) =>
+        error instanceof RuntimeActionError &&
+        error.code === 'runtime_version_unsupported' &&
+        error.effect === 'none' &&
+        error.message.includes('this computer has 3.5.0'),
+    );
+    assert.deepEqual(types(run), []);
+  });
+
   test('a Kiro that is not signed in fails the start in words, with nothing started', async (t) => {
     const run = setUp(t, 'kiro-signed-out.jsonl', { profile: KIRO });
     await assert.rejects(

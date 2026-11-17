@@ -11,6 +11,11 @@ export interface AcpProfile {
   readonly displayName: string;
   /** The version the profile was verified at, as the app's `initialize` reports it in `agentInfo.version`. */
   readonly version: string;
+  /**
+   * Where the version is read when `initialize` names none: the app's own version command and the pattern of its
+   * line, its one group the version. Null where `initialize` always names it.
+   */
+  readonly versionLine: { readonly args: readonly string[]; readonly pattern: RegExp } | null;
   /** The arguments after the binary that start its ACP server over stdio. */
   readonly args: readonly string[];
   /** Variables the adapter sets for every launch, never taken from the person's environment. */
@@ -45,6 +50,11 @@ export interface AcpProfile {
     readonly args: (folder: string) => readonly string[];
     readonly environment: (folder: string) => Readonly<Record<string, string>>;
   };
+  /**
+   * The session mode a run of this version showed asks the person before it acts; a session that starts in
+   * another (an allow-by-itself mode) is switched to it, or not started.
+   */
+  readonly askingMode: string;
   readonly shell: {
     readonly tool: string;
     readonly command: string;
@@ -59,6 +69,7 @@ export const ANTIGRAVITY: AcpProfile = {
   kind: 'antigravity',
   displayName: 'Antigravity 1.5.10',
   version: '1.5.10',
+  versionLine: null,
   args: ['acp', '--disable-telemetry'],
   // Its self-updater would replace the pinned binary under a running control plane.
   environment: { AGY_CLI_DISABLE_AUTO_UPDATE: 'true' },
@@ -75,6 +86,7 @@ export const ANTIGRAVITY: AcpProfile = {
   ],
   replacesEveryOccurrence: ['edit_file'],
   projectSettings: ['.agents', '.gemini'],
+  askingMode: 'default',
   // `--gemini-dir` moves both its settings (`antigravity-cli/`) and its hooks, tool servers and plugins
   // (`config/`); its Google sign-in is kept in the system keychain (validation/acp-agents.md).
   settingsHome: {
@@ -96,13 +108,17 @@ export const KIRO: AcpProfile = {
   kind: 'kiro',
   displayName: 'Kiro 3.4.0',
   version: '3.4.0',
+  // Signed in, its v3 engine's `initialize` names no `agentInfo` (seen 2026-11-17).
+  versionLine: { args: ['--version'], pattern: /^kiro-cli (\d+\.\d+\.\d+)$/ },
   args: ['acp', '--agent-engine', 'v3'],
   environment: {},
   ownVariables: ['KIRO_API_KEY', 'KIRO_HOME', 'KIRO_DEFAULT_SETTINGS'],
-  // Not yet seen on a signed-in run: no tool's semantics are claimed, so an edit shown as one
-  // replacement cannot be approved, and a command is shown as its whole input.
+  // Seen on one signed-in run (validation/acp-agents.md): its requests carry no input, which its earlier reports of
+  // the same call give; a write carries no change, so it can only be denied, and a command is shown as its whole input.
   replacesEveryOccurrence: [],
   projectSettings: ['.kiro', '.amazonq'],
+  // Kiro's modes are its agents: `vibe` ("Default") asked before every write and most commands on a signed-in run.
+  askingMode: 'vibe',
   // `KIRO_HOME` moves its settings, agents, hooks and sessions; its sign-in stays in Application Support.
   settingsHome: {
     folder: '.kiro/halora',
