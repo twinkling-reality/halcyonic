@@ -54,7 +54,9 @@
 - A further app that speaks ACP is a profile and a runtime test, not an adapter.
 - A run is never confined, so it never counts toward `reads_confined` and gets no task copy (`holdsFolder` absent),
   and `never_ask` is not offered.
-- Kiro's tool calls are unseen until the owner signs in once; until then its requests are shown as their whole
-  input, and its edits can only be denied.
+- What an app leaves off its requests comes from what it reported of the same call (Kiro's requests carry no input)
+  and its version from its own `--version` where `initialize` names none (Kiro signed in); a session is started in
+  the mode a run showed asks (Antigravity also offers an `auto` mode). Kiro's writes carry no change, so they can
+  only be denied.
 - Revisit when an app offers a sandbox of its own Halora can verify, a key-based model endpoint a gate could serve,
   or ACP gains steering or a question surface.
