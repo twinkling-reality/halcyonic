@@ -308,14 +308,19 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 var home = (stage.Shelf.position, stage.Shelf.rotation);
                 Shot("placed");
-                // The first shelf a person places stands where they look (lead, 2026-11-14T01:13Z, ruling 1): whole inside what the field check
-                // says a person sees at head level without turning the head. Its degrees out are said either way.
+                // The first shelf a person places stands whole in the field as they turn to it: places stand at 45 to 100 degrees about the
+                // person, out of the clear front (the lead's 2026-11-17T19:05Z seated rule, which replaces 2026-11-14T01:13Z's ruling 1 that it stood
+                // straight ahead), so it is judged with the head level and turned toward the shelf's centre. Its degrees out are said either way.
                 var firstShelf = new Vector3[8];
                 CharacterStage.WriteShelfCorners(new Pose(stage.Shelf.position, stage.Shelf.rotation), stage.ShelfWidth, eyes, firstShelf);
-                Debug.Log("Halcyonic: shelf walk: the first shelf placed stands " + ShelfSeen() + ", seen with the head level and facing ahead");
+                var toShelf = stage.Shelf.position - eyes;
+                toShelf.y = 0f;
+                var turnedTo = toShelf.sqrMagnitude > 1e-6f ? eyes + toShelf.normalized : eyes + Vector3.forward;
+                Debug.Log("Halcyonic: shelf walk: the first shelf placed stands " + ShelfSeen() + ", seen with the head level and turned "
+                    + Vector3.SignedAngle(Vector3.forward, turnedTo - eyes, Vector3.up).ToString("0.0") + " degrees toward it");
                 if (ViewField.Current is ViewField headLevel)
                 {
-                    failures.AddRange(GlazeChecks.InsideField("the first shelf placed, the head level and facing ahead", firstShelf, eyes, eyes + Vector3.forward, 0f, headLevel));
+                    failures.AddRange(GlazeChecks.InsideField("the first shelf placed, the head level and turned toward it", firstShelf, eyes, turnedTo, 0f, headLevel));
                     // The ruling's fallback reading, measured beside it (lead, 2026-11-14T02:21Z): every character and its label inside the field,
                     // only the shelf's empty end allowed past. Said, not failed, until the batch says it landed with the fallback.
                     var onShelf = workspace.Targets.Where(target => target.gameObject.activeInHierarchy).SelectMany(target => target.GetComponentsInChildren<Renderer>(false))
@@ -452,8 +457,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (Handle() is not Component held || held.GetType().GetProperty("Target")?.GetValue(held) is not PointerTarget holdArea) return;
                     var area = new[] { new Vector2(-0.5f, -0.5f), new Vector2(0.5f, -0.5f), new Vector2(-0.5f, 0.5f), new Vector2(0.5f, 0.5f) }
                         .Select(corner => holdArea.transform.TransformPoint(new Vector3(corner.x * holdArea.Size.x, corner.y * holdArea.Size.y, 0f))).ToArray();
+                    // As the person looks at the plane they hold (JUDGE 21:37Z, on SHOW's 21:35Z): turned and pitched toward its centre, since a
+                    // person who drags the plane down looks down with it; at rest that is the look the plane was placed for.
+                    // The plane's own facing from the eyes (its root stands at the eyes; the panel along Direction), as the judge room's camera takes it.
+                    var along = eyes + Quaternion.Euler(0f, plane.Direction.Yaw, 0f) * Vector3.forward;
                     if (ViewField.Current is ViewField handleField)
-                        failures.AddRange(GlazeChecks.InsideField("the plane's handle, its hold area, " + when, area, eyes, eyes + Vector3.forward, 0f, handleField));
+                        failures.AddRange(GlazeChecks.InsideField("the plane's handle, its hold area, " + when + ", looking at the plane", area, eyes, along, -plane.Direction.Elevation, handleField));
                 }
                 HandleInField("at rest");
                 // Where the plane stands as the eyes see it, from its kit's middle: a drag moves the plane's place, whatever field holds it.
