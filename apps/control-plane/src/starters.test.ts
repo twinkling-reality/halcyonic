@@ -770,7 +770,7 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'worlds.ts',
     ]);
     const agents = readFileSync(join(template, 'AGENTS.md'), 'utf8');
-    assert.match(agents, /keep the game's systems and setup in `src\/index\.ts`/);
+    assert.match(agents, /keep the app's systems and setup in `src\/index\.ts`/);
     assert.match(agents, /Edit `src\/index\.ts` and your parts directly/);
     assert.match(agents, /never write `\.py`, `\.txt`, `\.sh` or `\.patch` scripts/);
     assert.match(agents, /Run `npx tsc --noEmit` before ending your turn/);

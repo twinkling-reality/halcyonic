@@ -26,7 +26,7 @@ What you cannot do here:
 How the app is put together:
 - `src/index.ts` calls `World.create(...)` with the options from `iwsdk.config.json`, sets the app up (its world or
   place, the decor, input, the welcome card) and registers systems, then calls `addParts(world)` last.
-- When you make the whole app from the starter, keep the game's systems and setup in `src/index.ts`, starting from
+- When you make the whole app from the starter, keep the app's systems and setup in `src/index.ts`, starting from
   the whole small game, view or piano at the end of this file, rather than splitting it into extra files in `src/`.
 - When you add one thing to an app (a field of flowers, lanterns, a lake, a new kind of target), put it in a file of
   its own in `src/parts/`, named for it, for example `src/parts/lanterns.ts`, whose default export takes the world
@@ -38,7 +38,7 @@ How the app is put together:
   place for the whole app, or a new name the person asks for. Other tasks may be adding parts to the same app at
   the same time, and their changes and yours are put together line by line: two changes to the same lines of a shared
   file cannot both be kept. Keep `addParts(world)` as the last call of the setup, in every form of the app.
-- Import everything the starter gives a game from `./kit.js` (the look, the toy kit, motion, the palette, input,
+- Import everything the starter gives an app from `./kit.js` (the look, the toy kit, motion, the palette, input,
   the worlds and `addParts`), so no import names the wrong file; only `PanelSystem` comes from `./panel.js`.
 - Edit `src/index.ts` and your parts directly with your file-editing tool;
   never write `.py`, `.txt`, `.sh` or `.patch` scripts to generate or patch files.
