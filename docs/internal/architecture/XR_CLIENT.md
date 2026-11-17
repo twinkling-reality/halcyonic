@@ -3160,10 +3160,10 @@ in order, as before.
   heads Project and State (`RoomCard.Heads`, `RoomListHeads`): each project a row with no mark, its name as theirs and its
   state word at the right in the label role (`ProjectState.Word`: Needs You in the attention tone, Ready, Working, No
   Work, Paused, Not Started; from `ProjectsText.StateOf`, carried as `PageLine.ProjectState`; never a count), the whole
-  row its press, with no rule or chevron. The actions stand in one row at the panel's foot inside its glass
-  (`RoomBar.ActionsAtFoot`, `RoomBarView.FootRowGapDp`), none lit at rest (the lead's 2026-11-17T01:05Z): New Project
-  (still the main action in the model), the place's Next Page where it pages, Settings, Usage, Close last where the frame
-  offers it (check `46-projects` in `KitRender.PartsCheck`). Folders to connect, a chosen row's side panel, anything else
+  row its press, with no rule or chevron. The actions stand in one line at the panel's foot inside its glass
+  (`RoomBar.ActionsAtFoot`, `RoomBarView.FootRowGapDp`), the panel widening to hold them inside the bar's envelope (the
+  lead's 2026-11-17T02:57Z): New Project lit as the main action, the place's Next Page where it pages, Settings, Usage,
+  Close last where the frame offers it, as every panel keeps its Close in its own row (check `46-projects` in `KitRender.PartsCheck`). Folders to connect, a chosen row's side panel, anything else
   on the page: the older view.
 - **A task's Checks section as the result's Checks card** (the census, JUDGE 2026-11-11): under the redesign a task at
   rest with a check of the computer's own never shows the older Checks frame: whatever turned its file to Checks, the

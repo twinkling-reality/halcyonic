@@ -69,13 +69,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The panel's Menu as last laid; null where the bar gave none.</summary>
         public RoomButton? PanelMenu => panelMenu.gameObject.activeSelf ? panelMenu : null;
 
-        /// <summary>
-        /// The gap between the panel's words and the actions in a row at its foot, between those actions (tile f1), and between two
-        /// lines of them where one line cannot hold them all inside the panel's words' width.
-        /// </summary>
+        /// <summary>The gap between the panel's words and the actions in a line at its foot, and between those actions (tile f1).</summary>
         public const float FootRowGapDp = 22f;
         public const float FootRowSpacingDp = 20f;
-        public const float FootRowLineGapDp = 10f;
 
         /// <summary>Whether the column's actions were last laid in one row at the panel's foot (<see cref="RoomBar.ActionsAtFoot"/>).</summary>
         public bool ActionsAtFoot { get; private set; }
@@ -1399,7 +1395,22 @@ namespace Halcyonic.XR.UI
             var inset = RoomType.Scaled(RoomGeometry.SentenceInsetDp);
             var line = RoomType.Scaled(RoomGeometry.LineDp);
 
-            var wordsWidth = narrow ? NarrowWordsWidth : bar.PanelWidthDp != null ? panelWidth - 2f * pad : BodyWidth;
+            // The actions in ONE line at the panel's foot, inside its glass (tile f1; the lead's 2026-11-17T02:57Z): the panel widens to
+            // hold them, never past the bar's envelope; its words take the panel's width with it.
+            var footRow = bar.ActionsAtFoot && !narrow && !bar.Wide && said == null && bar.Column.Count > 0;
+            var rowCount = footRow ? Mathf.Min(bar.Column.Count, ColumnMost) : 0;
+            var rowCores = new Vector2[rowCount];
+            var footTall = 0f;
+            var footNeed = 0f;
+            for (var index = 0; index < rowCount; index++)
+            {
+                rowCores[index] = column[index].Measure(bar.Column[index].Words, 0f, bar.Column[index].Detail);
+                footTall = Mathf.Max(footTall, Mathf.Max(RoomType.Units(RoomButton.HeightDp), rowCores[index].y));
+                footNeed += rowCores[index].x + (index > 0 ? RoomType.Scaled(FootRowSpacingDp) : 0f);
+            }
+            var widened = footRow && footNeed + 2f * pad > panelWidth;
+            if (widened) panelWidth = Mathf.Min(footNeed + 2f * pad, Largest.x);
+            var wordsWidth = narrow ? NarrowWordsWidth : bar.PanelWidthDp != null || widened ? panelWidth - 2f * pad : BodyWidth;
             // What the panel reads: a request in mono, exact and literal, or the person's words; under a confirmation the rows
             // the file's part names, of the panel's own lines; a request before its answer at most eight of them. Cut between
             // lines, never inside one.
@@ -1470,37 +1481,7 @@ namespace Halcyonic.XR.UI
             // With nothing from the computer to say there is no panel: the choices take its place.
             var panelHeight = bar.Wide ? 0f : pad + bodyHeight + (barHeight > 0f ? RoomType.Scaled(RoomGeometry.BodyFootDp) + barHeight + inset : pad);
             // The actions in one row at the panel's foot, inside its glass (tile f1), where the bar asks and the panel stands whole.
-            var footRow = bar.ActionsAtFoot && !narrow && !bar.Wide && said == null && bar.Column.Count > 0;
-            var rowCount = footRow ? Mathf.Min(bar.Column.Count, ColumnMost) : 0;
-            var rowCores = new Vector2[rowCount];
-            var footTall = 0f;
-            for (var index = 0; index < rowCount; index++)
-            {
-                rowCores[index] = column[index].Measure(bar.Column[index].Words, 0f, bar.Column[index].Detail);
-                footTall = Mathf.Max(footTall, Mathf.Max(RoomType.Units(RoomButton.HeightDp), rowCores[index].y));
-            }
-            // Each action on the line it fits on, from the panel's words' left edge; one too wide for the line left starts the next.
-            var rowLine = new int[rowCount];
-            var rowLeft = new float[rowCount];
-            var rowLines = 0;
-            if (footRow)
-            {
-                var room = panelWidth - 2f * pad;
-                var x = 0f;
-                rowLines = 1;
-                for (var index = 0; index < rowCount; index++)
-                {
-                    if (x > 0f && x + rowCores[index].x > room + 1e-4f)
-                    {
-                        rowLines++;
-                        x = 0f;
-                    }
-                    rowLine[index] = rowLines - 1;
-                    rowLeft[index] = x;
-                    x += rowCores[index].x + RoomType.Scaled(FootRowSpacingDp);
-                }
-                panelHeight += RoomType.Scaled(FootRowGapDp) + rowLines * footTall + (rowLines - 1) * RoomType.Scaled(FootRowLineGapDp);
-            }
+            if (footRow) panelHeight += RoomType.Scaled(FootRowGapDp) + footTall;
             ActionsAtFoot = footRow;
 
             // The column: the lowest action's core stands on the panel's foot line as DESIGN's page stands it (its target reaches
@@ -1628,15 +1609,15 @@ namespace Halcyonic.XR.UI
                 button.Press.ActsOnPinch = action.Control.Holds;
                 if (action.Locks) locks = button;
             }
-            // The foot row (tile f1): each action content-sized, from the panel's words' left edge, none lit at rest (the lead's
-            // 2026-11-17T01:05Z: New Project stays quiet until it is hovered or pressed).
+            // The foot row (tile f1): each action content-sized, in one line from the panel's words' left edge.
+            var rowX = left + pad;
             for (var index = 0; index < rowCount; index++)
             {
                 var action = bar.Column[index];
-                var lineFromFoot = rowLines - 1 - rowLine[index];
-                var centre = new Vector2(left + pad + rowLeft[index] + rowCores[index].x / 2f,
-                    foot + pad + lineFromFoot * (footTall + RoomType.Scaled(FootRowLineGapDp)) + footTall / 2f);
-                column[index].Show(action.Words, action.Icon, false, available: true, centre, rowCores[index].x, detail: action.Detail,
+                var centre = new Vector2(rowX + rowCores[index].x / 2f, foot + pad + footTall / 2f);
+                rowX += rowCores[index].x + RoomType.Scaled(FootRowSpacingDp);
+                // The main action lit, as on every panel tonight (the lead's 02:57Z: "New Project (lit)").
+                column[index].Show(action.Words, action.Icon, action.Main, available: true, centre, rowCores[index].x, detail: action.Detail,
                     destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
                 controls[column[index]] = action.Control;
                 column[index].Press.ActsOnPinch = action.Control.Holds;

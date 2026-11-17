@@ -24,8 +24,9 @@ namespace Halcyonic.Client
         public RoomAction? PanelMenu { get; private set; }
 
         /// <summary>
-        /// The column's actions stand in one row at the panel's foot, inside its glass, none lit at rest (FIELD's sheet, tile f1,
-        /// and the lead's 2026-11-17T01:05Z: nothing is lit at rest); false where the column stands beside the panel.
+        /// The column's actions stand in one line at the panel's foot, inside its glass, the main action lit, the panel widening to
+        /// hold them inside the bar's envelope (FIELD's sheet, tile f1; the lead's 2026-11-17T02:57Z); false where the column stands
+        /// beside the panel.
         /// </summary>
         public bool ActionsAtFoot { get; private set; }
 

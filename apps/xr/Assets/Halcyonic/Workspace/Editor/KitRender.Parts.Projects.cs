@@ -14,7 +14,7 @@ namespace Halcyonic.XR.Workspace.Editor
     /// <see cref="RoomBar.OfFrame"/>, drawn by the room's own view. Measured (one glass panel and nothing beside it; HALORA in the
     /// label role over the title; the panel's Menu at its top right, clear of the title, the bar's own press; the heads PROJECT
     /// and STATE over the rows, the state's at the right; each row's state word in the label role; no rule or chevron in the
-    /// table; every action in one row at the panel's foot, inside its glass, in the column's order, none lit) and read in the
+    /// table; every action in one line at the panel's foot, inside its glass, in the column's order, the main action lit) and read in the
     /// pixels (the label, the heads, the title, the Menu and every action). Synthetic names only.
     /// </summary>
     public static partial class KitRender
@@ -123,7 +123,7 @@ namespace Halcyonic.XR.Workspace.Editor
             Require(card.RowTargets.Count() == bar.Card.List.Count, "the card lets " + card.RowTargets.Count() + " of " + bar.Card.List.Count + " projects be pressed");
             Require(!card.Plates.Any(each => each.What == "hairline") && !card.Glyphs.Any(each => each.What == "row chevron" || each.What.StartsWith("row ", StringComparison.Ordinal)),
                 "the table draws a rule, a chevron or a mark: " + string.Join(", ", card.Plates.Select(each => each.What).Concat(card.Glyphs.Select(each => each.What))));
-            // Every action in one row at the panel's foot, inside its glass, in the column's order, none lit at rest.
+            // Every action in one line at the panel's foot, inside its glass, in the column's order, the main action lit.
             Require(buttons.Count == bar.Column.Count, "the foot row draws " + buttons.Count + " of " + bar.Column.Count + " actions");
             var lowest = card.Shown.Where(each => each.gameObject.activeSelf).Select(each => Bounds(each).Bottom).DefaultIfEmpty(panelTop).Min();
             var lastRight = float.NegativeInfinity;
@@ -133,15 +133,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 var centre = At(button.transform);
                 var words = Bounds(button.Words);
                 Require(view.ControlOf(button) == bar.Column[index].Control, "the foot row's action " + index + " is not the column's " + index);
-                Require(!button.Main, "\"" + button.Words.text + "\" is lit at rest");
-                // On its line: the first's, or a line under the one before, starting again at the words' left edge.
-                var before = index == 0 ? (Vector2?)null : At(buttons[index - 1].transform);
-                var sameLine = before == null || Mathf.Abs(centre.y - before.Value.y) < unit * 0.5f;
-                Require(sameLine || centre.y < before!.Value.y - unit && words.Left < Bounds(buttons[index - 1].Words).Left,
-                    "\"" + button.Words.text + "\" stands neither on the line of the one before nor at the start of the line under it");
+                Require(button.Main == bar.Column[index].Main, "\"" + button.Words.text + "\" is " + (button.Main ? "lit though it is not the main action" : "not lit though it is the main action"));
+                Require(Mathf.Abs(centre.y - At(buttons[0].transform).y) < unit * 0.5f, "\"" + button.Words.text + "\" leaves the foot's one line");
                 Require(words.Left >= panelLeft + pad - unit && words.Right <= panelRight - pad + unit && words.Bottom >= panelFoot && words.Top < lowest,
                     "\"" + button.Words.text + "\" is not inside the panel's foot, under its words");
-                Require(!sameLine || words.Left > lastRight, "\"" + button.Words.text + "\" is out of the column's order or overlaps the one before");
+                Require(words.Left > lastRight, "\"" + button.Words.text + "\" is out of the column's order or overlaps the one before");
                 lastRight = words.Right;
             }
 
