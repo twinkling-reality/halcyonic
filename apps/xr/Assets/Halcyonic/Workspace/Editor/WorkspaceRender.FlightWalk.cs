@@ -317,9 +317,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     var filmAt = (camera.transform.position, camera.transform.rotation, camera.fieldOfView);
                     camera.transform.SetPositionAndRotation(eyes, PlaneLayout.Facing(plane.Direction));
                     camera.fieldOfView = 96f;
-                    var seen = Render(camera, texture);
-                    File.WriteAllBytes(Path.Combine(folder, "eye-" + frame.ToString("00", CultureInfo.InvariantCulture) + ".png"), seen.EncodeToPNG());
-                    UnityEngine.Object.DestroyImmediate(seen);
+                    var eyeShot = Render(camera, texture);
+                    File.WriteAllBytes(Path.Combine(folder, "eye-" + frame.ToString("00", CultureInfo.InvariantCulture) + ".png"), eyeShot.EncodeToPNG());
+                    UnityEngine.Object.DestroyImmediate(eyeShot);
                     camera.transform.SetPositionAndRotation(filmAt.position, filmAt.rotation);
                     camera.fieldOfView = filmAt.fieldOfView;
                     var name = "flight-" + frame.ToString("00", CultureInfo.InvariantCulture);
