@@ -110,6 +110,16 @@ namespace Halcyonic.XR.Workspace.Editor
                     var team = views.Select(each => each.View).ToList();
                     var (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes);
                     teams.Add(team);
+                    // A farther ring stands clear of the nearer ring's team at its bearing, by the stage's own rule.
+                    if (bearing.Ring > 0 && index - PlaceBearings.Centres.Length >= 0)
+                    {
+                        var nearer = teams[index - PlaceBearings.Centres.Length];
+                        var clear = CharacterStage.StandClearOfNearer(place, team, nearer, eyes, 0f,
+                            () => CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes));
+                        if (!clear) failures.Add(project + ": its ring cannot stand clear of the nearer ring's team at its bearing, lowered to the floor or raised");
+                        (pitch, rowMost, rise) = CharacterStage.LayPlace(team, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes);
+                        Debug.Log("Halcyonic: places: " + variant + " " + project + " stands its floor arc " + place.position.y.ToString("0.00", CultureInfo.InvariantCulture) + " m up.");
+                    }
                     WorkspaceRender.ForceMeshes(root);
                     var tags = views.Select(each => each.Tag.Tag).ToList();
                     if (tags.Any(tag => tag == null)) { failures.Add(project + ": a character stands with no tag"); continue; }

@@ -88,6 +88,54 @@ namespace Halcyonic.XR
             public LineRenderer Arc = null!;
             public LineRenderer[] Ticks = null!;
             public readonly Dictionary<string, CharacterView> Views = new Dictionary<string, CharacterView>(System.StringComparer.Ordinal);
+            public List<CharacterView> Laid = new List<CharacterView>();
+        }
+
+        /// <summary>The room's floor, in the world's metres: a farther ring never stands below it.</summary>
+        public const float FloorHeight = 0f;
+
+        /// <summary>The step a farther ring is lowered or raised by while it stands over a nearer ring's team as the eyes see it, in metres.</summary>
+        public const float RingStandStep = 0.05f;
+
+        /// <summary>The least angle kept between a farther ring's team and a nearer ring's at the same bearing, as the eyes see them, in degrees.</summary>
+        public const float RingClearDegrees = 1f;
+
+        /// <summary>
+        /// Stands a farther ring's place (<paramref name="root"/>, its team <paramref name="views"/>) clear of the nearer ring's team at its bearing
+        /// (<paramref name="nearer"/>) as the eyes see them (AUDIT's 21:2xZ: tags over tags, bodies over bodies): first lowered, nearer the floor
+        /// as FIELD's sheet has it, until its whole team stands under the nearer team's lowest tag; where the floor comes first, raised instead
+        /// until it stands over the nearer team's heads. <paramref name="relay"/> lays the place again after each move. Returns whether it stands clear.
+        /// </summary>
+        public static bool StandClearOfNearer(Transform root, IReadOnlyList<CharacterView> views, IReadOnlyList<CharacterView> nearer, Vector3 eyes, float floor, System.Action relay)
+        {
+            float Up(Vector3 point) { var away = point - eyes; return Mathf.Atan2(away.y, new Vector2(away.x, away.z).magnitude) * Mathf.Rad2Deg; }
+            IEnumerable<Vector3> Drawn(IEnumerable<CharacterView> team)
+            {
+                foreach (var view in team)
+                {
+                    foreach (var corner in view.BodyCorners()) yield return corner;
+                    if (DrawnTagCorners?.Invoke(view) is Vector3[] tag) foreach (var corner in tag) yield return corner;
+                }
+            }
+            var nearLowest = Drawn(nearer).Select(Up).DefaultIfEmpty(0f).Min();
+            var nearHighest = Drawn(nearer).Select(Up).DefaultIfEmpty(0f).Max();
+            bool Under() => Drawn(views).Select(Up).DefaultIfEmpty(0f).Max() <= nearLowest - RingClearDegrees;
+            bool Over() => Drawn(views).Select(Up).DefaultIfEmpty(0f).Min() >= nearHighest + RingClearDegrees;
+            var start = root.position;
+            while (!Under() && root.position.y - RingStandStep >= floor)
+            {
+                root.position -= Vector3.up * RingStandStep;
+                relay();
+            }
+            if (Under()) return true;
+            root.position = start;
+            relay();
+            for (var step = 0; step < 40 && !Over(); step++)
+            {
+                root.position += Vector3.up * RingStandStep;
+                relay();
+            }
+            return Over();
         }
 
         private readonly Dictionary<string, OtherPlace> others = new Dictionary<string, OtherPlace>(System.StringComparer.Ordinal);
@@ -173,13 +221,25 @@ namespace Halcyonic.XR
                 }
                 LayOtherPlace(stood, shown, bearing, eyes);
             }
+            // A farther ring stands clear of the nearer ring's team at its bearing, as the eyes see them.
+            for (var index = 0; index < otherOrder.Count; index++)
+            {
+                var (place, bearing) = otherOrder[index];
+                if (bearing.Ring == 0) continue;
+                var nearerIndex = index - PlaceBearings.Centres.Length;
+                if (nearerIndex < 0 || !others.TryGetValue(otherOrder[nearerIndex].Place.ProjectId, out var nearer)) continue;
+                var stood = others[place.ProjectId];
+                var shownHere = stood.Laid.Select(view => view.WorkstreamId).ToList();
+                StandClearOfNearer(stood.Root, stood.Laid, nearer.Laid, eyes, FloorHeight, () => LayOtherPlace(stood, shownHere, bearing, eyes));
+            }
         }
 
         /// <summary>Stands a place's characters in rows, its floor arc and its sign's point, for the eyes at <paramref name="eyes"/>.</summary>
         private void LayOtherPlace(OtherPlace stood, IReadOnlyList<string> shown, PlaceBearing bearing, Vector3 eyes)
         {
             var distance = bearing.Distance;
-            LayPlace(shown.Select(id => stood.Views[id]).ToList(), radius, distance, Places.Rule, eyes);
+            stood.Laid = shown.Select(id => stood.Views[id]).ToList();
+            LayPlace(stood.Laid, radius, distance, Places.Rule, eyes);
             var tallestTag = 0f;
             foreach (var view in stood.Views.Values)
                 if (DrawnTagSize?.Invoke(view) is Vector2 size) tallestTag = Mathf.Max(tallestTag, size.y);
