@@ -177,7 +177,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(string.Equals(label.GetParsedText().Trim(), usage.Label, StringComparison.OrdinalIgnoreCase) && value.GetParsedText().Trim() == usage.Value,
                         "the usage figure reads \"" + label.GetParsedText() + "\" and \"" + value.GetParsedText() + "\"");
                     // The label in the one language's label role, apart from the value in the words' role (the lead's 2026-11-17T02:02Z).
-                    Require(label.characterSpacing > 0f && label.GetParsedText() == label.GetParsedText().ToUpperInvariant() && value.characterSpacing <= 0f,
+                    Require(label.characterSpacing > 0f && (label.fontStyle & FontStyles.UpperCase) != 0 && (value.fontStyle & FontStyles.UpperCase) == 0,
                         "the usage figure's label is not in the label role, or its value is");
                     Require(-label.transform.localPosition.y >= below + gap - unit * 0.05f && -label.transform.localPosition.y <= below + gap + line / 2f
                         && Mathf.Abs(label.transform.localPosition.x - indent) < 1e-6f,

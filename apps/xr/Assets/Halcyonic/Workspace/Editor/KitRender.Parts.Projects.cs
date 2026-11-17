@@ -134,10 +134,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 var words = Bounds(button.Words);
                 Require(view.ControlOf(button) == bar.Column[index].Control, "the foot row's action " + index + " is not the column's " + index);
                 Require(!button.Main, "\"" + button.Words.text + "\" is lit at rest");
-                Require(Mathf.Abs(centre.y - At(buttons[0].transform).y) < unit * 0.5f, "\"" + button.Words.text + "\" leaves the foot row's line");
+                // On its line: the first's, or a line under the one before, starting again at the words' left edge.
+                var before = index == 0 ? (Vector2?)null : At(buttons[index - 1].transform);
+                var sameLine = before == null || Mathf.Abs(centre.y - before.Value.y) < unit * 0.5f;
+                Require(sameLine || centre.y < before!.Value.y - unit && words.Left < Bounds(buttons[index - 1].Words).Left,
+                    "\"" + button.Words.text + "\" stands neither on the line of the one before nor at the start of the line under it");
                 Require(words.Left >= panelLeft + pad - unit && words.Right <= panelRight - pad + unit && words.Bottom >= panelFoot && words.Top < lowest,
                     "\"" + button.Words.text + "\" is not inside the panel's foot, under its words");
-                Require(words.Left > lastRight, "\"" + button.Words.text + "\" is out of the column's order or overlaps the one before");
+                Require(!sameLine || words.Left > lastRight, "\"" + button.Words.text + "\" is out of the column's order or overlaps the one before");
                 lastRight = words.Right;
             }
 

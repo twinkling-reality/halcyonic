@@ -285,8 +285,14 @@ namespace Halcyonic.XR.UI
             usageLabel.gameObject.SetActive(true);
             usageValue.gameObject.SetActive(true);
             // The label and the value apart on one line (the lead's 2026-11-17T02:02Z): the label in the one language's label role,
-            // spaced capitals, quiet; the value in the words' role, the row's own size, white.
-            RoomType.Label(usageLabel, usage.Label);
+            // spaced capitals by the face's style so its words stay as given (a check compares them), quiet; the value in the words'
+            // role, the row's own size, white.
+            RoomType.Size(usageLabel);
+            usageLabel.fontSize *= RoomType.LabelDp / RoomGeometry.TypeDp;
+            usageLabel.characterSpacing = RoomType.LabelTracking;
+            usageLabel.fontStyle = FontStyles.UpperCase;
+            usageLabel.color = new Color(1f, 1f, 1f, RoomType.LabelAlpha);
+            GlazeRuns.Of(usageLabel).Set(LineWords.Ours(usage.Label));
             RoomType.Size(usageValue);
             usageValue.color = Color.white;
             GlazeRuns.Of(usageValue).Set(LineWords.Ours(usage.Value));
@@ -372,8 +378,14 @@ namespace Halcyonic.XR.UI
             if (Fits(said.Text)) return null;
             var (folded, shown) = PathWrap.Fold(lead, path, Fits, LineMostLines);
             lineWords[index] = lead + shown;
-            var joined = string.Join("\n", folded);
-            GlazeText.SetLiteral(label, joined);
+            // Literal words (no rich text), each line as SetLiteral writes it, the lines joined by real line ends: SetLiteral's own
+            // plain text would turn the line ends into spaces and TMP would break the name inside a word (tip3, 2026-11-17).
+            label.richText = false;
+            label.parseCtrlCharacters = true;
+            var shownLines = new List<string>();
+            foreach (var each in folded) shownLines.Add(LabelText.ForTextMeshPro(each));
+            var joined = string.Join("\n", shownLines);
+            label.text = joined;
             // The act stays ours; every character of the path, the elision with it, leans as theirs.
             GlazeRuns.Of(label).Lean(new List<(int Start, int End)> { (lead.Length, label.text.Length) });
             var drawn = KitType.Lay(label, column, Mathf.Max(LineMostLines, folded.Count));
