@@ -639,10 +639,21 @@ namespace Halcyonic.XR
             var selected = shelfPages.SelectedId;
             var place = (selected != null ? Places.PlaceOf(selected) : null) ?? (Places.Places.Count > 0 ? Places.Places[0] : null);
             eligible.Clear();
-            if (place != null)
-                foreach (var shown in place.Shown)
+            if (RoomDesign.Enabled)
+            {
+                if (place != null)
+                    foreach (var shown in place.Shown)
+                        if (state.Workstreams.TryGetValue(shown, out var chosen)) eligible.Add(chosen);
+            }
+            else
+            {
+                // The older shelf keeps its one character a page (it is no longer shipped: the redesign draws every build); only the
+                // redesign stands a project's place whole.
+                shelfPages.PerPage = 1;
+                foreach (var shown in shelfPages.Shown)
                     if (state.Workstreams.TryGetValue(shown, out var chosen)) eligible.Add(chosen);
-            var standing = Mathf.Max(1, eligible.Count);
+            }
+            var standing = RoomDesign.Enabled ? Mathf.Max(1, eligible.Count) : 1;
             if (standing != ShelfCapacity)
             {
                 ShelfCapacity = standing;

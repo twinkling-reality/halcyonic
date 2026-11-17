@@ -216,8 +216,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     failures.Add("actual Apply did not show exactly the requested task's real character");
                 // The same project's other task stands as its own character, never in the requested one's slot, and the shelf is exactly
                 // the requested project's standing tasks: another project's never, its own every one.
-                if (!stage.TryGetCharacter(sibling.WorkstreamId, out var siblingView) || !siblingView.gameObject.activeInHierarchy
-                    || stage.TryGetCharacter(work.Workstream.WorkstreamId, out var requestedView) && ReferenceEquals(siblingView, requestedView))
+                // Under the redesign the requested project's place stands whole (the lead's 2026-11-17T18:56Z); the older shelf this walk drives
+                // today (ON-1) keeps one character a page, so there the sibling never stands and the shelf is the requested task alone.
+                bool OnShelf(WorkstreamView each) => RoomDesign.Enabled ? each.ProjectId == work.Workstream.ProjectId : each.WorkstreamId == work.Workstream.WorkstreamId;
+                if (RoomDesign.Enabled && (!stage.TryGetCharacter(sibling.WorkstreamId, out var siblingView) || !siblingView.gameObject.activeInHierarchy
+                    || stage.TryGetCharacter(work.Workstream.WorkstreamId, out var requestedView) && ReferenceEquals(siblingView, requestedView)))
                     failures.Add("Apply did not stand the requested project's other task as its own character beside the requested one");
                 // Its page names the requested task, never the sibling it replaced, and the two stand apart.
                 if (stage.ShelfPage.Title == sibling.Title) failures.Add("Apply's page still names the selected sibling, not the requested task");
@@ -229,8 +232,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var key in standing.Keys)
                         if (!snapshot.Workstreams.Any(each => each.WorkstreamId == (string)key)) failures.Add("the shelf stands a character the snapshot does not hold: " + key);
                 foreach (var each in snapshot.Workstreams)
-                    if (stage.TryGetCharacter(each.WorkstreamId, out var onShelf) && onShelf.gameObject.activeInHierarchy != (each.ProjectId == work.Workstream.ProjectId)
-                        || !stage.TryGetCharacter(each.WorkstreamId, out _) && each.ProjectId == work.Workstream.ProjectId)
+                    if (stage.TryGetCharacter(each.WorkstreamId, out var onShelf) && onShelf.gameObject.activeInHierarchy != OnShelf(each)
+                        || !stage.TryGetCharacter(each.WorkstreamId, out _) && OnShelf(each))
                         failures.Add("the shelf is not exactly the requested project's standing tasks: " + each.Title);
                 var shelfCorners = new Vector3[8];
                 if (placement.Preferred is Pose confirmed)
