@@ -8,6 +8,7 @@ import {
 } from '@halcyonic/contracts';
 import { MOCK_MODELS, MockRuntimeAdapter } from '@halcyonic/integration-mock';
 import { RuntimeActionError, type RuntimeAdapter } from '@halcyonic/runtime-core';
+import { readRuntimeModels } from '../core/runtime-models.ts';
 import { DEMO_WORKSTREAMS } from '../demo-plan.ts';
 import { SCENARIOS, startTestServer } from '../testing/harness.ts';
 
@@ -158,8 +159,14 @@ describe('GET /api/runtimes/:runtime_id/models', () => {
       availability: 'unavailable',
       reason: {
         code: 'invalid_models',
-        message: 'The runtime listed models outside the contract.',
+        message: 'The agent app listed its models in a form Halora cannot read.',
       },
+    });
+    // The registry refuses a runtime that declares a list it cannot give, so the read is called directly.
+    const { listModels: _none, ...unlisting } = listingRuntime('unlisting', async () => []);
+    assert.deepEqual(await readRuntimeModels(unlisting), {
+      availability: 'unavailable',
+      reason: { code: 'models_not_listed', message: 'This agent app does not list its models.' },
     });
   });
 

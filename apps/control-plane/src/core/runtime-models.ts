@@ -22,7 +22,7 @@ export async function readRuntimeModels(
 ): Promise<RuntimeModelsResult> {
   const list = adapter.listModels;
   if (list === undefined) {
-    return unavailable('models_not_listed', 'This runtime does not list its models.');
+    return unavailable('models_not_listed', 'This agent app does not list its models.');
   }
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<{ readonly kind: 'timeout' }>((resolve) => {
@@ -64,7 +64,10 @@ export async function readRuntimeModels(
         };
         return validateResult(result).ok
           ? result
-          : unavailable('invalid_models', 'The runtime listed models outside the contract.');
+          : unavailable(
+              'invalid_models',
+              'The agent app listed its models in a form Halora cannot read.',
+            );
       }
       default: {
         const unhandled: never = outcome;
