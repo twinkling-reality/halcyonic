@@ -212,6 +212,14 @@ namespace Halcyonic.XR.UI.Editor
                 if (saved == null || saved.atlasPopulationMode != AtlasPopulationMode.Static || saved.sourceFontFile != null
                     || !saved.HasCharacters(CharactersOf(name), out List<char> missing) || !FallbacksHold(name, saved.fallbackFontAssetTable))
                     throw new InvalidOperationException(name + ": the static face, its glyphs or its reading fallback is incomplete.");
+                // Every material named for the face (its underlays) draws from the face's own atlas, by the file ID it names.
+                foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { Resources.TrimEnd('/') }))
+                {
+                    var material = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
+                    if (material != null && material.name.StartsWith(name + " ", StringComparison.Ordinal) && material.HasProperty(ShaderUtilities.ID_MainTex)
+                        && material.GetTexture(ShaderUtilities.ID_MainTex) != saved.atlasTexture)
+                        throw new InvalidOperationException(material.name + " does not draw from " + name + "'s atlas.");
+                }
             }
             Debug.Log("Halcyonic: kit faces: " + Faces.Length + " static atlases, required glyphs, fallbacks and licences passed.");
         }
