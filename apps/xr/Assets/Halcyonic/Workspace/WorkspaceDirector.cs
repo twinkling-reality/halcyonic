@@ -646,7 +646,8 @@ namespace Halcyonic.XR.Workspace
                     "Halcyonic interaction: hand character target {0}", pointedId ?? "none");
                 loggedPointed = pointedId;
             }
-            if (head != null && !FocusGuard.InputSuspended && open == null)
+            // Under the redesign no gaze reticle stands (the lead's 19:25Z (5); FIELD's 19:26Z, visionOS draws none): what is looked at brightens.
+            if (!RoomDesign.Enabled && head != null && !FocusGuard.InputSuspended && open == null)
             {
                 var depth = gazed == null ? 1f : Mathf.Clamp(
                     Vector3.Distance(head.position, gazed.BodyPosition) - CharacterView.BodyRadius * gazed.Scale - 0.03f,
@@ -673,7 +674,9 @@ namespace Halcyonic.XR.Workspace
                 peekFor = shown.WorkstreamId;
                 peekCard = presentation == null ? null : PeekCard.Of(presentation);
             }
-            if (shown == null || peekCard == null || peekChoice.Opacity <= 0f)
+            // Under the redesign the peek card is retired (the lead's 19:25Z (1)): the place's tag already carries the name and state, and the
+            // place's sign its project; a waiting task's reason stands on its place's Needs You card (AUDIT2's 19:26Z).
+            if (RoomDesign.Enabled || shown == null || peekCard == null || peekChoice.Opacity <= 0f)
             {
                 peek.Hide();
                 loggedPeek = null;
@@ -725,7 +728,9 @@ namespace Halcyonic.XR.Workspace
         private void RefreshHint()
         {
             var session = connection.Session;
-            if (!Presentation.AgentsVisible || stage == null || !stage.Visible || !OnboardingHint.Needed || OpenWorkstream != null || FocusGuard.InputSuspended || session == null)
+            // Under the redesign the pinch hint is retired (the lead's 2026-11-17T19:25Z (5); FIELD's 19:26Z: no reference held): the kit's
+            // hover state on what is pointed at shows what a pinch acts on.
+            if (RoomDesign.Enabled || !Presentation.AgentsVisible || stage == null || !stage.Visible || !OnboardingHint.Needed || OpenWorkstream != null || FocusGuard.InputSuspended || session == null)
             {
                 hint.Hide();
                 return;
