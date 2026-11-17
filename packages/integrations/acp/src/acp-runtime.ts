@@ -32,6 +32,7 @@ import {
   SANDBOX_EXEC,
 } from '@halcyonic/seatbelt';
 import { approvalRequest, toolNameOf } from './approvals.ts';
+import { AcpProcessGuard, type StaleProcess } from './process-guard.ts';
 import type { AcpProfile } from './profiles.ts';
 import { type RequestId, RpcConnection, RpcError, RpcUnanswered } from './rpc.ts';
 
@@ -94,6 +95,12 @@ export interface AcpRuntimeOptions {
    * passes none.
    */
   readonly sessionOptions?: Readonly<Record<string, string>>;
+  /**
+   * Where the apps this adapter launched are recorded while they run, so a watchdog stops them should the
+   * control plane die and the next start stops any that outlived both (AUDIT3 AS1). In the data folder,
+   * which the app cannot reach. Null records nothing, for tests whose app ends with its input.
+   */
+  readonly processRecordFile: string | null;
   /**
    * On macOS, the host's own folders the light profile keeps the app and everything it runs from
    * (its data folder with the keys and the journal, the task copies, every `.halcyonic` home), and
@@ -167,11 +174,14 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
   readonly #options: AcpRuntimeOptions;
   readonly #clock: () => Date;
   readonly #sessions = new Map<string, AcpSession>();
+  readonly #guard: AcpProcessGuard | null;
   #closed = false;
 
   constructor(options: AcpRuntimeOptions) {
     this.#options = options;
     this.#clock = options.clock ?? (() => new Date());
+    this.#guard =
+      options.processRecordFile === null ? null : new AcpProcessGuard(options.processRecordFile);
     this.descriptor = {
       runtime_id: options.profile.runtimeId as RuntimeDescriptor['runtime_id'],
       kind: options.profile.kind as RuntimeDescriptor['kind'],
@@ -229,7 +239,13 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
       );
     }
     const directory = confirmProjectLocation(this.#options.directoryPolicy, request.directory);
-    const session = new AcpSession(this.#options, this.#clock, request.emit, directory);
+    const session = new AcpSession(
+      this.#options,
+      this.#clock,
+      request.emit,
+      directory,
+      this.#guard,
+    );
     this.#sessions.set(id, session);
     try {
       const nativeId = await session.open(() =>
@@ -271,6 +287,12 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
     const sessions = [...this.#sessions.values()];
     this.#sessions.clear();
     await Promise.all(sessions.map((session) => session.close()));
+    await this.#guard?.close();
+  }
+
+  /** Stops the apps an earlier control plane recorded and left running (AUDIT3 AS1), before anything starts. */
+  stopStaleProcesses(): Promise<readonly StaleProcess[]> {
+    return this.#guard?.stopStale() ?? Promise.resolve([]);
   }
 
   #session(execution: ExecutionContext): AcpSession {
@@ -311,12 +333,16 @@ class AcpSession {
   #closing = false;
   #alive = false;
 
+  readonly #guard: AcpProcessGuard | null;
+
   constructor(
     options: AcpRuntimeOptions,
     clock: () => Date,
     emit: ObservationSink,
     directory: string,
+    guard: AcpProcessGuard | null,
   ) {
+    this.#guard = guard;
     this.#options = options;
     this.#clock = clock;
     this.#emitTo = emit;
@@ -367,6 +393,7 @@ class AcpSession {
         `${this.#name} on this computer answers in a way Halora does not know, so it could not start. Reinstall ${this.#name}, then start again.`,
       );
     }
+    await this.#watched();
     if (this.#options.standIn !== undefined) {
       try {
         await rpc.request(
@@ -992,7 +1019,30 @@ class AcpSession {
     this.#approvals.clear();
   }
 
+  /**
+   * Has the guard record and watch the app before it is given a folder or a prompt (AUDIT3 AS1); an app that
+   * cannot be watched is stopped and the start refused.
+   */
+  async #watched(): Promise<void> {
+    const child = this.#child;
+    if (this.#guard === null || child === null || child.pid === undefined) return;
+    const gone = () => child.exitCode !== null || child.signalCode !== null;
+    let admitted = false;
+    try {
+      admitted = await this.#guard.admit(child.pid, gone);
+    } catch {
+      admitted = false;
+    }
+    if (!admitted) {
+      throw new RuntimeActionError(
+        'runtime_unwatched',
+        `${this.#name} could not be watched, so Halora stopped it before it was given the task.`,
+      );
+    }
+  }
+
   #exited(): void {
+    if (this.#child?.pid !== undefined) this.#guard?.release(this.#child.pid);
     if (this.#profileFile !== null) rmSync(this.#profileFile, { force: true });
     if (this.#settingsHome !== null) rmSync(this.#settingsHome, { recursive: true, force: true });
     const wasAlive = this.#alive;

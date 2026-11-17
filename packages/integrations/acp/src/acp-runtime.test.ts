@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -28,6 +29,7 @@ import {
   UNCONFINED_REASON,
 } from './acp-runtime.ts';
 import { approvalRequest } from './approvals.ts';
+import { readProcessIdentity, writeProcessRecords } from './process-record.ts';
 import { type AcpProfile, ANTIGRAVITY, KIRO } from './profiles.ts';
 import { allowOnly } from './testing/directory-policy.ts';
 import { assertValidObservations, TEST_EXECUTION } from './testing/observations.ts';
@@ -71,6 +73,7 @@ function setUp(
     fixtureText?: string;
     versionLine?: string;
     sessionOptions?: Record<string, string>;
+    processRecordFile?: string;
     env?: Record<string, string>;
   } = {},
 ): Run {
@@ -102,6 +105,7 @@ function setUp(
       ...options.env,
     },
     home: root,
+    processRecordFile: options.processRecordFile ?? null,
     ...(options.sessionOptions === undefined ? {} : { sessionOptions: options.sessionOptions }),
     hostFolders: null,
   });
@@ -167,6 +171,7 @@ describe('ACP adapter descriptor', () => {
         directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
         env: {},
         home: '/nonexistent-home',
+        processRecordFile: null,
         hostFolders: null,
       });
       assert.deepEqual(capabilityProblems(adapter), []);
@@ -188,6 +193,7 @@ describe('ACP adapter descriptor', () => {
       directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
       env: {},
       home: '/nonexistent-home',
+      processRecordFile: null,
       hostFolders: null,
     });
     assert.equal(adapter.validateStartOptions({}, null).ok, true);
@@ -203,6 +209,7 @@ describe('ACP adapter descriptor', () => {
       directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
       env: {},
       home: '/nonexistent-home',
+      processRecordFile: null,
       hostFolders: null,
     });
     assert.equal(adapter.ownsEnvironmentName('GEMINI_API_KEY'), true);
@@ -750,6 +757,115 @@ describe('ACP settings homes left behind', () => {
       readdirSync(root).sort(),
       [`${process.pid}-${id}`, `1-${id}`, 'not-a-home'].sort(),
     );
+  });
+});
+
+describe('ACP apps never outlive the control plane (AUDIT3 AS1)', () => {
+  const HOST = fileURLToPath(new URL('./testing/acp-host.ts', import.meta.url));
+
+  /** A fake app that ignores the end of its input, as an app may, and says its pid. */
+  function stayingApp(t: TestContext): { root: string; binary: string } {
+    const root = temporary(t);
+    mkdirSync(join(root, 'project'));
+    const binary = join(root, 'app');
+    writeFileSync(
+      binary,
+      `#!/bin/sh\necho $$ > '${join(root, 'app.pid')}'\nexec '${process.execPath}' '${FAKE}' '${join(FIXTURES, 'antigravity-two.jsonl')}'\n`,
+    );
+    chmodSync(binary, 0o755);
+    return { root, binary };
+  }
+
+  function alive(pid: number): boolean {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function killedHost(t: TestContext, record: boolean, waitMs: number): Promise<number> {
+    const { root, binary } = stayingApp(t);
+    const host = spawn(
+      process.execPath,
+      [HOST, binary, root, record ? join(root, 'processes.json') : 'none'],
+      {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      },
+    );
+    const pid = await new Promise<number>((resolve, reject) => {
+      host.stdout.once('data', (chunk: Buffer) => resolve(Number(String(chunk).trim())));
+      host.once('exit', () => reject(new Error('the host ended before it started the app')));
+    });
+    t.after(() => {
+      // Only the app this test launched, by its own pid.
+      if (alive(pid)) process.kill(pid, 'SIGKILL');
+    });
+    assert.ok(alive(pid));
+    host.kill('SIGKILL');
+    for (let waited = 0; waited < waitMs / 100 && alive(pid); waited++) await delay(100);
+    return pid;
+  }
+
+  test('a control plane killed hard: its watchdog stops the app it was running', async (t) => {
+    const pid = await killedHost(t, true, 10_000);
+    assert.equal(alive(pid), false);
+  });
+
+  test('without a record the same app outlives it, so the test above can fail', async (t) => {
+    const pid = await killedHost(t, false, 2_000);
+    assert.equal(alive(pid), true);
+  });
+
+  test('the next start stops a recorded app that outlived both, and never a process that only took its pid', async (t) => {
+    const root = temporary(t);
+    const file = join(root, 'processes.json');
+    const marker = `acp-sweep-${process.pid}-${Date.now()}`;
+    const stray = spawn(process.execPath, ['-e', 'setInterval(() => undefined, 1000)', marker], {
+      stdio: 'ignore',
+    });
+    const other = spawn(
+      process.execPath,
+      ['-e', 'setInterval(() => undefined, 1000)', `${marker}-other`],
+      { stdio: 'ignore' },
+    );
+    t.after(() => {
+      for (const child of [stray, other]) if (child.exitCode === null) child.kill('SIGKILL');
+    });
+    await delay(300);
+    const strayIdentity = await readProcessIdentity(stray.pid ?? 0);
+    const otherIdentity = await readProcessIdentity(other.pid ?? 0);
+    assert.ok(strayIdentity !== null && otherIdentity !== null);
+    await writeProcessRecords(file, [
+      { pid: stray.pid ?? 0, ...strayIdentity },
+      // A record whose pid a later process took: another command line.
+      {
+        pid: other.pid ?? 0,
+        startedAt: otherIdentity.startedAt,
+        command: `${otherIdentity.command} changed`,
+      },
+    ]);
+    const adapter = new AcpRuntimeAdapter({
+      profile: ANTIGRAVITY,
+      binaryPath: '/nonexistent',
+      directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
+      env: {},
+      home: root,
+      processRecordFile: file,
+      hostFolders: null,
+    });
+    t.after(() => adapter.close());
+    const outcomes = await adapter.stopStaleProcesses();
+    assert.deepEqual(
+      [...outcomes].sort((a, b) => a.pid - b.pid),
+      [
+        { pid: stray.pid, outcome: 'stopped' },
+        { pid: other.pid, outcome: 'not_ours' },
+      ].sort((a, b) => (a.pid ?? 0) - (b.pid ?? 0)),
+    );
+    assert.equal(alive(other.pid ?? 0), true);
+    assert.equal(existsSync(file), false);
   });
 });
 

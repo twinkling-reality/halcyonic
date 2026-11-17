@@ -132,6 +132,24 @@ Where each app keeps its sign-in, outside every folder the profile refuses, so a
 - Antigravity: the system keychain, by its docs; a fresh `--gemini-dir` opened a signed-in session. Its own
   `~/.gemini/antigravity-cli/` is not needed for it.
 
+## No app outlives the control plane (AUDIT3 AS1, 2026-11-17)
+
+Measured on the pinned Antigravity on the stand-in model: with a command (`sleep 45; ...`) running after an
+approval, the process that launched `agy acp` was killed with SIGKILL; within four seconds `agy` and its command had
+both ended, and the command's file was never written. Kiro was not measured (a turn needs its sign-in), and an app
+need not end with its input.
+
+So each adapter keeps a process record in the data folder (`acp-<runtime>-processes.json`, which the app cannot
+reach) and a detached watchdog, as Claude Code's adapter does: once an app has answered `initialize`, before it is
+given a folder or a prompt, its pid, the start time and the command line `ps` shows are recorded and handed to the
+watchdog. An app that cannot be recorded is stopped and its start refused. When the control plane dies however it
+dies, the watchdog's input ends and it stops each recorded app that is still that process (the same start time and
+command line; a Kiro command line names no launch, so both are compared whole); the control plane's next start
+stops any that outlived both, before anything else. Tested with a stand-in control plane killed with SIGKILL while
+its stand-in app ignores the end of its input: the app is gone within seconds, and without the record (the control)
+it stays. The sweep stops a recorded live process and leaves one whose command line differs. Mutations (identity
+always matching, no watchdog) are each caught.
+
 ## Real runs, signed in (2026-11-17, the owner's sign-ins, bounded by the lead)
 
 The owner signed in to Kiro ("Logged in with Google") and to Antigravity on this Mac. Each run: a scratch folder,
@@ -204,7 +222,8 @@ again right before `session/new`; the app's version must be the profile's, or th
   connected folder.
 - The app signs in its own way and the adapter never passes it a key: the profile's sign-in and endpoint variables
   (`GEMINI_API_KEY`, `GOOGLE_*`, `KIRO_API_KEY`, `KIRO_HOME`, ...) are taken out of every launch.
-- A process exit is reported `runtime.connection.lost`; the execution is then lost (no re-attach).
+- A process exit is reported `runtime.connection.lost`; the execution is then lost (no re-attach). Every app is
+  recorded and watched, so none outlives the control plane (see below).
 - Registered when `HALCYONIC_ANTIGRAVITY_BIN` or `HALCYONIC_KIRO_BIN` is set in the environment; never from a
   settings file, since each spends the person's own plan.
 
@@ -229,6 +248,5 @@ again right before `session/new`; the app's version must be the profile's, or th
   requests; and how Kiro's writes reach a file (`{path, text}`: a whole new file or not), so its writes stay
   deny-only.
 - Which of Antigravity's other tools ask.
-- What either app does with its input closed in the middle of a turn, so whether one outlives a control plane that
-  is killed hard.
+- What Kiro does with its input closed in the middle of a turn (the watchdog stops it either way).
 - Kiro's and Antigravity's telemetry beyond `--disable-telemetry` (Antigravity) and Kiro's `telemetry` setting.

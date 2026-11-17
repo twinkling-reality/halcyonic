@@ -249,6 +249,7 @@ export function createRuntimeAdapters(
         directoryPolicy: dependencies.directoryPolicy,
         env: acpEnvironment(dependencies.environment, additions),
         home: userInfo().homedir,
+        processRecordFile: join(dependencies.dataDir, `acp-${profile.runtimeId}-processes.json`),
         hostFolders:
           process.platform === 'darwin'
             ? {
@@ -548,7 +549,10 @@ export async function stopStaleRuntimeServers(
       if (result.outcome !== 'none') {
         stopped.push({ runtimeId, outcome: result.outcome, pid: result.pid });
       }
-    } else if (adapter instanceof ClaudeAgentRuntimeAdapter) {
+    } else if (
+      adapter instanceof ClaudeAgentRuntimeAdapter ||
+      adapter instanceof AcpRuntimeAdapter
+    ) {
       for (const { pid, outcome } of await adapter.stopStaleProcesses()) {
         stopped.push({ runtimeId, outcome, pid });
       }

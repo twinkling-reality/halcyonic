@@ -101,6 +101,7 @@ async function setUp(
       TMPDIR: `${join(root, 'tmp')}/`,
     },
     home,
+    processRecordFile: join(root, 'processes.json'),
     ...(options.signedIn === false
       ? {}
       : {
@@ -431,6 +432,7 @@ describe('Kiro 3.4.0 end to end, signed out', { skip: KIRO_SKIP }, () => {
         KIRO_API_KEY: 'halcyonic-stand-in-not-a-key',
       },
       home,
+      processRecordFile: join(root, 'processes.json'),
       hostFolders:
         process.platform === 'darwin'
           ? {

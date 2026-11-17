@@ -9,7 +9,8 @@
 // The client's messages may come in another order than recorded (an interrupt answers the open
 // request at once): a step takes the first waiting message it matches. `$CWD` stands for the folder
 // the app was started in. Every message the client sends is appended to FAKE_ACP_LOG as one JSON line.
-// FAKE_ACP_VERSION and FAKE_ACP_PROTOCOL, when set, replace the version and the protocol version the app reports. Usage: node fake-acp-agent.mjs <fixture>
+// FAKE_ACP_VERSION and FAKE_ACP_PROTOCOL, when set, replace the version and the protocol version the app reports;
+// FAKE_ACP_STAY keeps it running after its input ends. Usage: node fake-acp-agent.mjs <fixture>
 import { appendFileSync, readFileSync } from 'node:fs';
 
 const steps = readFileSync(process.argv[2], 'utf8')
@@ -85,6 +86,7 @@ process.stdin.on('data', (chunk) => {
     waiting?.();
   }
 });
-// As the real app does, it ends at the end of its input.
-process.stdin.on('end', () => process.exit(0));
+// As the real app does, it ends at the end of its input; with FAKE_ACP_STAY set, an app that does not.
+if (process.env.FAKE_ACP_STAY) setInterval(() => undefined, 1000);
+else process.stdin.on('end', () => process.exit(0));
 run().then(() => undefined);
