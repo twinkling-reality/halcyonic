@@ -523,8 +523,12 @@ public class WorkspacePresentationStateTests
         presentation.RecordCommandDispatched(commands.MakeVrVersion(other, "/Users/person/Projects", "kite-run-vr"));
         presentation.RecordCommandDispatched(commands.MakeVrVersion(Samples.ProjectId, "/Users/person/Projects", "recipe-tracker-vr"));
         Assert.That(presentation.PendingVrConversionSourceProjectIds, Is.EqualTo(new[] { Samples.ProjectId, other }), "queued in the order pressed, once each");
-        Assert.That((presentation.VrQueueWords(Samples.ProjectId), presentation.VrQueueWords(other), presentation.VrQueueWords("not-queued")),
-            Is.EqualTo(((string?)"Waiting", (string?)"1 Ahead", (string?)null)), "AUDIT2's words for a place in the queue");
+        // AUDIT2 19:26Z: the state and the count apart, the count only where one stands ahead.
+        Assert.That(presentation.VrQueuePlace(Samples.ProjectId), Is.EqualTo(((string, string?)?)("Waiting", null)), "next in line: Waiting, no count");
+        Assert.That(presentation.VrQueuePlace(other), Is.EqualTo(((string, string?)?)("Waiting", "1 Ahead")), "behind one: Waiting over 1 Ahead");
+        presentation.RecordCommandDispatched(commands.MakeVrVersion("01a19000-0000-7000-8000-000000000003", "/Users/person/Projects", "third-vr"));
+        Assert.That(presentation.VrQueuePlace("01a19000-0000-7000-8000-000000000003"), Is.EqualTo(((string, string?)?)("Waiting", "2 Ahead")), "behind two: Waiting over 2 Ahead");
+        Assert.That(presentation.VrQueuePlace("not-queued"), Is.Null, "not queued: nothing");
         presentation.ResetPendingCommands();
         Assert.That((presentation.PendingOpenOnMacProjectIds.Count, presentation.PendingVrConversionSourceProjectIds.Count), Is.EqualTo((0, 0)));
     }

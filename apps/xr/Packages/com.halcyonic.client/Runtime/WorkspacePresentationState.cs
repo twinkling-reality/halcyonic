@@ -91,19 +91,20 @@ namespace Halcyonic.Client
         /// <summary>The first source project waiting for its VR project, or null.</summary>
         public string? PendingVrConversionSourceProjectId => pendingVrSources.Count > 0 ? pendingVrSources[0] : null;
 
-        /// <summary>A VR version waiting its turn behind others (AUDIT2's words): "Waiting" first in line, else how many stand ahead.</summary>
+        /// <summary>A VR version waiting its turn (AUDIT2's words): its state, always this, whatever its place in the queue.</summary>
         public const string QueueWaiting = "Waiting";
 
         /// <summary>
-        /// What a project's place in the Make VR Version queue reads: <see cref="QueueWaiting"/> where it is next, "{n} Ahead" where
-        /// n conversions go before it (one running counts); null where it is not queued.
+        /// A project's place in the Make VR Version queue as the kit's two parts, never joined (AUDIT2 19:26Z): the state
+        /// <see cref="QueueWaiting"/>, and under it "{n} Ahead" where n conversions go before it (one running counts), null where
+        /// none does. Null where the project is not queued.
         /// </summary>
-        public string? VrQueueWords(string projectId)
+        public (string State, string? Ahead)? VrQueuePlace(string projectId)
         {
             var at = pendingVrSources.IndexOf(projectId);
             if (at < 0) return null;
             var ahead = at + (PendingVrConversionSequence != null ? 1 : 0);
-            return ahead == 0 ? QueueWaiting : ahead.ToString(System.Globalization.CultureInfo.InvariantCulture) + " Ahead";
+            return (QueueWaiting, ahead == 0 ? null : ahead.ToString(System.Globalization.CultureInfo.InvariantCulture) + " Ahead");
         }
 
         /// <summary>The active two-step build sequence (<c>workstream.create</c> then <c>execution.start</c>) for a newly created VR project.</summary>
