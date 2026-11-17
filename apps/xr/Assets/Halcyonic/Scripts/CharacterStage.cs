@@ -527,6 +527,9 @@ namespace Halcyonic.XR
                 flyingId = null;
                 if (!view.Labels.gameObject.activeSelf) view.Labels.gameObject.SetActive(true);
                 view.LabelStemDp = 0f;
+                // Home: the ring stands under it again, and shows only if the task still needs the person (its own state says).
+                view.FloorRingAt = null;
+                view.FloorRingKept = 1f;
                 Stand(view, standing.Angle, standing.Lift, 1f);
                 return;
             }
@@ -538,6 +541,11 @@ namespace Halcyonic.XR
             view.LabelStemDp = flight.Along >= 1f && flight.TagShown >= 0.5f ? FlightStemDp : 0f;
             Stand(view, standing.Angle, standing.Lift, 1f);
             var home = view.transform.position;
+            // The floor ring stays on the floor where it stood and fades over the lift-off (the lead's 2026-11-17T18:32Z): the call
+            // is answered by the coming; it is gone while the character is away.
+            view.FloorRingAt = view.FloorRingHome;
+            var sinceCalled = FlightClock() - calledAt;
+            view.FloorRingKept = releasedAt == null && !GlazeMotion.Still ? 1f - RoomMotion.EaseOut(sinceCalled / RoomMotion.FlightBreathSeconds) : 0f;
             var point = Vector3.Lerp(home, flyingTo(), flight.Along) + Vector3.up * flight.OverM;
             if (head != null)
             {

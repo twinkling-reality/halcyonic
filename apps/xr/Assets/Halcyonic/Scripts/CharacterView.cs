@@ -185,6 +185,18 @@ namespace Halcyonic.XR
         public MeshRenderer? NeedsYouRing => floorRingRenderer.enabled ? floorRingRenderer : null;
 
         /// <summary>
+        /// Where the floor ring stays while the character flies (the lead's 2026-11-17T18:32Z: the ring never flies), in the world;
+        /// null keeps it under the character. The stage sets it at lift-off and clears it once the character is home.
+        /// </summary>
+        public Vector3? FloorRingAt { get; set; }
+
+        /// <summary>How much of the floor ring stands, 0 to 1: it fades at lift-off, the call being answered by the coming.</summary>
+        public float FloorRingKept { get; set; } = 1f;
+
+        /// <summary>Where the floor ring stands now under the character, in the world, as it is drawn there.</summary>
+        public Vector3 FloorRingHome => transform.TransformPoint(new Vector3(homeOffset.x, Grounded ? 0.006f : body.localPosition.y - BodyScale, homeOffset.z));
+
+        /// <summary>
         /// The character's visual root: it hops, rises, slumps and turns with the character's state.
         /// Its scale stays one, the body and feature stay within <see cref="BodyRadius"/> of its origin,
         /// and its forward axis is the direction the character faces.
@@ -842,14 +854,17 @@ namespace Halcyonic.XR
                 featureRenderer.SetPropertyBlock(bodyBlock);
             }
 
-            floorRingRenderer.enabled = !bodyOnlyPresentation && floorRing > 0.004f;
+            var ringShown = floorRing * Mathf.Clamp01(FloorRingKept);
+            floorRingRenderer.enabled = !bodyOnlyPresentation && ringShown > 0.004f;
             if (floorRingRenderer.enabled)
             {
                 // A slow breath on the character's own clock, which stands while things are kept still.
                 var breath = 0.5f + 0.5f * Mathf.Sin(t * 2f * Mathf.PI / NeedsYouRingBreathSeconds);
                 floorRingRenderer.transform.localPosition = new Vector3(homeOffset.x, Grounded ? 0.006f : body.localPosition.y - BodyScale, homeOffset.z);
+                // On the floor where the character stood while it flies, never with it.
+                if (FloorRingAt is Vector3 stays) floorRingRenderer.transform.position = stays;
                 floorRingBlock.SetColor(ColorId, new Color(NeedsYouRingColour.r, NeedsYouRingColour.g, NeedsYouRingColour.b,
-                    floorRing * (NeedsYouRingRestAlpha + NeedsYouRingBreathAlpha * breath)));
+                    ringShown * (NeedsYouRingRestAlpha + NeedsYouRingBreathAlpha * breath)));
                 floorRingRenderer.SetPropertyBlock(floorRingBlock);
             }
 
