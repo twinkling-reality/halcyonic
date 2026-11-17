@@ -92,14 +92,33 @@ Run on the stand-in model, each denying first, with a control beside it:
 - Kiro: `KIRO_HOME` moved `settings/cli.json` out of `~/.kiro`, while its sign-in store stayed in
   `~/Library/Application Support/kiro-cli`.
 
-So the adapter launches each app with a settings home of Halora's own under the person's home (`~/.gemini/halora`,
-`~/.kiro/halora`) and an agent-app profile per launch: the light profile, plus the person's push and cloud
+So the adapter launches each app with a settings home of Halora's own under the person's home (since AC3, one per
+launch under `~/.gemini/halora` and `~/.kiro/halora`) and an agent-app profile per launch: the light profile, plus the person's push and cloud
 credentials (`~/.ssh`, `~/.config/gh`, `~/.git-credentials`, `~/.netrc`, `~/.config/git/credentials`, `~/.aws`,
 `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker/config.json`) and the project's own settings for the app
 (`.agents` and `.gemini` for Antigravity, `.kiro` and `.amazonq` for Kiro, at any depth and in any case) refused,
 read and write. End to end: an approved `read_file` of `~/.ssh/id_marker` fails and its text never reaches the model
 while the same read of a file beside it does; an approved command that writes `.agents/hooks.json` fails while the
 same command's write beside it lands.
+
+## One settings home per launch (AUDIT3 AC3, 2026-11-17)
+
+A settings home made once and reused is the person's-settings hole again, in Halora's own folder: one approved
+write there (an allow-everything mode, a hook, a tool server, an agent) would reach every later session. So each
+launch gets a fresh settings home, `~/.gemini/halora/<launch>` or `~/.kiro/halora/<launch>`, removed when the app
+exits, and the agent-app profile refuses the folder that holds them, read and write, but for the launch's own.
+End to end, failing first: an approved command writes `"toolPermission": "always-proceed"` into
+`~/.gemini/halora/antigravity-cli/settings.json` (where a shared home would be); it is refused, the folder of homes
+is empty once the run ends, and a later launch on the same home still asks before its command, which denied never
+runs. With the home shared and that folder open again, the same test fails. Under `sandbox-exec`, another launch's
+home and the folder itself are refused while the launch's own is written.
+
+Where each app keeps its sign-in, outside every folder the profile refuses, so a fresh home signs in:
+
+- Kiro: `~/Library/Application Support/kiro-cli/` (`data.sqlite3` beside its own runtime); a fresh `KIRO_HOME`
+  made `identities/` of its own at its first signed-in launch and listed models.
+- Antigravity: the system keychain, by its docs; a fresh `--gemini-dir` opened a signed-in session. Its own
+  `~/.gemini/antigravity-cli/` is not needed for it.
 
 ## Real runs, signed in (2026-11-17, the owner's sign-ins, bounded by the lead)
 

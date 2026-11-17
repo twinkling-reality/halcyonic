@@ -130,7 +130,9 @@ Claude Code's copies (the copy profile, network open), are never answered (ADR 0
 The agent apps Halcyonic directs over ACP, Antigravity and Kiro (ADR 0067), reach their maker's service with the
 person's own sign-in and are never given a key. Each is launched with a settings home of Halora's own (Antigravity's
 `--gemini-dir`, Kiro's `KIRO_HOME`), because the person's own settings do apply over ACP: Antigravity 1.5.10 ran a
-command unasked under the person's `"toolPermission": "always-proceed"`. On macOS each runs under the agent-app
+command unasked under the person's `"toolPermission": "always-proceed"`. The home is fresh for each launch and
+removed at its end, and every other launch's home is refused to it, so nothing the agent writes there reaches a
+later session (AUDIT3 AC3). On macOS each runs under the agent-app
 profile: the light profile, with the push credentials above, the cloud credentials (`~/.aws`, `~/.config/gcloud`,
 `~/.azure`, `~/.kube`, `~/.docker/config.json`) and the project's own settings for the app (`.agents` and `.gemini`,
 `.kiro` and `.amazonq`, at any depth and in any case) neither read nor written, so a project cannot widen what the
