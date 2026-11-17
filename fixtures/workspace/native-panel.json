@@ -129,7 +129,7 @@
           "subject": {
             "kind": "tool_use",
             "tool_name": "bash",
-            "summary": "Run `pnpm db:migrate` against the local development database"
+            "summary": "pnpm db:migrate"
           },
           "approvable": true,
           "requested_at": "2026-09-26T10:00:10.200Z"
