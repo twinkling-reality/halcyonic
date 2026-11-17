@@ -1328,7 +1328,8 @@ namespace Halcyonic.XR.UI
             Foot = foot;
             PanelRight = shift + left + panelWidth;
             Size = new Vector2(total, panelHeight);
-            LaidPanelDp = panelWidth / unit;
+            // The review across the pair's footprint keeps the pair's envelope: its total is the pair's, so it is measured as the pair.
+            LaidPanelDp = bar.Result ? RoomGeometry.PanelDp : panelWidth / unit;
             var largest = LargestAt(LaidPanelDp);
             var passed = total > largest.x + unit * 0.5f || panelHeight > largest.y + unit * 0.5f;
             if (passed && !PassedLargest)

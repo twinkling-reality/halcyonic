@@ -1204,7 +1204,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     // The owner's reference glass (the lead's 13:33Z): translucent, a hairline, one long soft shadow, no sheen.
                     Require(look.FillTop.a < 1f && look.Shadow == Halcyonic.XR.UI.RoomSurface.DrawsShadow && look.EdgeDp > 0f && RoomSheen.Peak == 0f,
                         "the panel is not the reference's translucent glass with a hairline and no sheen, its shadow as RoomSurface.DrawsShadow says");
-                    Require(shown.Wide || Mathf.Abs(panel.Size.x - RoomType.Units(RoomGeometry.PanelDp)) < Tolerance, "the panel is not 440 dp wide");
+                    // The finished turn's review laid as one dialog stands across the pair's whole footprint, exactly (TASKS, f6); every other panel 440 dp.
+                    var panelDp = shown.Result && shown.AsDialog ? RoomGeometry.PanelDp + RoomGeometry.PairGapDp + RoomGeometry.ColumnDp : RoomGeometry.PanelDp;
+                    Require(shown.Wide || Mathf.Abs(panel.Size.x - RoomType.Units(panelDp)) < Tolerance, "the panel is not " + panelDp.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " dp wide");
                     Whole(bar.Body, "the panel's words");
                     if (bar.NoticePlate != null)
                         Require(bar.NoticePlate.transform.localPosition.y > panel.transform.localPosition.y, "the notice does not stand over the panel");
