@@ -193,7 +193,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 controlsType.GetMethod("PlaceAgents", BindingFlags.Public | BindingFlags.Instance)!.Invoke(controls, null);
                 Draw();
                 if (!Press(Footer.Close)) failures.Add("nothing drawn closes the shelf's placing");
-                Draw(); Draw();
+                Draw();
+                // A cancelled placing ends the plane's placing form on its own draw, its hold with it: no shelf is coming (XR's 21:34Z).
+                if (typeof(MenuPlane).GetField("heldWhilePlacing", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(plane) != null)
+                    failures.Add("the plane still holds its placing direction a draw after the placing was cancelled");
+                var form = typeof(MenuPlane).GetField("formSituation", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(plane);
+                if (form != null && form.GetType().GetField("Item6")?.GetValue(form) is true)
+                    failures.Add("the plane still stands in its placing form a draw after the placing was cancelled");
+                Draw();
                 controlsType.GetMethod("PlaceAgents", BindingFlags.Public | BindingFlags.Instance)!.Invoke(controls, null);
                 Draw();
                 Debug.Log("Halcyonic: flight walk: placing: preview " + (placement.Preview != null) + ", menu host " + (workspace.MenuHost != null) + ", minimized "

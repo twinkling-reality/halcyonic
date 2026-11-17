@@ -117,8 +117,10 @@ namespace Halcyonic.Client
         /// not stood yet); so a placed shelf changes the width once, and a cancelled placing, or any real change, is decided at once.
         /// </summary>
         public static bool AwaitsPlacedShelf(bool wasPlacing, bool placing, bool shelfStands, bool otherChange, int framesSincePlacingEnded,
-            bool shelfComing = false) =>
-            wasPlacing && !placing && !shelfStands && !otherChange && framesSincePlacingEnded < (shelfComing ? ComingShelfFrames : PlacedShelfFrames);
+            bool shelfComing = false, bool cancelled = false) =>
+            // A cancelled placing applied nothing, so no shelf is coming and the plane leaves its placing form at once (XR's 21:34Z: a
+            // walk's cancel waited for a shelf it never brings, and the next Place Agents searched a plane still placing).
+            !cancelled && wasPlacing && !placing && !shelfStands && !otherChange && framesSincePlacingEnded < (shelfComing ? ComingShelfFrames : PlacedShelfFrames);
 
         /// <summary>
         /// The draws a placing that just ended waits where the room says a shelf was applied that the stage has not stood yet: the stage

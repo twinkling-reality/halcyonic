@@ -378,7 +378,8 @@ namespace Halcyonic.XR.Workspace
         /// <summary>The direction the plane holds while a placing stands; null otherwise.</summary>
         private PanelDirection? heldWhilePlacing;
 
-        public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false, bool shelfComing = false, bool open = true)
+        public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false, bool shelfComing = false, bool open = true,
+            bool placingCancelled = false)
         {
             // While a placing stands the plane holds the direction it had as the placing opened (XR's 2026-11-17T21:0xZ, SHOW's FW1): the
             // shelf's search judged the preview against that plane, and Apply judges it against the same one, never a plane re-pitched
@@ -387,7 +388,7 @@ namespace Halcyonic.XR.Workspace
             else heldWhilePlacing = null;
             if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; ShelfAsideDegrees = 0f; return; }
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
-            ConsiderWidth(shelf, shelfKey, viewer, characters, placing, shelfComing);
+            ConsiderWidth(shelf, shelfKey, viewer, characters, placing, shelfComing && !placingCancelled, placingCancelled);
             // The plane at rest, for the shelf that fits beside it (ruling 1 (a)): one number a text size, asked by the stage as it fits
             // (AUDIT's 02:41Z: one width for every shelf, never read at wherever the plane stands now).
             CharacterStage.PlaneRestHalfDegrees ??= RestHalfDegrees;
@@ -502,7 +503,7 @@ namespace Halcyonic.XR.Workspace
             return false;
         }
 
-        private void ConsiderWidth(Vector3[]? shelf, string shelfKey, Vector3 viewer, int characters, bool placing, bool shelfComing)
+        private void ConsiderWidth(Vector3[]? shelf, string shelfKey, Vector3 viewer, int characters, bool placing, bool shelfComing, bool placingCancelled = false)
         {
             var floor = PlaneWidth.FloorDp(GlazeText.Scale);
             var now = (GlazeText.Scale, shelfKey, characters, Mathf.RoundToInt(Direction.Yaw), Mathf.RoundToInt(Direction.Elevation), placing);
@@ -523,7 +524,7 @@ namespace Halcyonic.XR.Workspace
                 // size is another change.
                 var otherChange = !Mathf.Approximately(placed.Scale, now.Item1);
                 waitedComing |= shelfComing;
-                if (PlaneWidthRule.AwaitsPlacedShelf(true, false, shelf != null, otherChange, considered - placingEndedFrame, shelfComing)) return;
+                if (PlaneWidthRule.AwaitsPlacedShelf(true, false, shelf != null, otherChange, considered - placingEndedFrame, shelfComing, placingCancelled)) return;
                 waited = (considered - placingEndedFrame, waitedComing);
                 waitedComing = false;
             }

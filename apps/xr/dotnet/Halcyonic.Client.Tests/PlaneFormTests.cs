@@ -66,6 +66,9 @@ public class PlaneFormTests
         Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, shelfStands: false, otherChange: false, framesSincePlacingEnded: 0), Is.True, "the shelf stands a frame later");
         Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, false, PlaneWidthRule.PlacedShelfFrames), Is.False, "a cancelled placing: no shelf will come");
         Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, true, false, 0), Is.False, "the shelf stands: decide now, once");
+        // XR's 21:34Z: a placing closed with nothing applied waits for no shelf, even where the room says one was placed before.
+        Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, false, 0, shelfComing: true, cancelled: true), Is.False, "a cancel brings no shelf");
+        Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, false, 0, shelfComing: true), Is.True, "an Apply's shelf is waited for");
         Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, otherChange: true, 0), Is.False, "the text size changed: decide now");
         Assert.That(PlaneWidthRule.AwaitsPlacedShelf(false, false, false, false, 0), Is.False, "no placing ended");
         Assert.That(PlaneWidthRule.AwaitsPlacedShelf(true, false, false, false, PlaneWidthRule.PlacedShelfFrames, shelfComing: true), Is.True,

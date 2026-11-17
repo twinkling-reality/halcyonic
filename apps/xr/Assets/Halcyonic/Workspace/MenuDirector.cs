@@ -948,7 +948,8 @@ namespace Halcyonic.XR.Workspace
             // The plane's form, decided before any reader measures and held between events (the lead's 2026-11-13T17:16Z ruling).
             if (stage.Shelf != null || placement != null) shelfApplied = false;
             plane.ConsiderForm(stage.Shelf, stage.Eyes, stage.Characters.Count, placing: placement is IPlacesInRoom, shelfComing: stage.ShelfComing || shelfApplied,
-                open: navigator.ShowsAnything && !navigator.IsCompact);
+                open: navigator.ShowsAnything && !navigator.IsCompact, placingCancelled: placingCancelled);
+            placingCancelled = false;
             // The room yields while the plane is open (the lead's 19:34Z GO): the placed shelf stands aside where the plane's footprint
             // meets it, decided with the width on events only, and comes back once the plane shows nothing.
             stage.StandAside?.Invoke(navigator.ShowsAnything && !navigator.IsCompact ? plane.ShelfAsideDegrees : 0f);
@@ -1293,12 +1294,17 @@ namespace Halcyonic.XR.Workspace
         /// <summary>A placing ended by applying a shelf the stage has not stood yet; cleared once the shelf stands or another placing opens.</summary>
         private bool shelfApplied;
 
+        /// <summary>A placing just closed with nothing applied, told to the plane's form on the next draw only.</summary>
+        private bool placingCancelled;
+
         private void LocalChanged() { placementDrawn = null; dirty = true; }
         private void LocalClosed()
         {
             var closing = placement;
             // A shelf applied is on its way to the stage, which stands it on its own next update: the plane waits for it.
             shelfApplied = closing is IPlacesInRoom { ShelfApplied: true };
+            // Closed with nothing applied: no shelf comes, and the plane leaves its placing form on the next draw (XR's 21:34Z).
+            placingCancelled = closing is IPlacesInRoom { ShelfApplied: false };
             moveMode = false;
             placement = null;
             placementFrame = null;
