@@ -1926,6 +1926,30 @@ describe('a confined project (ADR 0041)', () => {
       .filter((message) => message.method === 'turn/start')
       .map((message) => message.params as Record<string, unknown>);
 
+  test("starts where Codex's home has no settings file, as on a Mac whose local-model setup never ran (LOOP, 2026-11-17)", {
+    skip: process.platform !== 'darwin',
+  }, async (t) => {
+    const settings = confinedTo(t, (folder) => ({
+      project: folder,
+      readable: [],
+      asksNothing: true,
+    }));
+    rmSync(join(settings.codexHome, 'config.toml'));
+    const { start, directory, observations } = fake(t, [], settings);
+    // An older copy from a launch when the open home still had one: never kept once the open home's is gone.
+    const confinedHome = join(
+      dirname(settings.codexHome),
+      'codex-confined',
+      confinementKey(directory),
+    );
+    mkdirSync(confinedHome, { recursive: true, mode: 0o700 });
+    writeFileSync(join(confinedHome, 'config.toml'), 'model_provider = "stale"\n');
+    await start();
+    const started = observations.find((entry) => entry.type === 'runtime.execution.started');
+    assert.equal((started?.payload as { confined?: boolean } | undefined)?.confined, true);
+    assert.equal(existsSync(join(confinedHome, 'config.toml')), false);
+  });
+
   test("runs on a server of its own inside Halcyonic's sandbox, every turn without Codex's own", {
     skip: process.platform !== 'darwin',
   }, async (t) => {

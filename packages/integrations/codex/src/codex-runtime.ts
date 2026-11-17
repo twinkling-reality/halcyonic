@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from 'node:fs';
-import { chmod, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
 import type {
@@ -1224,8 +1224,17 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     const key = confinementKey(confinement.project);
     const codexHome = join(confinedHomes, key);
     await prepareHome(codexHome);
-    await copyFile(join(this.#home, 'config.toml'), join(codexHome, 'config.toml'));
-    await chmod(join(codexHome, 'config.toml'), 0o600);
+    // The open home's settings name a local model provider, and only `pnpm mac-setup local-model` writes them: a Mac
+    // that never ran it has none, and a hosted model needs none (it comes through the launch's arguments). So the copy
+    // is made only where they exist, and an older copy goes where they are gone (LOOP, 2026-11-17).
+    const settingsFile = join(codexHome, 'config.toml');
+    try {
+      await copyFile(join(this.#home, 'config.toml'), settingsFile);
+      await chmod(settingsFile, 0o600);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      await rm(settingsFile, { force: true });
+    }
     const temp = await tempFolder(confinedHomes, key);
     if (!(await makeTemp(temp))) {
       throw new RuntimeActionError(
