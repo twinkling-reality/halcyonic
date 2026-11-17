@@ -2190,10 +2190,17 @@ namespace Halcyonic.XR.Workspace.Editor
             // As DRAWN, not only as laid: a curve that bends the words' mesh (and not their plate) moves them off it on the render
             // while their layout stands inside (XR 06:19Z, FIELD 06:18Z). The drawn glyphs' centre stands where the laid words' does;
             // the glyph quads' own padding is even on every side, so it moves no centre.
-            if (words.mesh is Mesh drawnMesh && drawnMesh.vertexCount > 0
+            // Like with like (JUDGE, 2026-11-17): the laid glyphs' own quads (TMP's characterInfo corners, padding included) against the
+            // drawn mesh's quads. The text's bounds were the wrong "laid" box: capitals have no descender and spaced capitals carry
+            // their tracking past the last letter, so a label laid squarely on its plate read 1.6 px "above" and 2.0 px "left".
+            var laidQuads = Enumerable.Range(0, words.textInfo.characterCount).Select(index => words.textInfo.characterInfo[index])
+                .Where(character => character.isVisible)
+                .SelectMany(character => new[] { character.vertex_BL.position, character.vertex_TR.position, character.vertex_TL.position, character.vertex_BR.position })
+                .Select(corner => words.transform.TransformPoint(corner)).ToList();
+            if (laidQuads.Count > 0 && ScreenRect(laidQuads) is Rect laidRect && words.mesh is Mesh drawnMesh && drawnMesh.vertexCount > 0
                 && ScreenRect(drawnMesh.vertices.Select(vertex => words.transform.TransformPoint(vertex))) is Rect drawnRect)
             {
-                var moved = drawnRect.center - t.center;
+                var moved = drawnRect.center - laidRect.center;
                 if (Mathf.Abs(moved.x) > touch) off.Add("drawn " + (moved.x < 0 ? "left" : "right") + " of where laid by " + Mathf.Abs(moved.x).ToString("0.0") + " px");
                 if (Mathf.Abs(moved.y) > touch) off.Add("drawn " + (moved.y < 0 ? "below" : "above") + " where laid by " + Mathf.Abs(moved.y).ToString("0.0") + " px");
             }
