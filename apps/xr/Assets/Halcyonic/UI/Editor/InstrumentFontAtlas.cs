@@ -16,7 +16,20 @@ namespace Halcyonic.XR.UI.Editor
         public const string AssetPath = "Assets/Halcyonic/UI/Resources/HalcyonicUI/InstrumentType.asset";
         private const string BuildingPath = "Assets/Halcyonic/UI/Resources/HalcyonicUI/InstrumentType building.asset";
         private const string FontPath = "Assets/Halcyonic/UI/Fonts/Rajdhani/Rajdhani-Medium.ttf";
-        private static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "…–\u2014‘’“”" + Halcyonic.Client.KitGlyphs.Latin;
+        private static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "…–\u2014‘’“”"
+            + new string(Halcyonic.Client.KitGlyphs.Latin.Where(character => Lacks.IndexOf(character) < 0).ToArray());
+
+        /// <summary>
+        /// The accented Latin characters Rajdhani Medium does not draw (the trial rebuild, 2026-11-17T22:20Z): ¤ ª ¬ ² ³ µ ¹ º ¼ ½ ¾
+        /// Ĉ ĉ Ĥ ĸ ſ. They draw in <see cref="LacksFace"/>, the title face's first fallback, never as a missing glyph's box.
+        /// </summary>
+        public const string Lacks = "\u00A4\u00AA\u00AC\u00B2\u00B3\u00B5\u00B9\u00BA\u00BC\u00BD\u00BE\u0108\u0109\u0124\u0138\u017F";
+
+        /// <summary>The kit's title face, Inter SemiBold, which the title face falls back to for <see cref="Lacks"/>.</summary>
+        public const string LacksFace = "KitTitle";
+
+        private static List<TMP_FontAsset> Fallbacks() =>
+            new List<TMP_FontAsset> { AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KitFontAtlas.AssetPath(LacksFace)), TMP_Settings.defaultFontAsset };
 
         public static void Check()
         {
@@ -37,8 +50,8 @@ namespace Halcyonic.XR.UI.Editor
                 throw new InvalidOperationException("The shipped title-font license differs from its source license.");
             var saved = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath);
             if (saved == null || saved.atlasPopulationMode != AtlasPopulationMode.Static || saved.sourceFontFile != null
-                || !saved.HasCharacters(Characters) || saved.fallbackFontAssetTable.Count != 1
-                || saved.fallbackFontAssetTable[0] != TMP_Settings.defaultFontAsset)
+                || !saved.HasCharacters(Characters) || !saved.fallbackFontAssetTable.SequenceEqual(Fallbacks())
+                || !saved.fallbackFontAssetTable[0].HasCharacters(Lacks))
                 throw new InvalidOperationException("The static title face or its reading fallback is incomplete.");
             var root = new GameObject("Instrument type check");
             try
@@ -97,7 +110,7 @@ namespace Halcyonic.XR.UI.Editor
             atlas.name = "InstrumentType";
             atlas.atlasTexture.name = "InstrumentType Atlas";
             atlas.material.name = "InstrumentType Material";
-            atlas.fallbackFontAssetTable = new List<TMP_FontAsset> { TMP_Settings.defaultFontAsset };
+            atlas.fallbackFontAssetTable = Fallbacks();
             AssetDatabase.DeleteAsset(BuildingPath);
             AssetDatabase.CreateAsset(atlas, BuildingPath);
             AssetDatabase.AddObjectToAsset(atlas.atlasTexture, atlas);

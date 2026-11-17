@@ -10,10 +10,13 @@ namespace Halcyonic.Client
     /// </summary>
     public static class KitGlyphs
     {
-        /// <summary>U+00A0 to U+00FF without the soft hyphen, which draws nothing, then U+0100 to U+017F.</summary>
-        public static readonly string Latin = new string(Enumerable.Range(0xA0, 0x180 - 0xA0).Where(code => code != 0xAD).Select(code => (char)code).ToArray());
+        /// <summary>
+        /// U+00A0 to U+00FF, then U+0100 to U+017F, without the soft hyphen, which draws nothing, and ŉ (U+0149), which Unicode
+        /// deprecates and Inter SemiBold does not draw (the trial rebuild, 2026-11-17T22:19Z); it shows by its code point.
+        /// </summary>
+        public static readonly string Latin = new string(Enumerable.Range(0xA0, 0x180 - 0xA0).Where(HoldsLatin).Select(code => (char)code).ToArray());
 
         /// <summary>Whether a code point is one of <see cref="Latin"/>.</summary>
-        public static bool HoldsLatin(int codePoint) => codePoint >= 0xA0 && codePoint < 0x180 && codePoint != 0xAD;
+        public static bool HoldsLatin(int codePoint) => codePoint >= 0xA0 && codePoint < 0x180 && codePoint != 0xAD && codePoint != 0x149;
     }
 }

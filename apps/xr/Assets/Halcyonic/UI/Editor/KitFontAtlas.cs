@@ -97,7 +97,14 @@ namespace Halcyonic.XR.UI.Editor
         {
             try
             {
-                foreach (var face in Faces) Build(face.Name, face.Font);
+                // Every face is tried, so one run names every glyph a font lacks.
+                var errors = new List<string>();
+                foreach (var face in Faces)
+                {
+                    try { Build(face.Name, face.Font); }
+                    catch (InvalidOperationException error) { errors.Add(error.Message); }
+                }
+                if (errors.Count > 0) throw new InvalidOperationException(string.Join(" ", errors));
                 ValidateSaved();
                 EditorApplication.Exit(0);
             }
