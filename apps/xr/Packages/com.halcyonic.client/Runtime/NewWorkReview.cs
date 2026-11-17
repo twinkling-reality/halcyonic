@@ -42,8 +42,7 @@ namespace Halcyonic.Client
 
         /// <param name="value">Its value as runs, as shown: outside text spelled by the review's own rule, leaning.</param>
         /// <param name="kind">What it names; a note where not given.</param>
-        /// <param name="shownLabel">The label as the row shows it where it says more than <paramref name="label"/>, which stays the item's key.</param>
-        public ReviewItem(string label, LineWords value, ReviewItemKind kind = ReviewItemKind.Warning, string? shownLabel = null)
+        public ReviewItem(string label, LineWords value, ReviewItemKind kind = ReviewItemKind.Warning)
         {
             Label = label;
             Kind = kind;
@@ -51,7 +50,7 @@ namespace Halcyonic.Client
             Value = value.Text;
             // Apart, for the redesign's rows (never a label joined on a dot): the label over the value; on one line, as the
             // older view draws it, "{Label}: {value}". Words with no value, as a warning, stand as themselves.
-            var named = (shownLabel ?? label).TrimEnd(' ', ':');
+            var named = label.TrimEnd(' ', ':');
             Runs = value.IsEmpty || named.Length == 0 ? LineWords.Written(label) + value : LineWords.Written(named + ": ") + value;
             RowLabel = value.IsEmpty || named.Length == 0 ? null : named;
             RowRuns = RowLabel == null ? Runs : value;
@@ -154,9 +153,6 @@ namespace Halcyonic.Client
         public const string ProjectLabel = "Project";
         public const string ModelIdLabel = "Model ID";
         public const string FirstTaskLabel = "First Task";
-
-        /// <summary>The first task's label where its first characters are also the task's name (the start cut the title from it).</summary>
-        public const string FirstTaskNamesTaskLabel = "First Task and Name";
 
         public NewWorkReview(string project, string title, string runtime, string model, string modelFacts, string modelRef, string objective,
             string? folder = null, string? folderBefore = null, ProjectLocationChoice? folderChoice = null, bool neverAsk = false)
@@ -381,11 +377,11 @@ namespace Halcyonic.Client
             return true;
         }
 
-        private void Add(string label, string value, ReviewItemKind kind, string? shownLabel = null) => Add(label, LineWords.Unspelled(value), kind, shownLabel);
+        private void Add(string label, string value, ReviewItemKind kind) => Add(label, LineWords.Unspelled(value), kind);
 
         /// <summary>An item whose value is runs: outside text spelled by <see cref="Safe"/>, Halcyonic's words as written.</summary>
-        private void Add(string label, LineWords value, ReviewItemKind kind, string? shownLabel = null) => items.Add(new ReviewItem(label,
-            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Shown(Safe(run.Text)) : LineWords.Written(run.Text))), kind, shownLabel));
+        private void Add(string label, LineWords value, ReviewItemKind kind) => items.Add(new ReviewItem(label,
+            value.Runs.Aggregate(LineWords.None, (said, run) => said + (run.Theirs ? LineWords.Shown(Safe(run.Text)) : LineWords.Written(run.Text))), kind));
 
         // The bundled TMP font cannot show every character. Spell each non-ASCII code point and
         // control character in ASCII, and double a literal backslash so a typed marker differs.

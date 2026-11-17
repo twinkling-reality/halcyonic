@@ -143,18 +143,18 @@ public class NewWorkSafetyTests
     }
 
     /// <summary>
-    /// A long first task's review pages to Confirm (AUDIT3's C4, SCREENS' journey j5 and j6): its cut title is no row of its own, so
-    /// no ellipsis of ours stands on any part (the bar, which refuses a drawn ellipsis as a cut, can report each part drawn), and
-    /// reading every part opens Confirm on the last.
+    /// A long first task's review pages to Confirm (AUDIT3's C4, SCREENS' journey j5 and j6): its title is made short, never cut,
+    /// and keeps its own row showing the title sent, so no ellipsis of ours stands on any part (the bar, which refuses a drawn
+    /// ellipsis as a cut, can report each part drawn), and reading every part opens Confirm on the last.
     /// </summary>
     [Test]
     public void ALongFirstTasksReviewPagesToConfirmWithNoEllipsisOnAnyPart()
     {
         var objective = string.Join(" ", Enumerable.Range(1, 8).Select(part => "Part " + part + ": " + new string('w', 120) + "."));
         var draft = new NewWorkDraft(new CommandFactory(new ClientInfo { Name = "test" })) { Objective = objective };
-        var (typed, cut) = draft.TitleSource;
-        Assert.That(cut, Is.True, "a task long enough that its title is cut");
-        var review = new NewWorkReview("Project", typed, "Runtime", "Model", "unknown", "ref", objective, titleCut: cut);
+        Assert.That(draft.Title, Is.EqualTo("Part 1"), "its first words to sixty, the colon left at the cut dropped");
+        var review = new NewWorkReview("Project", draft.Title, "Runtime", "Model", "unknown", "ref", objective);
+        Assert.That(review.Items.Single(item => item.Kind == ReviewItemKind.TaskName).Value, Is.EqualTo(draft.Title), "the row shows the title sent");
         review.Paginate(review.Items.Select(item => item.Kind == ReviewItemKind.FirstTask ? 30 : 1).ToList(), 8);
         Assert.That(review.PageCount, Is.GreaterThan(2));
         Assert.That(review.Items.Any(item => item.Value.Contains('\u2026') || item.Runs.Text.Contains('\u2026')), Is.False, "no ellipsis of ours on any part");
