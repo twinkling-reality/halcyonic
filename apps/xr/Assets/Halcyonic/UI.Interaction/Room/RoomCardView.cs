@@ -468,13 +468,14 @@ namespace Halcyonic.XR.UI
             {
                 Gap(BlockGapDp);
                 down = LayCap(SaysLabel, width, down) + S(CapGapDp);
-                Text(KitRole.Strong, SaysTypeDp + 6f, SaysLineDp, White(SaysQuoteAlpha), LineWords.Ours("\u201C"), 0f, -down, S(SaysQuoteDp), 1);
-                var (_, saidTall) = Text(KitRole.Body, SaysTypeDp, SaysLineDp, White(SaysAlpha), says, S(SaysQuoteDp + CapGapDp), -down, width - S(SaysQuoteDp + CapGapDp), SaysLines);
+                // On the card's one left edge (visionos-window-example.png; the lead's 19:38Z fault 5): the quote mark opens the words
+                // in their own line, never a mark hung in a gutter beside them (VRIFY's 19:40Z critic: "off the text's left edge").
+                var (_, saidTall) = Text(KitRole.Body, SaysTypeDp, SaysLineDp, White(SaysAlpha), LineWords.Ours("\u201C") + says, 0f, -down, width, SaysLines);
                 down += saidTall;
                 // Where the reply goes on, the rest is one press away, quiet under the quote (the lead's 15:17Z; AUDIT3's R6 SHOULD).
                 if (card.SaysAll is KitControl all)
                 {
-                    var indent = S(SaysQuoteDp + CapGapDp);
+                    var indent = 0f;
                     var top = down + S(ReadAllGapDp);
                     var (readLabel, readTall) = Text(KitRole.Strong, FactLineDp, FactLineLineDp, White(ReadAllAlpha), LineWords.Ours(all.Words), indent, -top,
                         width - indent - S(ReadAllChevronDp + 6f), 1);
@@ -1149,14 +1150,13 @@ namespace Halcyonic.XR.UI
         public const float ReadAllGapDp = 8f;
         public const float ReadAllAlpha = 0.72f;
         public const float ReadAllChevronDp = 14f;
-        public const float SaysQuoteDp = 18f;
-        public const float SaysQuoteAlpha = 0.5f;
 
         /// <summary>A labelled fact's value (24 dp) and its quiet line (17 dp), and the hairline between two facts.</summary>
         public const float FactValueDp = 24f;
         public const float FactValueLineDp = 30f;
-        public const float FactLineDp = 17f;
-        public const float FactLineLineDp = 23f;
+        /// <summary>A fact's line under its value, read in a headset (VRIFY's 19:40Z critic: 17 dp "too small to read in a headset").</summary>
+        public const float FactLineDp = 20f;
+        public const float FactLineLineDp = 26f;
         public const float FactLineAlpha = RoomType.LabelAlpha;
         public const float FactGapDp = 28f;
 
