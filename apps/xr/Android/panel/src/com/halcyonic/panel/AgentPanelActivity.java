@@ -303,10 +303,15 @@ public class AgentPanelActivity extends Activity {
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams nameAt = new LinearLayout.LayoutParams(-1, -2); nameAt.setMargins(0, PanelHud.px(8, density), PanelHud.px(12, density), 0);
             said.addView(name, nameAt);
+            if (requestPending != null) {
+                // The pending note stays inside the strip, on its glass, never loose over the room (AUDIT3's L1).
+                TextView pending = PanelHud.say(this, "The last workspace send is unconfirmed. Its original reference is retained.");
+                LinearLayout.LayoutParams pendingAt = new LinearLayout.LayoutParams(-1, -2); pendingAt.setMargins(0, PanelHud.px(8, density), PanelHud.px(12, density), 0);
+                said.addView(pending, pendingAt);
+            }
             line.addView(said, new LinearLayout.LayoutParams(0, -2, 1));
             hudPress(line, "Open Workspace", false, true, () -> { cancelNetwork(); returnToWorkspace(); });
             content.addView(line, new LinearLayout.LayoutParams(-1, -2));
-            if (requestPending != null) content.addView(PanelHud.say(this, "The last workspace send is unconfirmed. Its original reference is retained."), new LinearLayout.LayoutParams(-1, -2));
             return;
         }
         // It needs the person: the card grows from the line to the whole window of glass.
@@ -793,6 +798,8 @@ public class AgentPanelActivity extends Activity {
                 if (identity != null && snapshot != null && !saveState()) { ui.postDelayed(refresh, 3000); return; }
                 if (received == null) {
                     snapshot = null; identity = null; authority.awaitingProjection(); closeReview(); instruction = null;requestEditor=null;agentOffer=requestView=null; connection.setVisibility(View.VISIBLE);
+                    // Offline in compact: the words stand on the glass, whatever the at-rest line had cleared (AUDIT3's L1).
+                    if (compactPanel) shellRoot.setBackground(PanelHud.glass(getResources().getDisplayMetrics().density));
                     connection.setText(compactPanel ? message + "\n" + monitorFreshness(true) : message); content.removeAllViews(); text(content, "Your agents continue on your computer. Open Workspace to check the connection.", 20);
                 } else {
                     String priorContext = snapshot == null || workId == null ? null : snapshot.context(workId);
@@ -842,8 +849,9 @@ public class AgentPanelActivity extends Activity {
         // a dark slab (unverified on the headset whether Horizon OS composites a panel's clear pixels; if not they read black).
         getWindow().setFormat(hud ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
         getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(hud ? Color.TRANSPARENT : Color.rgb(18, 24, 34)));
-        // In compact the window is clear; the card (monitorTask) decides how much of it is glass.
-        if (hud) shellRoot.setBackground(null); else shellRoot.setBackgroundColor(Color.rgb(18, 24, 34));
+        // In compact the window stands on glass by default, so every compact screen (offline, waiting for the computer, the
+        // preview's line) is read on glass; only the at-rest line clears the rest of the window (AUDIT3's L1).
+        if (hud) shellRoot.setBackground(PanelHud.glass(getResources().getDisplayMetrics().density)); else shellRoot.setBackgroundColor(Color.rgb(18, 24, 34));
         float d = getResources().getDisplayMetrics().density;
         if (hud) shellRoot.setPadding(PanelHud.px(32, d), PanelHud.px(36, d), PanelHud.px(28, d), PanelHud.px(28, d)); else shellRoot.setPadding(dp(20), dp(16), dp(20), dp(16));
         if (hud) content.setPadding(0, 0, 0, 0); else content.setPadding(dp(20), dp(16), dp(20), dp(16));

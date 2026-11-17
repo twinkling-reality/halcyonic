@@ -951,6 +951,22 @@ describe('production native agent panel', () => {
     assert.equal(noSubject.need, 'Approval Requested');
     assert.equal(noSubject.detail, null);
   });
+  test('every compact screen stands on glass; only the at-rest line clears the window around it (AUDIT3 L1)', () => {
+    const activity = readFileSync(join(SOURCES, 'AgentPanelActivity.java'), 'utf8');
+    // Compact's default is the glass, so offline, waiting and the preview's line are read on it.
+    assert.match(activity, /if \(hud\) shellRoot\.setBackground\(PanelHud\.glass\(/);
+    // Offline in compact restores the glass whatever the at-rest line had cleared.
+    assert.match(activity, /if \(compactPanel\) shellRoot\.setBackground\(PanelHud\.glass\(/);
+    // The one place the window is cleared is the at-rest line, and the pending note sits inside its strip.
+    assert.equal(activity.split('shellRoot.setBackground(null)').length - 1, 1);
+    const rest = activity.slice(
+      activity.indexOf('if (!needs) {'),
+      activity.indexOf('// It needs the person'),
+    );
+    assert.match(rest, /shellRoot\.setBackground\(null\)/);
+    assert.match(rest, /said\.addView\(pending/);
+    assert.doesNotMatch(rest, /content\.addView\(PanelHud\.say/);
+  });
   test('compact task projection uses the selected tuple and separates live, recorded and simulated provenance', () => {
     const base = model();
     const selected = {
