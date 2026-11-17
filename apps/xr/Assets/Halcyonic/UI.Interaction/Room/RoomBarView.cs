@@ -147,7 +147,7 @@ namespace Halcyonic.XR.UI
         public const float WellPadDp = 16f;
         public const float TickArmDp = 18f;
         public const float TickLineDp = 1.5f;
-        public const float TickOutDp = 10f;
+        public const float TickOutDp = 0f;
 
 
         /// <summary>The agent's words at the dialog's top, for the kit's checks; inactive when the bar is not a dialog.</summary>
@@ -819,6 +819,9 @@ namespace Halcyonic.XR.UI
                 var width = button.Measure(action.Words, action.Chip) + (button == talk && listening ? RoomType.Units(LevelGapDp + LevelWidthDp) : 0f);
                 buttons.Add((button, action, width));
             }
+            // One press width per row, the row's widest (AUDIT's 19:38Z (2)).
+            var rowWidest = buttons.Count > 0 ? buttons.Max(each => each.Width) : 0f;
+            buttons = buttons.Select(each => (each.Button, each.Action, rowWidest)).ToList();
             var gap = RoomType.Units(RoomGeometry.RowGapDp);
             var total = buttons.Sum(each => each.Width) + gap * (buttons.Count - 1);
             var left = -total / 2f;
@@ -1270,15 +1273,18 @@ namespace Halcyonic.XR.UI
                 // The part's OWN rows, exactly as the pair lays them (AUDIT3's 2026-11-16 BLOCK: the first eight lines on every part let a
                 // person approve lines never shown): laid whole, then cut to the rows the file's part names, from its first row.
                 var reading = bar.Mono ? request : body;
+                // An approval's command lays inside its well, and the well itself spans the text column, so the label, title, well and
+                // presses share one left edge (AUDIT's 19:38Z (5)) and the ticks stand inside the panel's pad (19:38Z (4); REFERENCES.md:44).
+                var measure = bar.Mono ? wordsWidth - 2f * RoomType.Scaled(WellPadDp) : wordsWidth;
                 Set(reading, bar.Body, bar.Mono);
                 reading.gameObject.SetActive(true);
-                var laidBody = KitType.Lay(reading, wordsWidth, 200);
+                var laidBody = KitType.Lay(reading, measure, 200);
                 var from = bar.Part?.FromRow ?? 0;
                 var most = bar.Part != null ? bar.Part.Rows : bar.Mono ? RoomBar.RequestLines : int.MaxValue;
                 if (from > 0 || reading.textInfo.lineCount > most)
                 {
                     Set(reading, PartOf(reading, bar.Body, bar.Mono, from, most), bar.Mono);
-                    laidBody = KitType.Lay(reading, wordsWidth, 200);
+                    laidBody = KitType.Lay(reading, measure, 200);
                 }
                 cardHeight = laidBody.Height;
                 // An approval's command on a well of thick glass, its pad outside the words' measure, so the part's rows stand as
@@ -1297,6 +1303,9 @@ namespace Halcyonic.XR.UI
                 rowHeight = Mathf.Max(rowHeight, cores[index].y);
             }
             rowHeight = Mathf.Max(rowHeight, RoomType.Units(RoomButton.HeightDp));
+            // One press width per row, the row's widest (AUDIT's 19:38Z (2); visionos-window-example.png's controls of one size).
+            var shared = count > 0 ? cores.Take(count).Max(core => core.x) : 0f;
+            for (var index = 0; index < count; index++) cores[index].x = shared;
 
             // The row fits the words' measure, or (at the larger size, with the most actions) the others stand on a row of their own
             // over the main action's, both right-aligned inside the panel (AUDIT3's F1: never past the panel's left edge).
@@ -1327,8 +1336,8 @@ namespace Halcyonic.XR.UI
             if (bar.Mono && bar.Card == null && cardHeight > 0f)
             {
                 var wellPad = RoomType.Scaled(WellPadDp);
-                request.transform.localPosition = cardAt + new Vector3(0f, -wellPad, 0f);
-                LayWell(new Vector2(wordsWidth + 2f * wellPad, cardHeight), new Vector2(left + pad + wordsWidth / 2f, cardAt.y - cardHeight / 2f));
+                request.transform.localPosition = cardAt + new Vector3(wellPad, -wellPad, 0f);
+                LayWell(new Vector2(wordsWidth, cardHeight), new Vector2(left + pad + wordsWidth / 2f, cardAt.y - cardHeight / 2f));
             }
             PlaceFacts(cardAt);
 
@@ -1383,7 +1392,7 @@ namespace Halcyonic.XR.UI
             Narrow = false;
         }
 
-        /// <summary>The command's well of thick glass at <paramref name="centre"/>, <paramref name="size"/>, with a corner tick outside each corner.</summary>
+        /// <summary>The command's well of thick glass at <paramref name="centre"/>, <paramref name="size"/>, a corner tick on each of its own corners, inside it.</summary>
         private void LayWell(Vector2 size, Vector2 centre)
         {
             well.gameObject.SetActive(true);
