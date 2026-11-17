@@ -496,7 +496,9 @@ pristine starter's against a compared reference) and the checked folder's files 
 is `not_known` in either folder, never `failed` and never `passed`. The base is the task copy's own (`base_tree`, read
 by the task copies as after a turn) for a task's copy, and the starter's tracked template for the project's own folder
 (read by the checkpoint store through the same ignore rules; the compared reference already means the project began
-from that template). The host reads the changes only where the page draws nothing of its own, and passes them to
+from that template). Since the host names a new app after its project (the amendment above), a named file whose bytes
+are exactly the template's as the host applied it (`namedFile` with the project's name) is no change of the project's,
+so a fresh project still reads Starter Only; any other byte in it still counts. The host reads the changes only where the page draws nothing of its own, and passes them to
 `checkVerdict` explicitly, with no default; a reading that fails or is not set up is null and keeps the verdicts above.
 Any measured failure still fails first. `unknown` then says what changed, in AUDIT2's words: "No visible change to the
 page.", then the count ("This task changed 5 files, including the project's sound code.", "This project" for the

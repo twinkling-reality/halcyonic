@@ -46,6 +46,7 @@ import { InstructionQueue } from './instruction-queue.ts';
 import { MediaPlacer } from './media.ts';
 import { MediaStore } from './media-store.ts';
 import { MediaTool } from './media-tool.ts';
+import { withoutHostNaming } from './named-changes.ts';
 import type { OllamaUnloader } from './ollama-unload.ts';
 import { EventPublisher } from './publisher.ts';
 import { Reattacher } from './reattach.ts';
@@ -800,9 +801,16 @@ export class ControlPlane {
       );
       return read?.files ?? null;
     }
-    return store === null
-      ? null
-      : store.changedFromFolder(checked.projectId, checked.template, checked.folder);
+    if (store === null) return null;
+    const name = this.projection.project(checked.projectId)?.name;
+    if (name === undefined) return null;
+    // The host named the app after the project when it made the folder: that naming is no change of the project's.
+    return withoutHostNaming(
+      await store.changedFromFolder(checked.projectId, checked.template, checked.folder),
+      checked.template,
+      checked.folder,
+      name,
+    );
   }
 
   /**
