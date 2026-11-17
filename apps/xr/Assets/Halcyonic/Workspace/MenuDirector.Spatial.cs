@@ -76,11 +76,14 @@ namespace Halcyonic.XR.Workspace
             file.QuestionBudgetOf = () => RoomDesign.Enabled && KitDraws(file) ? new ChoiceBudget(RoomBar.ChoicesAPage) : null;
             // Each retained file keeps its own callbacks and geometry lifetime. Background rebuilds
             // must never borrow another selected task's provenance or portrait allocation.
+            // Under the redesign every file's page is the kit's, whichever stands beside now (JUDGE's 22:18Z: with two characters standing the
+            // opened file was not the Beside one, took the older separate page's height, and drew "No Room").
+            bool KitPage() => KitDraws(file) || RoomDesign.Enabled && plane.KitShows;
             file.ConfigureActivityComposer(
-                () => KitDraws(file) ? new RowBudget(plane.Kit.RailRows) : SeparateWorkspace ? new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, false, file)) : null,
+                () => KitPage() ? new RowBudget(plane.Kit.RailRows) : SeparateWorkspace ? new HeightBudget(IndependentPageHeight(OwnerTitleRows(file), true, false, file)) : null,
                 () =>
                 {
-                    if (!KitDraws(file))
+                    if (!KitPage())
                         return new HeightBudget(SeparateWorkspace
                             ? IndependentPageHeight(OwnerTitleRows(file), true, true, file)
                             : PageHeight(TitleRows(file.Now?.Character.Title ?? "", Glaze.Menu.FileColumnDegrees), besideMenu: false, focused: true));
