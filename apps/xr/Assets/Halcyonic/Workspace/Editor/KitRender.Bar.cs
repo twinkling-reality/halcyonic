@@ -1606,12 +1606,16 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             // The bar a person reads never moves for what hangs under it: it stands on the host's middle.
             Require(bar.transform.localPosition == Vector3.zero, "the bar moved off the host's middle (" + bar.transform.localPosition + ") for what hangs under it");
-            // The plane's handle (the lead's ruling 3): centred at its fixed depth under the foot line whatever the band says, under the
-            // band at its tallest, the hold area Meta's target tall, so it never moves while a person reads and never meets the band.
-            var handleDown = RoomType.Units(KitWorkspaceHost.HandleUnderFootDp(GlazeText.Scale) - RoomHandle.HoldHeightDp / 2f) / GlazeText.Scale;
+            // The plane's handle (the lead's ruling 3; the lead's 2026-11-17T19:41Z (7), visionos-window-example.png): centred just under
+            // what hangs under the foot line now, the row or the band, by RoomHandle's gap, never far below the panel, never meeting the band.
+            var hangNow = RoomType.Units(host.HangDp * GlazeText.Scale) / GlazeText.Scale;
+            var handleDown = RoomType.Units(host.HandleDownDp) / GlazeText.Scale;
             Require(host.Handle.gameObject.activeSelf && Mathf.Abs(host.Handle.transform.localPosition.x) < 1e-5f
                 && Mathf.Abs(host.Handle.transform.localPosition.y - (host.FootLine - handleDown)) < RoomType.Units(0.5f),
-                "the plane's handle is not centred at its fixed depth under the foot line: " + host.Handle.transform.localPosition);
+                "the plane's handle is not centred just under what hangs under the foot line: " + host.Handle.transform.localPosition);
+            var holdTop = host.Handle.transform.localPosition.y + RoomType.Units(RoomHandle.HoldHeightDp / 2f) / GlazeText.Scale;
+            Require(holdTop <= host.FootLine - hangNow + RoomType.Units(0.5f) && holdTop >= host.FootLine - hangNow - RoomType.Units(RoomHandle.GapDp + 0.5f) / GlazeText.Scale,
+                "the plane's handle does not stand just under the panel: its top " + ((host.FootLine - hangNow - holdTop) * GlazeText.Scale / RoomType.Units(1f)).ToString("0.0") + " dp under what hangs there");
             // Its whole hold area stands inside what a person sees at head level (AUDIT's 2026-11-14T01:30Z condition 1): its corners
             // join the field's corners, at both sizes, whatever the band says.
             var holdHalf = new Vector2(RoomType.Units(RoomHandle.HoldWidthDp), RoomType.Units(RoomHandle.HoldHeightDp)) / 2f;

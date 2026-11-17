@@ -447,6 +447,7 @@ namespace Halcyonic.XR.UI
                 var rest = new Vector2(RoomType.Units(RoomGeometry.PanelDp), RoomType.Units(RoomButton.HeightDp)) / zoom;
                 Size = rest;
                 FootLine = -rest.y / 2f + RoomType.Units(RoomBarView.RowFeetDp) / zoom;
+                HangDp = 0f;
                 PlaceHandle(zoom);
                 TextBands = new[] { new TextBand(-rest.x / 2f, rest.x / 2f, -rest.y / 2f, rest.y / 2f, SpatialKit.Degrees(RoomGeometry.TypeDp) * zoom) };
                 return;
@@ -496,14 +497,22 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// Stands the handle centred under the foot line at its fixed depth (HandleUnderFootDp, its hold area's middle), laid at the
-        /// person's text size and scaled back by it as the band is, so it stays the same size in the room.
+        /// How far the handle's hold area's middle stands under the foot line now, in dp as the bar lays them: just under what hangs there
+        /// now (<see cref="HangDp"/>), RoomHandle's gap, then half the hold area, as visionOS's grab bar sits just under its window
+        /// (visionos-window-example.png; the lead's 2026-11-17T19:41Z (7)). Never deeper than <see cref="HandleUnderFootDp"/>, which the
+        /// plane's footprint keeps.
+        /// </summary>
+        public float HandleDownDp => Mathf.Min(HangDp * GlazeText.Scale + RoomHandle.GapDp + RoomHandle.HoldHeightDp / 2f, HandleUnderFootDp(GlazeText.Scale) - RoomHandle.HoldHeightDp / 2f);
+
+        /// <summary>
+        /// Stands the handle centred just under what hangs under the foot line (<see cref="HandleDownDp"/>), laid at the person's text size
+        /// and scaled back by it as the band is, so it stays the same size in the room.
         /// </summary>
         private void PlaceHandle(float zoom)
         {
             handle.gameObject.SetActive(RoomDesign.Enabled);
             handle.transform.localScale = Vector3.one / zoom;
-            var down = RoomType.Units(HandleUnderFootDp(GlazeText.Scale) - RoomHandle.HoldHeightDp / 2f) / zoom;
+            var down = RoomType.Units(HandleDownDp) / zoom;
             handle.transform.localPosition = new Vector3(0f, FootLine - down, -RoomType.Units(0.02f) / zoom);
         }
 
