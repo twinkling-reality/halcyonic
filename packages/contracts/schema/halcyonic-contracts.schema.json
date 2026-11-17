@@ -12157,6 +12157,9 @@
                     }
                   },
                   "additionalProperties": false
+                },
+                "cut": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false

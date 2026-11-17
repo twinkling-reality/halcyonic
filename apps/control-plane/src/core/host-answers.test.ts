@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import type {
+  ApprovalCommand,
   ExecutionId,
   ProjectId,
   RuntimeDescriptor,
@@ -11,9 +12,10 @@ import type {
   WorkstreamId,
 } from '@halcyonic/contracts';
 import type { RuntimeAdapter } from '@halcyonic/runtime-core';
-import { createTestControlPlane } from '../testing/harness.ts';
-import { controlPlaneDraft, marked, NO_CAUSE } from './drafts.ts';
+import { capturingLogger, createTestControlPlane } from '../testing/harness.ts';
+import { controlPlaneDraft, createObservationSink, marked, NO_CAUSE } from './drafts.ts';
 import { asRun, judgeRequest } from './host-answers.ts';
+import { redaction } from './redaction.ts';
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-host-answers-')));
 after(() => rmSync(root, { recursive: true, force: true }));
@@ -276,6 +278,60 @@ describe("a task's copy of a folder the person connected (AUDIT3 H1 to H5, the l
         JSON.stringify(path),
       );
     }
+  });
+
+  test('a command whose folder the host cut to its bound is never judged by what is left of it (AUDIT3 HM6)', () => {
+    const recorded: { payload: unknown }[] = [];
+    const sink = createObservationSink(
+      { record: (draft: { payload: unknown }) => recorded.push(draft) } as never,
+      capturingLogger().logger,
+      { project_id: 'p', workstream_id: 'w', execution_id: 'e' } as never,
+      'codex' as never,
+      redaction(() => []),
+      copy,
+    );
+    // Inside the copy as far as the record keeps it; its hidden characters grow it past the bound, so the rest,
+    // which climbs out, is cut.
+    const path = `${join(copy, 'x')}${'\u202E'.repeat(600)}/../../../outside`;
+    sink({
+      type: 'runtime.approval.requested',
+      payload: {
+        approval_id: 'a',
+        subject: {
+          kind: 'tool_use',
+          tool_name: 'commandExecution',
+          summary: `npx tsc\nin ${path}`,
+          command: { ...inCopy, runs_in: { kind: 'folder', path } },
+        },
+        complete: true,
+      },
+      native_event_id: null,
+      sequence: 1,
+      occurred_at: '2026-11-17T00:00:00.000Z',
+      provenance: { epistemic: 'observed', native_type: null },
+    } as never);
+    const payload = recorded[0]?.payload as {
+      cut?: boolean;
+      complete: boolean;
+      too_long?: { reported_complete: boolean };
+      subject: { command: ApprovalCommand };
+    };
+    assert.equal(payload.cut, true);
+    const judged = (cut: boolean) =>
+      judgeRequest(
+        {
+          ...codex(asRun(payload.subject.command)),
+          complete: payload.complete || payload.too_long?.reported_complete === true,
+          cut,
+        },
+        copy,
+        connected,
+      );
+    assert.equal(judged(true), null, 'a cut request reaches the person');
+    // Without the cut said apart, what is left of the folder would read as inside the copy.
+    assert.equal(judged(false)?.because, 'confined_command');
+    // A command kept whole is judged as before.
+    assert.equal(judgeRequest(codex(inCopy), copy, connected)?.because, 'confined_command');
   });
 
   test("Codex's command goes ahead only from its parts: no network asked, run in a folder inside the copy", () => {

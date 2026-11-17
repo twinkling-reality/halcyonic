@@ -138,6 +138,12 @@ export function judgeRequest(
     readonly paths: readonly ApprovalPath[] | undefined;
     readonly complete: boolean;
     readonly command?: ApprovalCommand | undefined;
+    /**
+     * Whether the host cut any part of the recorded request (`cut`): a judgement that reads a part (a command's
+     * folder from its parts) is then never made, since the part is not all the request says (AUDIT3 HM6). A judgement
+     * that reads no part (the closed profile's shell, held whatever it runs; paths, which are never cut) stands.
+     */
+    readonly cut?: boolean;
   },
   directory: string,
   reads: ConfinedReads,
@@ -153,6 +159,7 @@ export function judgeRequest(
     // From its parts only: a command that asks for the network, or runs anywhere but a folder inside the copy, reaches
     // the person (AUDIT3 H2).
     const command = request.command;
+    if (request.cut === true) return null;
     if (command === undefined || command.network !== undefined) return null;
     if (command.runs_in.kind !== 'folder') return null;
     const at = resolvedPath(
@@ -276,7 +283,8 @@ export class HostAnswers {
 
   /**
    * The host's judgement of a request, or null. A request too long for a person to approve is judged as its agent app
-   * reported it (`too_long.reported_complete`): in a confined copy no person approves, the profile holds the step.
+   * reported it (`too_long.reported_complete`): in a confined copy no person approves, the profile holds the step. A
+   * request the host cut to the record's bound is never judged by a part it cut (AUDIT3 HM6, in `judgeRequest`).
    */
   #judge(event: EventEnvelope): HostJudgement | null {
     if (event.event_type !== 'runtime.approval.requested') return null;
@@ -303,6 +311,7 @@ export class HostAnswers {
         paths: subject.paths,
         complete: complete || tooLong?.reported_complete === true,
         command,
+        cut: event.payload.cut === true,
       },
       view.directory,
       reads,

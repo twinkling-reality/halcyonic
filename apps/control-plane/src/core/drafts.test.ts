@@ -207,6 +207,8 @@ describe("a runtime's observations", () => {
       subject: { kind: 'tool_use', tool_name: 'Bash', summary: cutSummary },
       complete: false,
       too_long: { length: 31_990 + [...MARK].length + ' and more'.length, reported_complete: true },
+      // The host cut the summary to the record's bound, and says so apart (AUDIT3 HM6).
+      cut: true,
     });
     assert.deepEqual(tool, { tool_call_id: 't', tool_name: 'Bash', title: cutTitle });
     assert.deepEqual(started, { test_run_id: 'x', label: cutTitle });
@@ -850,6 +852,28 @@ describe("an approval's request, shown whole or not approvable (AUDIT3, 2026-11-
   test('an older event, recorded with the escapes the host used to write, is kept as it is: nothing rewrites the record (HM5)', () => {
     const older = 'echo safe \\u{202E}; ls';
     assert.equal(unmarked(older), older, 'an older text has no marks to read');
+  });
+
+  test("the host says apart when it cut a part of a request; an adapter's own word for it is dropped (AUDIT3 HM6)", () => {
+    const record = (summary: string, extra: Record<string, unknown> = {}) => {
+      const { sink, recorded } = recordingSink();
+      sink(
+        observation('runtime.approval.requested', {
+          approval_id: 'a',
+          subject: { kind: 'tool_use', tool_name: 'bash', summary },
+          complete: true,
+          ...extra,
+        }),
+      );
+      return recorded[0]?.payload as { cut?: boolean; too_long?: unknown; complete: boolean };
+    };
+    assert.equal(record('x'.repeat(40_000)).cut, true);
+    // Long for a person but kept whole: too long, never cut.
+    const long = record('x'.repeat(5000));
+    assert.equal(long.cut, undefined);
+    assert.ok(long.too_long !== undefined);
+    // Short, but an adapter claims a cut: the claim is the host's to make, so it is dropped.
+    assert.equal(record('ls', { cut: true }).cut, undefined);
   });
 
   test('a command whose part is cut to the contract is never approvable (2026-11-16)', () => {

@@ -44,7 +44,10 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
      each line break and a space at either end `‹U+0020›`; the host's own mark characters, held literally, are
      written as their codes, so every mark is the host's and a text that only reads like an escape is plain text.
      It marks before it fits, never cuts inside a mark, and decides by the text unmarked. Older events keep the
-     escapes they were recorded with; a card draws every text as given.
+     escapes they were recorded with; a card draws every text as given. A request the host cut to the record's bound
+     says so apart (`cut`), and the host never judges it by a part it cut (AUDIT3 HM6): a command's folder read
+     from its parts is then the person's to approve, while the closed profile's own shell, held whatever it runs, is
+     still answered as before (AUDIT3 M1).
 
 5. **The second half: an approval shows whole what it approves, a file's change too, once the headset's card draws
    `changes`** (the lead, 2026-11-13 19:46Z; AUDIT3's shape read with W1 to W4). Until then the request carries the

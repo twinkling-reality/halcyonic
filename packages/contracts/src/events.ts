@@ -1464,6 +1464,12 @@ export const RUNTIME_EVENT_PAYLOADS = {
           strict,
         ),
       ),
+      /**
+       * Set by the control plane when it cut any part of the request to the record's bound (the summary, a command's
+       * part, an input, a change): what is recorded is not all the request says, so nothing is decided by it, by a
+       * person or by the host (AUDIT3 HM6). Absent otherwise and on older events. Never an adapter's to set.
+       */
+      cut: Type.Optional(Type.Boolean()),
     },
     strict,
   ),

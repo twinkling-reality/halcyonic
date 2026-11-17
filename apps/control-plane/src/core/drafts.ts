@@ -383,8 +383,8 @@ function withoutCredentials(
         ? { ...payload, reason: withinLimit(redaction.errorText(payload.reason)) }
         : payload;
     case 'runtime.approval.requested': {
-      // `too_long` is the host's own fact, never an adapter's: whatever the observation carried is dropped here.
-      const { too_long: _adapters, ...given } = payload;
+      // `too_long` and `cut` are the host's own facts, never an adapter's: whatever the observation carried is dropped.
+      const { too_long: _adapters, cut: _adaptersCut, ...given } = payload;
       const subject = given.subject as
         | { summary?: unknown; changes?: unknown; command?: unknown; inputs?: unknown }
         | undefined;
@@ -436,6 +436,8 @@ function withoutCredentials(
         },
         complete: given.complete === true && !cut && !tooLong,
         ...(tooLong && { too_long: { length, reported_complete: given.complete === true } }),
+        // Apart from `too_long`: a cut request is decided by nobody, whatever its app reported (AUDIT3 HM6).
+        ...(cut && { cut: true }),
       };
     }
     case 'runtime.question.asked':

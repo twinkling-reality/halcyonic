@@ -117,7 +117,7 @@ request and never journaled (see [What is not journaled](#what-is-not-journaled)
 | `runtime.turn.completed` | execution | runtime | The turn ended normally |
 | `runtime.turn.failed` | execution | runtime | The turn ended with an error |
 | `runtime.turn.interrupted` | execution | runtime | The turn was stopped on request |
-| `runtime.approval.requested` | execution | runtime | The runtime is blocked on a human decision; carries the tool and what it asks for (`subject.summary`), the tool's input (below), and whether that is `complete` (below) |
+| `runtime.approval.requested` | execution | runtime | The runtime is blocked on a human decision; carries the tool and what it asks for (`subject.summary`), the tool's input (below), and whether that is `complete` (below); `too_long` and `cut` are the control plane's own facts (a request longer than a person can approve; a part cut to the record's bound, never judged by what is left of it) |
 | `runtime.approval.resolved` | execution | runtime | The runtime applied a decision |
 | `runtime.question.asked` | execution | runtime | The agent waits for the person to answer a question; carries the runtime's question id, its prompts (the agent's words) and whether Halcyonic can answer it ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)) |
 | `runtime.question.resolved` | execution | runtime | The runtime took an answer (`answered`) or withdrew the question (`dismissed`); a turn's end withdraws it too |
