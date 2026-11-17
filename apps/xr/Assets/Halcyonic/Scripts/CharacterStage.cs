@@ -463,6 +463,76 @@ namespace Halcyonic.XR
             Glide();
             ShowOtherPlacesWithShelf();
             StandShelfFloorArc();
+            Fly();
+        }
+
+        /// <summary>The clock the flight reads, so a render can fix it.</summary>
+        public System.Func<float> FlightClock { get; set; } = () => Time.unscaledTime;
+
+        private string? flyingId;
+        private System.Func<Vector3>? flyingTo;
+        private float calledAt;
+        private float? releasedAt;
+
+        /// <summary>The character in flight, or there, and the flight now; none where no moment asks.</summary>
+        public string? Flying => flyingId;
+
+        public CharacterFlight FlightNow => flyingId == null ? CharacterFlight.Home
+            : GlazeMotion.Still ? (releasedAt == null ? new CharacterFlight(1f, 0f, 1f, 0f, 1f) : CharacterFlight.Home)
+            : RoomMotion.Flight(FlightClock() - calledAt, releasedAt is float released ? FlightClock() - released : null);
+
+        /// <summary>
+        /// Calls <paramref name="workstreamId"/>'s character to a moment that asks the person: it flies from its shelf to
+        /// <paramref name="to"/>, a point in the world beside the moment's panel, read each frame so it follows the panel
+        /// (<see cref="RoomMotion.Flight"/>, the lead's 2026-11-17T02:15Z). Called again for the same character while it
+        /// stands, nothing changes.
+        /// </summary>
+        public void Call(string workstreamId, System.Func<Vector3> to)
+        {
+            if (flyingId == workstreamId && releasedAt == null) return;
+            flyingId = workstreamId;
+            flyingTo = to;
+            calledAt = FlightClock();
+            releasedAt = null;
+        }
+
+        /// <summary>Sends the called character home once its moment is answered or gone: the panel leaves first, then it flies back.</summary>
+        public void Release()
+        {
+            if (flyingId != null && releasedAt == null) releasedAt = FlightClock();
+        }
+
+        /// <summary>How near the person's head the flight may come, and how far above the eyes, in metres.</summary>
+        public const float FlightClearOfHeadM = 0.5f;
+
+        /// <summary>Stands the called character along its flight, after the shelf has stood it in its own place.</summary>
+        private void Fly()
+        {
+            if (flyingId == null || flyingTo == null) return;
+            if (!views.TryGetValue(flyingId, out var view) || !standings.TryGetValue(flyingId, out var standing))
+            {
+                flyingId = null;
+                return;
+            }
+            var flight = FlightNow;
+            // Home again: back to its shelf's own place, as the shelf stands it.
+            if (releasedAt != null && flight.Along <= 0f && flight.OverM <= 0f)
+            {
+                flyingId = null;
+                Stand(view, standing.Angle, standing.Lift, 1f);
+                return;
+            }
+            Stand(view, standing.Angle, standing.Lift, 1f);
+            var home = view.transform.position;
+            var point = Vector3.Lerp(home, flyingTo(), flight.Along) + Vector3.up * flight.OverM;
+            if (head != null)
+            {
+                // At or below the eyes, and never within half a metre of the head.
+                point.y = Mathf.Min(point.y, head.position.y);
+                var away = point - head.position;
+                if (away.magnitude < FlightClearOfHeadM) point = head.position + (away.sqrMagnitude > 1e-6f ? away.normalized : head.forward) * FlightClearOfHeadM;
+            }
+            view.transform.position = point;
         }
 
         /// <summary>

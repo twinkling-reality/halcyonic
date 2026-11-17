@@ -28,6 +28,18 @@ namespace Halcyonic.XR.UI
         /// <summary>The clock the panel's arrival runs on; renders fix it.</summary>
         public Func<float> PanelClock { get; set; } = () => Time.unscaledTime;
 
+        /// <summary>
+        /// How long a new moment's panel waits before it arrives, by its state: an asking moment waits while its character
+        /// flies to it, so the panel fades and rises beside the character once it lands (the lead's 2026-11-17T02:15Z). None
+        /// by default.
+        /// </summary>
+        public Func<RoomBarState, float> HoldArrival { get; set; } = _ => 0f;
+
+        /// <summary>Raised once for each new moment the panel shows, with the moment, as its arrival starts.</summary>
+        public event Action<RoomBar>? MomentArrived;
+
+        private float arrivalHold;
+
         /// <summary>How far the panel has arrived now, 0 to 1, and how far below its place it stands, in dp.</summary>
         public RoomMove PanelArrival { get; private set; } = RoomMove.Settled;
 
@@ -40,6 +52,8 @@ namespace Halcyonic.XR.UI
             {
                 arrivalKey = key;
                 arrivedAt = PanelClock();
+                arrivalHold = HoldArrival(bar.State);
+                MomentArrived?.Invoke(bar);
             }
             panelWords.Clear();
             panel.GetComponentsInChildren(false, panelWords);
@@ -66,11 +80,11 @@ namespace Halcyonic.XR.UI
         private void FollowArrival()
         {
             if (!panel.gameObject.activeSelf || arrivalKey == null) return;
-            var move = GlazeMotion.Still ? RoomMove.Settled : RoomMotion.PanelArrives(PanelClock() - arrivedAt);
+            var since = PanelClock() - arrivedAt - arrivalHold;
+            var move = GlazeMotion.Still ? RoomMove.Settled : since < 0f ? RoomMove.Gone : RoomMotion.PanelArrives(since);
             PanelArrival = move;
             panel.Shown = move.Shown;
-            panel.transform.localPosition = panelRest + Vector3.down * (move.LowerDp * RoomType.Units(1f));
-            var since = PanelClock() - arrivedAt;
+            panel.transform.localPosition = panelRest + Vector3.down * ((since < 0f ? RoomMotion.PanelRiseDp : move.LowerDp) * RoomType.Units(1f));
             for (var index = 0; index < panelWords.Count; index++)
             {
                 var words = panelWords[index];
@@ -86,7 +100,7 @@ namespace Halcyonic.XR.UI
         /// <summary>For renders: the panel in its place, whole.</summary>
         public void SettleArrival()
         {
-            arrivedAt = PanelClock() - RoomMotion.PanelArrivalSeconds(panelWords.Count);
+            arrivedAt = PanelClock() - arrivalHold - RoomMotion.PanelArrivalSeconds(panelWords.Count);
             FollowArrival();
         }
     }
