@@ -343,7 +343,8 @@ namespace Halcyonic.XR.UI
                     label.ForceMeshUpdate(true);
                     // A paged description runs on past its page by design; its page stands whole, broken between lines.
                     if (label == PagedDescription) continue;
-                    if (label.isTextOverflowing) return false;
+                    // Overflowing, or cut to an ellipsis (a row's note in the label role's capitals at Larger: AUDIT2's 01:55Z MUST).
+                    if (label.isTextOverflowing || label.isTextTruncated) return false;
                     if (!string.IsNullOrEmpty(label.text) && label.textInfo.characterCount == 0) return false;
                 }
                 return true;
@@ -1400,6 +1401,15 @@ namespace Halcyonic.XR.UI
                     {
                         (noteLabel, _) = Text(KitRole.Body, noteDp, RowNoteLineDp, noteInk, LineWords.HostPlain(row.Note), 0f, 0f, width / 2f, 1, labelRole: labelled);
                         noteWidth = RoomCursor.WordsWidth(noteLabel, 0f);
+                        // A note that does not fit beside its name (the label role's capitals at Larger: JUDGE's "NOT LOADE…") takes its own
+                        // line under the name, the row's width, wrapped, never cut.
+                        if (noteLabel.isTextTruncated)
+                        {
+                            stacked = true;
+                            noteLabel.textWrappingMode = TextWrappingModes.Normal;
+                            noteTall = KitType.Lay(noteLabel, width - nameLeft - chevronRoom, 3).Height;
+                            noteWidth = 0f;
+                        }
                     }
                 }
                 // A plain row's note keeps a wider gap: its words wrap to the note's side, where one gap read as a single run

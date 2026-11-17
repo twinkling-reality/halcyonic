@@ -625,10 +625,17 @@ namespace Halcyonic.XR.UI
             var labelled = bar.NoticeLabel != null && bar.NoticeSentence != null;
             noticeLabel!.gameObject.SetActive(labelled);
             var labelTall = 0f;
+            // The label's spaced capitals stand a dp inside their own box, so no glyph is drawn up or left of where it is laid
+            // (JUDGE's 7736c0da2 walk: 1.2 px above, 1.5 px left, every demo and recorded moment).
+            var inset = RoomType.Units(1f) * GlazeText.Scale;
             if (labelled)
             {
+                // Its box first, as the sentence's (AUDIT3 01:55Z: the pivot set after the lay measured it): then the role, the lay and the mesh.
+                noticeLabel.rectTransform.pivot = new Vector2(0f, 1f);
+                noticeLabel.margin = new Vector4(inset, inset, 0f, 0f);
                 RoomType.Label(noticeLabel, bar.NoticeLabel!);
-                labelTall = KitType.Lay(noticeLabel, width - 2f * pad, 1).Height + RoomType.Scaled(4f);
+                labelTall = KitType.Lay(noticeLabel, width - 2f * pad, 1).Height + inset + RoomType.Scaled(4f);
+                noticeLabel.ForceMeshUpdate(true, true);
             }
             var runs = GlazeRuns.Of(noticeWords!);
             runs.Set(labelled ? LineWords.Ours(bar.NoticeSentence!) : said);
@@ -640,7 +647,7 @@ namespace Halcyonic.XR.UI
             var measure = noticeWords.rectTransform.sizeDelta.x;
             // The plate as wide as its words laid, never wider than the panel: the same pad on either side (the critic, 2026-11-12).
             noticeWords.ForceMeshUpdate(true);
-            var wordsWidth = Mathf.Min(width - 2f * pad, Mathf.Max(noticeWords.GetRenderedValues(true).x, labelled ? noticeLabel.GetRenderedValues(true).x : 0f, 0f));
+            var wordsWidth = Mathf.Min(width - 2f * pad, Mathf.Max(noticeWords.GetRenderedValues(true).x, labelled ? noticeLabel.GetRenderedValues(true).x + inset : 0f, 0f));
             var plate = wordsWidth + 2f * pad;
             var tall = labelTall + laid.Height + 2f * pad;
             notice.Draw(new Vector2(plate, tall));
@@ -651,7 +658,6 @@ namespace Halcyonic.XR.UI
             noticeWords.transform.localPosition = new Vector3(-plate / 2f + pad, tall / 2f - pad - labelTall, -RoomType.Units(0.5f));
             if (labelled)
             {
-                noticeLabel.rectTransform.pivot = new Vector2(0f, 1f);
                 noticeLabel.transform.localPosition = new Vector3(-plate / 2f + pad, tall / 2f - pad, -RoomType.Units(0.5f));
             }
         }
