@@ -106,7 +106,32 @@ export class PreviewPortsFull extends Error {
   }
 }
 
+/**
+ * Which preview or check: the project's own folder (`taskId` null), or one task's own copy (ADR 0045), each run beside
+ * the others (limits audit #5 and #6).
+ */
+interface PreviewKey {
+  readonly projectId: ProjectId;
+  readonly taskId: WorkstreamId | null;
+}
+
+/** A key's name, which its maps and its record files use: the project's id, then the task's where there is one. */
+function keyName(key: PreviewKey): string {
+  return key.taskId === null ? key.projectId : `${key.projectId}.task.${key.taskId}`;
+}
+
+/** The file the host records a running preview's server in (written before it serves, removed when it stops). */
+export function previewRecordName(projectId: string, taskId: string | null): string {
+  return `${keyName({ projectId: projectId as ProjectId, taskId: taskId as WorkstreamId | null })}.json`;
+}
+
+/** The task a preview's events name, absent for the project's own. */
+function taskOf(key: PreviewKey): { workstream_id?: WorkstreamId } {
+  return key.taskId === null ? {} : { workstream_id: key.taskId };
+}
+
 interface Running {
+  readonly key: PreviewKey;
   readonly checkId: CheckId;
   readonly port: number;
   readonly child: ChildProcess;
@@ -117,13 +142,16 @@ interface Running {
  * The host's checks and previews of projects made from a starter (ADR 0037). A check type checks,
  * builds and opens the built copy in the sandboxed browser, then records what it found; a preview
  * serves the built copy of the project's latest passed check, never the live folder, on a loopback
- * port of its range. One check or start per project at a time, and no start while a check runs.
+ * port of its range. One check or start at a time of each project's own folder and of each task's own copy, and no
+ * start of one while it is checked; each task's copy is checked and previewed beside the others and the project's
+ * (limits audit #5 and #6), and a check of one stops only its own preview.
  */
 export class HostPreviews {
   readonly #deps: HostPreviewsDeps;
-  readonly #running = new Map<ProjectId, Running>();
-  readonly #checking = new Set<ProjectId>();
-  readonly #starting = new Set<ProjectId>();
+  /** By key name: the project's own preview and each task's. */
+  readonly #running = new Map<string, Running>();
+  readonly #checking = new Set<string>();
+  readonly #starting = new Set<string>();
   /** The ports of the range a check or a preview holds, taken synchronously so two never share one. */
   readonly #ports = new Set<number>();
   /** Every server spawned and not yet exited, started or not, so close() stops them all. */
@@ -176,6 +204,7 @@ export class HostPreviews {
   async openOnMac(command: CommandOf<'project.open_on_mac'>): Promise<void> {
     const projectId = command.payload.project_id;
     if (this.#closed) throw new Error('the host is closing');
+    // The project's own preview: a task's is never played on the Mac.
     const running = this.#running.get(projectId);
     const latest = this.#deps.projection.latestCheck(projectId);
     if (running === undefined || running.checkId !== latest?.check_id || latest.files !== 'current')
@@ -214,16 +243,17 @@ export class HostPreviews {
     if (taskId !== undefined && copy?.state !== 'own')
       throw new Error('the task has no copy of its own');
     const folder = copy?.state === 'own' ? copy.directory : project.location.path;
-    if (this.#checking.has(projectId))
-      throw new Error('a check of this project is already running');
-    if (this.#starting.has(projectId)) throw new Error('a preview of this project is starting');
-    this.#checking.add(projectId);
+    const key: PreviewKey = { projectId, taskId: taskId ?? null };
+    const name = keyName(key);
+    if (this.#checking.has(name)) throw new Error('a check of this folder is already running');
+    if (this.#starting.has(name)) throw new Error('a preview of this folder is starting');
+    this.#checking.add(name);
     const cause = causedBy(command.command_id);
     let port: number | null = null;
     const lost = new Set<number>();
     try {
-      // The new check replaces the latest: a preview of the old one stops first.
-      if (this.#running.has(projectId)) await this.#stop(projectId, 'new_check', cause);
+      // The new check replaces this folder's latest: its own preview of the old one stops first, never another's.
+      if (this.#running.has(name)) await this.#stop(key, 'new_check', cause);
       const checkId = this.#deps.ids.next() as CheckId;
       const installed = join(this.#deps.starters.installedDir, project.starter);
       const profiles = join(installed, 'input-profiles');
@@ -246,7 +276,7 @@ export class HostPreviews {
         template: join(this.#deps.starters.trackedDir, project.starter, 'template'),
         profiles: existsSync(profiles) ? profiles : null,
       };
-      const reference = await this.#reference(projectId, project.starter, common);
+      const reference = await this.#reference(projectId, name, project.starter, common);
       const cache = this.#cache(projectId, checkId);
       const result = await (this.#deps.runCheck ?? runCheck)({
         ...common,
@@ -262,8 +292,7 @@ export class HostPreviews {
           return port;
         },
         reference,
-        onServer: (pid) =>
-          this.#writeRecord(projectId, { pid, copy: join(cache, 'dist') }, 'check'),
+        onServer: (pid) => this.#writeRecord(name, { pid, copy: join(cache, 'dist') }, 'check'),
         // A reading this check cannot measure never clears one measured under the floor (VRIFY, AUDIT3).
         lastReading: this.#deps.projection.lastMeasuredReading(projectId),
         // Nor does a fit of the kit's panels this check cannot measure clear one measured not to fit.
@@ -307,9 +336,9 @@ export class HostPreviews {
       if (port !== null) this.#ports.delete(port);
       try {
         // Its server stopped with the check, however the check ended.
-        await this.#removeRecord(projectId, 'check');
+        await this.#removeRecord(name, 'check');
       } finally {
-        this.#checking.delete(projectId);
+        this.#checking.delete(name);
       }
     }
   }
@@ -323,11 +352,20 @@ export class HostPreviews {
     command: CommandOf<'project.preview.start'>,
   ): Promise<{ check_id: CheckId; port: number }> {
     const projectId = command.payload.project_id;
+    const taskId = command.payload.workstream_id ?? null;
     if (this.#closed) throw new Error('the host is closing');
-    if (this.#checking.has(projectId)) throw new Error('a check of this project is running');
-    if (this.#starting.has(projectId) || this.#running.has(projectId))
-      throw new Error('a preview of this project is already running');
-    this.#starting.add(projectId);
+    // A task's preview serves the latest check of its own copy (ADR 0045), so it needs one.
+    if (taskId !== null) {
+      const task = this.#deps.projection.workstream(taskId);
+      if (task?.project_id !== projectId || task.copy?.state !== 'own')
+        throw new Error('the task has no copy of its own in this project');
+    }
+    const key: PreviewKey = { projectId, taskId };
+    const name = keyName(key);
+    if (this.#checking.has(name)) throw new Error('a check of this folder is running');
+    if (this.#starting.has(name) || this.#running.has(name))
+      throw new Error('a preview of this folder is already running');
+    this.#starting.add(name);
     // A port found free can be taken by another process before the server listens there (another
     // Halcyonic on this Mac, another app): then the next free port of the range is tried, each at
     // most once, rather than failing a start that was not at fault. With none left, it fails.
@@ -342,7 +380,7 @@ export class HostPreviews {
           throw last === null ? error : new PreviewPortsFull({ cause: last });
         });
         try {
-          return await this.#start(projectId, port, causedBy(command.command_id));
+          return await this.#start(key, port, causedBy(command.command_id));
         } catch (error) {
           // Nothing started, so nothing of this host holds the port.
           this.#ports.delete(port);
@@ -358,16 +396,22 @@ export class HostPreviews {
         }
       }
     } finally {
-      this.#starting.delete(projectId);
+      this.#starting.delete(name);
     }
   }
 
   async #start(
-    projectId: ProjectId,
+    key: PreviewKey,
     port: number,
     cause: Cause,
   ): Promise<{ check_id: CheckId; port: number }> {
-    const check = this.#deps.projection.latestCheck(projectId);
+    const { projectId } = key;
+    const name = keyName(key);
+    // The project's own preview serves its latest check, as before; a task's, the latest of its own copy.
+    const check =
+      key.taskId === null
+        ? this.#deps.projection.latestCheck(projectId)
+        : this.#deps.projection.latestTaskCheck(key.taskId);
     const project = this.#deps.projection.project(projectId);
     if (
       check === undefined ||
@@ -375,7 +419,9 @@ export class HostPreviews {
       !checkServable(check.findings) ||
       project?.starter == null
     ) {
-      throw new Error('no passed check to serve');
+      throw new Error(
+        key.taskId === null ? 'no passed check to serve' : 'no passed check of this task to serve',
+      );
     }
     const cache = this.#cache(projectId, check.check_id);
     // Only the check's own built copy is served; if it is gone, nothing is.
@@ -423,30 +469,31 @@ export class HostPreviews {
     const child = (this.#deps.serve ?? serve)(args);
     // A spawn failure is an exit without a pid; the error itself is not needed.
     child.on('error', () => {});
-    const running: Running = { checkId: check.check_id, port, child, stopping: false };
+    const running: Running = { key, checkId: check.check_id, port, child, stopping: false };
     // At spawn, before any await: an exit at once is never missed.
     child.once('exit', () => {
       this.#children.delete(child);
-      if (running.stopping || this.#running.get(projectId) !== running) return;
-      this.#running.delete(projectId);
+      if (running.stopping || this.#running.get(name) !== running) return;
+      this.#running.delete(name);
       this.#ports.delete(port);
-      void this.#removeRecord(projectId);
+      void this.#removeRecord(name);
       this.#deps.recorder.record(
         controlPlaneDraft(
           'project.preview.stopped',
           scope(projectId),
-          { check_id: check.check_id, reason: 'server_exited' },
+          { check_id: check.check_id, reason: 'server_exited', ...taskOf(key) },
           this.#now(),
           NO_CAUSE,
         ),
       );
-      void this.plays.stop(projectId, 'preview_stopped');
+      // Only the project's own preview is played on the Mac.
+      if (key.taskId === null) void this.plays.stop(projectId, 'preview_stopped');
     });
     if (child.pid === undefined) throw new Error('the preview server did not start');
     this.#children.add(child);
     try {
       // Recorded before it serves, so a restart can stop a server a crash left mid-start.
-      await this.#writeRecord(projectId, { pid: child.pid, port, check_id: check.check_id });
+      await this.#writeRecord(name, { pid: child.pid, port, check_id: check.check_id });
       const serves = await servesCopy(child, port, join(cache, 'dist'), 30_000);
       if (!serves || this.#closed || child.exitCode !== null || child.signalCode !== null)
         throw new NotServed();
@@ -455,7 +502,7 @@ export class HostPreviews {
       const endedItself = child.exitCode !== null || child.signalCode !== null;
       running.stopping = true;
       await stopChild(child);
-      await this.#removeRecord(projectId);
+      await this.#removeRecord(name);
       if (!this.#closed && error instanceof NotServed) {
         // Its own server stopped, anything still listening on the port is another process's.
         const held = (await listenersOf(port)).length > 0;
@@ -464,12 +511,12 @@ export class HostPreviews {
       throw error;
     }
     // No await from here to the record: the exit listener cannot run in between.
-    this.#running.set(projectId, running);
+    this.#running.set(name, running);
     this.#deps.recorder.record(
       controlPlaneDraft(
         'project.preview.started',
         scope(projectId),
-        { check_id: check.check_id, port },
+        { check_id: check.check_id, port, ...taskOf(key) },
         this.#now(),
         cause,
       ),
@@ -477,9 +524,13 @@ export class HostPreviews {
     return { check_id: check.check_id, port };
   }
 
-  /** Stops the project's preview. */
+  /** Stops the project's preview, or the task's it names, and no other. */
   stop(command: CommandOf<'project.preview.stop'>): Promise<void> {
-    return this.#stop(command.payload.project_id, 'asked', causedBy(command.command_id));
+    return this.#stop(
+      { projectId: command.payload.project_id, taskId: command.payload.workstream_id ?? null },
+      'asked',
+      causedBy(command.command_id),
+    );
   }
 
   /** Stops every preview this host runs, and every server still starting, as the control plane exits. */
@@ -487,8 +538,8 @@ export class HostPreviews {
     this.#closed = true;
     await this.plays.close();
     await Promise.all(
-      [...this.#running.keys()].map((projectId) =>
-        this.#stop(projectId, 'host_restarted', NO_CAUSE),
+      [...this.#running.values()].map((running) =>
+        this.#stop(running.key, 'host_restarted', NO_CAUSE),
       ),
     );
     await Promise.all([...this.#children].map((child) => stopChild(child)));
@@ -497,7 +548,7 @@ export class HostPreviews {
   /**
    * At startup: a preview's server or a check's own that a crash left running is stopped, by the pid
    * its record names, only when that process still serves that copy; every preview the journal shows
-   * running is recorded stopped.
+   * running, the project's own and each task's, is recorded stopped.
    */
   async reconcile(): Promise<void> {
     const folder = join(this.#deps.dataDir, 'previews');
@@ -533,6 +584,20 @@ export class HostPreviews {
           ),
         );
 
+      for (const preview of this.#deps.projection.taskPreviews(project.project_id))
+        this.#deps.recorder.record(
+          controlPlaneDraft(
+            'project.preview.stopped',
+            scope(project.project_id),
+            {
+              check_id: preview.check_id,
+              reason: 'host_restarted',
+              workstream_id: preview.workstream_id,
+            },
+            this.#now(),
+            NO_CAUSE,
+          ),
+        );
       const preview = this.#deps.projection.preview(project.project_id);
       if (preview === undefined) continue;
       this.#deps.recorder.record(
@@ -547,20 +612,22 @@ export class HostPreviews {
     }
   }
 
-  async #stop(projectId: ProjectId, reason: PreviewStopReason, cause: Cause): Promise<void> {
-    const running = this.#running.get(projectId);
+  async #stop(key: PreviewKey, reason: PreviewStopReason, cause: Cause): Promise<void> {
+    const name = keyName(key);
+    const running = this.#running.get(name);
     if (running === undefined) return;
     running.stopping = true;
-    this.#running.delete(projectId);
-    await this.plays.stop(projectId, PLAY_END[reason]);
+    this.#running.delete(name);
+    // Only the project's own preview is played on the Mac.
+    if (key.taskId === null) await this.plays.stop(key.projectId, PLAY_END[reason]);
     await stopChild(running.child);
     this.#ports.delete(running.port);
-    await this.#removeRecord(projectId);
+    await this.#removeRecord(name);
     this.#deps.recorder.record(
       controlPlaneDraft(
         'project.preview.stopped',
-        scope(projectId),
-        { check_id: running.checkId, reason },
+        scope(key.projectId),
+        { check_id: running.checkId, reason, ...taskOf(key) },
         this.#now(),
         cause,
       ),
@@ -579,6 +646,7 @@ export class HostPreviews {
    */
   async #reference(
     projectId: ProjectId,
+    record: string,
     starterId: string,
     common: Omit<CheckOptions, 'project' | 'cache' | 'port' | 'reference' | 'onServer'>,
   ): Promise<OwnReference> {
@@ -605,14 +673,14 @@ export class HostPreviews {
         why = "the starter's template could not be applied";
         return null;
       }
-      const first = await this.#makeReference(projectId, common, project, work);
+      const first = await this.#makeReference(record, common, project, work);
       if (first.kind === 'made') return first.png;
       if (first.kind === 'fault' || this.#closed) {
         why = first.why;
         return null;
       }
       // One more making, and only one, where the first could not take its picture in time or load the page.
-      const again = await this.#makeReference(projectId, common, project, work);
+      const again = await this.#makeReference(record, common, project, work);
       if (again.kind === 'made') return again.png;
       why = again.why;
       return null;
@@ -633,7 +701,7 @@ export class HostPreviews {
    * again.
    */
   async #makeReference(
-    projectId: ProjectId,
+    record: string,
     common: Omit<CheckOptions, 'project' | 'cache' | 'port' | 'reference' | 'onServer'>,
     project: string,
     work: string,
@@ -659,7 +727,7 @@ export class HostPreviews {
         },
         reference: { kind: 'making' },
         onServer: (pid) =>
-          this.#writeRecord(projectId, { pid, copy: join(work, 'cache', 'dist') }, 'reference'),
+          this.#writeRecord(record, { pid, copy: join(work, 'cache', 'dist') }, 'reference'),
       });
       // A starter that does not type check or build, or throws, is a fault of its own: never made again.
       if (result.tsc.exit !== 0 || result.build.exit !== 0)
@@ -673,7 +741,7 @@ export class HostPreviews {
       return { kind: 'made', png: await readFile(frame.file) };
     } finally {
       if (port !== null) this.#ports.delete(port);
-      await this.#removeRecord(projectId, 'reference');
+      await this.#removeRecord(record, 'reference');
     }
   }
 
@@ -801,14 +869,22 @@ export class HostPreviews {
   }
 
   /**
-   * The first lines of the project's latest check where its type check or build failed, from the
-   * check's own folder, for the agent with the person's next instruction (FX1); null otherwise.
+   * The first lines of the latest check of the agent's folder where its type check or build failed,
+   * from the check's own folder, for the agent with the person's next instruction (FX1); null otherwise.
+   * A task with a check of its own copy reads that one, else the project's own folder's, which checks
+   * of tasks' copies beside it never hide (limits audit #5 and #6); `checkId` names the check itself.
    */
   failedCheckOutput(
     projectId: ProjectId,
     workstreamId: WorkstreamId | null = null,
+    checkId?: CheckId,
   ): { checkId: CheckId; output: CheckOutput } | null {
-    const check = this.#deps.projection.latestCheck(projectId);
+    const projection = this.#deps.projection;
+    const check =
+      checkId !== undefined
+        ? projection.recordedCheck(projectId, checkId)
+        : ((workstreamId === null ? undefined : projection.latestTaskCheck(workstreamId)) ??
+          projection.latestProjectFolderCheck(projectId));
     // A check of one task's own copy is that task's agent's alone (ADR 0045), and hides that folder.
     if (check !== undefined && check.workstream_id !== null && check.workstream_id !== workstreamId)
       return null;
@@ -853,28 +929,31 @@ export class HostPreviews {
     return join(this.#deps.dataDir, 'checks', projectId, checkId);
   }
 
-  /** The record of a server this host runs for the project, each kind in a file of its own. */
-  #recordFile(projectId: ProjectId, server: RecordedServer): string {
-    const name = server === 'preview' ? `${projectId}.json` : `${projectId}.${server}.json`;
-    return join(this.#deps.dataDir, 'previews', name);
+  /**
+   * The record of a server this host runs for a key (its name, `keyName`), each kind in a file of its own; a restart's
+   * reconcile reads every file in the folder, whatever its name.
+   */
+  #recordFile(name: string, server: RecordedServer): string {
+    const file = server === 'preview' ? `${name}.json` : `${name}.${server}.json`;
+    return join(this.#deps.dataDir, 'previews', file);
   }
 
   async #writeRecord(
-    projectId: ProjectId,
+    name: string,
     record: { pid: number; port: number; check_id: CheckId } | { pid: number; copy: string },
     server: RecordedServer = 'preview',
   ) {
     await mkdir(join(this.#deps.dataDir, 'previews'), { recursive: true, mode: 0o700 });
     // Written beside, then renamed, so a reader (a restart's reconcile) never sees half a record.
     // A crash between the two leaves only the side file, which reconcile reads, cannot use and removes.
-    const file = this.#recordFile(projectId, server);
+    const file = this.#recordFile(name, server);
     const writing = `${file}.${process.pid}.writing`;
     await writeFile(writing, JSON.stringify(record), { mode: 0o600 });
     await rename(writing, file);
   }
 
-  async #removeRecord(projectId: ProjectId, server: RecordedServer = 'preview') {
-    await rm(this.#recordFile(projectId, server), { force: true });
+  async #removeRecord(name: string, server: RecordedServer = 'preview') {
+    await rm(this.#recordFile(name, server), { force: true });
   }
 
   #now() {

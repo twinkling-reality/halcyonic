@@ -141,7 +141,11 @@ export class ProjectShares {
         this.#recordStopped(project.project_id, share.check_id, 'host_stopped', NO_CAUSE);
     }
     return publisher.subscribe(({ event }) => {
-      if (event.event_type === 'project.preview.stopped')
+      // The project's own preview, which a share reaches: a task's stopping leaves it (limits audit #5 and #6).
+      if (
+        event.event_type === 'project.preview.stopped' &&
+        event.payload.workstream_id === undefined
+      )
         void this.stop(event.project_id, 'preview_stopped', NO_CAUSE);
     });
   }

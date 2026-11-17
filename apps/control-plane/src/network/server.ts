@@ -18,7 +18,7 @@ import { WindowCounter } from './limits.ts';
 import { type Pairing, type PairingAnswer, PairingAttempt, refused } from './pairing.ts';
 import {
   type PreviewStreamLimits,
-  type PreviewTarget,
+  type PreviewTargetOf,
   registerPreviewRelay,
   registerPreviewStream,
 } from './preview-relay.ts';
@@ -99,7 +99,7 @@ export interface NetworkServerOptions {
   /** Where devices reach this listener now, once it listens; null before. */
   readonly listener: () => NetworkListener | null;
   /** Where a project's preview is relayed from to a paired device, or why not (ADR 0052); none, no relay. */
-  readonly previewTarget?: (projectId: string) => PreviewTarget;
+  readonly previewTarget?: PreviewTargetOf;
   /** The preview streams' bounds, over the defaults (tests shorten them). */
   readonly previewStreamLimits?: PreviewStreamLimits;
 }

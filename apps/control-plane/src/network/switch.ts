@@ -17,7 +17,7 @@ import { loadOrCreateNetworkIdentity } from './certificate.ts';
 import type { DeviceAccess } from './devices.ts';
 import { describeListener, readLocalName } from './listener.ts';
 import { Pairing, type PairingLimits } from './pairing.ts';
-import type { PreviewTarget } from './preview-relay.ts';
+import type { PreviewTargetOf } from './preview-relay.ts';
 import { createNetworkServer, type NetworkLimits } from './server.ts';
 
 /** In the data folder while the computer announces itself: the announcing `dns-sd`'s pid. */
@@ -41,7 +41,7 @@ export interface NetworkSwitchOptions {
   readonly describeHost?: string;
   readonly interfaces?: () => NodeJS.Dict<NetworkInterfaceInfo[]>;
   /** Where a project's preview is relayed from to a paired device (ADR 0052); none, no relay. */
-  readonly previewTarget?: (projectId: string) => PreviewTarget;
+  readonly previewTarget?: PreviewTargetOf;
   /**
    * Makes what announces the computer while a pairing window is open (ADR 0017); macOS's `dns-sd` by
    * default. Tests give their own.

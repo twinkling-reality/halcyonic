@@ -130,6 +130,85 @@ describe('which preview reaches a paired headset (ADR 0052)', () => {
     );
     assert.equal(unconfined.ok ? 'ok' : unconfined.code, 'preview_not_confined');
   });
+
+  test("a task's preview reaches the headset only by the host's own record of it, of that task's latest check, passed and confined (limits audit #5 and #6)", (t) => {
+    const TASK = '01920000-0000-7000-8000-0000000000a1';
+    const OTHER = '01920000-0000-7000-8000-0000000000a2';
+    const ELSEWHERE = '01920000-0000-7000-8000-0000000000a3';
+    const TASK_CHECK = '01920000-0000-7000-8000-0000000000c2';
+    const passed = { check_id: TASK_CHECK, passed: true, reads_confined: true };
+    const taskProjection = (
+      check: { check_id: string; passed: boolean; reads_confined: boolean } = passed,
+      previews: Record<string, { check_id: string; port: number }> = {
+        [TASK]: { check_id: TASK_CHECK, port: 47982 },
+        [OTHER]: { check_id: TASK_CHECK, port: 47983 },
+        [ELSEWHERE]: { check_id: TASK_CHECK, port: 47984 },
+      },
+    ) =>
+      ({
+        ...projectionWith(
+          { check_id: CHECK, port: 47981 },
+          { check_id: CHECK, passed: true, reads_confined: true },
+        ),
+        workstream: (id: string) =>
+          [TASK, OTHER, ELSEWHERE].includes(id)
+            ? { workstream_id: id, project_id: id === ELSEWHERE ? 'another' : PROJECT }
+            : undefined,
+        taskPreview: (id: string) => previews[id],
+        latestTaskCheck: (id: string) =>
+          previews[id] === undefined
+            ? undefined
+            : {
+                check_id: check.check_id,
+                findings: { passed: check.passed, reads_confined: check.reads_confined },
+              },
+      }) as unknown as Projection;
+    const dir = dataDirWith(t, { pid: 1, port: 47981, check_id: CHECK });
+    const task = (record: unknown) =>
+      writeFileSync(join(dir, 'previews', `${PROJECT}.task.${TASK}.json`), JSON.stringify(record));
+    task({ pid: 2, port: 47982, check_id: TASK_CHECK });
+    for (const id of [ELSEWHERE])
+      writeFileSync(
+        join(dir, 'previews', `${PROJECT}.task.${id}.json`),
+        JSON.stringify({ pid: 3, port: 47984, check_id: TASK_CHECK }),
+      );
+    const code = (target: PreviewTarget) => (target.ok ? `ok ${target.port}` : target.code);
+    const gate = (projection: Projection, id: string | null) =>
+      code(confinedPreviewTarget(projection, dir, PROJECT, undefined, id));
+    assert.equal(gate(taskProjection(), TASK), 'ok 47982', "the task's own");
+    assert.equal(gate(taskProjection(), null), 'ok 47981', 'without a task, the project preview');
+    assert.equal(
+      gate(taskProjection(), OTHER),
+      'preview_not_running',
+      'never without the host’s record of that task’s server',
+    );
+    assert.equal(
+      gate(taskProjection(), ELSEWHERE),
+      'preview_not_running',
+      "another project's task",
+    );
+    assert.equal(
+      gate(taskProjection(), '01920000-0000-7000-8000-0000000000ff'),
+      'preview_not_running',
+    );
+    assert.equal(
+      gate(taskProjection({ ...passed, check_id: 'newer' }), TASK),
+      'preview_not_latest',
+    );
+    assert.equal(gate(taskProjection({ ...passed, passed: false }), TASK), 'preview_not_passed');
+    assert.equal(
+      gate(taskProjection({ ...passed, reads_confined: false }), TASK),
+      'preview_not_confined',
+    );
+    task({ pid: 2, port: 47981, check_id: TASK_CHECK });
+    assert.equal(
+      gate(taskProjection(), TASK),
+      'preview_not_running',
+      'a record naming another port',
+    );
+    task({ pid: 2, port: 47982, check_id: CHECK });
+    assert.equal(gate(taskProjection(), TASK), 'preview_not_running', 'a record of another check');
+  });
 });
 
 describe('the preview relay on the network listener (ADR 0052)', () => {
@@ -227,5 +306,57 @@ describe('the preview relay on the network listener (ADR 0052)', () => {
       502,
       'a preview not answering',
     );
+  });
+
+  test("relays a task's preview by its own path, asking the gate for that task, never one the page's query names (limits audit #5 and #6)", async (t) => {
+    const TASK = '01920000-0000-7000-8000-0000000000a1';
+    const seen: string[] = [];
+    const preview: Server = createServer((request, response) => {
+      seen.push(request.url ?? '');
+      response.end('variant');
+    });
+    await new Promise<void>((resolve) => preview.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise((resolve) => preview.close(resolve)));
+    const port = (preview.address() as { port: number }).port;
+    const asked: [string, string | null][] = [];
+    const server = await startTestServer({
+      network: {
+        previewTarget: (projectId, taskId = null) => {
+          asked.push([projectId, taskId]);
+          return taskId === TASK
+            ? { ok: true, port }
+            : { ok: false, code: 'preview_not_running', message: 'none' };
+        },
+      },
+    });
+    t.after(() => server.stop());
+    assert.ok(server.network);
+    const opened = await fetch(`${server.baseUrl}/api/pairing`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${server.token}` },
+    });
+    const { code } = (await opened.json()) as { code: string };
+    const paired = await pairDevice(server.network.target, code);
+    const target = server.network.target;
+    const pin = server.network.identity.certificateSha256;
+    const get = (path: string) =>
+      tlsRequest(target, {
+        method: 'GET',
+        path,
+        headers: { authorization: `Bearer ${paired.credential}` },
+        pin,
+      });
+    const page = await get(`/api/projects/${PROJECT}/tasks/${TASK}/preview/assets/app.js?task=x`);
+    assert.equal(page.status, 200);
+    assert.equal(page.body, 'variant');
+    assert.equal(seen.at(-1), '/assets/app.js?task=x', "the page's own query passes as it is");
+    assert.deepEqual(asked.at(-1), [PROJECT, TASK]);
+    assert.equal((await get(`/api/projects/${PROJECT}/tasks/${TASK}/preview`)).status, 200);
+    assert.equal(seen.at(-1), '/');
+    // Without a task, the project's own preview, as before; a query never picks a task.
+    assert.equal((await get(`/api/projects/${PROJECT}/preview/?task=${TASK}`)).status, 409);
+    assert.deepEqual(asked.at(-1), [PROJECT, null]);
+    assert.equal((await get(`/api/projects/${PROJECT}/tasks/not-a-task/preview/`)).status, 400);
+    assert.deepEqual(asked.at(-1), [PROJECT, null], 'a bad task id never reaches the gate');
   });
 });

@@ -27,7 +27,7 @@ import { createNetworkIdentity, type NetworkIdentity } from '../network/certific
 import { DeviceAccess } from '../network/devices.ts';
 import { Pairing, type PairingLimits } from '../network/pairing.ts';
 import { type PageRoutes, PairingPage, pairingControls } from '../network/pairing-page.ts';
-import type { PreviewStreamLimits, PreviewTarget } from '../network/preview-relay.ts';
+import type { PreviewStreamLimits, PreviewTargetOf } from '../network/preview-relay.ts';
 import {
   createNetworkServer,
   DEFAULT_NETWORK_LIMITS,
@@ -159,7 +159,7 @@ export interface TestServerOptions extends TestControlPlaneOptions {
   readonly network?: {
     readonly limits?: PairingLimits;
     /** Where a project's preview is relayed from to a paired device (ADR 0052). */
-    readonly previewTarget?: (projectId: string) => PreviewTarget;
+    readonly previewTarget?: PreviewTargetOf;
     /** The listener's own limits, over the defaults. */
     readonly listener?: Partial<NetworkLimits>;
     /** The preview streams' bounds, over the defaults. */

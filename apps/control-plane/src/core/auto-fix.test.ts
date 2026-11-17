@@ -1283,3 +1283,54 @@ describe('instructions held for a runtime that cannot steer (ADR 0056)', () => {
     );
   });
 });
+
+describe("an automatic check beside checks of other tasks' copies (limits audit #5 and #6)", () => {
+  test('is judged by the check its own command recorded, never a later one of another task', async (t) => {
+    const p = plane(t, [FAILED]);
+    const { controlPlane, projectId, now } = p;
+    const other = p.task();
+    const beside = '01a19000-0000-7000-8000-0000000000c9' as never;
+    // A check of another task's copy, passed, recorded just after this one and before its outcome is judged.
+    const stop = controlPlane.publisher.subscribe(({ event }) => {
+      if (
+        event.event_type !== 'project.check.recorded' ||
+        event.payload.workstream_id !== undefined
+      )
+        return;
+      queueMicrotask(() =>
+        controlPlane.recorder.record(
+          controlPlaneDraft(
+            'project.check.recorded',
+            { project_id: projectId, workstream_id: null, execution_id: null },
+            {
+              check_id: beside,
+              findings: {
+                tsc: { exit: 0, seconds: 1 },
+                build: { exit: 0, seconds: 1 },
+                page: null,
+                unknown: null,
+                passed: true,
+                reads_confined: true,
+              },
+              workstream_id: other,
+            },
+            now,
+            NO_CAUSE,
+          ),
+        ),
+      );
+    });
+    t.after(stop);
+    const executionId = await p.start();
+    p.changedFiles(executionId);
+    await until(() => p.sent().length === 1, "a try for this check's failure");
+    const own = p
+      .ofType('project.check.recorded')
+      .find((event) => event.payload.check_id !== beside);
+    assert.equal(p.sent()[0]?.payload.check_id, own?.payload.check_id);
+    assert.equal(controlPlane.projection.latestCheck(projectId)?.check_id, beside);
+    // And the lines it sends are this check's, from the agent's own folder.
+    await until(() => p.runtime.given.length === 2, 'the try given to the agent');
+    assert.ok(p.runtime.given[1]?.includes(MARK), p.runtime.given[1]);
+  });
+});

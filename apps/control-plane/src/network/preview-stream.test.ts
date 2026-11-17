@@ -115,6 +115,42 @@ describe('the preview stream on the network listener (ADR 0052, amended 2026-11-
     assert.equal(preview.dialled(), 3, 'nothing dialled for a refused stream');
   });
 
+  test("opens a task's preview by its `task` query, the gate asked for that task and the port it names dialled (limits audit #5 and #6)", async (t) => {
+    const TASK = '01920000-0000-7000-8000-0000000000a1';
+    const variant = await echoServer(t);
+    const asked: (string | null)[] = [];
+    const server = await startTestServer({
+      network: {
+        previewTarget: (_projectId, taskId = null) => {
+          asked.push(taskId);
+          return taskId === TASK
+            ? { ok: true, port: variant.port }
+            : { ok: false, code: 'preview_not_running', message: 'none' };
+        },
+        previewStream: { perDevice: 6, idleMs: 60_000, checkMs: 50 },
+      },
+    });
+    t.after(() => server.stop());
+    assert.ok(server.network);
+    const credential = await pairedCredential(server);
+    const network = server.network;
+    const open = (path: string) =>
+      TlsWebSocket.connect(network.target, path, {
+        pin: network.identity.certificateSha256,
+        headers: { authorization: `Bearer ${credential}` },
+      });
+    const stream = await open(`${STREAM}?task=${TASK}`);
+    stream.sendBytes(Buffer.from('get / http/1.1\r\n'));
+    await stream.waitForBytes('GET / HTTP/1.1');
+    assert.equal(variant.dialled(), 1);
+    assert.ok(asked.length > 0 && asked.every((taskId) => taskId === TASK), JSON.stringify(asked));
+    await stream.close();
+    assert.deepEqual(await refusal(open(STREAM)), { status: 409, code: 'preview_not_running' });
+    assert.equal(asked.at(-1), null, "without a task, the project's own preview");
+    assert.equal((await refusal(open(`${STREAM}?task=not-a-task`)))?.status, 400);
+    assert.equal(variant.dialled(), 1, 'nothing dialled for a refused stream');
+  });
+
   test('holds the cap for streams opened together: exactly that many open', async (t) => {
     const preview = await echoServer(t);
     const { open } = await pairedServer(t, () => ({ ok: true, port: preview.port }), {

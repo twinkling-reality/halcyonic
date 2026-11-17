@@ -303,7 +303,13 @@ export class AutoFix {
       this.#evaluateOwn(entry.projectId, commandId, commandFailed, executions);
       return;
     }
-    const check = commandFailed ? undefined : projection.latestCheck(entry.projectId);
+    // The check this command recorded, never a later one: checks of other tasks' copies run beside it (limits audit
+    // #5 and #6), so the project's latest may be another's.
+    const result = projection.command(commandId)?.result;
+    const check =
+      commandFailed || result?.kind !== 'project_checked'
+        ? undefined
+        : projection.recordedCheck(entry.projectId, result.check_id);
     if (check === undefined) {
       for (const id of executions) this.#end(id, 'check_unavailable', null);
       return;
@@ -463,7 +469,9 @@ export class AutoFix {
     const steps = fixSteps(check.findings);
     let lines = false;
     try {
-      lines = (this.#deps.previews?.failedCheckOutput(projectId) ?? null) !== null;
+      lines =
+        (this.#deps.previews?.failedCheckOutput(projectId, check.workstream_id, check.check_id) ??
+          null) !== null;
     } catch {
       lines = false;
     }

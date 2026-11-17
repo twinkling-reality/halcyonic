@@ -1391,6 +1391,34 @@ export class Projection {
         };
   }
 
+  /** One check of the project by its id, latest or not, as `latestCheck` gives one, or undefined. */
+  recordedCheck(projectId: string, checkId: string): ProjectCheck | undefined {
+    const state = this.#checksById.get(projectId as ProjectId)?.get(checkId as CheckId);
+    return state === undefined
+      ? undefined
+      : {
+          check_id: state.checkId,
+          findings: state.findings,
+          recorded_at: state.recordedAt,
+          position: state.position,
+          files: checkFilesState(state),
+          workstream_id: state.workstreamId ?? null,
+        };
+  }
+
+  /**
+   * The latest check of the project's own folder, which checks of tasks' copies recorded after it never replace
+   * (limits audit #5 and #6), or undefined when it has none. Read from the checks kept, on asking.
+   */
+  latestProjectFolderCheck(projectId: string): ProjectCheck | undefined {
+    let latest: CheckState | undefined;
+    for (const state of this.#checksById.get(projectId as ProjectId)?.values() ?? []) {
+      if ((state.workstreamId ?? null) !== null) continue;
+      if (latest === undefined || state.position > latest.position) latest = state;
+    }
+    return latest === undefined ? undefined : this.recordedCheck(projectId, latest.checkId);
+  }
+
   /** The latest check of one task's own copy (ADR 0045), or undefined when it has none. */
   latestTaskCheck(workstreamId: string): ProjectCheck | undefined {
     const state = this.#taskChecks.get(workstreamId as WorkstreamId);

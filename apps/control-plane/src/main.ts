@@ -493,8 +493,15 @@ async function main(): Promise<void> {
     clock: systemClock,
     logger: app.log,
     // A preview reaches a paired headset only when every agent's reads were confined (ADR 0052).
-    previewTarget: (projectId) =>
-      confinedPreviewTarget(controlPlane.projection, config.dataDir, projectId, family.previews),
+    // A task's own copy's preview by the same rules, of that task's (limits audit #5 and #6).
+    previewTarget: (projectId, taskId = null) =>
+      confinedPreviewTarget(
+        controlPlane.projection,
+        config.dataDir,
+        projectId,
+        family.previews,
+        taskId,
+      ),
   });
   registerRoutes(app, controlPlane, sources);
   registerRealtime(app, controlPlane);

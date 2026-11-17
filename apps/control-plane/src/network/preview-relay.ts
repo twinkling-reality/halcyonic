@@ -8,6 +8,7 @@ import { checkServable, type Projection } from '@halcyonic/domain';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
 import { errorBody } from '../http/server.ts';
+import { previewRecordName } from '../preview/preview.ts';
 
 /**
  * A project's preview, relayed to a paired headset over the network listener (ADR 0052), so the
@@ -16,7 +17,8 @@ import { errorBody } from '../http/server.ts';
  * that serves the project's latest check, which may be served (`checkServable`: it passed, or only whether
  * the page draws its own look is not known, as the laptop's preview and play allow) and recorded that
  * every agent's reads were confined to the project's folder (`reads_confined`, ADR 0041), and only from that preview's own port on
- * 127.0.0.1: nothing else on the Mac is reached.
+ * 127.0.0.1: nothing else on the Mac is reached. A task's own copy's preview (limits audit #5 and #6) is relayed by the same
+ * rules, each read of that task: its preview, its own latest check, and the host's own record of its server.
  */
 
 /** The largest file the relay passes on; a built preview's files are far smaller. */
@@ -32,19 +34,27 @@ export type PreviewTarget =
 const refuse = (code: string, message: string): PreviewTarget => ({ ok: false, code, message });
 
 /**
- * Where a project's preview can be relayed from, or why not, from the journal's projection and the
- * host's own record of the server it runs (written before it serves, removed when it stops).
+ * Where a project's preview, or one task's (`taskId`), can be relayed from, or why not, from the journal's projection
+ * and the host's own record of the server it runs (written before it serves, removed when it stops). The port is the
+ * one the host recorded, never one a request names.
  */
 export function confinedPreviewTarget(
   projection: Projection,
   dataDir: string,
   projectId: string,
   ports: readonly [number, number] = [PREVIEW_PORT_FIRST, PREVIEW_PORT_LAST],
+  taskId: string | null = null,
 ): PreviewTarget {
-  const preview = projection.preview(projectId);
+  if (taskId !== null && projection.workstream(taskId)?.project_id !== projectId)
+    return refuse('preview_not_running', 'No preview runs for this task.');
+  const preview = taskId === null ? projection.preview(projectId) : projection.taskPreview(taskId);
   if (preview === undefined)
-    return refuse('preview_not_running', 'No preview runs for this project.');
-  const check = projection.latestCheck(projectId);
+    return refuse(
+      'preview_not_running',
+      taskId === null ? 'No preview runs for this project.' : 'No preview runs for this task.',
+    );
+  const check =
+    taskId === null ? projection.latestCheck(projectId) : projection.latestTaskCheck(taskId);
   if (check === undefined || check.check_id !== preview.check_id)
     return refuse('preview_not_latest', 'The preview serves a copy that is not the latest check.');
   if (!checkServable(check.findings))
@@ -59,7 +69,9 @@ export function confinedPreviewTarget(
     return refuse('preview_not_running', 'The preview is not on a preview port.');
   let record: { port?: unknown; check_id?: unknown };
   try {
-    record = JSON.parse(readFileSync(join(dataDir, 'previews', `${projectId}.json`), 'utf8'));
+    record = JSON.parse(
+      readFileSync(join(dataDir, 'previews', previewRecordName(projectId, taskId)), 'utf8'),
+    );
   } catch {
     return refuse('preview_not_running', "This computer has no record of the preview's server.");
   }
@@ -88,15 +100,19 @@ const PASSED_RESPONSE_HEADERS = [
 ];
 
 const PROJECT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** A task's id as the contracts have it (`WorkstreamId`): a lowercase UUIDv7. */
+const TASK_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+/** Which preview a request asks for: the project's own (`taskId` null) or one task's own copy's. */
+export type PreviewTargetOf = (projectId: string, taskId?: string | null) => PreviewTarget;
 
 /**
  * Registers `GET|HEAD /api/projects/:project_id/preview/*` on the network listener, for a paired
- * device only. `target` decides, per request, whether and from which port.
+ * device only, and `/api/projects/:project_id/tasks/:workstream_id/preview/*` for one task's own copy's preview
+ * (limits audit #5 and #6): a path, so the page's own query passes to its server untouched. `target` decides, per
+ * request, whether and from which port.
  */
-export function registerPreviewRelay(
-  app: FastifyInstance,
-  target: (projectId: string) => PreviewTarget,
-): void {
+export function registerPreviewRelay(app: FastifyInstance, target: PreviewTargetOf): void {
   const relay = async (
     request: { params: unknown; raw: IncomingMessage; principal?: { kind: string } | null },
     reply: FastifyReply,
@@ -104,9 +120,15 @@ export function registerPreviewRelay(
     if (request.principal?.kind !== 'device') {
       return reply.code(403).send(errorBody('forbidden', 'Only a paired device reads a preview.'));
     }
-    const { project_id: projectId } = request.params as { project_id: string };
+    const { project_id: projectId, workstream_id: taskId } = request.params as {
+      project_id: string;
+      workstream_id?: string;
+    };
     if (!PROJECT_ID.test(projectId)) {
       return reply.code(400).send(errorBody('invalid_request', 'The project id is invalid.'));
+    }
+    if (taskId !== undefined && !TASK_ID.test(taskId)) {
+      return reply.code(400).send(errorBody('invalid_request', 'The task id is invalid.'));
     }
     // A service worker registered on the headset's address would answer later previews there with
     // bytes no check saw: its script is never relayed.
@@ -115,9 +137,12 @@ export function registerPreviewRelay(
         .code(403)
         .send(errorBody('forbidden', 'A preview is not relayed as a service worker.'));
     }
-    const found = target(projectId);
+    const found = target(projectId, taskId ?? null);
     if (!found.ok) return reply.code(409).send(errorBody(found.code, found.message));
-    const prefix = `/api/projects/${projectId}/preview`;
+    const prefix =
+      taskId === undefined
+        ? `/api/projects/${projectId}/preview`
+        : `/api/projects/${projectId}/tasks/${taskId}/preview`;
     const rest = (request.raw.url ?? '').slice(prefix.length) || '/';
     if (!rest.startsWith('/') || rest.length > 2048) {
       return reply.code(400).send(errorBody('invalid_request', 'The path is invalid.'));
@@ -191,6 +216,15 @@ export function registerPreviewRelay(
   };
   app.get('/api/projects/:project_id/preview', relay);
   app.get('/api/projects/:project_id/preview/*', relay);
+  app.get('/api/projects/:project_id/tasks/:workstream_id/preview', relay);
+  app.get('/api/projects/:project_id/tasks/:workstream_id/preview/*', relay);
+}
+
+/** The task a stream asks for by its `task` query, null for none, or undefined when it is not a task's id. */
+function streamTask(query: unknown): string | null | undefined {
+  const task = (query as { task?: unknown } | undefined)?.task;
+  if (task === undefined) return null;
+  return typeof task === 'string' && TASK_ID.test(task) ? task : undefined;
 }
 
 /** How many preview streams one device may hold at once, how long one may sit idle, how often each re-asks its gate. */
@@ -222,11 +256,12 @@ const PREVIEW_UNREACHABLE = 4502;
  * admitted by `target`, the same gate as the file route; the Mac then dials 127.0.0.1 at the port the gate names,
  * never one the request names, and pipes bytes both ways. Each open stream re-asks the gate, and whether its device is
  * still paired, every `checkMs`; when either says no, an idle `idleMs` passes, or the listener closes (pairing turned
- * off), the stream ends at once. A device holds at most `perDevice` streams.
+ * off), the stream ends at once. A device holds at most `perDevice` streams. A `task` query names one task's own
+ * copy's preview (limits audit #5 and #6), gated the same way by that task's; without it, the project's own.
  */
 export function registerPreviewStream(
   app: FastifyInstance,
-  target: (projectId: string) => PreviewTarget,
+  target: PreviewTargetOf,
   isActive: (deviceId: string) => boolean,
   limits: PreviewStreamLimits = PREVIEW_STREAM_LIMITS,
 ): void {
@@ -252,6 +287,10 @@ export function registerPreviewStream(
         if (!PROJECT_ID.test(projectId)) {
           return reply.code(400).send(errorBody('invalid_request', 'The project id is invalid.'));
         }
+        const taskId = streamTask(request.query);
+        if (taskId === undefined) {
+          return reply.code(400).send(errorBody('invalid_request', 'The task id is invalid.'));
+        }
         if ((open.get(principal.device_id)?.size ?? 0) >= limits.perDevice) {
           return reply
             .code(429)
@@ -262,7 +301,7 @@ export function registerPreviewStream(
               ),
             );
         }
-        const found = target(projectId);
+        const found = target(projectId, taskId);
         if (!found.ok) return reply.code(409).send(errorBody(found.code, found.message));
         // The place is held now, before the upgrade, so streams opened together cannot pass the cap together; an
         // upgrade that never completes gives it back within ten seconds.
@@ -280,7 +319,9 @@ export function registerPreviewStream(
     (socket: WebSocket, request) => {
       const principal = request.principal;
       const { project_id: projectId } = request.params as { project_id: string };
-      const found = target(projectId);
+      // Checked before the upgrade; a stream asks the gate for that same preview throughout.
+      const taskId = streamTask(request.query) ?? null;
+      const found = target(projectId, taskId);
       if (principal?.kind !== 'device' || !found.ok) {
         socket.close(GATE_CLOSED, found.ok ? 'forbidden' : found.code);
         return;
@@ -314,7 +355,7 @@ export function registerPreviewStream(
       ends.add(end);
       const check = setInterval(() => {
         if (!isActive(deviceId)) return end(GATE_CLOSED, 'not_paired');
-        const now = target(projectId);
+        const now = target(projectId, taskId);
         if (!now.ok) return end(GATE_CLOSED, now.code);
         if (now.port !== port) end(GATE_CLOSED, 'preview_not_latest');
       }, limits.checkMs);

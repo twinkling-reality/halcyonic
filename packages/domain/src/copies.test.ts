@@ -621,6 +621,9 @@ describe("checking a task's own copy (ADR 0045)", () => {
     assert.equal(projection.latestTaskCheck(first)?.check_id, checkA);
     assert.equal(projection.latestTaskCheck(second)?.check_id, checkB);
     assert.equal(projection.latestTaskCheck(shared), undefined);
+    // Each check by its id, and the project's own folder's latest, which none of these is.
+    assert.equal(projection.recordedCheck(project.projectId, checkA)?.workstream_id, first);
+    assert.equal(projection.latestProjectFolderCheck(project.projectId), undefined);
 
     const started = admit(command('project.preview.start', first));
     assert.equal(started.admitted, true);
@@ -685,12 +688,38 @@ describe("checking a task's own copy (ADR 0045)", () => {
     assert.equal(projection.taskPreview(second)?.files, 'unknown');
     assert.equal(projection.workstream(second)?.preview?.files, 'unknown');
 
+    // A check of the project's own folder, then another task's: the folder's latest is still its own.
+    const folderCheck = '01920000-0000-7000-8000-0000000000f3' as never;
+    projection.apply(
+      b.controlPlane('project.check.recorded', projectScope, {
+        check_id: folderCheck,
+        findings: findings(false),
+      }),
+    );
+    projection.apply(
+      b.controlPlane('project.check.recorded', projectScope, {
+        check_id: '01920000-0000-7000-8000-0000000000f4' as never,
+        findings: findings(true),
+        workstream_id: first,
+      }),
+    );
+    assert.equal(projection.latestProjectFolderCheck(project.projectId)?.check_id, folderCheck);
+    assert.equal(
+      projection.taskPreview(second)?.check_id,
+      checkB,
+      "another task's check stops nothing",
+    );
+
     // Kept across a start that restores the projection from its checkpoint.
     const state = deserialize(serialize(projection.exportState())) as ProjectionState;
     const restarted = new Projection();
     restarted.restoreState(state);
     assert.equal(restarted.taskPreview(second)?.port, 47932);
-    assert.equal(restarted.latestTaskCheck(first)?.check_id, checkA);
+    assert.equal(
+      restarted.latestTaskCheck(first)?.check_id,
+      '01920000-0000-7000-8000-0000000000f4',
+    );
+    assert.equal(restarted.latestProjectFolderCheck(project.projectId)?.check_id, folderCheck);
     assert.deepEqual(
       restarted.taskPreviews(project.projectId).map((preview) => preview.workstream_id),
       [second],

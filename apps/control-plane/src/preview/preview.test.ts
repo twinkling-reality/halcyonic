@@ -23,6 +23,7 @@ import {
   PREVIEW_PORT_FIRST,
   PREVIEW_PORT_LAST,
   type ProjectId,
+  type WorkstreamId,
 } from '@halcyonic/contracts';
 import { controlPlaneDraft, NO_CAUSE } from '../core/drafts.ts';
 import { HostStarters, templateDigest } from '../starters.ts';
@@ -299,6 +300,7 @@ function plane(
       | 'project.preview.start'
       | 'project.preview.stop'
       | 'project.open_on_mac',
+    workstreamId?: WorkstreamId,
   ) => {
     n += 1;
     const command = {
@@ -307,7 +309,10 @@ function plane(
       issued_at: '2026-10-29T10:00:00.000Z',
       client: { name: 'test', version: null, device_label: null },
       command_type: type,
-      payload: { project_id: projectId },
+      payload: {
+        project_id: projectId,
+        ...(workstreamId === undefined ? {} : { workstream_id: workstreamId }),
+      },
     } as CommandEnvelope;
     const outcome = controlPlane.commands.submit(command, 'internal');
     return { command, outcome };
@@ -1748,5 +1753,164 @@ describe("a Starter Only check, through the plane (LINK, 2026-11-16, AUDIT3's S3
       assert.equal(rejection?.code, 'invalid_state', type);
       assert.match(rejection?.message ?? '', words, type);
     }
+  });
+});
+
+describe("each task's own copy checked and previewed side by side (limits audit #5 and #6)", () => {
+  /** A task of the plane's project with a copy of its own on disk (ADR 0045). */
+  const taskWithCopy = (p: ReturnType<typeof plane>, n: number): WorkstreamId => {
+    const workstreamId = `01a19000-0000-7000-8000-0000000000b${n}` as WorkstreamId;
+    const where = { project_id: p.projectId, workstream_id: workstreamId, execution_id: null };
+    const now = '2026-11-17T10:00:00.000Z' as never;
+    const copy = join(p.dataDir, 'tasks', p.projectId, workstreamId, 'garden');
+    mkdirSync(copy, { recursive: true });
+    p.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.created',
+        where,
+        { title: `Variant ${n}`, objective: null },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    p.controlPlane.recorder.record(
+      controlPlaneDraft(
+        'workstream.copy_made',
+        where,
+        { directory: copy, base_tree: 'a'.repeat(64), files: 1 },
+        now,
+        NO_CAUSE,
+      ),
+    );
+    return workstreamId;
+  };
+  const recordOf = (p: ReturnType<typeof plane>, taskId: WorkstreamId) =>
+    join(p.dataDir, 'previews', `${p.projectId}.task.${taskId}.json`);
+  const stoppedOf = (p: ReturnType<typeof plane>) =>
+    p.journal
+      .read({ after: 0, limit: 1000 })
+      .map((stored) => stored.event)
+      .filter((event) => event.event_type === 'project.preview.stopped')
+      .map((event) => event.payload as { reason: string; workstream_id?: string });
+
+  test("two tasks are checked at once and previewed at once on ports of their own, and a check of one stops only that one's preview", async (t) => {
+    let release = () => {};
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const p = plane(t, { hold, ports: await freeRange(6) });
+    const { controlPlane, submit, done, checked, served, children, projectId } = p;
+    const first = taskWithCopy(p, 1);
+    const second = taskWithCopy(p, 2);
+    // The project's own preview, running throughout.
+    await done(submit('project.check').command.command_id);
+    assert.equal(
+      (await done(submit('project.preview.start').command.command_id))?.status,
+      'completed',
+    );
+    const own = controlPlane.projection.preview(projectId);
+    assert.ok(own !== undefined);
+
+    // Both tasks' checks run at once: each is held inside the check until released.
+    const checkA = submit('project.check', first);
+    const checkB = submit('project.check', second);
+    assert.notEqual(checkA.outcome.disposition, 'rejected', JSON.stringify(checkA.outcome));
+    assert.notEqual(checkB.outcome.disposition, 'rejected', JSON.stringify(checkB.outcome));
+    await until(() => checked.length === 3, 'both task checks inside the check at once');
+    assert.equal(checked[1]?.project, join(p.dataDir, 'tasks', projectId, first, 'garden'));
+    assert.equal(checked[2]?.project, join(p.dataDir, 'tasks', projectId, second, 'garden'));
+    assert.notEqual(checked[1]?.port, checked[2]?.port);
+    assert.deepEqual(controlPlane.projection.preview(projectId), own, 'the project preview runs');
+    release();
+    assert.equal((await done(checkA.command.command_id))?.status, 'completed');
+    assert.equal((await done(checkB.command.command_id))?.status, 'completed');
+    const latestA = controlPlane.projection.latestTaskCheck(first);
+    const latestB = controlPlane.projection.latestTaskCheck(second);
+    assert.ok(latestA !== undefined && latestB !== undefined);
+
+    // Both previews at once, each of its own task's check, on ports of their own.
+    const startA = await done(submit('project.preview.start', first).command.command_id);
+    const startB = await done(submit('project.preview.start', second).command.command_id);
+    assert.equal(startA?.status, 'completed', JSON.stringify(startA));
+    assert.equal(startB?.status, 'completed', JSON.stringify(startB));
+    const previewA = controlPlane.projection.taskPreview(first);
+    const previewB = controlPlane.projection.taskPreview(second);
+    assert.equal(previewA?.check_id, latestA.check_id);
+    assert.equal(previewB?.check_id, latestB.check_id);
+    assert.equal(new Set([own.port, previewA?.port, previewB?.port]).size, 3);
+    assert.ok(served[1]?.dist.includes(latestA.check_id));
+    assert.ok(served[2]?.dist.includes(latestB.check_id));
+    assert.equal(controlPlane.projection.workstream(first)?.preview?.port, previewA?.port);
+    assert.ok(existsSync(recordOf(p, first)) && existsSync(recordOf(p, second)));
+    assert.equal(alive(children), 3);
+
+    // A new check of the first task stops the first task's preview alone.
+    assert.equal(
+      (await done(submit('project.check', first).command.command_id))?.status,
+      'completed',
+    );
+    assert.equal(controlPlane.projection.taskPreview(first), undefined);
+    assert.deepEqual(controlPlane.projection.taskPreview(second), previewB);
+    assert.deepEqual(controlPlane.projection.preview(projectId), own);
+    assert.deepEqual(stoppedOf(p), [
+      { check_id: latestA.check_id, reason: 'new_check', workstream_id: first },
+    ]);
+    assert.ok(!existsSync(recordOf(p, first)));
+    assert.ok(existsSync(recordOf(p, second)));
+    assert.equal(alive(children), 2);
+  });
+
+  test("stopping one task's preview leaves the other and the project's; one with no passed check is refused in words; a restart stops them all", async (t) => {
+    const p = plane(t, { ports: await freeRange(6) });
+    const { controlPlane, submit, done, children, projectId, dataDir } = p;
+    const first = taskWithCopy(p, 1);
+    const second = taskWithCopy(p, 2);
+    const unchecked = taskWithCopy(p, 3);
+    await done(submit('project.check').command.command_id);
+    await done(submit('project.preview.start').command.command_id);
+    for (const task of [first, second]) {
+      await done(submit('project.check', task).command.command_id);
+      assert.equal(
+        (await done(submit('project.preview.start', task).command.command_id))?.status,
+        'completed',
+      );
+    }
+    assert.equal(alive(children), 3);
+
+    const refused = submit('project.preview.start', unchecked).outcome;
+    assert.equal(refused.disposition, 'rejected');
+    assert.equal(
+      refused.command.rejection?.message,
+      'Only the copy of a passed check is served. Check this task first.',
+    );
+
+    const previewB = controlPlane.projection.taskPreview(second);
+    const own = controlPlane.projection.preview(projectId);
+    assert.equal(
+      (await done(submit('project.preview.stop', first).command.command_id))?.status,
+      'completed',
+    );
+    assert.equal(controlPlane.projection.taskPreview(first), undefined);
+    assert.deepEqual(controlPlane.projection.taskPreview(second), previewB);
+    assert.deepEqual(controlPlane.projection.preview(projectId), own);
+    assert.ok(!existsSync(recordOf(p, first)));
+    assert.ok(existsSync(join(dataDir, 'previews', `${projectId}.json`)));
+    assert.equal(alive(children), 2);
+
+    // At a restart every preview the journal shows running is recorded stopped, and every record goes.
+    await controlPlane.previews?.reconcile();
+    assert.equal(controlPlane.projection.taskPreview(second), undefined);
+    assert.equal(controlPlane.projection.preview(projectId), undefined);
+    assert.deepEqual(
+      stoppedOf(p)
+        .slice(1)
+        .map((stopped) => [stopped.reason, stopped.workstream_id ?? null])
+        .sort(),
+      [
+        ['host_restarted', null],
+        ['host_restarted', second],
+      ],
+    );
+    assert.deepEqual(readdirSync(join(dataDir, 'previews')), []);
   });
 });

@@ -681,7 +681,8 @@ export class ControlPlane {
 
   /**
    * Whether a check of a task's own copy must wait, as its admission says: its task at work, or
-   * anything of it, or a check, restore or preview start of the project, without its outcome.
+   * anything of it (its own check or preview start among them), or a restore or a choice of check of the
+   * project, without its outcome. Other tasks' checks and previews run beside it (limits audit #5 and #6).
    */
   #copyBusy(projectId: ProjectId, workstreamId: WorkstreamId): boolean {
     if (this.projection.executionsAtWork().some((facts) => facts.workstreamId === workstreamId))
@@ -692,9 +693,8 @@ export class ControlPlane {
         (pending) =>
           pending.workstream_id === workstreamId ||
           (pending.project_id === projectId &&
-            (pending.command_type === 'project.check' ||
-              pending.command_type === 'project.restore' ||
-              pending.command_type === 'project.preview.start')),
+            (pending.command_type === 'project.restore' ||
+              pending.command_type === 'project.own_check.choose')),
       );
   }
 
