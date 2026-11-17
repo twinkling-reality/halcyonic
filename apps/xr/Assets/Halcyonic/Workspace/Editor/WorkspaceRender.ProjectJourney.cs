@@ -81,7 +81,25 @@ namespace Halcyonic.XR.Workspace.Editor
                         if (director.Plane.KitShows) { director.Plane.Kit.SettleForRender(); director.Plane.Kit.DrawnForRender(); }
                     }
                 }
-                void Shot(string step) { Draw(); failures.AddRange(SpatialState(step, folder, root, camera, texture, director, characters, eyes)); }
+                // Where the kit draws the frame, the room's own frame checks (every word whole, inside the field, readable), as the colour
+                // check and PlacesCheck shoot it: the older plane's geometry checks (SpatialState) have nothing of a kit frame to measure.
+                void Shot(string step)
+                {
+                    Draw();
+                    if (!director.Plane.KitShows)
+                    {
+                        failures.AddRange(SpatialState(step, folder, root, camera, texture, director, characters, eyes));
+                        return;
+                    }
+                    foreach (var button in root.GetComponentsInChildren<RoomButton>(false)) button.Settle();
+                    foreach (var band in root.GetComponentsInChildren<RoomBand>(false)) band.Settle();
+                    ForceMeshes(root);
+                    camera.transform.rotation = PlaneLayout.Facing(director.Plane.Direction);
+                    var image = Render(camera, texture);
+                    File.WriteAllBytes(Path.Combine(folder, step + ".png"), image.EncodeToPNG());
+                    failures.AddRange(RoomFrameChecks(root, camera, image, eyes, director.Plane).Select(each => step + ": " + each));
+                    UnityEngine.Object.DestroyImmediate(image);
+                }
                 void Press(string action, string? key = null)
                 {
                     Draw();
