@@ -32,8 +32,27 @@ namespace Halcyonic.XR.UI.Editor
             ("KitMono", "Assets/Halcyonic/UI/Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf", "Assets/Halcyonic/UI/Fonts/JetBrainsMono/OFL.txt", Licenses + "JetBrainsMono-OFL.txt"),
         };
 
-        /// <summary>The glyphs every face holds: printable ASCII and the punctuation the kit's words and others' text use.</summary>
-        public static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u00B7\u2212";
+        /// <summary>
+        /// The glyphs every face holds: printable ASCII, the punctuation the kit's words and others' text use, and the well's marks
+        /// (LineWords.Literal: the code point's angle quotes and the tab's arrow; AUDIT2's 21:48Z, AUDIT3's LI4).
+        /// </summary>
+        public static readonly string Characters = new string(Enumerable.Range(32, 95).Select(value => (char)value).ToArray()) + "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u00B7\u2212"
+            + "\u2039\u203A\u21E5";
+
+        /// <summary>
+        /// The line break's mark, which JetBrains Mono does not draw: every Inter face holds it, and the mono face reaches it through
+        /// <see cref="MarksFace"/>, its first fallback.
+        /// </summary>
+        public const string LineMark = "\u21B5";
+
+        /// <summary>The face the mono face falls back to for <see cref="LineMark"/>: the reading face, Inter Regular.</summary>
+        public const string MarksFace = "KitReading";
+
+        /// <summary>The mono face, the only face without <see cref="LineMark"/> of its own.</summary>
+        public const string MonoFace = "KitMono";
+
+        /// <summary>What a face holds: <see cref="Characters"/>, and <see cref="LineMark"/> but in the mono face.</summary>
+        public static string CharactersOf(string name) => name == MonoFace ? Characters : Characters + LineMark;
 
         public static string AssetPath(string name) => Resources + name + ".asset";
 
@@ -58,12 +77,21 @@ namespace Halcyonic.XR.UI.Editor
                     throw new InvalidOperationException(name + ": the shipped licence differs from its source licence.");
                 var saved = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath(name));
                 if (saved == null || saved.atlasPopulationMode != AtlasPopulationMode.Static || saved.sourceFontFile != null
-                    || !saved.HasCharacters(Characters, out List<char> missing) || saved.fallbackFontAssetTable.Count != 1
-                    || saved.fallbackFontAssetTable[0] != TMP_Settings.defaultFontAsset)
+                    || !saved.HasCharacters(CharactersOf(name), out List<char> missing) || !FallbacksHold(name, saved.fallbackFontAssetTable))
                     throw new InvalidOperationException(name + ": the static face, its glyphs or its reading fallback is incomplete.");
             }
             Debug.Log("Halcyonic: kit faces: " + Faces.Length + " static atlases, required glyphs, fallbacks and licences passed.");
         }
+
+        /// <summary>Every face falls back to the reading default alone; the mono face first to <see cref="MarksFace"/> for its line mark.</summary>
+        private static bool FallbacksHold(string name, List<TMP_FontAsset> table) => name == MonoFace
+            ? table.Count == 2 && table[0] == AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath(MarksFace)) && table[1] == TMP_Settings.defaultFontAsset
+            : table.Count == 1 && table[0] == TMP_Settings.defaultFontAsset;
+
+        /// <summary>The fallback table a face is built with (<see cref="FallbacksHold"/>).</summary>
+        private static List<TMP_FontAsset> FallbacksOf(string name) => name == MonoFace
+            ? new List<TMP_FontAsset> { AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath(MarksFace)), TMP_Settings.defaultFontAsset }
+            : new List<TMP_FontAsset> { TMP_Settings.defaultFontAsset };
 
         private static void Build(string name, string fontPath)
         {
@@ -71,7 +99,7 @@ namespace Halcyonic.XR.UI.Editor
             if (font == null) throw new InvalidOperationException(name + ": the bundled OFL font is missing.");
             var atlas = TMP_FontAsset.CreateFontAsset(font, 72, 9, GlyphRenderMode.SDFAA, 1024, 1024,
                 AtlasPopulationMode.Dynamic, enableMultiAtlasSupport: false);
-            if (!atlas.TryAddCharacters(Characters, out _))
+            if (!atlas.TryAddCharacters(CharactersOf(name), out _))
             {
                 UnityEngine.Object.DestroyImmediate(atlas.atlasTexture);
                 UnityEngine.Object.DestroyImmediate(atlas.material);
@@ -82,7 +110,7 @@ namespace Halcyonic.XR.UI.Editor
             atlas.name = name;
             atlas.atlasTexture.name = name + " Atlas";
             atlas.material.name = name + " Material";
-            atlas.fallbackFontAssetTable = new List<TMP_FontAsset> { TMP_Settings.defaultFontAsset };
+            atlas.fallbackFontAssetTable = FallbacksOf(name);
             var path = AssetPath(name);
             var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
             if (existing != null)
