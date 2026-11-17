@@ -61,6 +61,10 @@ namespace Halcyonic.XR
         /// <summary>The floor arc's width and its ticks' height, in metres at 1.4 m (the sheet's 1.2 px line and 14 px tick at its scale).</summary>
         public const float FloorArcWidth = 0.0025f, FloorTickHeight = 0.03f;
 
+        /// <summary>The widest a place's tag's words stand before they break at a word, in dp (FIELD's places sheet v4: three in a row at the 200 dp
+        /// worst case, the pitch 10.5 to 11 degrees). The person's shelf keeps the tag's own bound.</summary>
+        public const float PlaceTagWordsMostDp = 200f;
+
         /// <summary>The gap between a place's lowest tag and its sign, in metres at 1.4 m.</summary>
         public const float SignGap = 0.02f;
 
@@ -148,6 +152,7 @@ namespace Halcyonic.XR
                         view = CharacterView.Create(stood.Root, id);
                         view.Person = head;
                         view.Grounded = true;
+                        view.TagWordsMostDp = PlaceTagWordsMostDp;
                         stood.Views[id] = view;
                         CharacterCreated?.Invoke(id, view);
                     }
