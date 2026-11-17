@@ -105,7 +105,10 @@ namespace Halcyonic.XR.Workspace.Editor
                 var priorExecution = HalcyonicJson.Deserialize<ExecutionView>(HalcyonicJson.Serialize(work.Execution));
                 priorExecution.ExecutionId = "render-prior-execution"; priorExecution.WorkstreamId = prior.WorkstreamId;
                 prior.CurrentExecutionId = priorExecution.ExecutionId; prior.ExecutionIds = new List<string> { priorExecution.ExecutionId };
-                var snapshot = new Snapshot { Journal = journal, Position = 1, Projects = work.State.Projects.Values.ToList(),
+                // The prior task's own project, a copy of the requested one's under its own id and name, so its file offers what any task's does.
+                var priorProject = HalcyonicJson.Deserialize<ProjectView>(HalcyonicJson.Serialize(work.State.Projects[work.Workstream.ProjectId]));
+                priorProject.ProjectId = prior.ProjectId; priorProject.Name = "Prior project";
+                var snapshot = new Snapshot { Journal = journal, Position = 1, Projects = work.State.Projects.Values.Append(priorProject).ToList(),
                     Workstreams = new List<WorkstreamView> { prior, work.Workstream }, Executions = new List<ExecutionView> { work.Execution, priorExecution }, Runtimes = work.State.Runtimes.ToList() };
                 PlacementPump(session, new WelcomeMessage { Journal = journal, Head = 1, ServerTime = Time }, new SnapshotMessage { Snapshot = snapshot }, new ConnectionStatus(ConnectionPhase.Live));
                 if (!session.SnapshotCurrent) throw new InvalidOperationException("The synthetic session is not current.");
