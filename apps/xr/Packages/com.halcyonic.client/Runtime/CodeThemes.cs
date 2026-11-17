@@ -81,9 +81,9 @@ namespace Halcyonic.Client
         /// </summary>
         public static readonly string[] Example =
         {
-            "// Count the tasks that are ready",
-            "const ready = tasks.filter(task => task.done);",
-            "console.log(\"Ready:\", ready.length, 3);",
+            "// Show at most three finished tasks",
+            "const done = tasks.filter(task => task.done).slice(0, 3);",
+            "console.log(\"Done:\", done.length);",
         };
     }
 }
