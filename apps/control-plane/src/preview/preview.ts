@@ -96,7 +96,7 @@ export interface ServeArgs {
 
 /** The words a check or a preview meets when every port of its range is taken (limits audit #7). */
 export const PREVIEW_PORTS_FULL =
-  'Every place this Mac shows a project from is in use. Close a project screen or wait for a check to finish, then try again.';
+  'Every preview this Mac can run is in use. Close a project screen or wait for a check to finish, then try again. Nothing new was started.';
 
 /** Every port of the range is taken, by this host or another program: a real bound, said in words. */
 export class PreviewPortsFull extends Error {

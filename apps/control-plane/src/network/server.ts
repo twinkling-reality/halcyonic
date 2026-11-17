@@ -78,11 +78,11 @@ export const REFUSAL_MARGIN = 8;
 
 /** The words a connection past its address's limit is answered with. */
 export const ADDRESS_FULL =
-  'This device has as many connections open to Halora as it may. Close a project screen, then try again.';
+  'This device has as many connections open to Halora as it can hold. Close a project screen, then try again. Nothing new was opened.';
 
 /** The words a connection past the listener's limit is answered with. */
 export const LISTENER_FULL =
-  'Halora holds as many connections as it can. Close a project screen on any device, then try again.';
+  'Halora has as many connections open as it can hold. Close a project screen on any device, then try again. Nothing new was opened.';
 
 /** How long a WebSocket the listener closes waits for the client to answer the close frame. */
 export const WEBSOCKET_CLOSE_TIMEOUT_MS = 1_000;
@@ -281,6 +281,13 @@ function limitConnections(app: FastifyInstance, limits: NetworkLimits): void {
       if (left > 0) open.set(address, left);
       else open.delete(address);
     });
+  });
+  // Past the listener's own maximum Node drops a connection itself: said in the log too (AUDIT3 L8a).
+  app.server.on('drop', (data?: { remoteAddress?: string }) => {
+    app.log.warn(
+      { address: data?.remoteAddress ?? '', held: total },
+      'connection refused: the listener holds its limit',
+    );
   });
   app.addHook('onRequest', async (request, reply) => {
     const words = over.get(keyOf(request.raw.socket));
