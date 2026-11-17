@@ -15,8 +15,13 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class StageRender
     {
-        /// <summary>The fewest amber pixels the waiting character's floor ring shows at its dim end in the shelf's 1024 px frame.</summary>
+        /// <summary>The fewest pixels the waiting character's floor ring changes at its dim end in the shelf's 1024 px frame.</summary>
         private const int NeedsYouRingAmberFloor = 150;
+
+        /// <summary>How much brighter or darker a pixel must be with the ring than without it to count as the ring's.</summary>
+        private const float RingPixelStep = 6f;
+
+        private static float Luma(Color32 pixel) => 0.2126f * pixel.r + 0.7152f * pixel.g + 0.0722f * pixel.b;
 
         /// <summary>
         /// The redesign's shelf (DESIGN 2.2), at both text sizes: a character's name tag in the panel's material, one line
@@ -118,9 +123,21 @@ namespace Halcyonic.XR.Workspace.Editor
                                 Advance(view, 1f / 12f);
                                 WorkspaceRender.ForceMeshes(root);
                                 var still = WorkspaceRender.Render(camera, texture);
-                                // The ring in the pixels: warm pixels, red over blue by 25 or more with green between (the amber's hue as it
-                                // lies over the shelf's teal), never the character's own pink (blue over green) or the tag's white.
-                                amber.Add(still.GetPixels32().Count(pixel => pixel.r > 60 && pixel.r - pixel.b >= 25 && pixel.g > pixel.b && pixel.g < pixel.r));
+                                // The ring in the pixels: those it changes, the frame drawn again with the ring alone hidden. The ring is white
+                                // since the no-hue chrome (the lead's 2026-11-17T19:15Z), so its hue no longer tells it from the tag's white.
+                                var lit = 0;
+                                if (view.NeedsYouRing is MeshRenderer shown)
+                                {
+                                    shown.enabled = false;
+                                    var bare = WorkspaceRender.Render(camera, texture);
+                                    shown.enabled = true;
+                                    var with = still.GetPixels32();
+                                    var without = bare.GetPixels32();
+                                    for (var pixel = 0; pixel < with.Length && pixel < without.Length; pixel++)
+                                        if (Mathf.Abs(Luma(with[pixel]) - Luma(without[pixel])) >= RingPixelStep) lit++;
+                                    UnityEngine.Object.DestroyImmediate(bare);
+                                }
+                                amber.Add(lit);
                                 File.WriteAllBytes(Path.Combine(clip, "frame-" + frame.ToString("00", System.Globalization.CultureInfo.InvariantCulture) + ".png"), still.EncodeToPNG());
                                 UnityEngine.Object.DestroyImmediate(still);
                                 if (view.NeedsYouRing is MeshRenderer ring)
@@ -133,9 +150,9 @@ namespace Halcyonic.XR.Workspace.Editor
                             if (seen.Count < 48 || seen.Max() - seen.Min() < 0.2f)
                                 failures.Add(name + ": the floor ring does not breathe over four seconds (" + (seen.Count == 0 ? "never drawn" : seen.Min().ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " to " + seen.Max().ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)) + ")");
                             // Seen at a glance at its dim end, and plainly rising and falling (the lead's 2026-11-17T03:24Z).
-                            Debug.Log("Halcyonic: room shelf: " + name + ": the floor ring's amber pixels per frame " + string.Join(" ", amber));
-                            if (amber.Min() < NeedsYouRingAmberFloor) failures.Add(name + ": the floor ring is not seen at its dim end: " + amber.Min() + " amber pixels, under " + NeedsYouRingAmberFloor);
-                            if (amber.Max() < amber.Min() * 1.3f) failures.Add(name + ": the floor ring's amber does not rise and fall: " + amber.Min() + " to " + amber.Max() + " pixels");
+                            Debug.Log("Halcyonic: room shelf: " + name + ": the floor ring's pixels per frame " + string.Join(" ", amber));
+                            if (amber.Min() < NeedsYouRingAmberFloor) failures.Add(name + ": the floor ring is not seen at its dim end: " + amber.Min() + " ring pixels, under " + NeedsYouRingAmberFloor);
+                            if (amber.Max() < amber.Min() * 1.3f) failures.Add(name + ": the floor ring does not rise and fall: " + amber.Min() + " to " + amber.Max() + " pixels");
                         }
                     }
                     finally
