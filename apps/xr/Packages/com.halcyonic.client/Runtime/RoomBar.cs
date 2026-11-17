@@ -760,10 +760,12 @@ namespace Halcyonic.Client
             if (model.Said.FirstOrDefault(line => line.Words == WorkspaceText.Sent) is PageLine sending)
                 return new RoomBar(RoomBarState.Sent, words: LineWords.Ours(sending.Words));
             if (sentAwaitingStart) return new RoomBar(RoomBarState.Sent, words: LineWords.Ours(SentWords));
+            // At rest the row has no main action, so nothing on it is lit: Hold to Talk takes the rim only while it is held and
+            // listening (above), as the press's own answer (the lead's 2026-11-17 18:31Z ruling on AUDIT's look line).
             var row = new List<RoomAction>();
-            if (talk != null && talk.Available) row.Add(new RoomAction(talk, main: true));
+            if (talk != null && talk.Available) row.Add(new RoomAction(talk, main: false));
             // Where the file offers instructions to choose from rather than the keyboard, the action says so.
-            if (field != null && field.Available) row.Add(new RoomAction(field, main: row.Count == 0, model.Chooses ? ChooseInstruction : Type));
+            if (field != null && field.Available) row.Add(new RoomAction(field, main: false, model.Chooses ? ChooseInstruction : Type));
             if (row.Count > 0) return new RoomBar(RoomBarState.Rest, row);
             var why = field?.Reason ?? talk?.Reason ?? model.WhyNotSend;
             return why != null ? new RoomBar(RoomBarState.Words, words: LineWords.Ours(why)) : new RoomBar(RoomBarState.Hidden);

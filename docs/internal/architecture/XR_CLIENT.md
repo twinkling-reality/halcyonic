@@ -2935,8 +2935,9 @@ in order, as before.
 - **Unit 1d, the instruction** (DESIGN's FINISH-3, the owner's yes 2026-11-05): `RoomBar` (client core) is a view of
   the open task's own file, never a second instruction: every action is a control the file's frame offers
   (`KitFileBinding`), with its own words, so reading before Send, ADMIT and the voice rules hold. At rest there is no
-  field and no capsule: Hold to Talk (main, the frame's held Talk) and Type (the frame's Tell it) float side by side at
-  home size, 32 dp apart. Held, Hold to Talk reads Listening and Type goes; let go, Transcribing. A typed draft is a
+  field and no capsule: Hold to Talk (the frame's held Talk) and Type (the frame's Tell it) float side by side at
+  home size, 32 dp apart, neither lit: a page with no main action has nothing lit at rest (the lead's 2026-11-17 ruling).
+  Held, Hold to Talk takes the rim and reads Listening and Type goes; let go, Transcribing. A typed draft is a
   moment: the information panel (440 dp, the pair's left) is the field, its words the person's with a caret after them
   (a press opens the keyboard again), and the column beside it holds only Cancel until a word exists, then Send
   Instruction where it can send; a typed draft has no sentence bar but a lasting reason Send waits. A heard draft (the

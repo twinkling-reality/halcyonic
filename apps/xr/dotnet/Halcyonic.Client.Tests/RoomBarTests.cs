@@ -46,7 +46,8 @@ public class RoomBarTests
         var rest = RoomBar.Of(binding, VoiceStage.Idle, sentAwaitingStart: false);
         Assert.That((rest.State, rest.Pair), Is.EqualTo((RoomBarState.Rest, false)));
         Assert.That(rest.FromMoment, Is.False, "the row at rest is the task's own loop");
-        Assert.That(Actions(rest.Row), Is.EqualTo(new[] { (KitPlace.Talk, "Hold to Talk", true), (KitPlace.Field, "Type", false) }));
+        // Nothing on the row is lit at rest: Hold to Talk takes the rim only while it is held and listening (the lead's 18:31Z).
+        Assert.That(Actions(rest.Row), Is.EqualTo(new[] { (KitPlace.Talk, "Hold to Talk", false), (KitPlace.Field, "Type", false) }));
         Assert.That(rest.Row[1].Control.Action, Is.EqualTo(FileScreens.TellIt), "Type opens the file's own instruction");
 
         var listening = RoomBar.Of(binding, VoiceStage.Listening, sentAwaitingStart: false);
@@ -61,7 +62,7 @@ public class RoomBarTests
     public void WithoutVoiceTypeStandsAloneAndWhereNothingCanBeWrittenItsReasonStandsAsWords()
     {
         var quiet = Bind(Running(WorkspaceAction.Instruct), new WorkspaceSteering(factory), new FileScreen { Section = FileSection.Activity, Speak = false });
-        Assert.That(Actions(RoomBar.Of(quiet, VoiceStage.Idle, false).Row), Is.EqualTo(new[] { (KitPlace.Field, "Type", true) }));
+        Assert.That(Actions(RoomBar.Of(quiet, VoiceStage.Idle, false).Row), Is.EqualTo(new[] { (KitPlace.Field, "Type", false) }), "Type alone is not lit at rest");
 
         var closed = Bind(Running(WorkspaceAction.Interrupt), new WorkspaceSteering(factory), new FileScreen { Section = FileSection.Activity, Speak = true });
         var none = RoomBar.Of(closed, VoiceStage.Idle, false);

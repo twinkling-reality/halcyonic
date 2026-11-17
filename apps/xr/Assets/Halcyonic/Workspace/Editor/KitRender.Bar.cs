@@ -878,6 +878,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         // Where no keyboard is offered, the action that would open it says what it opens instead.
                         if (shown.Row[index].Place == KitPlace.Field) Require(shown.Row[index].Words == (choosing ? RoomBar.ChooseInstruction : RoomBar.Type), "the row's second action reads \"" + shown.Row[index].Words + "\"");
                     }
+                    // At rest nothing on the row is lit: Hold to Talk takes the rim only while it is held and listening (the lead's
+                    // 2026-11-17 18:31Z ruling on AUDIT's look line: a page with no main action has nothing lit at rest).
+                    if (shown.State != RoomBarState.Listening && shown.State != RoomBarState.Transcribing)
+                        Require(row.All(button => button.LookNow() != RoomButtonLook.Main), "the row lights " + string.Join(", ", row.Where(button => button.LookNow() == RoomButtonLook.Main).Select(button => button.name)) + " at rest");
                     for (var index = 1; index < row.Count; index++)
                     {
                         var gap = (row[index].transform.localPosition.x - row[index].Core.x / 2f) - (row[index - 1].transform.localPosition.x + row[index - 1].Core.x / 2f);
