@@ -1420,6 +1420,12 @@ describe('tasks add to one app in parts of their own (VRIFY)', () => {
       .filter((n) => n !== ''))
       assert.match(kit, new RegExp(`\\b${name}\\b`), name);
     assert.match(agents, /Never import a part from `src\/index\.ts` or list it anywhere\./);
+    // A part that names a time of day asked the person whether to change the whole app's world (Critter Row 4's
+    // flowers, "at night", 2026-11-17): the notes now say to choose that world itself, and never to rename the app.
+    assert.match(
+      agents.replace(/\s+/g, ' '),
+      /When the person's words name a time of day or a world for what you add \(at night, at sunset, by the sea\), choose that world in `src\/index\.ts` yourself as the whole app's look, .*; never rename the app for it\./,
+    );
     assert.match(
       agents,
       /A part added to a game leaves the name, the card and the title as they are\./,

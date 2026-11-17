@@ -716,3 +716,11 @@ template type checks with no parts and with AGENTS.md's part example in `src/par
 0 each), and so do the whole small game, view and piano of light with `addParts(world)` (exit 0 each). Not yet
 measured: the same three sentences on the new template, which is the pass for this change (every pair combines, or the
 reason one cannot is named).
+
+Measured on c0d79aa04 with FILM's words, each naming the night ("Add a field of glowing flowers at night.", "Make the
+floor a calm reflecting lake under the night sky.", "Add paper lanterns that drift up into the night."): every pair
+combined (0 overlaps). The lake and the lanterns each chose `setupLook(world, 'night')` and the same loading colours,
+identical changes that merge once. The flowers asked the person instead whether "at night" meant a dusk of its own part
+or the whole app's night world (and whether to retitle it), after 11 minutes: the notes' "only when the change truly
+needs them" left it unsure. The notes now say that a time of day or a world in the person's words is chosen in
+`src/index.ts` as the whole app's look, never with a new name.
