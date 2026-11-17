@@ -118,9 +118,9 @@ namespace Halcyonic.XR.Workspace.Editor
                                 Advance(view, 1f / 12f);
                                 WorkspaceRender.ForceMeshes(root);
                                 var still = WorkspaceRender.Render(camera, texture);
-                                // The ring in the pixels: warm pixels, red over blue by 40 or more with green between (the amber's hue),
-                                // never the character's own pink or the tag's white.
-                                amber.Add(still.GetPixels32().Count(pixel => pixel.r > 60 && pixel.r - pixel.b >= 40 && pixel.g > pixel.b && pixel.g < pixel.r));
+                                // The ring in the pixels: warm pixels, red over blue by 25 or more with green between (the amber's hue as it
+                                // lies over the shelf's teal), never the character's own pink (blue over green) or the tag's white.
+                                amber.Add(still.GetPixels32().Count(pixel => pixel.r > 60 && pixel.r - pixel.b >= 25 && pixel.g > pixel.b && pixel.g < pixel.r));
                                 File.WriteAllBytes(Path.Combine(clip, "frame-" + frame.ToString("00", System.Globalization.CultureInfo.InvariantCulture) + ".png"), still.EncodeToPNG());
                                 UnityEngine.Object.DestroyImmediate(still);
                                 if (view.NeedsYouRing is MeshRenderer ring)

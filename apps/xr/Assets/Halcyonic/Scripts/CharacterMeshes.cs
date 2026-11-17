@@ -268,10 +268,11 @@ namespace Halcyonic.XR
         public static Mesh Band() => band ??= MakeBand("Halcyonic band", 1.3f, 0.05f);
 
         /// <summary>
-        /// The waiting character's floor ring (the lead's 2026-11-17T03:24Z): a flat band 1.6 body units in radius, so it shows beyond
-        /// the body's silhouette, and 0.07 wide, about 3 to 4 dp at the shelf's distance; as <see cref="Band"/> otherwise.
+        /// The waiting character's floor ring (the lead's 2026-11-17T03:24Z): a flat band 1.7 body units in radius, so it shows beyond
+        /// the body's silhouette, and 0.16 wide, its soft profile leaving a core of about 3 to 4 dp at the shelf's distance (tip10: at
+        /// 0.07 the soft edges left 8 amber pixels); as <see cref="Band"/> otherwise.
         /// </summary>
-        public static Mesh FloorBand() => floorBand ??= MakeBand("Halcyonic floor band", 1.6f, 0.035f);
+        public static Mesh FloorBand() => floorBand ??= MakeBand("Halcyonic floor band", 1.7f, 0.08f);
 
         private static Mesh? floorBand;
 

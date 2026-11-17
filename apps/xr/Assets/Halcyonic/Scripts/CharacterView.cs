@@ -517,6 +517,9 @@ namespace Halcyonic.XR
             floorRingRenderer = CreateRenderer(transform, "Needs you ring", CharacterMeshes.FloorBand(), CharacterMaterials.Ring);
             floorRingRenderer.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             floorRingRenderer.transform.localScale = Vector3.one * (NeedsYouRingScale * BodyScale);
+            // Drawn after the shelf's plate (the kit's plate order, 4) and under the tag's words (10): at 2 mm and the default order the
+            // shelf covered it at the larger text size (tip10).
+            floorRingRenderer.sortingOrder = 5;
             floorRingRenderer.enabled = false;
 
             // Text reads along its parent's forward axis, and the character faces the person.
@@ -824,7 +827,7 @@ namespace Halcyonic.XR
             {
                 // A slow breath on the character's own clock, which stands while things are kept still.
                 var breath = 0.5f + 0.5f * Mathf.Sin(t * 2f * Mathf.PI / NeedsYouRingBreathSeconds);
-                floorRingRenderer.transform.localPosition = new Vector3(homeOffset.x, Grounded ? 0.002f : body.localPosition.y - BodyScale, homeOffset.z);
+                floorRingRenderer.transform.localPosition = new Vector3(homeOffset.x, Grounded ? 0.006f : body.localPosition.y - BodyScale, homeOffset.z);
                 floorRingBlock.SetColor(ColorId, new Color(NeedsYouRingColour.r, NeedsYouRingColour.g, NeedsYouRingColour.b,
                     floorRing * (NeedsYouRingRestAlpha + NeedsYouRingBreathAlpha * breath)));
                 floorRingRenderer.SetPropertyBlock(floorRingBlock);
