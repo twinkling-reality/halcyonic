@@ -79,6 +79,18 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/integrations/acp:
+    dependencies:
+      '@halcyonic/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@halcyonic/runtime-core':
+        specifier: workspace:*
+        version: link:../../runtime-core
+      '@halcyonic/seatbelt':
+        specifier: workspace:*
+        version: link:../../seatbelt
+
   packages/integrations/claude-code:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':

@@ -1,0 +1,851 @@
+import { type ChildProcess, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type {
+  ApprovalDecision,
+  ApprovalLevel,
+  Provenance,
+  RuntimeCapabilities,
+  RuntimeDescriptor,
+  RuntimeOptions,
+  Timestamp,
+} from '@halcyonic/contracts';
+import {
+  confirmProjectLocation,
+  type DirectoryPolicy,
+  type ExecutionContext,
+  type InstructionRequest,
+  type ObservationSink,
+  type OptionsValidation,
+  RuntimeActionError,
+  type RuntimeAdapter,
+  type RuntimeObservation,
+  type StartExecutionRequest,
+  type StartExecutionResult,
+} from '@halcyonic/runtime-core';
+import { type HostFoldersScope, hostFoldersDeniedProfile, SANDBOX_EXEC } from '@halcyonic/seatbelt';
+import { approvalRequest, toolNameOf } from './approvals.ts';
+import type { AcpProfile } from './profiles.ts';
+import { type RequestId, RpcConnection, RpcError, RpcUnanswered } from './rpc.ts';
+
+/** The ACP protocol version this adapter speaks (agentclientprotocol.com, `initialize`). */
+export const ACP_PROTOCOL_VERSION = 1;
+
+/** ACP's error for a request that needs the agent app signed in first (`auth_required`). */
+const AUTH_REQUIRED = -32000;
+
+/**
+ * What every ACP agent app gives through this adapter, each proven by a runtime test of the pinned
+ * Antigravity on the stand-in model (validation/acp-agents.md): a turn from a prompt, another at
+ * rest, an approval answered, a turn cancelled. Nothing runs while a turn runs (ACP has no steer) and
+ * no question reaches the person (ACP has no question surface), so neither is declared.
+ */
+export const ACP_CAPABILITIES: RuntimeCapabilities = {
+  start_execution: true,
+  instruct_at_rest: true,
+  instruct_while_running: false,
+  respond_to_approval: true,
+  answer_question: false,
+  interrupt: true,
+};
+
+/** Why a run is not counted confined, in words the headset can show (`unconfined_reason`). */
+export const UNCONFINED_REASON =
+  "It reaches its maker's service directly, which Halora's closed sandbox does not let through; Halora's own folders are kept from it.";
+
+/** How long the app has to answer `initialize` and `session/new`. */
+const HANDSHAKE_MS = 60_000;
+/** How long an approval or a cancel waits for the app to show it took effect. */
+const CONFIRM_MS = 15_000;
+
+export interface AcpRuntimeOptions {
+  readonly profile: AcpProfile;
+  readonly binaryPath: string;
+  readonly directoryPolicy: DirectoryPolicy;
+  /**
+   * The environment the app is launched with, built by the host. The profile's own variables are
+   * taken out of it, so the app signs in only its own way, never with a key from the host.
+   */
+  readonly env: Readonly<Record<string, string>>;
+  /**
+   * Variables of the app's own a test sets, such as a stand-in model's address and a dummy key, with
+   * the ACP auth method that uses them. The control plane never passes this.
+   */
+  readonly standIn?: {
+    readonly variables: Readonly<Record<string, string>>;
+    readonly authMethod: string;
+  };
+  /**
+   * On macOS, the host's own folders the light profile keeps the app and everything it runs from
+   * (its data folder with the keys and the journal, the task copies, every `.halcyonic` home), and
+   * where the profile file is written. Null runs the app with no profile.
+   */
+  readonly hostFolders: { readonly scope: HostFoldersScope; readonly profileFolder: string } | null;
+  readonly clock?: () => Date;
+}
+
+interface Turn {
+  readonly id: string;
+  /** Settles when the app answered `session/prompt`. */
+  readonly done: Promise<void>;
+  interrupting: {
+    resolve: () => void;
+    reject: (error: Error) => void;
+    timer: NodeJS.Timeout;
+  } | null;
+}
+
+interface Approval {
+  readonly id: string;
+  readonly rpcId: RequestId;
+  readonly toolCallId: string | null;
+  readonly allow: string | null;
+  readonly reject: string | null;
+  answered: {
+    readonly decision: 'approved' | 'denied';
+    readonly resolve: () => void;
+    readonly reject: (error: Error) => void;
+    readonly timer: NodeJS.Timeout;
+  } | null;
+}
+
+function timestamp(date: Date): Timestamp {
+  return date.toISOString() as Timestamp;
+}
+
+function observed(nativeType: string): Provenance {
+  return { epistemic: 'observed', native_type: nativeType.slice(0, 128) };
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function text(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+/** Words for an ACP stop reason that ended a turn without its work done (`StopReason`). */
+const STOP_FAILURES: Readonly<Record<string, string>> = {
+  max_tokens: 'it reached its token limit',
+  max_turn_requests: 'it reached its limit of model requests for one turn',
+  refusal: 'the model refused to go on',
+};
+
+/**
+ * Directs an agent app that speaks the Agent Client Protocol (ACP, protocol version 1) over its stdio,
+ * one app process per execution, the same way for every app; what differs between apps is its
+ * profile. The app signs in its own way, once, on this Mac; Halcyonic never holds its key. On macOS
+ * the app runs under the light profile, never reading or writing the host's own folders, and is
+ * recorded not confined.
+ */
+export class AcpRuntimeAdapter implements RuntimeAdapter {
+  readonly descriptor: RuntimeDescriptor;
+  readonly #options: AcpRuntimeOptions;
+  readonly #clock: () => Date;
+  readonly #sessions = new Map<string, AcpSession>();
+  #closed = false;
+
+  constructor(options: AcpRuntimeOptions) {
+    this.#options = options;
+    this.#clock = options.clock ?? (() => new Date());
+    this.descriptor = {
+      runtime_id: options.profile.runtimeId as RuntimeDescriptor['runtime_id'],
+      kind: options.profile.kind as RuntimeDescriptor['kind'],
+      display_name: options.profile.displayName,
+      synthetic: false,
+      capabilities: ACP_CAPABILITIES,
+      model_choice: 'none',
+      uses_project_location: true,
+      reports_tool_activity: false,
+    };
+  }
+
+  validateStartOptions(
+    options: RuntimeOptions,
+    modelRef: string | null,
+    approvalLevel?: ApprovalLevel,
+  ): OptionsValidation {
+    if (Object.keys(options).length > 0) {
+      return { ok: false, message: `${this.descriptor.display_name} takes no start options.` };
+    }
+    if (modelRef !== null) {
+      return {
+        ok: false,
+        message: `${this.descriptor.display_name} offers no choice of model here.`,
+      };
+    }
+    if (approvalLevel !== undefined && approvalLevel !== 'ask') {
+      return { ok: false, message: `${this.descriptor.display_name} always asks before it acts.` };
+    }
+    return { ok: true };
+  }
+
+  /** It runs with the person's own access but for the host's folders: never a sandbox of Halcyonic's. */
+  runsOutsideSandbox(): boolean {
+    return true;
+  }
+
+  ownsEnvironmentName(name: string): boolean {
+    return this.#options.profile.ownVariables.includes(name);
+  }
+
+  async startExecution(request: StartExecutionRequest): Promise<StartExecutionResult> {
+    if (this.#closed) throw new RuntimeActionError('runtime_closed', 'The runtime is closing.');
+    const id = request.execution.execution_id;
+    if (this.#sessions.has(id)) {
+      throw new RuntimeActionError('execution_exists', 'This execution already runs here.');
+    }
+    if ((request.approval_level ?? 'ask') !== 'ask') {
+      throw new RuntimeActionError(
+        'level_unsupported',
+        `${this.descriptor.display_name} always asks before it acts.`,
+      );
+    }
+    const directory = confirmProjectLocation(this.#options.directoryPolicy, request.directory);
+    const session = new AcpSession(this.#options, this.#clock, request.emit, directory);
+    this.#sessions.set(id, session);
+    try {
+      const nativeId = await session.open(() =>
+        confirmProjectLocation(this.#options.directoryPolicy, request.directory),
+      );
+      session.prompt(request.instruction);
+      return { native_id: nativeId };
+    } catch (error) {
+      this.#sessions.delete(id);
+      await session.close();
+      throw error;
+    }
+  }
+
+  async sendInstruction(request: InstructionRequest): Promise<void> {
+    const session = this.#session(request.execution);
+    if (request.leave_plan === true) {
+      throw new RuntimeActionError('plan_unsupported', 'No plan was started here.');
+    }
+    session.prompt(request.text);
+  }
+
+  async respondToApproval(request: {
+    execution: ExecutionContext;
+    approval_id: string;
+    decision: ApprovalDecision;
+    message: string | null;
+  }): Promise<void> {
+    await this.#session(request.execution).respond(request.approval_id, request.decision);
+  }
+
+  async interrupt(request: { execution: ExecutionContext }): Promise<void> {
+    await this.#session(request.execution).interrupt();
+  }
+
+  async close(): Promise<void> {
+    this.#closed = true;
+    const sessions = [...this.#sessions.values()];
+    this.#sessions.clear();
+    await Promise.all(sessions.map((session) => session.close()));
+  }
+
+  #session(execution: ExecutionContext): AcpSession {
+    const session = this.#sessions.get(execution.execution_id);
+    if (session === undefined || !session.alive) {
+      throw new RuntimeActionError(
+        'execution_not_found',
+        `${this.descriptor.display_name} no longer holds this execution.`,
+      );
+    }
+    return session;
+  }
+}
+
+/** One execution: one app process, one ACP session. */
+class AcpSession {
+  readonly #options: AcpRuntimeOptions;
+  readonly #clock: () => Date;
+  readonly #emitTo: ObservationSink;
+  readonly #directory: string;
+  readonly #name: string;
+  /** Names this launch's records, so none is reused by a later launch (`native_event_id`). */
+  readonly #launch = randomUUID();
+  readonly #approvals = new Map<string, Approval>();
+  readonly #toolsStarted = new Set<string>();
+  readonly #toolsEnded = new Set<string>();
+  #counter = 0;
+  #child: ChildProcess | null = null;
+  #rpc: RpcConnection | null = null;
+  #sessionId: string | null = null;
+  #turn: Turn | null = null;
+  #message = '';
+  #closing = false;
+  #alive = false;
+
+  constructor(
+    options: AcpRuntimeOptions,
+    clock: () => Date,
+    emit: ObservationSink,
+    directory: string,
+  ) {
+    this.#options = options;
+    this.#clock = clock;
+    this.#emitTo = emit;
+    this.#directory = directory;
+    this.#name = options.profile.displayName;
+  }
+
+  get alive(): boolean {
+    return this.#alive;
+  }
+
+  /** Launches the app, checks its version, opens a session in the folder and reports it started. */
+  async open(confirmAgain: () => string): Promise<string> {
+    const rpc = this.#launch_();
+    let initialized: unknown;
+    try {
+      initialized = await rpc.request(
+        'initialize',
+        {
+          protocolVersion: ACP_PROTOCOL_VERSION,
+          // The app reads and writes files and runs commands itself, in the folder it was given.
+          clientCapabilities: {
+            fs: { readTextFile: false, writeTextFile: false },
+            terminal: false,
+          },
+          clientInfo: { name: 'halcyonic', version: '0' },
+        },
+        HANDSHAKE_MS,
+      );
+    } catch (error) {
+      throw this.#startError(error);
+    }
+    const info = record(record(initialized)?.agentInfo);
+    const version = text(info?.version);
+    if (
+      record(initialized)?.protocolVersion !== ACP_PROTOCOL_VERSION ||
+      version !== this.#options.profile.version
+    ) {
+      throw new RuntimeActionError(
+        'runtime_version_unsupported',
+        `Halora directs ${this.#name} only: this app reports ${version === null ? 'no version' : `version ${version}`}${record(initialized)?.protocolVersion === ACP_PROTOCOL_VERSION ? '' : ' and another protocol version'}.`,
+      );
+    }
+    if (this.#options.standIn !== undefined) {
+      try {
+        await rpc.request(
+          'authenticate',
+          { methodId: this.#options.standIn.authMethod },
+          HANDSHAKE_MS,
+        );
+      } catch (error) {
+        throw this.#startError(error);
+      }
+    }
+    // After the launch's wait, the folder is asked again right before it is handed to the app.
+    const cwd = confirmAgain();
+    let created: unknown;
+    try {
+      created = await rpc.request('session/new', { cwd, mcpServers: [] }, HANDSHAKE_MS);
+    } catch (error) {
+      throw this.#startError(error);
+    }
+    const sessionId = text(record(created)?.sessionId);
+    if (sessionId === null || sessionId === '' || sessionId.length > 512) {
+      throw new RuntimeActionError(
+        'runtime_error',
+        `${this.#name} opened a session without an id.`,
+        'unknown',
+      );
+    }
+    this.#sessionId = sessionId;
+    this.#alive = true;
+    this.#emit(
+      'runtime.execution.started',
+      { native_id: sessionId, confined: false, unconfined_reason: UNCONFINED_REASON },
+      observed('session/new'),
+    );
+    return sessionId;
+  }
+
+  /** Starts a turn from an instruction; it ends when the app answers the prompt. */
+  prompt(instruction: string): void {
+    const rpc = this.#rpc;
+    const sessionId = this.#sessionId;
+    if (rpc === null || sessionId === null || !this.#alive) {
+      throw new RuntimeActionError(
+        'execution_not_found',
+        `${this.#name} no longer holds this execution.`,
+      );
+    }
+    if (this.#turn !== null) {
+      throw new RuntimeActionError(
+        'turn_running',
+        `${this.#name} takes an instruction only once its turn has ended.`,
+      );
+    }
+    if (!rpc.open) {
+      throw new RuntimeActionError(
+        'runtime_unavailable',
+        `The connection to ${this.#name} has ended.`,
+      );
+    }
+    const turnId = randomUUID();
+    const answered = rpc.request(
+      'session/prompt',
+      { sessionId, prompt: [{ type: 'text', text: instruction }] },
+      null,
+    );
+    const turn: Turn = {
+      id: turnId,
+      done: answered.then(
+        () => undefined,
+        () => undefined,
+      ),
+      interrupting: null,
+    };
+    this.#turn = turn;
+    this.#emit(
+      'runtime.turn.started',
+      { turn_id: turnId },
+      { epistemic: 'inferred', native_type: 'session/prompt', rule: 'acp.prompt.sent' },
+    );
+    answered.then(
+      (result) => this.#ended(turn, result),
+      (error: unknown) => this.#failed(turn, error),
+    );
+  }
+
+  /** Answers an approval with the app's own once-only option and waits for the app to act on it. */
+  respond(approvalId: string, decision: ApprovalDecision): Promise<void> {
+    const approval = this.#approvals.get(approvalId);
+    const rpc = this.#rpc;
+    if (approval === undefined || rpc === null || !rpc.open) {
+      return Promise.reject(
+        new RuntimeActionError(
+          'approval_not_found',
+          `${this.#name} is no longer waiting for that answer.`,
+        ),
+      );
+    }
+    if (approval.answered !== null) {
+      return Promise.reject(
+        new RuntimeActionError('approval_answered', 'That request was already answered.'),
+      );
+    }
+    const approved = decision === 'approve';
+    const option = approved ? approval.allow : approval.reject;
+    if (approved && option === null) {
+      return Promise.reject(
+        new RuntimeActionError(
+          'approval_not_approvable',
+          `${this.#name} offered no way to allow this once.`,
+        ),
+      );
+    }
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    approval.answered = {
+      decision: approved ? 'approved' : 'denied',
+      resolve,
+      reject,
+      timer: setTimeout(() => {
+        if (approval.answered === null) return;
+        approval.answered = null;
+        this.#approvals.delete(approvalId);
+        reject(
+          new RuntimeActionError(
+            'approval_unconfirmed',
+            `${this.#name} did not show that it took the answer.`,
+            'unknown',
+          ),
+        );
+      }, CONFIRM_MS),
+    };
+    // A request with no once-only refusal is refused by withdrawing it, never by a lasting rule.
+    rpc.respond(
+      approval.rpcId,
+      option === null
+        ? { outcome: { outcome: 'cancelled' } }
+        : { outcome: { outcome: 'selected', optionId: option } },
+    );
+    return promise;
+  }
+
+  /** Cancels the running turn (`session/cancel`) and resolves once the app ends it cancelled. */
+  interrupt(): Promise<void> {
+    const rpc = this.#rpc;
+    const turn = this.#turn;
+    if (rpc === null || !rpc.open || this.#sessionId === null) {
+      return Promise.reject(
+        new RuntimeActionError('runtime_unavailable', `The connection to ${this.#name} has ended.`),
+      );
+    }
+    if (turn === null) {
+      return Promise.reject(new RuntimeActionError('turn_not_running', 'No turn is running.'));
+    }
+    if (turn.interrupting !== null) return turn.done;
+    const { promise, resolve, reject } = Promise.withResolvers<void>();
+    turn.interrupting = {
+      resolve,
+      reject,
+      timer: setTimeout(() => {
+        reject(
+          new RuntimeActionError(
+            'interrupt_unconfirmed',
+            `${this.#name} did not end the turn in time.`,
+            'unknown',
+          ),
+        );
+      }, CONFIRM_MS),
+    };
+    rpc.notify('session/cancel', { sessionId: this.#sessionId });
+    // ACP: the client answers every request it still holds as cancelled once it cancels.
+    for (const approval of this.#approvals.values()) {
+      if (approval.answered === null)
+        rpc.respond(approval.rpcId, { outcome: { outcome: 'cancelled' } });
+    }
+    return promise;
+  }
+
+  async close(): Promise<void> {
+    this.#closing = true;
+    this.#alive = false;
+    const child = this.#child;
+    if (child === null || child.exitCode !== null || child.signalCode !== null) return;
+    const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+    // The app ends at the end of its input; a signal follows where it does not.
+    this.#rpc?.end();
+    const term = setTimeout(() => child.kill('SIGTERM'), 2_000);
+    const kill = setTimeout(() => child.kill('SIGKILL'), 6_000);
+    await exited;
+    clearTimeout(term);
+    clearTimeout(kill);
+  }
+
+  #launch_(): RpcConnection {
+    const { profile, binaryPath, hostFolders } = this.#options;
+    const env: Record<string, string> = { ...this.#options.env };
+    for (const name of profile.ownVariables) delete env[name];
+    Object.assign(env, this.#options.standIn?.variables ?? {}, profile.environment);
+    let command = binaryPath;
+    let args = [...profile.args];
+    if (hostFolders !== null) {
+      const path = writeProfile(hostFolders.profileFolder, profile.runtimeId, hostFolders.scope);
+      args = ['-f', path, binaryPath, ...args];
+      command = SANDBOX_EXEC;
+    }
+    const child = spawn(command, args, {
+      cwd: this.#directory,
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    this.#child = child;
+    // What the app writes to stderr can hold the person's words; it is read and dropped, never logged.
+    child.stderr?.resume();
+    child.on('error', () => undefined);
+    const rpc = new RpcConnection(
+      child.stdout as NonNullable<typeof child.stdout>,
+      child.stdin as NonNullable<typeof child.stdin>,
+      {
+        onNotification: (method, params) => this.#notified(method, params),
+        onRequest: (id, method, params, connection) =>
+          this.#requested(id, method, params, connection),
+      },
+      this.#name,
+    );
+    this.#rpc = rpc;
+    child.once('exit', (code, signal) => this.#exited(code, signal));
+    return rpc;
+  }
+
+  #startError(error: unknown): RuntimeActionError {
+    if (error instanceof RuntimeActionError) return error;
+    if (error instanceof RpcError && error.code === AUTH_REQUIRED) {
+      return new RuntimeActionError(
+        'sign_in_required',
+        `${this.#name} is not signed in on this Mac. Sign in to it once in a terminal, then start again.`,
+      );
+    }
+    if (error instanceof RpcError) {
+      return new RuntimeActionError(
+        'runtime_error',
+        `${this.#name} refused to start: ${error.message}`,
+      );
+    }
+    if (error instanceof RpcUnanswered) {
+      return new RuntimeActionError(
+        'runtime_unavailable',
+        error.message,
+        error.reason === 'not_sent' ? 'none' : 'unknown',
+      );
+    }
+    return new RuntimeActionError('runtime_error', `${this.#name} could not start.`, 'unknown');
+  }
+
+  #notified(method: string, params: unknown): void {
+    if (method !== 'session/update') return;
+    const body = record(params);
+    if (body === null || body.sessionId !== this.#sessionId) return;
+    const update = record(body.update);
+    if (update === null) return;
+    const kind = text(update.sessionUpdate);
+    if (kind === 'agent_message_chunk') {
+      const content = record(update.content);
+      if (content?.type === 'text' && typeof content.text === 'string')
+        this.#message += content.text;
+      return;
+    }
+    if (
+      kind === 'agent_thought_chunk' ||
+      kind === 'usage_update' ||
+      kind === 'available_commands_update'
+    )
+      return;
+    if (kind === 'tool_call' || kind === 'tool_call_update') {
+      this.#flushMessage();
+      this.#toolUpdate(update, kind);
+    }
+  }
+
+  #toolUpdate(update: Record<string, unknown>, kind: string): void {
+    const toolCallId = text(update.toolCallId);
+    if (toolCallId === null || toolCallId === '' || toolCallId.length > 400) return;
+    if (!this.#toolsStarted.has(toolCallId) && this.#turn !== null) {
+      this.#toolsStarted.add(toolCallId);
+      const title = text(update.title);
+      this.#emit(
+        'runtime.tool.started',
+        {
+          tool_call_id: toolCallId,
+          tool_name: toolNameOf(update),
+          title: title !== null && title.trim() !== '' ? title : null,
+        },
+        observed(kind),
+      );
+    }
+    const status = text(update.status);
+    for (const approval of this.#approvals.values()) {
+      if (approval.toolCallId !== toolCallId || approval.answered === null) continue;
+      const decided = approval.answered.decision;
+      // A refused call is settled `failed`; an allowed one goes on to run (`in_progress`, `completed`).
+      const applied =
+        decided === 'approved'
+          ? status === 'in_progress' || status === 'completed'
+          : status === 'failed';
+      if (applied) this.#resolveApproval(approval, decided, kind);
+    }
+    if ((status === 'completed' || status === 'failed') && this.#toolsStarted.has(toolCallId)) {
+      if (this.#toolsEnded.has(toolCallId)) return;
+      this.#toolsEnded.add(toolCallId);
+      this.#emit(
+        'runtime.tool.completed',
+        {
+          tool_call_id: toolCallId,
+          turn_id: this.#turn?.id ?? null,
+          outcome: status === 'completed' ? 'succeeded' : 'failed',
+        },
+        observed(`${kind}.${status}`),
+      );
+    }
+  }
+
+  #requested(id: RequestId, method: string, params: unknown, connection: RpcConnection): void {
+    const body = record(params);
+    if (
+      method !== 'session/request_permission' ||
+      body === null ||
+      body.sessionId !== this.#sessionId
+    ) {
+      // ACP's file and terminal requests are not offered (`clientCapabilities`), nor anything else.
+      connection.respondError(id, -32601, 'Halora offers no such method.');
+      return;
+    }
+    const toolCall = record(body.toolCall) ?? {};
+    const options = (Array.isArray(body.options) ? body.options : []).map(record);
+    const optionOf = (kind: string) => {
+      const option = options.find((entry) => entry !== null && entry.kind === kind);
+      const optionId = text(option?.optionId);
+      return optionId === null || optionId === '' ? null : optionId;
+    };
+    if (this.#turn === null) {
+      // Nobody can see a request outside a turn: it is withdrawn at once.
+      connection.respond(id, { outcome: { outcome: 'cancelled' } });
+      return;
+    }
+    this.#flushMessage();
+    const toolCallId = text(toolCall.toolCallId);
+    const approvalId = `${toolCallId ?? 'request'}:${String(id)}`.slice(0, 512);
+    const allow = optionOf('allow_once');
+    const approval: Approval = {
+      id: approvalId,
+      rpcId: id,
+      toolCallId,
+      allow,
+      reject: optionOf('reject_once'),
+      answered: null,
+    };
+    this.#approvals.set(approvalId, approval);
+    if (toolCallId !== null)
+      this.#toolUpdate({ ...toolCall, sessionUpdate: 'tool_call' }, 'tool_call');
+    const asked = approvalRequest(toolCall, this.#options.profile, this.#directory);
+    this.#emit(
+      'runtime.approval.requested',
+      {
+        approval_id: approvalId,
+        subject: asked.subject,
+        complete: asked.complete && allow !== null,
+      },
+      observed('session/request_permission'),
+    );
+  }
+
+  #resolveApproval(approval: Approval, decision: 'approved' | 'denied', nativeType: string): void {
+    const answered = approval.answered;
+    if (answered === null) return;
+    approval.answered = null;
+    clearTimeout(answered.timer);
+    this.#approvals.delete(approval.id);
+    this.#emit(
+      'runtime.approval.resolved',
+      { approval_id: approval.id, decision },
+      observed(nativeType),
+    );
+    answered.resolve();
+  }
+
+  #ended(turn: Turn, result: unknown): void {
+    if (this.#turn !== turn) return;
+    this.#flushMessage();
+    this.#settleApprovals('The turn ended before the app took the answer.');
+    this.#turn = null;
+    const stopReason = text(record(result)?.stopReason) ?? 'unknown';
+    const native = observed(`session/prompt.${stopReason}`);
+    if (stopReason === 'end_turn') {
+      this.#emit('runtime.turn.completed', { turn_id: turn.id }, native);
+    } else if (stopReason === 'cancelled') {
+      this.#emit('runtime.turn.interrupted', { turn_id: turn.id }, native);
+    } else {
+      const words =
+        STOP_FAILURES[stopReason] ??
+        `it ended the turn for a reason Halora does not know (${stopReason})`;
+      this.#emit(
+        'runtime.turn.failed',
+        {
+          turn_id: turn.id,
+          error: { code: 'turn_stopped', message: `${this.#name} stopped: ${words}.` },
+        },
+        native,
+      );
+    }
+    this.#settleInterrupt(turn, stopReason === 'cancelled');
+  }
+
+  #failed(turn: Turn, error: unknown): void {
+    if (this.#turn !== turn) return;
+    this.#flushMessage();
+    this.#settleApprovals('The turn ended before the app took the answer.');
+    this.#turn = null;
+    if (error instanceof RpcError) {
+      this.#emit(
+        'runtime.turn.failed',
+        {
+          turn_id: turn.id,
+          error: {
+            code: error.code === AUTH_REQUIRED ? 'sign_in_required' : 'runtime_error',
+            message: `${this.#name} failed the turn: ${error.message}`,
+          },
+        },
+        observed('session/prompt.error'),
+      );
+    }
+    // An unanswered prompt is the connection's end, reported as lost when the process exits.
+    this.#settleInterrupt(turn, false);
+  }
+
+  #settleInterrupt(turn: Turn, cancelled: boolean): void {
+    const interrupting = turn.interrupting;
+    if (interrupting === null) return;
+    turn.interrupting = null;
+    clearTimeout(interrupting.timer);
+    if (cancelled) interrupting.resolve();
+    else {
+      interrupting.reject(
+        new RuntimeActionError(
+          'interrupt_unconfirmed',
+          `${this.#name} ended the turn otherwise than cancelled.`,
+          'unknown',
+        ),
+      );
+    }
+  }
+
+  #settleApprovals(reason: string): void {
+    for (const approval of this.#approvals.values()) {
+      const answered = approval.answered;
+      if (answered !== null) {
+        clearTimeout(answered.timer);
+        answered.reject(new RuntimeActionError('approval_withdrawn', reason, 'unknown'));
+      }
+    }
+    this.#approvals.clear();
+  }
+
+  #exited(code: number | null, signal: NodeJS.Signals | null): void {
+    const wasAlive = this.#alive;
+    this.#alive = false;
+    const turn = this.#turn;
+    this.#turn = null;
+    this.#flushMessage();
+    this.#settleApprovals(`${this.#name} stopped.`);
+    if (turn !== null) this.#settleInterrupt(turn, false);
+    if (this.#closing || !wasAlive) return;
+    this.#emit(
+      'runtime.connection.lost',
+      {
+        reason: `${this.#name} stopped (${signal === null ? `exit code ${code ?? 'unknown'}` : `signal ${signal}`}); its session can no longer be followed here.`,
+      },
+      observed('process.exit'),
+    );
+  }
+
+  #flushMessage(): void {
+    const message = this.#message;
+    this.#message = '';
+    if (message.trim() === '') return;
+    this.#emit(
+      'runtime.agent_message',
+      { text: message },
+      { epistemic: 'reported', native_type: 'agent_message_chunk' },
+    );
+  }
+
+  #emit<T extends RuntimeObservation['type']>(
+    type: T,
+    payload: Extract<RuntimeObservation, { type: T }>['payload'],
+    provenance: Provenance,
+  ): void {
+    const observation = {
+      type,
+      occurred_at: timestamp(this.#clock()),
+      native_event_id: `${this.#launch}:${++this.#counter}`,
+      sequence: null,
+      provenance,
+      payload,
+    } as RuntimeObservation;
+    try {
+      this.#emitTo(observation);
+    } catch {
+      // The sink never throws back; one that does cannot stop the session.
+    }
+  }
+}
+
+/** Writes the light profile for one app whole, replacing any older one at once. */
+function writeProfile(folder: string, runtimeId: string, scope: HostFoldersScope): string {
+  mkdirSync(folder, { recursive: true, mode: 0o700 });
+  const path = join(folder, `${runtimeId}.sb`);
+  const draft = `${path}.${process.pid}.${randomUUID()}`;
+  writeFileSync(draft, hostFoldersDeniedProfile(scope), { mode: 0o600, flag: 'wx' });
+  renameSync(draft, path);
+  return path;
+}

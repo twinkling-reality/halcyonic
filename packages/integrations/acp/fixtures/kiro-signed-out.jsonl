@@ -1,0 +1,4 @@
+{"expect": "initialize"}
+{"answer": "initialize", "result": {"protocolVersion": 1, "agentCapabilities": {"loadSession": false, "promptCapabilities": {"image": false, "audio": false, "embeddedContext": false}, "mcpCapabilities": {"http": false, "sse": false}, "sessionCapabilities": {}, "auth": {}}, "authMethods": [{"id": "kiro-login", "name": "Kiro Login", "description": "Run 'kiro-cli login' in a terminal, then reconnect to this agent. See https://kiro.dev/docs/cli/authentication/"}], "agentInfo": {"name": "Kiro CLI Agent", "title": "Kiro CLI Agent", "version": "3.4.0"}}}
+{"expect": "session/new"}
+{"answer": "session/new", "error": {"code": -32000, "message": "Authentication required. Not logged in. Set the KIRO_API_KEY environment variable or run `kiro-cli login` first. Then reconnect to start the Kiro agent."}}
