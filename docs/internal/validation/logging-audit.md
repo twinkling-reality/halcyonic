@@ -67,7 +67,9 @@ OK means nothing private can reach the site. Paths are under `apps/control-plane
 - `core/control-plane.ts` `#attachExecutionLog` (2026-11-17, DEVICE): one info line, "execution started", as each
   execution first runs, and one, "execution ended", as it reaches completed, failed, interrupted or unknown. Each carries
   `project_id`, `workstream_id`, `execution_id`, `runtime_id`, and at the end `status`; never an instruction, a path or
-  the agent's text. OK; `control-plane.test.ts` pins both lines whole.
+  the agent's text. OK; `control-plane.test.ts` pins both lines whole. After the plane restarts, an execution that
+  is still running logs "execution started" again on its first event in the new process (AUDIT3 EL1), so a log read
+  across a restart can hold two start lines for one execution; its ids say which.
 - The logger: Fastify's request lines log method, URL, host, remote address and port, never
   headers or bodies; the response line logs the status only, so the proof header is never logged
   (both shown at trace level). The 5xx handler logs the error locally and answers in fixed words;
