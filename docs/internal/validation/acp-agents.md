@@ -72,6 +72,35 @@ Both apps serve the Agent Client Protocol, version 1, JSON-RPC 2.0 over stdio: `
 - The app exits when its input ends, at rest. Whether it does in the middle of a turn was not tried.
 - Its own home folders: `~/.gemini/antigravity-cli/` (settings, conversations, logs, brain) and `~/.gemini/config/`.
 
+## Reads, the person's own settings and a project's (AUDIT3 AC1 and AC2, 2026-11-17)
+
+Run on the stand-in model, each denying first, with a control beside it:
+
+- `read_file` of a file outside the session's folder sends `session/request_permission` (kind `read`, its
+  `locations`); denied, the call is `failed` and the file's text never reaches the model. Inside the folder, and in
+  the app's own temporary folder (`TMPDIR`), it reads unasked. Its other tools (`manage_task`, `send_message`,
+  `schedule`, `invoke_subagent`, `define_subagent`, `manage_subagents`, `search_web`, `run_workflow`, `swarm`,
+  `ask_question`) were not tried.
+- The person's own settings do apply over ACP: with `"toolPermission": "always-proceed"` in
+  `~/.gemini/antigravity-cli/settings.json`, `run_command` ran with no request. `permissions.allow` rules
+  (`command`, `command(echo)`, `command(echo *)`, `command(*)`) did not stop it asking.
+- `agy acp --gemini-dir <folder>` (an absolute path; `--app-data-dir` must be relative and failed absolute) moves
+  both its settings (`<folder>/antigravity-cli/`) and its hooks, tool servers and plugins (`<folder>/config/`):
+  with the person's home set to always-proceed, a run with `--gemini-dir` asked again, and nothing was written to
+  the person's `~/.gemini`. Its Google sign-in is said to be kept in the system keychain; that it still applies
+  under `--gemini-dir` is not yet seen (Antigravity is not signed in here).
+- Kiro: `KIRO_HOME` moved `settings/cli.json` out of `~/.kiro`, while its sign-in store stayed in
+  `~/Library/Application Support/kiro-cli`.
+
+So the adapter launches each app with a settings home of Halora's own under the person's home (`~/.gemini/halora`,
+`~/.kiro/halora`) and an agent-app profile per launch: the light profile, plus the person's push and cloud
+credentials (`~/.ssh`, `~/.config/gh`, `~/.git-credentials`, `~/.netrc`, `~/.config/git/credentials`, `~/.aws`,
+`~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker/config.json`) and the project's own settings for the app
+(`.agents` and `.gemini` for Antigravity, `.kiro` and `.amazonq` for Kiro, at any depth and in any case) refused,
+read and write. End to end: an approved `read_file` of `~/.ssh/id_marker` fails and its text never reaches the model
+while the same read of a file beside it does; an approved command that writes `.agents/hooks.json` fails while the
+same command's write beside it lands.
+
 ## Kiro 3.4.0 over ACP (run signed out only)
 
 - `kiro-cli acp --agent-engine v3`: `initialize` answers `protocolVersion: 1`, `agentInfo.version: "3.4.0"`,
@@ -100,11 +129,13 @@ again right before `session/new`; the app's version must be the profile's, or th
   started in the task's folder", complete only beside inputs that do not act. A file request is complete only with
   its change carried whole: a new file's whole text, or a profile-known replacement (`edit_file` at every
   occurrence). A Kiro edit, a delete, a move and a request without its input can only be denied.
-- On macOS the app runs under the light profile (`hostFoldersDeniedProfile`): it and everything it runs never read
-  or write the data folder, the task copies or any `~/.halcyonic*` folder. The end to end suite checks this with a
-  control: an approved `cat` of a file in a host folder fails, the same `cat` of a file beside it succeeds. It is
-  recorded `confined: false` with words why: the app reaches its maker's service directly, which the closed profile
-  does not let through. `runsOutsideSandbox()` is true, as for Claude Code on a connected folder.
+- On macOS the app runs under the agent-app profile (`agentAppProfile`, one file per launch, removed at its end): it
+  and everything it runs never read or write the data folder, the task copies, any `~/.halcyonic*` folder, the
+  person's push and cloud credentials, or the project's own settings for the app. The end to end suite checks each
+  with a control beside it. It is launched with a settings home of Halora's own, so the person's own settings for
+  the app never apply. It is recorded `confined: false` with words why: the app talks to its maker's service
+  directly, which the closed profile does not allow. `runsOutsideSandbox()` is true, as for Claude Code on a
+  connected folder.
 - The app signs in its own way and the adapter never passes it a key: the profile's sign-in and endpoint variables
   (`GEMINI_API_KEY`, `GOOGLE_*`, `KIRO_API_KEY`, `KIRO_HOME`, ...) are taken out of every launch.
 - A process exit is reported `runtime.connection.lost`; the execution is then lost (no re-attach).
@@ -113,12 +144,15 @@ again right before `session/new`; the app's version must be the profile's, or th
 
 ## Tests
 
-- Unit, `acp-runtime.test.ts` (18): a fake app replays the traces recorded from these runs
+- Unit, `acp-runtime.test.ts` (18); `profile.test.ts`'s agent-app profile under `sandbox-exec` (2, each with a
+  control, two mutations caught): a fake app replays the traces recorded from these runs
   (`fixtures/antigravity-*.jsonl`, paths replaced by `$CWD`, the model list shortened; `kiro-signed-out.jsonl`).
   Four mutations were each caught (a denial taken at `in_progress`, the edit's reach unknown, a cancelled turn
   read as completed, the app's own key passed on).
-- End to end, `acp-runtime.e2e.test.ts` (7), under the light profile: on the pinned `agy` and the stand-in model,
-  approve, deny, stop during an approval, a second turn, a host folder unreadable with its control, signed out; on
+- End to end, `acp-runtime.e2e.test.ts` (11), under the agent-app profile: on the pinned `agy` and the stand-in
+  model, approve, deny, stop during an approval, a second turn, a host folder unreadable, the person's
+  always-proceed setting not applied, a read outside the folder asked and denied, a sign-in file refused to an
+  approved read, a project's hook folder refused to an approved write (each with its control), signed out; on
   the pinned `kiro-cli`, a start launched as the control plane launches it, refused signed out. Run with
   `HALCYONIC_AGY_BIN` and `HALCYONIC_KIRO_BIN` naming the pinned binaries; each part is skipped without its variable.
 
@@ -127,7 +161,7 @@ again right before `session/new`; the app's version must be the profile's, or th
 - Any signed-in run of either app, so the real model's tool names, Kiro's tool call shapes and whether Kiro sends
   `rawInput` at all. Until Kiro is seen signed in, every Kiro request is shown as its whole input or title, and its
   edits only denied.
-- Whether the person's own Antigravity permission rules (`permissions.allow`) let a call run unasked through ACP.
+- Whether Antigravity's Google sign-in applies under `--gemini-dir`, and which of its other tools ask.
 - What either app does with its input closed in the middle of a turn, so whether one outlives a control plane that
   is killed hard.
 - Kiro's and Antigravity's telemetry beyond `--disable-telemetry` (Antigravity) and Kiro's `telemetry` setting.

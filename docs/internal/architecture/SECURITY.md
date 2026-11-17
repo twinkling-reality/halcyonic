@@ -127,6 +127,18 @@ read list, its own home and loopback, nothing else; the person's folder, home, k
 profile, and nothing reaches the folder before Add to Project, which still asks. A task in the folder itself, and
 Claude Code's copies (the copy profile, network open), are never answered (ADR 0064, amended).
 
+The agent apps Halcyonic directs over ACP, Antigravity and Kiro (ADR 0067), reach their maker's service with the
+person's own sign-in and are never given a key. Each is launched with a settings home of Halora's own (Antigravity's
+`--gemini-dir`, Kiro's `KIRO_HOME`), because the person's own settings do apply over ACP: Antigravity 1.5.10 ran a
+command unasked under the person's `"toolPermission": "always-proceed"`. On macOS each runs under the agent-app
+profile: the light profile, with the push credentials above, the cloud credentials (`~/.aws`, `~/.config/gcloud`,
+`~/.azure`, `~/.kube`, `~/.docker/config.json`) and the project's own settings for the app (`.agents` and `.gemini`,
+`.kiro` and `.amazonq`, at any depth and in any case) neither read nor written, so a project cannot widen what the
+app does unasked and the app cannot write a hook that would. Antigravity asks before a read outside the folder
+(seen), and the credentials stay refused to an approved one; the rest of the person's home, their other projects and
+the network stay open, the keychain too. Such a run is recorded not confined
+([acp-agents.md](../validation/acp-agents.md)).
+
 Outside the closed profile, Claude Code runs some Bash commands without asking, by its own rules: with no settings
 loaded and its default mode, Claude Code 2.1.283 runs reads inside the folder unasked (`ls`, `cat`, `head`, `grep`,
 `sed -n`, `git status`, `git log`, `git show` and the like) and asks for everything that writes, reads outside the

@@ -28,8 +28,12 @@
    run that shows it.
 3. One app process per execution, in the project's folder, of the pinned version only. Approvals are answered with
    the app's once-only options, never a lasting rule, and count as taken only when the app shows it acted.
-4. The app signs in its own way on the Mac; Halora never holds or passes its key. On macOS it runs under the light
-   profile, kept from the host's own folders, recorded not confined.
+4. The app signs in its own way on the Mac; Halora never holds or passes its key. It is launched with a settings
+   home of Halora's own (Antigravity's `--gemini-dir`, Kiro's `KIRO_HOME`), so the person's own settings for it (an
+   allow-everything mode, hooks, tool servers) never apply to a task. On macOS it runs under the agent-app profile:
+   the light profile, with the person's push and cloud credentials and the project's own settings for the app
+   refused, read and write (AUDIT3 AC1 and AC2, 2026-11-17). Reads outside the folder ask the person, as a run
+   shows; the credentials are refused even to an approved one. Recorded not confined.
 5. Each app is registered by its own environment variable only (`HALCYONIC_ANTIGRAVITY_BIN`, `HALCYONIC_KIRO_BIN`),
    never by a settings file, since it spends the person's own plan.
 
