@@ -382,7 +382,7 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     );
     assert.match(
       instruction,
-      /If it is not a game, let every list be read to its end, and draw words in the scene no smaller than the kit's type scale, as that section says\./,
+      /If it is not a game, let every list be read to its end\. Draw every word in the scene, titles, card text, labels and footnotes alike, no smaller than TYPE\.words from src\/kit\.ts/,
     );
     // V1: the main play only, from the starter's worked game, in a world that fits, type checked before it ends.
     assert.match(
@@ -499,6 +499,36 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     );
     assert.equal(instruction.includes('{original}'), false);
     assert.equal(instruction.includes('\n'), false);
+  });
+
+  test("the VR instruction holds the finish a person reads in the headset: words at the kit's size, worded presses, no empty cards", () => {
+    const instruction =
+      setup('vr-finish', { installed: 'matching', id: VR_STARTER, vrVersion: true })
+        .starters.vrVersion()
+        ?.instruction('/Users/someone/dev/garden') ?? '';
+    // Words below the kit's size read as noise in a headset (11 px on the laptop view on a real VR version, 2026-11-17).
+    assert.ok(
+      instruction.includes(
+        'Draw every word in the scene, titles, card text, labels and footnotes alike, no smaller than TYPE.words from src/kit.ts',
+      ),
+    );
+    assert.ok(
+      instruction.includes('where words do not fit, show fewer or page them, never shrink them'),
+    );
+    // A press with no words says nothing a person can act on (a real VR version drew one, 2026-11-17).
+    assert.ok(
+      instruction.includes(
+        'Give every press its words, saying what it does; never a press without words',
+      ),
+    );
+    // An empty card reads as broken (a real VR version drew mostly empty ones, 2026-11-17).
+    assert.ok(
+      instruction.includes(
+        "Show only cards that hold the app's own real content from its folder; where there is too little, show fewer cards, never an empty one",
+      ),
+    );
+    // The honest line on what is not carried stays.
+    assert.ok(instruction.includes('on what of the app this version does not carry yet'));
   });
 
   test('no starter makes VR versions where none says so, or where two do, and the command is refused in words', async () => {
