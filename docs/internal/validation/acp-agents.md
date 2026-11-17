@@ -150,6 +150,20 @@ its stand-in app ignores the end of its input: the app is gone within seconds, a
 it stays. The sweep stops a recorded live process and leaves one whose command line differs. Mutations (identity
 always matching, no watchdog) are each caught.
 
+## Kiro's autopilot (2026-11-17)
+
+Signed in, Kiro's `session/new` reports `configOptions` with `autopilot` on, described "Agent executes tools without
+confirmation" (Off: "Supervised"), and a `model` option (current `auto`). The signed-in runs above ran with it on
+and still asked before every write, `ls -la` and `true`; only `pwd` ran unasked. Halora does not rely on that: Kiro's
+profile names `autopilot: off` as an asking option. Every session sets it with `session/set_config_option` before
+anything else; Kiro answers with its options, autopilot off, and reports the same in a `config_option_update` (seen,
+no prompt sent). A start where Kiro does not take it is refused. A later report of autopilot on, like a mode other
+than the asking one, cancels the turn, which ends `mode_left`, and the option is set again before the next
+instruction. Kiro reports autopilot on once before the set, at the session's start, which the watch ignores. The
+recorded Kiro traces have the real answer to the set spliced in after `session/new`, with the later reports off, as
+Kiro makes them; a test keeps one report on mid-turn and sees the turn stopped. Not yet seen: a Kiro turn under
+Supervised, so whether it asks the same way or adds a confirmation of its own.
+
 ## Real runs, signed in (2026-11-17, the owner's sign-ins, bounded by the lead)
 
 The owner signed in to Kiro ("Logged in with Google") and to Antigravity on this Mac. Each run: a scratch folder,

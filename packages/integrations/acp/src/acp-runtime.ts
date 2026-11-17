@@ -423,6 +423,7 @@ class AcpSession {
     }
     this.#sessionId = sessionId;
     await this.#askingMode(rpc, sessionId, record(record(created)?.modes));
+    await this.#holdAskingOptions(rpc, sessionId, record(created)?.configOptions);
     for (const [configId, value] of Object.entries(this.#options.sessionOptions ?? {})) {
       try {
         await rpc.request(
@@ -731,8 +732,13 @@ class AcpSession {
     }
     if (kind === 'current_mode_update') this.#modeSaid(text(update.currentModeId));
     if (kind === 'config_option_update' && Array.isArray(update.configOptions)) {
-      const mode = update.configOptions.map(record).find((option) => option?.id === 'mode');
+      const options = update.configOptions.map(record);
+      const mode = options.find((option) => option?.id === 'mode');
       if (mode !== undefined) this.#modeSaid(text(mode?.currentValue));
+      for (const [id, wanted] of Object.entries(this.#options.profile.askingOptions)) {
+        const option = options.find((entry) => entry?.id === id);
+        if (option !== undefined && text(option?.currentValue) !== wanted) this.#leftAsking();
+      }
     }
   }
 
@@ -742,6 +748,13 @@ class AcpSession {
    */
   #modeSaid(mode: string | null): void {
     if (mode === null || mode === this.#options.profile.askingMode) return;
+    this.#leftAsking();
+  }
+
+  /** The session left its asking mode or an asking option: the running turn is cancelled and set back before more. */
+  #leftAsking(): void {
+    // Before the session is open, the start itself sets the asking mode and options (Kiro reports autopilot on first).
+    if (!this.#alive) return;
     this.#modeLeft = true;
     const turn = this.#turn;
     const rpc = this.#rpc;
@@ -776,7 +789,39 @@ class AcpSession {
         `${this.#name} could not go back to the mode where it asks you before it acts, so it takes no more work.`,
       );
     }
+    await this.#holdAskingOptions(rpc, this.#sessionId, null);
     this.#modeLeft = false;
+  }
+
+  /**
+   * Sets each of the profile's asking options to its asking value where the app reports another, or, with no report
+   * to read (`null`, before an instruction after the session left them), sets every one; refused where the app does
+   * not take it.
+   */
+  async #holdAskingOptions(
+    rpc: RpcConnection,
+    sessionId: string,
+    reported: unknown,
+  ): Promise<void> {
+    const options = Array.isArray(reported) ? reported.map(record) : null;
+    for (const [id, wanted] of Object.entries(this.#options.profile.askingOptions)) {
+      if (options !== null) {
+        const option = options.find((entry) => entry?.id === id);
+        if (option === undefined || text(option?.currentValue) === wanted) continue;
+      }
+      try {
+        await rpc.request(
+          'session/set_config_option',
+          { sessionId, configId: id, value: wanted },
+          HANDSHAKE_MS,
+        );
+      } catch {
+        throw new RuntimeActionError(
+          'mode_unavailable',
+          `${this.#name} could not start in the mode where it asks you before it acts, so the task did not start.`,
+        );
+      }
+    }
   }
 
   #toolUpdate(update: Record<string, unknown>, kind: string): void {

@@ -70,6 +70,11 @@ export interface AcpProfile {
    * another (an allow-by-itself mode) is switched to it, or not started.
    */
   readonly askingMode: string;
+  /**
+   * Session options (`configOptions`) that must hold their asking value for the whole session, by id: set at the
+   * start where the app reports another, watched afterwards like the mode, so the app never acts unasked by them.
+   */
+  readonly askingOptions: Readonly<Record<string, string>>;
   readonly shell: {
     readonly tool: string;
     readonly command: string;
@@ -103,6 +108,7 @@ export const ANTIGRAVITY: AcpProfile = {
   fileInputs: null,
   projectSettings: ['.agents', '.gemini'],
   askingMode: 'default',
+  askingOptions: {},
   // `--gemini-dir` moves both its settings (`antigravity-cli/`) and its hooks, tool servers and plugins
   // (`config/`); its Google sign-in is kept in the system keychain (validation/acp-agents.md).
   settingsHome: {
@@ -141,6 +147,9 @@ export const KIRO: AcpProfile = {
   projectSettings: ['.kiro', '.amazonq'],
   // Kiro's modes are its agents: `vibe` ("Default") asked before every write and most commands on a signed-in run.
   askingMode: 'vibe',
+  // Kiro reports `autopilot` on, "Agent executes tools without confirmation"; its asks were seen with it on, but
+  // Halora never relies on that: every session runs Supervised (validation/acp-agents.md).
+  askingOptions: { autopilot: 'off' },
   // `KIRO_HOME` moves its settings, agents, hooks and sessions; its sign-in stays in Application Support.
   settingsHome: {
     folder: '.kiro/halora',

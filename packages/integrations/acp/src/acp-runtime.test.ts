@@ -744,6 +744,40 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
     assertValidObservations(run.observations);
   });
 
+  test('signed in: Kiro reporting autopilot back on during a turn stops the turn in words', async (t) => {
+    // The recorded edit run, as Kiro reported it before Halora set autopilot off: on, in the middle of the turn.
+    const recorded = readFileSync(join(FIXTURES, 'kiro-signed-in-edit.jsonl'), 'utf8')
+      .split('\n')
+      .map((line, index, lines) =>
+        index >
+          lines.findIndex((entry) => entry.includes('"answer": "session/set_config_option"')) &&
+        line.includes('"config_option_update"')
+          ? line
+              .replace(
+                '"id": "autopilot", "name": "Autopilot"',
+                '"id": "autopilot", "name": "Autopilot"',
+              )
+              .replace(/("id": "autopilot"[^}]*"currentValue": )"off"/, '$1"on"')
+          : line,
+      )
+      .join('\n');
+    assert.ok(
+      /"id": "autopilot"[^}]*"currentValue": "on"/.test(
+        recorded.split('"answer": "session/set_config_option"')[1] ?? '',
+      ),
+    );
+    const run = setUp(t, 'cut', { profile: KIRO, fixtureText: recorded });
+    await start(run);
+    const failed = await run.next('runtime.turn.failed');
+    assert.equal((failed.payload as { error: { code: string } }).error.code, 'mode_left');
+    assert.ok(run.sent().some((message) => message.method === 'session/cancel'));
+    const set = run.sent().find((message) => message.method === 'session/set_config_option');
+    assert.deepEqual(
+      (set?.params as { configId?: string; value?: string } | undefined)?.value,
+      'off',
+    );
+  });
+
   test('signed in, Kiro names no version in initialize: its own version line does, and another one is refused', async (t) => {
     const run = setUp(t, 'kiro-signed-in-deny.jsonl', {
       profile: KIRO,
