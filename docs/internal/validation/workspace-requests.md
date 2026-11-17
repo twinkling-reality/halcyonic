@@ -299,9 +299,14 @@ budget; event pages advance over all scanned rows even when other executions are
 Conversation history keeps the exact original direction and bounded recent complete tool batches.
 An oversized exact input fails by its named transport bound instead of silently changing the ask.
 
-One local inference runs at once, at most four planning workers may hold leases, and each principal
-has eight new planning starts per fixed minute. Cancelled workers retain a lease until an awaited
-provider/transport actually exits. Each continuation has eight model turns, 64 calls and 180 seconds
+One local inference runs at once (one local model's memory). An ask that has to wait for it records
+one `model_queue` step of its own, status `running` (the computer's wait, never the person's), whose
+summary says how many asks are ahead of it; the same step is changed in place as the queue moves,
+to `confirmed` when its turn comes, and to `rejected` when it is stopped or the control plane
+restarts first. At most twelve planning workers may hold leases (`coordinator_busy` past them), so a
+person can direct several tasks on several projects at once, and each principal has thirty new
+planning starts per fixed minute (`coordinator_rate_limited`). Cancelled workers retain a lease until
+an awaited provider/transport actually exits. Each continuation has eight model turns, 64 calls and 180 seconds
 of active model/tool time; runtime/human waiting makes no repeated model calls. A full queue or scan
 bound interrupts explicitly for Resume. All prior prepared action IDs remain retained.
 

@@ -240,6 +240,23 @@ interface Budget {
 const MAX_TURNS = 8,
   MAX_CALLS = 64,
   MAX_ACTIVE_MS = 180_000;
+/** Asks being worked on or waiting, in all: enough for a person to direct several tasks on several projects at once. */
+const MAX_ASKS_AT_ONCE = 12;
+/** Asks one device may start in a fixed minute: a swarm directed by voice fits, a client caught in a loop does not. */
+const MAX_STARTS_A_MINUTE = 30;
+/** The step an ask holds while it waits for the one model call at a time: the computer's wait, never the person's. */
+const MODEL_QUEUE = 'model_queue';
+const modelQueueWords = (ahead: number) =>
+  `Waiting for the model, which works on one ask at a time. ${ahead === 1 ? 'There is 1 ask' : `There are ${ahead} asks`} ahead of this one.`;
+const MODEL_QUEUE_LEFT = 'Stopped before the model was free.';
+interface ModelWaiter {
+  controller: AbortController;
+  resolve: (ok: boolean) => void;
+  abort: () => void;
+  request: WorkspaceRequestView;
+  step: WorkspaceRequestStep;
+  ahead: number;
+}
 const descriptions: Record<keyof typeof WORKSPACE_TOOL_ARGUMENTS, string> = {
   read_workspace:
     'Read the bound project, task, execution, declared capabilities and pending human state.',
@@ -444,11 +461,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
   readonly #dirty = new Set<string>();
   readonly #starts = new Map<string, { minute: number; count: number }>();
   #modelOwner: AbortController | null = null;
-  readonly #modelWaiters: {
-    controller: AbortController;
-    resolve: (ok: boolean) => void;
-    abort: () => void;
-  }[] = [];
+  /** Asks waiting for the model, in order; each holds the one step that says where it stands (limits audit #11). */
+  readonly #modelWaiters: ModelWaiter[] = [];
   /** Bounded transient tool context, never lifecycle or authority; restart discards it. */
   readonly #conversations = new Map<string, ToolMessage[]>();
   readonly #budgets = new Map<string, Budget>();
@@ -482,8 +496,13 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         request.status === 'running' ||
         request.status === 'waiting_for_runtime' ||
         request.status === 'waiting_for_human'
-      )
+      ) {
+        // A wait for the model from before the restart never gets its turn: its line says it stopped.
+        for (const step of request.steps)
+          if (step.tool_name === MODEL_QUEUE && step.status === 'running')
+            this.#leftModelQueue({ request, step }, 'rejected', MODEL_QUEUE_LEFT);
         this.#changed(request, 'interrupted', request.reply);
+      }
     }
     this.#unsubscribe = options.controlPlane.publisher.subscribe(({ event }) => {
       if (
@@ -662,10 +681,11 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     this.#listReads.clear();
   }
   #admitPlanning(principal: Principal): void {
-    if (this.#active.size + this.#queued.size >= 4)
+    // The words name MAX_ASKS_AT_ONCE and MAX_STARTS_A_MINUTE: change them together.
+    if (this.#active.size + this.#queued.size >= MAX_ASKS_AT_ONCE)
       throw new RuntimeActionError(
         'coordinator_busy',
-        'Four planning workers are already active or queued. Keep this draft and try later.',
+        'Twelve asks are already being worked on or waiting. Keep this one and send it again in a moment.',
       );
     const key = principal.kind === 'local' ? 'local' : principal.device_id,
       minute = Math.floor(this.#o.controlPlane.clock.now().getTime() / 60000),
@@ -673,28 +693,38 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     const window = old?.minute === minute ? old : { minute, count: 0 };
     window.count++;
     this.#starts.set(key, window);
-    if (window.count > 8)
+    if (window.count > MAX_STARTS_A_MINUTE)
       throw new RuntimeActionError(
         'coordinator_rate_limited',
-        'This principal has reached the planning start budget for this minute. Keep the draft and try later.',
+        'This device has sent thirty asks this minute. Keep this one and send it again in a minute.',
       );
   }
-  #acquireModel(controller: AbortController): Promise<boolean> {
+  /**
+   * One model call at a time (one local model's memory). An ask that has to wait says so on one step of its own, with
+   * how many asks are ahead of it, changed in place as the queue moves and when its turn comes.
+   */
+  #acquireModel(controller: AbortController, request: WorkspaceRequestView): Promise<boolean> {
     if (controller.signal.aborted) return Promise.resolve(false);
     if (this.#modelOwner === null) {
       this.#modelOwner = controller;
       return Promise.resolve(true);
     }
     return new Promise((resolve) => {
-      const waiter = {
+      const ahead = this.#modelWaiters.length + 1;
+      const waiter: ModelWaiter = {
         controller,
         resolve,
         abort: () => {
           const at = this.#modelWaiters.indexOf(waiter);
           if (at >= 0) this.#modelWaiters.splice(at, 1);
           controller.signal.removeEventListener('abort', waiter.abort);
+          this.#leftModelQueue(waiter, 'rejected', MODEL_QUEUE_LEFT);
+          this.#movedUp();
           resolve(false);
         },
+        request,
+        step: this.#step(request, MODEL_QUEUE, 'running', modelQueueWords(ahead)),
+        ahead,
       };
       this.#modelWaiters.push(waiter);
       controller.signal.addEventListener('abort', waiter.abort, { once: true });
@@ -708,13 +738,39 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       if (!waiter) break;
       waiter.controller.signal.removeEventListener('abort', waiter.abort);
       if (waiter.controller.signal.aborted) {
+        this.#leftModelQueue(waiter, 'rejected', MODEL_QUEUE_LEFT);
         waiter.resolve(false);
         continue;
       }
       this.#modelOwner = waiter.controller;
+      this.#leftModelQueue(waiter, 'confirmed', 'The model is free for this ask now.');
       waiter.resolve(true);
       break;
     }
+    this.#movedUp();
+  }
+  /** A waiting ask's line, changed in place: never once the coordinator has closed. */
+  #leftModelQueue(
+    waiter: Pick<ModelWaiter, 'request' | 'step'>,
+    status: WorkspaceRequestStep['status'],
+    summary: string,
+  ): void {
+    if (this.#closed) return;
+    waiter.step = {
+      ...waiter.step,
+      status,
+      summary,
+      observation_after: this.#o.controlPlane.projection.position,
+    };
+    this.#recordStep(waiter.request, waiter.step, null);
+  }
+  /** Each ask still waiting says how many are ahead of it now. */
+  #movedUp(): void {
+    this.#modelWaiters.forEach((waiter, at) => {
+      if (waiter.ahead === at + 1) return;
+      waiter.ahead = at + 1;
+      this.#leftModelQueue(waiter, 'running', modelQueueWords(waiter.ahead));
+    });
   }
   #schedule(id: string): void {
     if (this.#active.has(id)) {
@@ -722,7 +778,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       return;
     }
     if (this.#queued.has(id) || this.#closed) return;
-    if (this.#active.size + this.#queued.size >= 4) {
+    if (this.#active.size + this.#queued.size >= MAX_ASKS_AT_ONCE) {
       const request = this.#o.controlPlane.projection.workspaceRequest(id);
       if (request) {
         this.#step(
@@ -1014,7 +1070,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
         this.#changed(request, 'interrupted', request.reply);
         return;
       }
-      if (!(await this.#acquireModel(controller))) return;
+      if (!(await this.#acquireModel(controller, request))) return;
       request = this.#current(id, controller);
       if (!request) {
         this.#releaseModel(controller);
@@ -1052,7 +1108,8 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
       // A task request's first turn, where continue_task is offered, goes straight to the work (FIRST_TURN_TOOLS).
       const first =
         bound(request) &&
-        request.steps.length === 0 &&
+        // A wait for the model is the computer's own line, not a step of the work.
+        request.steps.every((step) => step.tool_name === MODEL_QUEUE) &&
         all.some((tool) => tool.function.name === 'continue_task');
       const offered =
         (outcomeIn && budget.turns === turnsAtWake + 1) || lastTurn || again || plain

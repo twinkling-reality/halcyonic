@@ -670,19 +670,24 @@ test('cancelled provider workers retain global leases until their awaited read e
     understand: () => provider,
   });
   try {
-    const ids = [f.submit(), f.submit(), f.submit(), f.submit()];
+    // Twelve asks at once, so a person can direct several tasks on several projects together (limits audit #10).
+    const ids = Array.from({ length: 12 }, () => f.submit());
     await settle();
-    assert.equal(f.turns, 4);
+    assert.equal(f.turns, 12);
     for (const id of ids)
       f.controlPlane.commands.submit(f.command('cancel', id), 'http', { kind: 'local' });
     const refused = f.controlPlane.commands.submit(f.command('submit'), 'http', { kind: 'local' });
     assert.equal(refused.command?.failure?.code, 'coordinator_busy');
-    assert.equal(f.controlPlane.projection.workspaceRequests().length, 4);
+    assert.equal(
+      refused.command?.failure?.message,
+      'Twelve asks are already being worked on or waiting. Keep this one and send it again in a moment.',
+    );
+    assert.equal(f.controlPlane.projection.workspaceRequests().length, 12);
     release(unavailable);
     await settle();
     assert.ok(ids.every((id) => f.coordinator.read(id, { kind: 'local' })?.status === 'stopped'));
     assert.equal(f.instructions, 0);
-    assert.equal(f.turns, 4);
+    assert.equal(f.turns, 12);
   } finally {
     release(unavailable);
     await f.close();
@@ -691,13 +696,18 @@ test('cancelled provider workers retain global leases until their awaited read e
 test('planning starts have a principal rate bound independently of deduplicated command identities', async () => {
   const f = await fixture({ turn: async () => answer() });
   try {
-    for (let i = 0; i < 8; i++) {
+    // Thirty starts a minute from one device, enough to direct a swarm by voice (limits audit #10).
+    for (let i = 0; i < 30; i++) {
       f.submit();
       await settle();
     }
     const refused = f.controlPlane.commands.submit(f.command('submit'), 'http', { kind: 'local' });
     assert.equal(refused.command?.failure?.code, 'coordinator_rate_limited');
-    assert.equal(f.controlPlane.projection.workspaceRequests().length, 8);
+    assert.equal(
+      refused.command?.failure?.message,
+      'This device has sent thirty asks this minute. Keep this one and send it again in a minute.',
+    );
+    assert.equal(f.controlPlane.projection.workspaceRequests().length, 30);
   } finally {
     await f.close();
   }
@@ -817,22 +827,135 @@ test('the bounded global worker queue serializes local inference and rejects fan
   const releases: ((value: ToolTurnResult) => void)[] = [],
     f = await fixture({ turn: () => new Promise((resolve) => releases.push(resolve)) });
   try {
-    const ids = [f.submit(), f.submit(), f.submit(), f.submit()];
+    const ids = Array.from({ length: 12 }, () => f.submit());
     await settle();
     assert.equal(f.turns, 1);
     const refused = f.controlPlane.commands.submit(f.command('submit'), 'http', { kind: 'local' });
     assert.equal(refused.command?.failure?.code, 'coordinator_busy');
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 12; i++) {
       const release = releases[i];
       assert.ok(release);
       release(answer());
       await settle();
-      assert.equal(f.turns, Math.min(i + 2, 4));
+      assert.equal(f.turns, Math.min(i + 2, 12));
     }
     assert.ok(ids.every((id) => f.coordinator.read(id, { kind: 'local' })?.status === 'responded'));
   } finally {
     for (const release of releases) release(answer());
     await f.close();
+  }
+});
+test('an ask waiting for the model says so, with how many are ahead, and says when its turn came (limits audit #11)', async () => {
+  const releases: ((value: ToolTurnResult) => void)[] = [],
+    offered: string[][] = [],
+    f = await fixture({
+      turn: (_messages, tools) => {
+        offered.push((tools ?? []).map((tool) => tool.function.name).sort());
+        return new Promise((resolve) => releases.push(resolve));
+      },
+    });
+  const queueSteps = (id: string) =>
+    (f.coordinator.read(id, { kind: 'local' })?.steps ?? []).filter(
+      (step) => step.tool_name === 'model_queue',
+    );
+  try {
+    const [first, second, third, fourth] = Array.from({ length: 4 }, () => f.submit());
+    assert.ok(first && second && third && fourth);
+    await settle();
+    assert.equal(f.turns, 1);
+    // The first ask has the model: nothing about a wait is said for it.
+    assert.deepEqual(queueSteps(first), []);
+    const said = (id: string) => queueSteps(id).map((step) => [step.status, step.summary]);
+    assert.deepEqual(said(second), [
+      [
+        'running',
+        'Waiting for the model, which works on one ask at a time. There is 1 ask ahead of this one.',
+      ],
+    ]);
+    assert.deepEqual(said(third), [
+      [
+        'running',
+        'Waiting for the model, which works on one ask at a time. There are 2 asks ahead of this one.',
+      ],
+    ]);
+    assert.deepEqual(said(fourth), [
+      [
+        'running',
+        'Waiting for the model, which works on one ask at a time. There are 3 asks ahead of this one.',
+      ],
+    ]);
+    // A wait is the computer's, never the person's: the ask stays running and nothing waits on them.
+    for (const id of [second, third, fourth]) {
+      const request = f.coordinator.read(id, { kind: 'local' });
+      assert.equal(request?.status, 'running');
+      assert.ok(request?.steps.every((step) => step.status !== 'waiting'));
+    }
+    // The third ask is stopped while it waits: its line says so, and the fourth moves up.
+    f.controlPlane.commands.submit(f.command('cancel', third), 'http', { kind: 'local' });
+    await settle();
+    assert.deepEqual(said(third), [['rejected', 'Stopped before the model was free.']]);
+    assert.deepEqual(said(fourth), [
+      [
+        'running',
+        'Waiting for the model, which works on one ask at a time. There are 2 asks ahead of this one.',
+      ],
+    ]);
+    releases[0]?.(answer());
+    await settle();
+    assert.equal(f.turns, 2);
+    assert.deepEqual(said(second), [['confirmed', 'The model is free for this ask now.']]);
+    assert.deepEqual(said(fourth), [
+      [
+        'running',
+        'Waiting for the model, which works on one ask at a time. There is 1 ask ahead of this one.',
+      ],
+    ]);
+    // An ask that waited is offered the same first turn as one that did not.
+    assert.deepEqual(offered[1], offered[0]);
+    releases[1]?.(answer());
+    await settle();
+    assert.equal(f.turns, 3);
+    assert.deepEqual(said(fourth), [['confirmed', 'The model is free for this ask now.']]);
+    releases[2]?.(answer());
+    await settle();
+    for (const id of [first, second, fourth])
+      assert.equal(f.coordinator.read(id, { kind: 'local' })?.status, 'responded');
+    assert.equal(f.coordinator.read(third, { kind: 'local' })?.status, 'stopped');
+    // Each wait is one line, changed in place, never a new line per move up the queue.
+    assert.equal(queueSteps(fourth).length, 1);
+  } finally {
+    for (const release of releases) release(answer());
+    await f.close();
+  }
+});
+test('a wait for the model from before a restart says it stopped, never that it still waits (limits audit #11)', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'halcyonic-request-queue-restart-'));
+  const path = join(directory, 'journal.db');
+  const releases: ((value: ToolTurnResult) => void)[] = [];
+  const first = await fixture({
+    path,
+    turn: () => new Promise((resolve) => releases.push(resolve)),
+  });
+  first.submit();
+  const waiting = first.submit();
+  await settle();
+  assert.equal(first.coordinator.read(waiting, { kind: 'local' })?.steps.at(-1)?.status, 'running');
+  await first.close();
+  for (const release of releases) release(answer());
+  await settle();
+  const second = await fixture({ path });
+  try {
+    const request = second.coordinator.read(waiting, { kind: 'local' });
+    assert.equal(request?.status, 'interrupted');
+    assert.deepEqual(
+      request?.steps
+        .filter((step) => step.tool_name === 'model_queue')
+        .map((step) => [step.status, step.summary]),
+      [['rejected', 'Stopped before the model was free.']],
+    );
+  } finally {
+    await second.close();
+    rmSync(directory, { recursive: true, force: true });
   }
 });
 
