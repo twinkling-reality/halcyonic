@@ -33,6 +33,8 @@ public class EvidencePageTests
         Assert.That((page.Title, page.Label, page.State), Is.EqualTo(("Outcome", "Measured", (string?)null)));
         Assert.That(page.Sections.Select(section => section.Head), Is.EqualTo(new[] { "Checks", "Cost" }));
         Assert.That(page.Sections[0].Rows.Single().Rate, Is.EqualTo(0.75));
+        Assert.That(page.Card(0).List.Select(row => (row.Label, row.Name.Text)), Is.EqualTo(new[] { ((string?)"Checks", "Tests"), ((string?)null, "Cost") }),
+            "a section's head stands over its first row, and never only repeats the row's own word");
 
         var understood = EvidencePage.Of(Understanding(new AvailableUnderstanding
         {

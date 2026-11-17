@@ -143,6 +143,8 @@ namespace Halcyonic.Client
                     rows.Add(new RoomListRow(RoomKind.None, LineWords.Theirs(section.Empty), label: head));
                     continue;
                 }
+                // A head that only repeats its row's own word (Cost over Cost) is said once, by the row.
+                if (head == row.Label) head = null;
                 // The source's own names (a method, a kind of check, an item left) lean as theirs; a method's command reads in mono.
                 var theirs = section.Head is RunUnderstanding.Words.Runs or RunUnderstanding.Words.Remaining or RunResults.Words.Checks;
                 var under = new List<string>();
