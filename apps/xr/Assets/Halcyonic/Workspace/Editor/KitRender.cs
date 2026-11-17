@@ -63,6 +63,7 @@ namespace Halcyonic.XR.Workspace.Editor
             // The kit's own states draw the old kit until ON-2 removes it: each redesign state turns the redesign on itself.
             var designWas = RoomDesign.Enabled;
             RoomDesign.Enabled = false;
+            failures.AddRange(InkBoxHolds());
             var only = Environment.GetEnvironmentVariable("HALCYONIC_KIT_ONLY");
             var narrowed = !string.IsNullOrWhiteSpace(only);
             // The panels' Light glass, for its captures only (HALCYONIC_KIT_THEME=Light, the lead's 13:33Z): never a gate run.
@@ -1060,7 +1061,10 @@ namespace Halcyonic.XR.Workspace.Editor
                     var high = camera.WorldToScreenPoint(seen(label.transform.TransformPoint(character.topRight)));
                     var x0 = Mathf.FloorToInt(Mathf.Min(low.x, high.x));
                     var y0 = Mathf.FloorToInt(Mathf.Min(low.y, high.y));
-                    glyphs.Add(new RectInt(x0, y0, Mathf.CeilToInt(Mathf.Max(low.x, high.x)) - x0 + 1, Mathf.CeilToInt(Mathf.Max(low.y, high.y)) - y0 + 1));
+                    var x1 = Mathf.CeilToInt(Mathf.Max(low.x, high.x));
+                    var y1 = Mathf.CeilToInt(Mathf.Max(low.y, high.y));
+                    // A pixel in from each edge (AUDIT3's 15:12Z): the quad's own rim may hold the glass or the room beside the letter.
+                    if (x1 - x0 > 2 && y1 - y0 > 2) glyphs.Add(new RectInt(x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2));
                 }
                 var strongest = InkBox(pixels, rect, DrawnColour(label), glyphs).Ratio;
                 if (strongest < weakest) { weakest = (float)strongest; weakestName = label.name + " \"" + Clip(label.text) + "\""; }

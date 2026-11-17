@@ -189,6 +189,43 @@ namespace Halcyonic.XR.Workspace.Editor
             return (ink < ground ? (ground + 0.05) / (ink + 0.05) : 1.0, false, ink, ground);
         }
 
+        /// <summary>
+        /// The box reader held to known frames before any render is read by it (AUDIT3's 2026-11-17T15:12Z proofs): light strokes in
+        /// their glyph quads on glass read high; one bright pixel of the room inside the box but outside every quad leaves the ratio
+        /// exactly as it was; so does a dark spot there; and a few strokes in a wide box still read as the words they are.
+        /// </summary>
+        private static IEnumerable<string> InkBoxHolds()
+        {
+            Color32 Grey(byte value) => new Color32(value, value, value, 255);
+            var frame = new Color32[Width * Height];
+            var glass = Grey(30);
+            var stroke = Grey(230);
+            var box = new RectInt(100, 100, 400, 40);
+            void Fill(RectInt area, Color32 colour) { for (var y = area.yMin; y < area.yMax; y++) for (var x = area.xMin; x < area.xMax; x++) frame[y * Width + x] = colour; }
+            Fill(box, glass);
+            var quads = new List<RectInt>();
+            for (var letter = 0; letter < 10; letter++)
+            {
+                var quad = new RectInt(110 + letter * 36, 108, 20, 24);
+                quads.Add(quad);
+                Fill(new RectInt(quad.xMin + 8, quad.yMin + 2, 3, 20), stroke);
+            }
+            var plain = InkBox(frame, box, Color.white, quads).Ratio;
+            if (plain < 4.5) yield return "the box reader: light strokes on glass read " + plain.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, under 4.5";
+            frame[(box.yMin + 1) * Width + box.xMin + 2] = Grey(255);
+            var stray = InkBox(frame, box, Color.white, quads).Ratio;
+            if (Math.Abs(stray - plain) > 1e-9) yield return "the box reader: one bright room pixel outside the glyphs moved the ratio from " + plain.ToString("0.000", CultureInfo.InvariantCulture) + " to " + stray.ToString("0.000", CultureInfo.InvariantCulture);
+            frame[(box.yMax - 2) * Width + box.xMax - 3] = Grey(0);
+            var dark = InkBox(frame, box, Color.white, quads).Ratio;
+            if (Math.Abs(dark - plain) > 1e-9) yield return "the box reader: a dark room spot outside the glyphs moved the ratio from " + plain.ToString("0.000", CultureInfo.InvariantCulture) + " to " + dark.ToString("0.000", CultureInfo.InvariantCulture);
+            var wide = new RectInt(100, 300, 900, 60);
+            Fill(wide, glass);
+            var one = new RectInt(140, 318, 12, 20);
+            Fill(new RectInt(one.xMin + 5, one.yMin + 2, 3, 16), stroke);
+            var few = InkBox(frame, wide, Color.white, new[] { one }).Ratio;
+            if (few < 4.5) yield return "the box reader: a few strokes in a wide box read " + few.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, under 4.5";
+        }
+
         private static int MaxChannel(Color32 p) => Math.Max(p.r, Math.Max(p.g, p.b));
 
         private static int MinChannel(Color32 p) => Math.Min(p.r, Math.Min(p.g, p.b));
