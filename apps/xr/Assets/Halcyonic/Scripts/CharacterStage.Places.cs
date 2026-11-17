@@ -297,8 +297,16 @@ namespace Halcyonic.XR
             {
                 var most = 0f;
                 foreach (var view in views)
-                    if (DrawnTagSize?.Invoke(view) is Vector2 drawn)
+                {
+                    // As the eyes see it: the yaw between the tag's drawn corners, where they are published; else its width at the lip.
+                    if (DrawnTagCorners?.Invoke(view) is Vector3[] corners)
+                    {
+                        float Yaw(Vector3 point) => Mathf.Atan2(point.x - eyes.x, point.z - eyes.z) * Mathf.Rad2Deg;
+                        most = Mathf.Max(most, corners.Max(Yaw) - corners.Min(Yaw));
+                    }
+                    else if (DrawnTagSize?.Invoke(view) is Vector2 drawn)
                         most = Mathf.Max(most, (float)PlacePitch.DegreesOf(drawn.x, Across(view.Labels.position, eyes)));
+                }
                 return most;
             }
             // A tag bounded in degrees is held to them as DRAWN: where the widest stands wider, every bound tightens by as much and the tags
