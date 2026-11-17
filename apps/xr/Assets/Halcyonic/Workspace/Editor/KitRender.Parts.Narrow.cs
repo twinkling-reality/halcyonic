@@ -295,8 +295,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 Require(drawn.Contains(note), "\"" + note + "\" is not drawn as a line of its own: " + string.Join(" | ", drawn));
                 Require(RoomListRow.NoteInLabelRole(row.Note) == capitals.Contains(note), "\"" + row.Note + "\" is drawn in the wrong case's style");
                 // Never a name in capitals: a pooled label once in the label role gives its capitals up (AUDIT2's 03:40Z pooled case).
-                Require(!capitals.Contains(row.Name.Text) && !capitals.Contains(row.Under!.Text) && !capitals.Contains(row.Label!),
-                    "a row's name, label or quieter line is drawn in the label role's capitals");
+                // A capitals line may be drawn uppercased, so a part matches it in any case; a part already all capitals cannot tell.
+                foreach (var part in new[] { row.Label!, row.Name.Text, row.Under!.Text })
+                    if (part.ToUpperInvariant() != part)
+                        Require(!capitals.Exists(line => string.Equals(line, part, StringComparison.OrdinalIgnoreCase)),
+                            "\"" + part + "\", a row's name, label or quieter line, is drawn in the label role's capitals");
             }
             Debug.Log("Halcyonic: parts: " + name + ": drawn: " + string.Join(" | ", drawn) + ".");
             return shot;
