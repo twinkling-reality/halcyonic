@@ -36,7 +36,7 @@ public sealed class RoomProjectsTests
         Assert.That(bar.Card!.AnyDot, Is.False, "no fact joined to another on a dot");
         Assert.That(bar.Card.List.Select(row => (row.Name.Text, row.Note, row.Tone, row.Name.AllTheirs)), Is.EqualTo(new[]
         {
-            ("Alpha", (string?)"Needs You", RoomTone.Attention, true), ("Beta", (string?)"1 Task", RoomTone.Quiet, true),
+            ("Alpha", (string?)"Needs You", RoomTone.Attention, true), ("Beta", (string?)"Paused", RoomTone.Quiet, true),
         }));
         // Each row is picked: its press is the frame's own project choice.
         Assert.That(bar.Card.List.Select(row => (row.Press?.Action, row.Press?.Key)), Is.EqualTo(new[]
@@ -50,6 +50,37 @@ public sealed class RoomProjectsTests
         Assert.That(bar.Column.Where(action => action.Control.Action == MenuFrame.ChooseSection).Select(action => action.Control.Key),
             Is.EqualTo(new[] { MenuPlace.Settings.ToString(), MenuPlace.Usage.ToString() }));
         Assert.That(frame.Lines.Select(line => line.ProjectState?.TasksWords), Is.EqualTo(new[] { "1 Task", "1 Task" }));
+    }
+
+    [Test]
+    public void TheProjectsPanelIsTheOneLanguagesTable()
+    {
+        var frame = Projects();
+        var bar = RoomBar.OfFrame(frame, VoiceStage.Idle)!;
+        // FIELD's sheet, tile f1: HALORA over the title, the heads PROJECT and STATE over the rows, each row's note its state word
+        // (one of the words a project's state is said in, never a count), no mark before a name.
+        Assert.That(bar.Card!.Label, Is.EqualTo(WorkspaceText.Product));
+        Assert.That((bar.Card.Heads?.Name, bar.Card.Heads?.Note), Is.EqualTo(((string?)RoomBar.ProjectHead, (string?)RoomBar.StateHead)));
+        Assert.That(bar.Card.List.Select(row => row.Note), Is.EqualTo(frame.Lines.Select(line => line.ProjectState!.Word)));
+        Assert.That(bar.Card.List.All(row => row.Kind == RoomKind.None), Is.True, "a project's row carries no mark before its name");
+        // The Menu at the panel's top right is the bar's own press, of the frame drawn, never the lit action; the actions stand at
+        // the panel's foot.
+        Assert.That((bar.PanelMenu?.Control.Action, bar.PanelMenu?.Words, bar.PanelMenu?.Main), Is.EqualTo(((string?)RoomBar.OpenMenu, (string?)RoomBar.MenuWords, (bool?)false)));
+        Assert.That(bar.PanelMenu!.Control.Frame, Is.SameAs(frame));
+        Assert.That(bar.ActionsAtFoot, Is.True);
+        Assert.That(frame.Footer.All.Any(each => each.Prompt.Id == RoomBar.OpenMenu) || frame.Lines.Any(line => line.Action == RoomBar.OpenMenu), Is.False,
+            "the Menu is no action the frame offers");
+    }
+
+    [Test]
+    public void AListsHeadsNameBothColumnsAndOutliveACopy()
+    {
+        Assert.Throws<ArgumentException>(() => new RoomListHeads("Project", " "));
+        Assert.Throws<ArgumentException>(() => new RoomListHeads("", "State"));
+        var card = new RoomCard(LineWords.Ours("Projects"), label: "Halora", heads: new RoomListHeads("Project", "State"));
+        var copied = card.WithList(new RoomListRow[0]).WithStatus(null).WithPress(null);
+        Assert.That((copied.Label, copied.Heads?.Name, copied.Heads?.Note), Is.EqualTo(("Halora", "Project", "State")));
+        Assert.That(new RoomCard(LineWords.Ours("Projects"), label: "  ").Label, Is.Null, "a blank label is no label");
     }
 
     [Test]

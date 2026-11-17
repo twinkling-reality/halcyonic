@@ -539,6 +539,20 @@ root omits Close; a task retains Close because that action removes its context a
 always navigate to a task list. Blue marks the main action, while amber still means waiting for
 you. These words describe the isolated candidate; wearer acceptance remains open.
 
+## The Projects panel
+
+The launch screen in the one language (FIELD's sheet, tile f1; `RoomBar.Projects`). Our own words in the label role are
+drawn in spaced capitals by the face's style; the words themselves stay as written here.
+
+| Part | Words | Example |
+| --- | --- | --- |
+| The label over the title | the product's shown name | Halora |
+| The title | Projects | Projects |
+| The panel's own press, top right | Menu: the workspace's own column (Move Workspace, Reset Position, Minimize Workspace, Other Apps) | Menu |
+| The heads over the list | Project, then State | Project / State |
+| A project's state, at the right of its row | one word, never a count: Needs You, Ready, Working, No Work, Paused, Not Started | Working |
+| The actions at the panel's foot | New Project, Next Page where the list pages, Settings, Usage, Close where the frame offers it | New Project |
+
 ## The room of projects
 
 The words of [ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md)'s room, decided with its storyboard on

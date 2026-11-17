@@ -63,6 +63,19 @@ namespace Halcyonic.XR.UI
         // The row's fourth place: a second action beside Hold to Talk and Type (More at rest before Projects, SCREENS's R1).
         private RoomButton rowMore = null!;
 
+        /// <summary>The panel's own Menu at its top right, where the bar gives one (<see cref="RoomBar.PanelMenu"/>).</summary>
+        private RoomButton panelMenu = null!;
+
+        /// <summary>The panel's Menu as last laid; null where the bar gave none.</summary>
+        public RoomButton? PanelMenu => panelMenu.gameObject.activeSelf ? panelMenu : null;
+
+        /// <summary>The gap between the panel's words and the actions in a row at its foot, and between those actions (tile f1).</summary>
+        public const float FootRowGapDp = 22f;
+        public const float FootRowSpacingDp = 20f;
+
+        /// <summary>Whether the column's actions were last laid in one row at the panel's foot (<see cref="RoomBar.ActionsAtFoot"/>).</summary>
+        public bool ActionsAtFoot { get; private set; }
+
         // Every action of the row past Hold to Talk and Type, one button each, made as the row needs them (SCREENS's 13:41Z (a): a fixed two
         // drew a fifth action into More's place, More unpressable); the first two are More and RowMore.
         private readonly List<RoomButton> rowOthers = new List<RoomButton>();
@@ -290,6 +303,9 @@ namespace Halcyonic.XR.UI
             view.more.Pressed += () => view.Raise(view.more);
             view.rowMore = RoomButton.Create(go.transform, "Row action 2", RoomButtonSize.Action);
             view.rowMore.Pressed += () => view.Raise(view.rowMore);
+            view.panelMenu = RoomButton.Create(go.transform, "Panel menu", RoomButtonSize.Action);
+            view.panelMenu.Pressed += () => view.Raise(view.panelMenu);
+            view.panelMenu.Hide();
             view.rowOthers.Add(view.more);
             view.rowOthers.Add(view.rowMore);
             view.levelRoot = new GameObject("Level").transform;
@@ -413,8 +429,10 @@ namespace Halcyonic.XR.UI
             RowDrop = 0f;
             PanelHung = false;
             if (!bar.AsSubtitle || SubtitleWords <= 0f) who.gameObject.SetActive(false);
+            ActionsAtFoot = false;
             shown = bar;
             controls.Clear();
+            panelMenu.Hide();
             bandNext = null;
             gameObject.SetActive(true);
             if (bar.Pair)
@@ -642,6 +660,7 @@ namespace Halcyonic.XR.UI
             // Each part goes off with it, so nothing of a moment that ended reads as standing under the hidden whole.
             talk.Hide();
             type.Hide();
+            panelMenu.Hide();
             HideRowOthers();
             foreach (var button in column) button.Hide();
             panel.gameObject.SetActive(false);
@@ -1446,6 +1465,18 @@ namespace Halcyonic.XR.UI
             // The body 28 dp in from the top and sides; 18 dp under it before the sentence bar, which stands 14 dp in; 28 dp under it with no bar.
             // With nothing from the computer to say there is no panel: the choices take its place.
             var panelHeight = bar.Wide ? 0f : pad + bodyHeight + (barHeight > 0f ? RoomType.Scaled(RoomGeometry.BodyFootDp) + barHeight + inset : pad);
+            // The actions in one row at the panel's foot, inside its glass (tile f1), where the bar asks and the panel stands whole.
+            var footRow = bar.ActionsAtFoot && !narrow && !bar.Wide && said == null && bar.Column.Count > 0;
+            var rowCount = footRow ? Mathf.Min(bar.Column.Count, ColumnMost) : 0;
+            var rowCores = new Vector2[rowCount];
+            var footTall = 0f;
+            for (var index = 0; index < rowCount; index++)
+            {
+                rowCores[index] = column[index].Measure(bar.Column[index].Words, 0f, bar.Column[index].Detail);
+                footTall = Mathf.Max(footTall, Mathf.Max(RoomType.Units(RoomButton.HeightDp), rowCores[index].y));
+            }
+            if (footRow) panelHeight += RoomType.Scaled(FootRowGapDp) + footTall;
+            ActionsAtFoot = footRow;
 
             // The column: the lowest action's core stands on the panel's foot line as DESIGN's page stands it (its target reaches
             // 6.4 dp under the line), the others above it, targets 12 mm apart. An answer's words may wrap, so an action may
@@ -1456,7 +1487,7 @@ namespace Halcyonic.XR.UI
             // answer wraps at the column's own width, the column's 240 dp or its widest other action where that is wider, never at
             // the panel's; so the plane's recorded footprint holds whatever a question's answers say. Where the answers take the
             // panel's place (RoomBar.Wide) they are the panel, and wrap at its width.
-            var count = Mathf.Min(bar.Column.Count, ColumnMost);
+            var count = footRow ? 0 : Mathf.Min(bar.Column.Count, ColumnMost);
             var paging = bar.Band != null && BandNext != null;
             var places = count + (paging ? 1 : 0);
             var cores = new Vector2[places];
@@ -1485,7 +1516,8 @@ namespace Halcyonic.XR.UI
                         + (Answer(index) != Answer(index + 1) ? RoomType.Units(GroupGapDp) : 0f);
             var columnHeight = places == 0 ? 0f : rises[0] + Mathf.Max(target, cores[0].y) / 2f;
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
-            var total = bar.Wide ? Mathf.Max(panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp), widest)
+            var total = footRow ? panelWidth
+                : bar.Wide ? Mathf.Max(panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp), widest)
                 : narrow ? Mathf.Max(panelWidth, widest)
                 : panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
             // Narrow: the column on the foot line, the panel over it a pair's gap up; else side by side on the one foot line.
@@ -1570,6 +1602,27 @@ namespace Halcyonic.XR.UI
                 // A held action (Hold to Talk in the column) acts at its pinch; every other on its release (the one press).
                 button.Press.ActsOnPinch = action.Control.Holds;
                 if (action.Locks) locks = button;
+            }
+            // The foot row (tile f1): each action content-sized, from the panel's words' left edge, none lit at rest (the lead's
+            // 2026-11-17T01:05Z: New Project stays quiet until it is hovered or pressed).
+            var rowX = left + pad;
+            for (var index = 0; index < rowCount; index++)
+            {
+                var action = bar.Column[index];
+                var centre = new Vector2(rowX + rowCores[index].x / 2f, foot + pad + footTall / 2f);
+                column[index].Show(action.Words, action.Icon, false, available: true, centre, rowCores[index].x, detail: action.Detail,
+                    destructive: action.Control.Destructive, route: action.Place == KitPlace.Section);
+                controls[column[index]] = action.Control;
+                column[index].Press.ActsOnPinch = action.Control.Holds;
+                rowX += rowCores[index].x + RoomType.Scaled(FootRowSpacingDp);
+            }
+            // The panel's own Menu at its top right, level with the place's label and title (tile f1).
+            if (bar.PanelMenu is RoomAction menu && !bar.Wide)
+            {
+                var core = panelMenu.Measure(menu.Words, 0f);
+                var menuAt = new Vector2(left + panelWidth - pad - core.x / 2f, foot + under + panelHeight - pad - RoomType.Units(RoomButton.HeightDp) / 2f);
+                panelMenu.Show(menu.Words, menu.Icon, false, available: true, menuAt, core.x);
+                controls[panelMenu] = menu.Control;
             }
             // Confirm's lock starts when it arrives and holds through the frames the file draws again while it stands.
             if (locks == null) locking = null;

@@ -976,6 +976,14 @@ namespace Halcyonic.XR.Workspace
             if (RoomDesign.Enabled && from == MenuColumn.File && side == null && action == AgentColumn.Open) return OpenAgentPage(frame);
             // Watch It Work, the working bar's own (RoomBar.Watch): its view opens and closes here.
             if (RoomDesign.Enabled && from == MenuColumn.File && side == null && action == RoomBar.Watch) return ToggleWatch();
+            // The Projects panel's Menu (FIELD's sheet, tile f1), the bar's own: the workspace's own column opens, as Move opens
+            // it, only from the Projects frame that stands as drawn.
+            if (RoomDesign.Enabled && side == null && action == RoomBar.OpenMenu)
+            {
+                if (frame?.Subject != ProjectsText.Subject || !OrganizationStanding(from, frame, side)) return false;
+                OpenPlacement();
+                return true;
+            }
             // The result's own actions are none of the file's frame's: taken here, by the frame's own rule.
             if (RoomDesign.Enabled && from == MenuColumn.File && side == null && RoomResult.Actions.Contains(action)) return OnResultActed(action, key, frame);
             // The menu's Compact (A15) clears the room to the characters, only from the menu's frame as drawn that offers it; a

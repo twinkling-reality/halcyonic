@@ -264,6 +264,23 @@ namespace Halcyonic.Client
         public RoomTone Tone { get; }
     }
 
+    /// <summary>The heads over a list that reads as a table: what the names are and what the notes are, ours, never empty.</summary>
+    public sealed class RoomListHeads
+    {
+        public RoomListHeads(string name, string note)
+        {
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(note)) throw new System.ArgumentException("a list's heads name both its columns");
+            Name = name;
+            Note = note;
+        }
+
+        /// <summary>The head over the rows' names.</summary>
+        public string Name { get; }
+
+        /// <summary>The head over the rows' notes.</summary>
+        public string Note { get; }
+    }
+
     /// <summary>
     /// One row of a card's list: the glyph of its kind in a tile, its name, and a quiet note at the right; never a dot
     /// between them. A row that can be pressed carries the file's own control.
@@ -400,8 +417,11 @@ namespace Halcyonic.Client
             IReadOnlyList<RoomSlot>? slots = null, IReadOnlyList<RoomCardStep>? steps = null, int? trackAt = null, int? trackOf = null,
             IReadOnlyList<RoomListRow>? list = null, IReadOnlyList<RoomGauge>? gauges = null, LineWords? more = null, RoomCode? code = null,
             IReadOnlyList<RoomReadingRow>? reading = null, int? descriptionPage = null, bool titleMono = false, KitControl? press = null,
-            bool statusAfter = false, int descriptionMostLines = DescriptionPageLines, IReadOnlyList<int>? readingLit = null)
+            bool statusAfter = false, int descriptionMostLines = DescriptionPageLines, IReadOnlyList<int>? readingLit = null, string? label = null,
+            RoomListHeads? heads = null)
         {
+            Label = string.IsNullOrWhiteSpace(label) ? null : label;
+            Heads = heads;
             ReadingLit = readingLit ?? new int[0];
             DescriptionMostLines = descriptionMostLines < 1 ? 1 : descriptionMostLines > DescriptionPageLines ? DescriptionPageLines : descriptionMostLines;
             Press = press;
@@ -436,7 +456,8 @@ namespace Halcyonic.Client
         /// </summary>
         private RoomCard(RoomCard from)
             : this(from.Title, from.Description, from.Head, from.Status, from.Slots, from.Steps, from.TrackAt, from.TrackOf, from.List, from.Gauges, from.More,
-                from.Code, from.Reading, from.DescriptionPage, from.TitleMono, from.Press, statusAfter: from.StatusAfter, descriptionMostLines: from.DescriptionMostLines)
+                from.Code, from.Reading, from.DescriptionPage, from.TitleMono, from.Press, statusAfter: from.StatusAfter, descriptionMostLines: from.DescriptionMostLines,
+                label: from.Label, heads: from.Heads)
         {
             Still = from.Still;
         }
@@ -469,6 +490,19 @@ namespace Halcyonic.Client
         public const int ListAPage = 5;
 
         public LineWords? Title { get; }
+
+        /// <summary>
+        /// Where the place is, ours, a small label over the title in the one language's label role (FIELD's sheet, tile f1: HALORA
+        /// over Projects); null where the title stands alone.
+        /// </summary>
+        public string? Label { get; }
+
+        /// <summary>
+        /// The heads over the list where it reads as a table (FIELD's sheet, tile f1: PROJECT and STATE): each row's name under the
+        /// first, its note under the second. Under heads the rows carry no rule between them and no chevron: the whole row is the
+        /// press. Null for a list with no heads.
+        /// </summary>
+        public RoomListHeads? Heads { get; }
 
         public LineWords? Description { get; }
 

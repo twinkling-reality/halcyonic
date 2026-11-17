@@ -299,6 +299,15 @@ namespace Halcyonic.XR.UI
         /// <summary>Every label the card shows now, in the order it laid them: for checks.</summary>
         public List<TextMeshPro> Shown { get; } = new List<TextMeshPro>();
 
+        /// <summary>The label over the title (<see cref="RoomCard.Label"/>) as last shown; null where the card has none.</summary>
+        public TextMeshPro? LabelShown { get; private set; }
+
+        /// <summary>The list's heads (<see cref="RoomCard.Heads"/>) as last shown, the names' and the notes'; null where it has none.</summary>
+        public (TextMeshPro Name, TextMeshPro Note)? HeadsShown { get; private set; }
+
+        /// <summary>The gap under a list's heads before its first row (tile f1).</summary>
+        public const float HeadsGapDp = 6f;
+
         /// <summary>The labels shown as an excerpt of outside words, their lead cut at a word (a row that opens them whole).</summary>
         public List<TextMeshPro> Excerpts { get; } = new List<TextMeshPro>();
 
@@ -424,6 +433,8 @@ namespace Halcyonic.XR.UI
             Plates.Clear();
             Glyphs.Clear();
             listLines.Clear();
+            LabelShown = null;
+            HeadsShown = null;
             var down = 0f;
             void Gap(float dp) { if (down > 0f) down += S(dp); }
 
@@ -532,7 +543,7 @@ namespace Halcyonic.XR.UI
             if (card.List.Count > 0)
             {
                 Gap(ListGapDp);
-                down = LayList(card.List, width, down);
+                down = LayList(card.List, width, down, card.Heads);
             }
             if (card.More != null)
             {
@@ -936,6 +947,13 @@ namespace Halcyonic.XR.UI
 
         private float LayHead(RoomCard card, float width, float down)
         {
+            // Where the place is, over its title in the one language's label role (tile f1: HALORA over Projects).
+            if (card.Label != null)
+            {
+                var (label, labelTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha), LineWords.HostPlain(card.Label), 0f, -down, width, 1, labelRole: true);
+                LabelShown = label;
+                down += labelTall + S(4f);
+            }
             var headed = card.Head != RoomCardHead.None;
             var left = headed ? S(HeadDp + HeadGapDp) : 0f;
             var column = width - left;
@@ -1349,8 +1367,19 @@ namespace Halcyonic.XR.UI
             return down + S(StepDp) + nameGap + tallest + Mathf.Max(0f, notRunTall);
         }
 
-        private float LayList(IReadOnlyList<RoomListRow> rows, float width, float down)
+        private float LayList(IReadOnlyList<RoomListRow> rows, float width, float down, RoomListHeads? heads = null)
         {
+            // A table's heads over its rows (tile f1): the names' over the names, the notes' at the right over the notes, in the
+            // label role; under heads no rule divides the rows and no chevron stands, the whole row the press.
+            if (heads != null)
+            {
+                var (nameHead, headTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha), LineWords.HostPlain(heads.Name), 0f, -down, width / 2f, 1, labelRole: true);
+                var (noteHead, _) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha), LineWords.HostPlain(heads.Note), 0f, -down, width / 2f, 1, labelRole: true);
+                noteHead.transform.localPosition = new Vector3(width - RoomCursor.WordsWidth(noteHead, 0f), -down, -RoomType.Units(0.5f));
+                HeadsShown = (nameHead, noteHead);
+                down += headTall + S(HeadsGapDp);
+            }
+            var table = heads != null;
             // A list where no row has a kind keeps no room for a mark: its words start at the card's edge with the title's
             // (SCREENS's critic, 2026-11-13: the empty room read as an icon that failed to draw). Where any row has a mark, all keep it.
             var marked = false;
@@ -1368,7 +1397,7 @@ namespace Halcyonic.XR.UI
                 var plain = row.Kind == RoomKind.None && !answer && row.Press == null && !row.Name.AllTheirs;
                 // A rule divides rows a person picks from or reads as marked items; plain lines of words stand as a passage, with no
                 // rule (critic 8: a hairline under every quote read as "a tappable settings list").
-                var ruled = rows.Any(each => each.Press != null || each.Kind != RoomKind.None || each.Mark != AnswerMark.None);
+                var ruled = !table && rows.Any(each => each.Press != null || each.Kind != RoomKind.None || each.Mark != AnswerMark.None);
                 if (index > 0 && ruled) Plate(new Vector2(width, S(1f)), 0f, White(0.10f), new Vector2(width / 2f, -(down + S(0.5f))), "hairline");
                 var top = down + S(RowPadDp);
                 var (tone, glyph) = ToneOf(row);
@@ -1388,7 +1417,7 @@ namespace Halcyonic.XR.UI
                 // A row picked from carries a chevron at its right, the note before it, and takes a press across its whole width.
                 // An answer is pressed to choose it, in place: no chevron, as nothing opens.
                 var picked = row.Press != null;
-                var chevronRoom = picked && !answer ? S(ChevronDp + ChevronGapDp) : 0f;
+                var chevronRoom = picked && !answer && !table ? S(ChevronDp + ChevronGapDp) : 0f;
                 var markRoom = marked ? S(RowTileDp + RowGapDp) : 0f;
                 var nameLeft = markRoom + swatchRoom;
                 // Where the card is laid narrower than the panel's own words (the plane's narrower widths, the lead's 2026-11-13T1807Z
@@ -1484,7 +1513,7 @@ namespace Halcyonic.XR.UI
                         : new Vector3(width - chevronRoom - noteWidth, -(middle - S(RowNoteLineDp) / 2f), -RoomType.Units(0.5f));
                 if (picked)
                 {
-                    if (!answer) Glyph(RoomGlyph.Chevron, ChevronDp, White(0.55f), new Vector2(width - S(ChevronDp) / 2f, -middle), "row chevron");
+                    if (!answer && !table) Glyph(RoomGlyph.Chevron, ChevronDp, White(0.55f), new Vector2(width - S(ChevronDp) / 2f, -middle), "row chevron");
                     RowTarget(row.Press!, new Vector2(width / 2f, -middle), new Vector2(width, rowTall + 2f * S(RowPadDp)));
                 }
                 // The colour the row names, a filled disc between its mark and its name, its edge a light hairline so a dark colour

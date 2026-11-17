@@ -115,6 +115,9 @@ namespace Halcyonic.XR.UI
         /// <summary>Three dots in a row: More, a task's other routes, as the system's own panels keep theirs.</summary>
         More,
 
+        /// <summary>Three equal lines: Menu, the workspace's own column from the Projects panel (FIELD's sheet, tile f1).</summary>
+        Menu,
+
         /// <summary>
         /// An exclamation in a ring: a failed outcome standing bare in a card's slot, beside the passed check, at the check's optical
         /// size and weight (AUDIT's 10:39Z: the bare upright stroke read as a typed character). On a filled tile the plain one stands.
@@ -267,6 +270,7 @@ namespace Halcyonic.XR.UI
             [RoomGlyph.Cross] = new[] { Line(7f, 7f, 17f, 17f), Line(17f, 7f, 7f, 17f) },
             // Three dots on the middle line (strokes of no length, round capped), as the keyboard's keys.
             [RoomGlyph.More] = new[] { Line(6f, 12f, 6f, 12f), Line(12f, 12f, 12f, 12f), Line(18f, 12f, 18f, 12f) },
+            [RoomGlyph.Menu] = new[] { Line(5f, 7f, 19f, 7f), Line(5f, 12f, 19f, 12f), Line(5f, 17f, 19f, 17f) },
             // The row chevron's own shape, on an action: Back's mirror.
             [RoomGlyph.Opens] = new[] { Line(9.5f, 5.5f, 16f, 12f), Line(16f, 12f, 9.5f, 18.5f) },
             // The hexagon, then the three edges that meet at its middle.
@@ -381,7 +385,7 @@ namespace Halcyonic.XR.UI
             ["Make VR Copy"] = RoomGlyph.Cube, ["Changes"] = RoomGlyph.Changes, ["Checks"] = RoomGlyph.Checks, ["Back"] = RoomGlyph.Back, ["Next Part"] = RoomGlyph.Next,
             ["Next Page"] = RoomGlyph.Next, ["Next Choices"] = RoomGlyph.Next, ["Previous Part"] = RoomGlyph.Previous, ["Try Build"] = RoomGlyph.Play,
             ["New Project"] = RoomGlyph.Plus, ["Request Change"] = RoomGlyph.Pencil, ["Write Instruction"] = RoomGlyph.Bubble, ["Continue"] = RoomGlyph.Continue,
-            ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings,
+            ["Summarize"] = RoomGlyph.Lines, ["Choose Instruction"] = RoomGlyph.Lines, ["Run Checks Again"] = RoomGlyph.Again, ["Settings"] = RoomGlyph.Settings, ["Menu"] = RoomGlyph.Menu,
             ["Restore"] = RoomGlyph.Undo, ["Let Agent Fix"] = RoomGlyph.Agent, ["History"] = RoomGlyph.Clock, ["Earlier Versions"] = RoomGlyph.Clock,
             ["Previous Page"] = RoomGlyph.Previous, ["First Page"] = RoomGlyph.Previous, ["First Part"] = RoomGlyph.Previous, ["Compact"] = RoomGlyph.Next, ["Open Workspace"] = RoomGlyph.Previous, ["Projects"] = RoomGlyph.Back,
             ["Carry Out Plan"] = RoomGlyph.Continue, [RoomBar.MoreWords] = RoomGlyph.More,
