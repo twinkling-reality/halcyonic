@@ -685,7 +685,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     if (this.#active.size + this.#queued.size >= MAX_ASKS_AT_ONCE)
       throw new RuntimeActionError(
         'coordinator_busy',
-        'Twelve asks are already being worked on or waiting. Keep this one and send it again in a moment.',
+        'Twelve asks are already being worked on or waiting, so this one was not sent. Send it again in a moment.',
       );
     const key = principal.kind === 'local' ? 'local' : principal.device_id,
       minute = Math.floor(this.#o.controlPlane.clock.now().getTime() / 60000),
@@ -696,7 +696,7 @@ export class WorkspaceRequests implements WorkspaceRequestHandler {
     if (window.count > MAX_STARTS_A_MINUTE)
       throw new RuntimeActionError(
         'coordinator_rate_limited',
-        'This device has sent thirty asks this minute. Keep this one and send it again in a minute.',
+        'This device has sent thirty asks this minute, so this one was not sent. Send it again in a minute.',
       );
   }
   /**

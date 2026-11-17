@@ -680,7 +680,7 @@ test('cancelled provider workers retain global leases until their awaited read e
     assert.equal(refused.command?.failure?.code, 'coordinator_busy');
     assert.equal(
       refused.command?.failure?.message,
-      'Twelve asks are already being worked on or waiting. Keep this one and send it again in a moment.',
+      'Twelve asks are already being worked on or waiting, so this one was not sent. Send it again in a moment.',
     );
     assert.equal(f.controlPlane.projection.workspaceRequests().length, 12);
     release(unavailable);
@@ -705,7 +705,7 @@ test('planning starts have a principal rate bound independently of deduplicated 
     assert.equal(refused.command?.failure?.code, 'coordinator_rate_limited');
     assert.equal(
       refused.command?.failure?.message,
-      'This device has sent thirty asks this minute. Keep this one and send it again in a minute.',
+      'This device has sent thirty asks this minute, so this one was not sent. Send it again in a minute.',
     );
     assert.equal(f.controlPlane.projection.workspaceRequests().length, 30);
   } finally {
