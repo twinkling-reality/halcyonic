@@ -81,6 +81,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     // not draw fails here, never falls back to the older view's frame, which is not the frame drawn.
                     if (director.Plane.KitShows)
                     {
+                        // As a hand presses: the control drawn and stood a moment first (the judges' walk's 0.45 s), then pressed.
+                        System.Threading.Thread.Sleep(TimeSpan.FromSeconds(0.45));
+                        Draw();
                         var kit = director.Plane.Kit.Bar;
                         var drawn = kit.Button(action, key)?.Press ?? kit.Card?.RowTargets
                             .Where(row => row.Control.Action == action && row.Control.Key == key).Select(row => row.Press).FirstOrDefault();
