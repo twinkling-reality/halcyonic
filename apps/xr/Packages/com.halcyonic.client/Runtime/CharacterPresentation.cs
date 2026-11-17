@@ -44,8 +44,10 @@ namespace Halcyonic.Client
             bool stale,
             IReadOnlyList<string>? attentionDetails = null,
             IReadOnlyList<LineWords>? attentionNoteRuns = null,
-            IReadOnlyList<LineWords>? attentionDetailRuns = null)
+            IReadOnlyList<LineWords>? attentionDetailRuns = null,
+            string? restWords = null)
         {
+            RestWords = string.IsNullOrWhiteSpace(restWords) ? null : restWords;
             WorkstreamId = workstreamId;
             Title = title;
             Activity = activity;
@@ -79,6 +81,13 @@ namespace Halcyonic.Client
 
         /// <summary>Why the character needs attention, one line per reason, as <see cref="LabelText.Plain"/> shows it.</summary>
         public IReadOnlyList<string> AttentionNotes { get; }
+
+        /// <summary>
+        /// The card's own status words for the task's run at rest (<see cref="RoomStanding.Of"/> on the same execution the card
+        /// reads), so the character's tag and the card say one thing for one moment (the lead's ruling, 2026-11-17T17:41Z): null
+        /// while the run goes on, where the person is needed, or where its checks failed, which the state language says itself.
+        /// </summary>
+        public string? RestWords { get; }
 
         /// <summary>
         /// The same reasons without the words the state already says, for the peek beside a state
@@ -138,8 +147,19 @@ namespace Halcyonic.Client
                 !live,
                 details.Select(detail => detail.Text).ToList(),
                 notes,
-                details);
+                details,
+                RestWordsOf(activity, workstream.Attention.Level, execution));
         }
+
+        /// <summary>The card's status words for <paramref name="execution"/> at rest, where the tag says them in place of its own state word.</summary>
+        private static string? RestWordsOf(CharacterActivity activity, AttentionLevel attention, ExecutionView? execution) =>
+            StateLanguage.StateOf(activity, attention) is WorkState.WaitingForYou or WorkState.ChecksFailed ? null : RoomStanding.Of(execution)?.Title;
+
+        /// <summary>
+        /// The state word a character's tag shows: the card's words for a run at rest, the state language's word otherwise, so the tag
+        /// never says a turn goes on that the card says has ended, nor a second word for the same end.
+        /// </summary>
+        public static string TagWord(CharacterPresentation presentation) => presentation.RestWords ?? StateLanguage.BadgeOf(presentation).Word;
 
         /// <summary>
         /// Whether only simulated work can run here: the state registers at least one runtime and every one

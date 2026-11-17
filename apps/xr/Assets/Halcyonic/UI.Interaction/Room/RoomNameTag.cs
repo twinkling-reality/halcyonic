@@ -64,7 +64,7 @@ namespace Halcyonic.XR.UI
             // Needs You where the task needs the person, so no chip stands beside it (ADR 0023's words kept; AUDIT, 2026-11-11).
             var presented = view.Presentation as CharacterPresentation;
             tag.Show(LineWords.TheirName(view.Title), picked, needsYou: presented != null && CharacterLabel.Of(presented).NeedsPerson,
-                mostWordsDp: RoomTag.NameWordsMostDp, state: presented != null ? StateLanguage.BadgeOf(presented).Word : null);
+                mostWordsDp: RoomTag.NameWordsMostDp, state: presented != null ? CharacterPresenter.TagWord(presented) : null);
             Place();
         }
 

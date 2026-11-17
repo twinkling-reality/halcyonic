@@ -50,6 +50,51 @@ public class CharacterPresenterTests
         Assert.That(CharacterPresenter.LabelOf(CharacterActivity.TurnFinished), Is.EqualTo("Round Ended"));
     }
 
+    /// <summary>
+    /// The lead's ruling (2026-11-17T17:41Z): the character's tag says the state the card says, from the one projection. The card
+    /// at rest reads RoomStanding on the workstream's execution; the tag reads the same words, equal strings, never its own.
+    /// </summary>
+    [TestCase(WorkstreamStatus.Completed, ExecutionStatus.Completed, false, TestName = "TheTagSaysTheCardsWordsAtAFinishedTurn")]
+    [TestCase(WorkstreamStatus.Completed, ExecutionStatus.Completed, true, TestName = "TheTagSaysTheCardsWordsAtAllPassing")]
+    [TestCase(WorkstreamStatus.Running, ExecutionStatus.Completed, false, TestName = "TheTagSaysTheCardsWordsWhereTheCharactersActivityLags")]
+    [TestCase(WorkstreamStatus.Failed, ExecutionStatus.Failed, false, TestName = "TheTagSaysTheCardsWordsAtAFailedTurn")]
+    [TestCase(WorkstreamStatus.Interrupted, ExecutionStatus.Interrupted, false, TestName = "TheTagSaysTheCardsWordsAtAStoppedTurn")]
+    public void TheTagSaysTheCardsStateAtRest(WorkstreamStatus workstreamStatus, ExecutionStatus executionStatus, bool allPassing)
+    {
+        var execution = Samples.Execution("e1", "w1", executionStatus);
+        if (allPassing)
+            execution.AutoFix = new AutoFixView { State = AutoFixViewState.Ended, CheckId = "0193b3a0-0000-7000-8000-000000000001", Attempt = 2, Cap = 2, Reason = AutoFixEndReason.Passed };
+        var workstream = Samples.Workstream("w1", workstreamStatus, "e1");
+        var state = StateWith(workstream, execution);
+        var character = CharacterPresenter.Present(workstream, state, live: true);
+        // The card's status words, from the very execution the workspace's card reads (KitFileBinding: RoomStanding.Card).
+        var card = RoomStanding.Card(state.CurrentExecution(workstream), LineWords.TheirName(workstream.Title))!;
+        Assert.That(CharacterPresenter.TagWord(character), Is.EqualTo(card.Status!.Title), "the tag and the card say one thing");
+        Assert.That(CharacterPresenter.TagWord(character), Is.Not.EqualTo("Working"));
+        if (executionStatus == ExecutionStatus.Completed)
+        {
+            Assert.That(CharacterPresenter.TagWord(character), Is.EqualTo(RoomStanding.Finished));
+            if (allPassing) Assert.That(RoomBar.FixedCard(execution.AutoFix)?.Status?.Title, Is.EqualTo(RoomBar.FixedTitle), "All Passing is the checks' card, the run's state stays");
+        }
+    }
+
+    [Test]
+    public void WhileTheTurnGoesOnOrNeedsThePersonTheTagSaysTheStateLanguagesWord()
+    {
+        foreach (var (workstreamStatus, executionStatus, level, word) in new[]
+        {
+            (WorkstreamStatus.Running, ExecutionStatus.Running, AttentionLevel.None, "Working"),
+            (WorkstreamStatus.WaitingForHuman, ExecutionStatus.WaitingForHuman, AttentionLevel.ActionRequired, "Needs You"),
+        })
+        {
+            var execution = Samples.Execution("e1", "w1", executionStatus);
+            var workstream = Samples.Workstream("w1", workstreamStatus, "e1", level);
+            var character = CharacterPresenter.Present(workstream, StateWith(workstream, execution), live: true);
+            Assert.That(character.RestWords, Is.Null);
+            Assert.That(CharacterPresenter.TagWord(character), Is.EqualTo(word).And.EqualTo(StateLanguage.BadgeOf(character).Word));
+        }
+    }
+
     [Test]
     public void AnApprovalExplainsWhatNeedsApproving()
     {
