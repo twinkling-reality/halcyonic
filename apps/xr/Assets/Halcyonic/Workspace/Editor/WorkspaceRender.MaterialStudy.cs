@@ -22,6 +22,11 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             var originalPalette = Glaze.Palette; var originalField = ViewField.Current;
             var failures = new List<string>();
+            // The old chrome it measures ('Projects navigation' and its 'Cap' surfaces) stands only where the redesign is off: the
+            // fallback the older views keep until ON-2 removes them (RoomDesignDefault). Run it there, as the old kit's own render
+            // states do, rather than with the redesign on, where that chrome is never drawn (AUDIT3's 2026-11-17T03:06Z).
+            var designWas = RoomDesign.Enabled;
+            RoomDesign.Enabled = false;
             try
             {
                 failures.AddRange(GlazeChecks.AtEachTextSize(variant =>
@@ -40,7 +45,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }));
             }
             catch (Exception error) { failures.Add("material fixture threw " + error.GetBaseException().Message); }
-            finally { Glaze.SetPalette(originalPalette); ViewField.Current = originalField; KeepFontAssetsAsCommitted(); }
+            finally { RoomDesign.Enabled = designWas; Glaze.SetPalette(originalPalette); ViewField.Current = originalField; KeepFontAssetsAsCommitted(); }
             foreach (var failure in failures) Debug.LogError("Halcyonic: instrument material: " + failure);
             if (failures.Count == 0) Debug.Log("Halcyonic: instrument material: every source geometry, actual scene and motion control passed.");
             EditorApplication.Exit(failures.Count == 0 ? 0 : 1);
