@@ -539,6 +539,9 @@ namespace Halcyonic.XR.UI
 
         public Vector4 ChipColour => chipNow;
 
+        /// <summary>The plate the press is painted toward now (its colour and alpha), whatever the ease has reached: what a check counts a prominent plate by.</summary>
+        public Vector4 PlateTarget => haloTo;
+
         /// <summary>For renders, which have no hands: the look to show in place of the one its state gives, or null for its own.</summary>
         public RoomButtonLook? LookForRender { get; set; }
 

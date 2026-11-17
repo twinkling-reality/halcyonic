@@ -679,8 +679,11 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         // The one prominent press: the lighter thin-glass plate, no hue and no rim (FIELD's no-hue tokens, the lead's 19:15Z).
                         // Read by what is drawn alone, the plate, so a press painted light without the flag still counts (JUDGE's M2b).
-                        bool Accented(RoomButton button) => !button.RimPainted && (button.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.MainPlateColour)
-                            || button.ChipColour == (Vector4)Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.MainPlatePointedColour));
+                        // The plate it is painted toward (never the eased chip, which a walk may read mid-ease, JUDGE's M2b), drawn (alpha above 0).
+                        bool OnMainPlate(Vector4 plate) => plate.w > 0f && (Rgb(plate) == Rgb(Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.MainPlateColour))
+                            || Rgb(plate) == Rgb(Halcyonic.XR.UI.RoomSurface.Hex(RoomButton.MainPlatePointedColour)));
+                        static Vector3 Rgb(Vector4 colour) => new Vector3(colour.x, colour.y, colour.z);
+                        bool Accented(RoomButton button) => !button.RimPainted && OnMainPlate(button.PlateTarget);
                         var accented = plane.Kit.Bar.GetComponentsInChildren<RoomButton>(false)
                             .Where(button => button.GetComponentsInChildren<Renderer>(false).Any(part => part.enabled) && Accented(button)).ToList();
                         if (!approve.Main || !Accented(approve))
