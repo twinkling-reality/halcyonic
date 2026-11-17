@@ -151,7 +151,7 @@ test("the line says exactly the rule's two gaps: pinned to the check's profile (
   assert.ok(profile.includes('(allow network-outbound (remote tcp "localhost:*"))'));
   for (const port of OWN_LOOPBACK_ALWAYS_DENIED)
     assert.ok(profile.includes(`(deny network-outbound (remote ip "localhost:${port}"))`));
-  assert.match(ALLOW_TEST_SERVERS.line, /reach services on this computer, while they run/);
+  assert.match(ALLOW_TEST_SERVERS.line, /reach services that start on this computer while they run/);
   assert.doesNotMatch(ALLOW_TEST_SERVERS.line, /only this computer|other services/);
   assert.equal(ALLOW_TEST_SERVERS.label, 'Allow Test Servers');
 });
