@@ -264,6 +264,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 camera.fieldOfView = 100f;
                 camera.transform.rotation = Quaternion.LookRotation((bodyHome + lands) / 2f - camera.transform.position);
                 var released = false;
+                var pinchedBuilding = false;
                 var ringMoved = 0f;
                 string? ringPast = null;
                 for (var frame = 0; frame <= 40; frame++)
@@ -279,6 +280,32 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     Draw();
                     Advance(0.1f);
+                    // Approve only what is shown (AUDIT3's FL1): a pinch on the question's first answer while the panel is held for the
+                    // flight, and while its last line still builds, takes nothing; one after it stands whole takes.
+                    var at = "flight-" + frame.ToString("00", CultureInfo.InvariantCulture);
+                    bool Pinch()
+                    {
+                        if (bar.Button(FileScreens.Choose, "0") is not RoomButton answer || !answer.gameObject.activeInHierarchy) return false;
+                        var took = false;
+                        System.Action counted = () => took = true;
+                        answer.Press.Pressed += counted;
+                        answer.Press.SettleForRender();
+                        answer.Press.PressForRender(985);
+                        answer.Press.Pressed -= counted;
+                        return took;
+                    }
+                    if (frame == 3 && Pinch()) failures.Add(at + ": the question's answer took a pinch while its panel was held for the flight");
+                    if (!pinchedBuilding && seconds > landed && !bar.PanelBuilt)
+                    {
+                        pinchedBuilding = true;
+                        if (Pinch()) failures.Add(at + ": the question's answer took a pinch while its panel's lines still built");
+                        else Debug.Log("Halcyonic: flight walk: " + at + ": a pinch while the panel built took nothing");
+                    }
+                    if (frame == 19)
+                    {
+                        if (!bar.PanelBuilt) failures.Add(at + ": the question's panel is not whole a second after the landing");
+                        else if (!Pinch()) failures.Add(at + ": the question's answer took no pinch once its panel stood whole");
+                    }
                     ForceMeshes(root);
                     var image = Render(camera, texture);
                     var name = "flight-" + frame.ToString("00", CultureInfo.InvariantCulture);

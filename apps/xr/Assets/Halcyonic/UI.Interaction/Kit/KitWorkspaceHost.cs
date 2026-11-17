@@ -493,7 +493,9 @@ namespace Halcyonic.XR.UI
             // The working field stands round the panel's place where the bar now stands (a plate or row under it moves it up).
             if (watchDrawn && !dialogStands) StandWatch(writingArc!.Size);
             ShowWork(room, zoom);
-            foreach (var press in bar.Presses) press.Accepting = () => Accepting();
+            // The panel's answers wait for the panel to stand whole (AUDIT3's FL1); Hold to Talk and the row's other presses do not.
+            var answers = new HashSet<KitPress>(bar.AnswerPresses);
+            foreach (var press in bar.Presses) press.Accepting = answers.Contains(press) ? () => Accepting() && bar.PanelBuilt : () => Accepting();
         }
 
         /// <summary>

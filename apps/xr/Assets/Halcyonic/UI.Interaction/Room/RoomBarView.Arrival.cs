@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Halcyonic.Client;
 using TMPro;
 using UnityEngine;
@@ -40,6 +41,19 @@ namespace Halcyonic.XR.UI
 
         private float arrivalHold;
 
+        /// <summary>
+        /// Whether the panel stands whole: past its hold (the flying character) and past the build-up of its last line, or Still, or no
+        /// moment shown. Its answers take a press only from then (AUDIT3's FL1: approve only what is shown), each counting its settle
+        /// from the build-up's end.
+        /// </summary>
+        public bool PanelBuilt => GlazeMotion.Still || !panel.gameObject.activeSelf || arrivalKey == null
+            || PanelClock() - arrivedAt - arrivalHold >= RoomMotion.PanelArrivalSeconds(panelWords.Count);
+
+        /// <summary>The panel's own answers (its column), which take a press only once it stands whole (<see cref="PanelBuilt"/>).</summary>
+        public IEnumerable<KitPress> AnswerPresses => column.Select(button => button.Press);
+
+        private bool builtBefore = true;
+
         /// <summary>How far the panel has arrived now, 0 to 1, and how far below its place it stands, in dp.</summary>
         public RoomMove PanelArrival { get; private set; } = RoomMove.Settled;
 
@@ -53,6 +67,7 @@ namespace Halcyonic.XR.UI
                 arrivalKey = key;
                 arrivedAt = PanelClock();
                 arrivalHold = HoldArrival(bar.State);
+                builtBefore = PanelBuilt;
                 MomentArrived?.Invoke(bar);
             }
             panelWords.Clear();
@@ -80,6 +95,10 @@ namespace Halcyonic.XR.UI
         private void FollowArrival()
         {
             if (!panel.gameObject.activeSelf || arrivalKey == null) return;
+            // Whole now, not a moment ago: each answer's settle counts from here, so no pinch made while it built takes.
+            var built = PanelBuilt;
+            if (built && !builtBefore) foreach (var press in AnswerPresses) press.Unsettle();
+            builtBefore = built;
             var since = PanelClock() - arrivedAt - arrivalHold;
             var move = GlazeMotion.Still ? RoomMove.Settled : since < 0f ? RoomMove.Gone : RoomMotion.PanelArrives(since);
             PanelArrival = move;
@@ -101,6 +120,8 @@ namespace Halcyonic.XR.UI
         public void SettleArrival()
         {
             arrivedAt = PanelClock() - arrivalHold - RoomMotion.PanelArrivalSeconds(panelWords.Count);
+            // A render's settle is whole at once: its presses keep the settle the render gives them.
+            builtBefore = true;
             FollowArrival();
         }
     }
