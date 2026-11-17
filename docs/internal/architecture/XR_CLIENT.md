@@ -3261,14 +3261,17 @@ in order, as before.
   file's own feeds while it shows (`FileColumn.ResultEvidenceShown`, `OutcomePage`, `ReasoningPage`; the older view keeps
   the doors' sections, `WorkspacePresentationState.EvidencePageFor`). `EvidencePage.Card` lays a page on the kit's card:
   how it knows once in the label role (MEASURED, OBSERVED or REPORTED, and SIMULATED for a stand-in), never the
-  source's own name (the lead's 2026-11-13 ruling, `tooling/sibling-names.test.ts`), the source's verdict and why as the
-  description on the first part, then its rows five a part, each section's head as a quiet line above its first row on a
-  part, the value on the right edge, a run's mark by its form (Passed, Failed; none for Partly Passed or Can't Tell, whose
-  words say it). Every value is the source's own; a part it marks unavailable, or a count it did not give, is left out,
-  never shown as 0 or guessed. Without an answer the page is its state with the reason's own phrase under it: before any
+  source's own name (the lead's 2026-11-13 ruling, `tooling/sibling-names.test.ts`), the finding said once as the
+  description on the first part (a why that only repeats a run's name is left to the run), then the card's results
+  (`RoomCard.Results`, `RoomCardView.LayResults`, AUDIT's 21:13Z after result-death-stranding-results.png and
+  list-death-stranding-cargo-management.png): each section's head once in the label role over its rows, five rows a part,
+  a hairline between rows, every name on the card's one left edge, the value plain on the right edge with its mark (by form)
+  just before it, each fact its own quiet line under the name, a rate as a white fill on a quiet track, and a command in
+  mono broken only between its words. Every value is the source's own; a part it marks unavailable, or a count it did not
+  give, is left out, never shown as 0 or guessed. Without an answer the page is its state with the reason's own phrase under it: before any
   read "Not Measured" or "No Conclusions" with "Nothing has been read for this task yet."; a read that failed, Measurement
   or Conclusions Unavailable with the feed's own reason; and the host's not found, unavailable, incompatible and
-  unauthorized in the text sections' words. Not yet: a bar for a row's rate (the value says it in words). Checks:
+  unauthorized in the text sections' words. Checks:
   `47-card-evidence-*` (from the demonstration's recorded answers and each honest state); `EvidencePageTests`,
   `RunResultsTests`, `RunUnderstandingTests`, `RoomResultTests.TheEvidenceDoorsOpenTheirPagesOnTheKitsCardWithAWayBack`.
 - **Ask, as cards** (`AskColumn`, `AskScope`, `AskStage`; ADR 0030; gap 7): one Ask about a task and its current
