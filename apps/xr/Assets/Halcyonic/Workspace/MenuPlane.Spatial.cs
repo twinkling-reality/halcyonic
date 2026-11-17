@@ -148,7 +148,8 @@ namespace Halcyonic.XR.Workspace
             KitOwner = ContextBinding;
             Composition = new PlaneComposition(new[] { new PlaneColumn(Kit.Size.x, Kit.Size.y) }, zoom);
             Placed = PlaceWorkspace(all, looking, surfaceHeight, Composition.Size);
-            if (RoomDesign.Enabled)
+            // A placing holds the plane where it stood as it opened, its foot line's pitch with it (PlaceWorkspace returns the held one).
+            if (RoomDesign.Enabled && heldWhilePlacing == null)
             {
                 // The redesign stands by its foot line, not where the head pitched (BUILD-SPEC-v4 1.1): the plane faces the person
                 // the way they look, tipped so the line the pair stands on is at DESIGN's pitch, the pair growing upward from it
@@ -374,8 +375,16 @@ namespace Halcyonic.XR.Workspace
         /// <param name="placing">A local overlay places something in the room now (<see cref="IPlacesInRoom"/>): the floor's width meanwhile.</param>
         /// <param name="shelfComing">The room applied a shelf the stage has not stood yet: a placing that just ended waits for it.</param>
         /// <param name="open">A page stands open on the plane (not at rest, not compact): what a shelf stands aside for.</param>
+        /// <summary>The direction the plane holds while a placing stands; null otherwise.</summary>
+        private PanelDirection? heldWhilePlacing;
+
         public void ConsiderForm(Vector3[]? shelf, Vector3 viewer, int characters, bool placing = false, bool shelfComing = false, bool open = true)
         {
+            // While a placing stands the plane holds the direction it had as the placing opened (XR's 2026-11-17T21:0xZ, SHOW's FW1): the
+            // shelf's search judged the preview against that plane, and Apply judges it against the same one, never a plane re-pitched
+            // under the person by the placing's own column (-8.6 to -6.0 at Standard refused every preview that cleared by less).
+            if (placing) heldWhilePlacing ??= Placed;
+            else heldWhilePlacing = null;
             if (!RoomDesign.Enabled || !KitWorkspaceHost.Enabled) { Kit.Form = RoomForm.Full; ShelfAsideDegrees = 0f; return; }
             var shelfKey = shelf == null ? "" : string.Join(";", shelf.Select(corner => $"{Mathf.RoundToInt(corner.x * 100)},{Mathf.RoundToInt(corner.y * 100)},{Mathf.RoundToInt(corner.z * 100)}"));
             ConsiderWidth(shelf, shelfKey, viewer, characters, placing, shelfComing);

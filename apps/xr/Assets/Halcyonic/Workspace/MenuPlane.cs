@@ -906,6 +906,7 @@ namespace Halcyonic.XR.Workspace
 
         private PanelDirection PlaceWorkspace(IReadOnlyList<CharacterTarget> all, Vector3 looking, float? surfaceHeight, PanelSize size)
         {
+            if (heldWhilePlacing is PanelDirection held) return held;
             var direction = RecoveryDirection(looking);
             return new PanelDirection(direction.Yaw, direction.Elevation, ClearsBodies(direction, bodies, size), false);
         }
