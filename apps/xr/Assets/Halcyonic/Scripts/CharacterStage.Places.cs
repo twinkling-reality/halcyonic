@@ -327,9 +327,12 @@ namespace Halcyonic.XR
             }
             // The row from the tags as the EYES see them (FIELD's PlacePitch is in degrees from the eyes): a place's tags stand lower and nearer or
             // further than its floor arc's distance, so their metres are read at their own distance, never at the arc's.
-            var widestSeen = WidestDegrees();
-            if (widestSeen > 0f)
+            // Laid, read and laid again until the row stands still: a row's tags read as they stand in it (three passes at most).
+            for (var settle = 0; settle < 3; settle++)
             {
+                var widestSeen = WidestDegrees();
+                if (widestSeen <= 0f) break;
+                var rowWas = rowMost;
                 var bodyDegrees = PlacePitch.DegreesOf(BodyWidth * scale, distance);
                 var pitchDegrees = PlacePitch.PitchDegrees(widestSeen, bodyDegrees);
                 // Tags move with their characters, so a pitch in metres that sets the tags pitchDegrees apart as the eyes see them, across the
@@ -338,6 +341,7 @@ namespace Halcyonic.XR
                 pitch = (float)PlacePitch.MetresOf(pitchDegrees, tagDistance);
                 rowMost = Mathf.Min(PlacePitch.RowMost(widestSeen, bodyDegrees), rule.FullMost);
                 Lay();
+                if (settle > 0 && rowMost == rowWas) break;
             }
             if (count <= rowMost || DrawnTagCorners == null) return (pitch, rowMost, rise);
             float Yaw(Vector3 point) => Mathf.Atan2(point.x - eyes.x, point.z - eyes.z) * Mathf.Rad2Deg;
