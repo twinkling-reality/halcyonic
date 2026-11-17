@@ -827,10 +827,13 @@ namespace Halcyonic.XR.UI
                 var width = button.Measure(action.Words, action.Chip) + (button == talk && listening ? RoomType.Units(LevelGapDp + LevelWidthDp) : 0f);
                 buttons.Add((button, action, width));
             }
-            // One press width per row, the row's widest (AUDIT's 19:38Z (2)).
-            var rowWidest = buttons.Count > 0 ? buttons.Max(each => each.Width) : 0f;
-            buttons = buttons.Select(each => (each.Button, each.Action, rowWidest)).ToList();
+            // One press width per row, the row's widest (AUDIT's 19:38Z (2)), where the row then stays within the panel's width or its
+            // own; else each keeps its own (F300: the review's row at Larger drew 793 dp against its 766 envelope).
             var gap = RoomType.Units(RoomGeometry.RowGapDp);
+            var rowWidest = buttons.Count > 0 ? buttons.Max(each => each.Width) : 0f;
+            var ownTotal = buttons.Sum(each => each.Width) + gap * Mathf.Max(0, buttons.Count - 1);
+            if (buttons.Count * rowWidest + gap * Mathf.Max(0, buttons.Count - 1) <= Mathf.Max(ownTotal, RoomType.Units(RoomGeometry.PanelDp)) + 1e-4f)
+                buttons = buttons.Select(each => (each.Button, each.Action, rowWidest)).ToList();
             var total = buttons.Sum(each => each.Width) + gap * (buttons.Count - 1);
             var left = -total / 2f;
             foreach (var (button, action, width) in buttons)
@@ -1712,7 +1715,7 @@ namespace Halcyonic.XR.UI
             if (bar.Field != null)
             {
                 // Over the sentence bar and the foot row, so the field never takes a press meant for an action.
-                var fieldHeight = panelHeight - (barHeight > 0f ? barHeight + inset + lift : footRow ? footBlock + pad + KitType.Units(SpatialKit.TargetGapDegrees) + RoomType.Units(0.5f) : 0f);
+                var fieldHeight = panelHeight - (barHeight > 0f ? barHeight + inset + lift : footRow ? footBlock + pad + KitType.Units(SpatialKit.TargetGapDegrees) + RoomType.Units(4f) : 0f);
                 var fieldWidth = Mathf.Min(panelWidth, panelWidth + gap - KitType.Units(SpatialKit.TargetGapDegrees));
                 field.transform.localPosition = new Vector3(-panelWidth / 2f + fieldWidth / 2f, top - fieldHeight / 2f, -RoomType.Units(0.5f));
                 field.Resize(new Vector2(fieldWidth, Mathf.Max(fieldHeight, RoomType.Units(RoomButton.HeightDp))));
