@@ -610,6 +610,18 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var cursor in root.GetComponentsInChildren<RoomCursor>(false)) cursor.Settle();
                     foreach (var field in root.GetComponentsInChildren<RoomField>(false)) field.Settle();
                     ForceMeshes(root);
+                    // The character's tag reads the task's state from the one projection, as the bar does (the lead's 19:40Z (6)): its drawn
+                    // state word is the presenter's word for the task now, and Needs You while any ask of the task waits.
+                    if (stoodView != null && stoodWorkstream != null && State() is ClientProjection tagState
+                        && tagState.Workstreams.TryGetValue(stoodWorkstream, out var tagWork) && RoomNameTag.On(stoodView).Tag?.StateWords is TMP_Text drawnState)
+                    {
+                        var expected = CharacterPresenter.TagWord(CharacterPresenter.Present(tagWork, tagState, live != null || fallback.Current?.Status.IsLive == true));
+                        var asks = Current(stoodWorkstream) is ExecutionView asking && (asking.PendingApprovals.Count > 0 || asking.PendingQuestions.Count > 0);
+                        var shouldRead = asks ? WorkspaceText.WhatDoYouNeed : expected;
+                        if (!string.Equals(drawnState.text, expected, StringComparison.OrdinalIgnoreCase)
+                            || !string.Equals(drawnState.text, shouldRead, StringComparison.OrdinalIgnoreCase))
+                            failures.Add("judge room: " + name + ": the character's tag reads '" + drawnState.text + "' where the task's state reads '" + shouldRead + "'");
+                    }
                     camera.transform.rotation = PlaneLayout.Facing(plane.Direction);
                     var image = Render(camera, texture);
                     File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
