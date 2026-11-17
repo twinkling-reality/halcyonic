@@ -792,4 +792,32 @@ public class WorkspacePresentationStateTests
         Assert.That(WorkspacePresentationState.SectionForMomentAction(KitMomentAction.SeeWhatChanged), Is.EqualTo(FileSection.Changes));
         Assert.That(WorkspacePresentationState.SectionForScreenAction(KitScreenAction.Why), Is.EqualTo(FileSection.Changes));
     }
+    /// <summary>
+    /// Up to three projects' screens stand open at once (the lead, 2026-11-17T18:55Z (d)): open A, then B, then C, close B, and A and C stay;
+    /// the console steps aside once and comes back only when none stands; a fourth is refused in words (AUDIT3's SC1), never swapped in.
+    /// </summary>
+    [Test]
+    public void ThreeProjectScreensStandOpenAndClosingOneLeavesTheOthers()
+    {
+        var presentation = new WorkspacePresentationState(keepAgentsWhenMinimized: true);
+        Assert.That(presentation.ShowProjectScreen("A"), Is.True);
+        Assert.That(presentation.Minimized, Is.True, "the console steps aside for the first screen");
+        Assert.That(presentation.ShowProjectScreen("B", barOpen: true), Is.True);
+        Assert.That(presentation.ShowProjectScreen("C"), Is.True);
+        Assert.That(presentation.ScreenProjectIds, Is.EqualTo(new[] { "A", "B", "C" }));
+        Assert.That(presentation.ScreenProjectId, Is.EqualTo("C"), "the last brought forward holds the bar");
+        Assert.That(presentation.ShowProjectScreen("D"), Is.False, "a fourth is refused");
+        Assert.That(presentation.ScreenRefused, Is.True);
+        Assert.That(presentation.ScreenProjectIds, Is.EqualTo(new[] { "A", "B", "C" }), "nothing is swapped out");
+        Assert.That(presentation.CloseProjectScreen("B"), Is.True);
+        Assert.That(presentation.ScreenRefused, Is.False);
+        Assert.That(presentation.ScreenProjectIds, Is.EqualTo(new[] { "A", "C" }), "A and C stay");
+        Assert.That((presentation.ScreenProjectId, presentation.Minimized), Is.EqualTo(("C", true)));
+        Assert.That(presentation.CloseProjectScreen(), Is.True, "closes the one brought forward, C");
+        Assert.That((presentation.ScreenProjectIds[0], presentation.ScreenProjectIds.Count, presentation.ScreenProjectId, presentation.ScreenBarOpen), Is.EqualTo(("A", 1, "A", false)));
+        Assert.That(presentation.Minimized, Is.True, "the console stays aside while a screen stands");
+        Assert.That(presentation.CloseProjectScreen("A"), Is.True);
+        Assert.That((presentation.ScreenProjectId, presentation.Minimized), Is.EqualTo(((string?)null, false)), "the last closed, the console comes back");
+        Assert.That(presentation.CloseProjectScreen("A"), Is.False);
+    }
 }

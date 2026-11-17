@@ -40,8 +40,29 @@ namespace Halcyonic.Client
         /// <summary>The workstream whose contextual moment card was explicitly inspected beside its avatar, if any.</summary>
         public string? InspectedWorkstreamId { get; private set; }
 
-        /// <summary>The project whose on-demand screen and command bar are open in the room, if any.</summary>
+        /// <summary>
+        /// The project whose screen the person last brought forward, which holds the command bar, if any. Other projects' screens may stand open
+        /// beside it (<see cref="ScreenProjectIds"/>).
+        /// </summary>
         public string? ScreenProjectId { get; private set; }
+
+        private readonly List<string> openScreens = new List<string>();
+
+        /// <summary>
+        /// Every project screen open in the room, in the order they were opened (the lead, 2026-11-17T18:55Z (d)): up to <see cref="ScreensMost"/>,
+        /// each standing at its own place. Another past that is refused, never silently swapped for one already open (AUDIT3's SC1): the person
+        /// reads <see cref="CloseAScreen"/> and closes one first.
+        /// </summary>
+        public IReadOnlyList<string> ScreenProjectIds => openScreens;
+
+        /// <summary>How many project screens stand open at once (SHOW's RoomLayout.Screens fits three in the seated reach).</summary>
+        public const int ScreensMost = 3;
+
+        /// <summary>The words a refused open shows (AUDIT2's): the person closes a screen, then opens the next.</summary>
+        public const string CloseAScreen = "Close a screen to open another";
+
+        /// <summary>True from a refused open until the next screen opens or closes: the room says <see cref="CloseAScreen"/>.</summary>
+        public bool ScreenRefused { get; private set; }
 
         /// <summary>Whether the on-demand project screen's command bar is open rather than folded to its handle.</summary>
         public bool ScreenBarOpen { get; private set; }
@@ -191,6 +212,7 @@ namespace Halcyonic.Client
             {
                 Minimized = false;
                 (ScreenProjectId, ScreenBarOpen, consoleAsideForScreen) = (null, false, false);
+                openScreens.Clear();
                 Changed?.Invoke();
                 return true;
             }
@@ -258,6 +280,12 @@ namespace Halcyonic.Client
         {
             if (string.IsNullOrEmpty(projectId) || changing) return false;
             if (ScreenProjectId == projectId && ScreenBarOpen == barOpen) return false;
+            if (!openScreens.Contains(projectId) && openScreens.Count >= ScreensMost)
+            {
+                if (!ScreenRefused) { ScreenRefused = true; Changed?.Invoke(); }
+                return false;
+            }
+            ScreenRefused = false;
             changing = true;
             try
             {
@@ -269,6 +297,7 @@ namespace Halcyonic.Client
                 }
                 ScreenProjectId = projectId;
                 ScreenBarOpen = barOpen;
+                if (!openScreens.Contains(projectId)) openScreens.Add(projectId);
                 Changed?.Invoke();
                 return true;
             }
@@ -288,17 +317,31 @@ namespace Halcyonic.Client
             finally { changing = false; }
         }
 
-        public bool CloseProjectScreen()
+        /// <summary>Closes the screen brought forward; the others stay open (the lead's walk: open A, B and C, close B, and A and C stay).</summary>
+        public bool CloseProjectScreen() => ScreenProjectId != null && CloseProjectScreen(ScreenProjectId);
+
+        /// <summary>
+        /// Closes <paramref name="projectId"/>'s screen alone. Where it held the bar, the last opened of the rest takes it, folded. The console the
+        /// screens put aside comes back once none stands; one the person had put aside stays so.
+        /// </summary>
+        public bool CloseProjectScreen(string projectId)
         {
-            if (ScreenProjectId == null || changing) return false;
+            if (string.IsNullOrEmpty(projectId) || !openScreens.Contains(projectId) || changing) return false;
+            ScreenRefused = false;
             changing = true;
             try
             {
-                ScreenProjectId = null;
-                ScreenBarOpen = false;
-                // The console the screen put aside comes back; one the person had put aside stays so.
-                if (consoleAsideForScreen) Minimized = false;
-                consoleAsideForScreen = false;
+                openScreens.Remove(projectId);
+                if (ScreenProjectId == projectId)
+                {
+                    ScreenProjectId = openScreens.Count > 0 ? openScreens[openScreens.Count - 1] : null;
+                    ScreenBarOpen = false;
+                }
+                if (openScreens.Count == 0)
+                {
+                    if (consoleAsideForScreen) Minimized = false;
+                    consoleAsideForScreen = false;
+                }
                 Changed?.Invoke();
                 return true;
             }
@@ -605,6 +648,20 @@ namespace Halcyonic.Client
             return ScreenOf(project, state, ScreenBarOpen, isLive);
         }
 
+        /// <summary>
+        /// Every open screen's model, in <see cref="ScreenProjectIds"/>' order: the one brought forward with its bar as set, the rest folded.
+        /// A project the projection no longer holds stands no screen.
+        /// </summary>
+        public IReadOnlyList<(string ProjectId, KitScreenModel Screen)> OpenScreens(ClientProjection? state, bool isLive = true)
+        {
+            var screens = new List<(string, KitScreenModel)>();
+            if (state == null) return screens;
+            foreach (var id in openScreens)
+                if (state.Projects.TryGetValue(id, out var project))
+                    screens.Add((id, ScreenOf(project, state, id == ScreenProjectId && ScreenBarOpen, isLive)));
+            return screens;
+        }
+
         public static KitMomentSlot? MomentSlotOf(
             WorkstreamView work,
             ClientProjection state,
@@ -895,6 +952,8 @@ namespace Halcyonic.Client
                 {
                     PendingVrConversionSourceProjectId = null;
                     convertedProjectId = newVrProject.ProjectId;
+                    var stood = openScreens.IndexOf(sourceProjectId);
+                    if (stood >= 0 && !openScreens.Contains(newVrProject.ProjectId)) openScreens[stood] = newVrProject.ProjectId;
                     if (ScreenProjectId == sourceProjectId)
                     {
                         ShowProjectScreen(newVrProject.ProjectId, ScreenBarOpen);
