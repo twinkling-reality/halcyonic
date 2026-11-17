@@ -1313,7 +1313,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         var command = longer ? AskLongCommand : state == "33-ask-deny-only" ? AskCommand + " [truncated]"
                             : state.StartsWith("33-ask-tool", StringComparison.Ordinal) ? AskToolName + ": " + AskToolRequest : AskCommand;
                         var read = request.GetParsedText();
-                        Require(!read.Contains("\\\\") && (!longer || read.Contains("\\")), "the request reads \"" + read + "\", its backslashes not as written");
+                        // A long command's backslashes stand in its first lines; its second part (judged against its own rows just below)
+                        // carries none, so there only the doubled backslash is refused.
+                        Require(!read.Contains("\\\\") && (!longer || state == "33-ask-long-part-2" || read.Contains("\\")), "the request reads \"" + read + "\", its backslashes not as written");
                         if (state == "33-ask-long-part-2")
                             Require(partTwo != null && read.TrimEnd() == partTwo.TrimEnd() && !command.StartsWith(read.TrimEnd(), StringComparison.Ordinal),
                                 "on its second part the panel reads \"" + read + "\", not that part's own rows \"" + partTwo + "\"");
