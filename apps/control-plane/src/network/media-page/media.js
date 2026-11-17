@@ -310,6 +310,9 @@ function block(project) {
     grid,
     tiles: new Map(),
     adding: false,
+    /** Whether a file was on its way at the last draw, and the words that stood when it landed (stale since). */
+    wasIncoming: false,
+    stale: null,
   };
   input.addEventListener('change', () => {
     const file = input.files?.[0];
@@ -356,18 +359,23 @@ function update(kept, project) {
   const busy = project.adding || sending.has(project.project_id);
   kept.add.disabled = busy;
   kept.add.replaceChildren(glyph(busy ? 'g-hourglass' : 'g-plus'), busy ? 'Adding' : 'Add Media');
-  // What went wrong with the last add, from this page or the host, until the next add starts.
-  const words = sending.has(project.project_id)
-    ? null
-    : (told.get(project.project_id) ?? project.said);
-  kept.said.hidden = words === null;
-  if (words !== null) kept.said.lastChild.textContent = words;
-
   // Newest first. A file on its way is one tile from its first byte until the host has made it ready, then its own.
   const media = [...project.media].reverse();
   const waiting = media.findIndex((medium) => !medium.prepared);
   const fraction = sending.get(project.project_id);
   const incoming = fraction !== undefined || project.adding || waiting !== -1;
+
+  // What went wrong with the last add, from this page or the host, until the next add starts; and no longer once a file
+  // that was on its way has landed, since the person can add again then (AUDIT 00:1xZ: "still arriving" stayed after).
+  const said = sending.has(project.project_id)
+    ? null
+    : (told.get(project.project_id) ?? project.said);
+  if (fraction !== undefined) kept.stale = null;
+  else if (kept.wasIncoming && !incoming) kept.stale = said;
+  kept.wasIncoming = incoming;
+  const words = said !== null && said === kept.stale ? null : said;
+  kept.said.hidden = words === null;
+  if (words !== null) kept.said.lastChild.textContent = words;
   const wanted = [];
   if (incoming) {
     const node = kept.tiles.get('incoming') ?? incomingTile();
