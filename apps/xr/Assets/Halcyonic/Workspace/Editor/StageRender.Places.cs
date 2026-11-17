@@ -81,6 +81,21 @@ namespace Halcyonic.XR.Workspace.Editor
                 // Every place's team as laid, and every tag and body as the eyes see it, for the check across places.
                 var teams = new List<List<CharacterView>>();
                 var drawnByPlace = new List<(string Project, List<Rect> Tags, List<Rect> Bodies)>();
+                var signRects = new List<(string Project, List<Rect> Parts)>();
+                IEnumerable<Vector3> TextCorners(TMPro.TMP_Text text)
+                {
+                    var bounds = text.textBounds;
+                    foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                        foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                            yield return text.transform.TransformPoint(new Vector3(x, y, 0f));
+                }
+                IEnumerable<Vector3> BoundsCorners(Bounds bounds)
+                {
+                    foreach (var x in new[] { bounds.min.x, bounds.max.x })
+                        foreach (var y in new[] { bounds.min.y, bounds.max.y })
+                            foreach (var z in new[] { bounds.min.z, bounds.max.z })
+                                yield return new Vector3(x, y, z);
+                }
                 // Each tag's height as the eyes see it, by ring and row: a tag keeps its size as seen at every ring and row (the lead's
                 // 2026-11-17T20:4xZ MUST, as a game's name plates do), never growing past the front row of ring one.
                 var tagHeights = new List<(int Ring, bool Back, string Name, float Degrees)>();
@@ -124,16 +139,27 @@ namespace Halcyonic.XR.Workspace.Editor
                     {
                         var point = new GameObject("Place sign point").transform;
                         point.SetParent(place, false);
-                        var tallest = team.Select(each => RoomNameTag.DrawnSize(each)?.y ?? 0f).DefaultIfEmpty(0f).Max();
-                        CharacterStage.HangSign(point, tallest, bearing.Distance, eyes);
+                        var morePoint = new GameObject("Place more point").transform;
+                        morePoint.SetParent(place, false);
+                        CharacterStage.StandSignPoints(place, team, bearing.SpanDegrees, bearing.YawDegrees, bearing.Distance, eyes, point, morePoint);
                         var ids = Enumerable.Range(0, tasks.Length).Select(task => "place-" + index + "-" + task).ToList();
                         var standing = new RoomPlace("place-project-" + index, project, ids, index == 0 ? 1 : 0, gatheredHere > 0 ? PlaceForm.Crowd : PlaceForm.Full, team.Count);
-                        RoomPlaceSignView.Create(point).Show(standing, new RoomPlaces());
+                        var signShown = RoomPlaceSignView.Create(point);
+                        signShown.StandPressAt(morePoint);
+                        signShown.Show(standing, new RoomPlaces());
+                        // Settled for the frame: a press arrives over time, and a render reads it whole.
+                        signShown.Press?.Settle();
                     }
                     // A gathered place says its count at its sign, "{n} More", in the frame (AUDIT's 21:5xZ MUST: a hidden team with no sign).
                     var signView = place.GetComponentsInChildren<RoomPlaceSignView>(false).FirstOrDefault();
-                    if (gatheredHere > 0 && (signView?.Press == null || !signView.Press.gameObject.activeInHierarchy))
+                    var countWords = signView?.Press?.GetComponentsInChildren<TMPro.TMP_Text>(false).Select(text => text.GetParsedText()).FirstOrDefault(text => text.Contains("More"));
+                    if (gatheredHere > 0 && countWords == null)
                         failures.Add(project + ": it gathers " + gatheredHere + " and draws no count at its place");
+                    // The name and the count stand clear of every tag and body, never loose words over a plate (AUDIT's 22:0xZ).
+                    var signParts = new List<Rect>();
+                    if (signView?.Name is TMPro.TextMeshPro nameDrawn) { nameDrawn.ForceMeshUpdate(); signParts.Add(Seen(TextCorners(nameDrawn))); }
+                    if (signView?.Press is RoomButton countDrawn) signParts.Add(Seen(countDrawn.GetComponentsInChildren<Renderer>(false).SelectMany(renderer => BoundsCorners(renderer.bounds))));
+                    signRects.Add((project, signParts));
                     // A farther ring stands clear of the nearer ring's team at its bearing, by the stage's own rule.
                     if (bearing.Ring > 0 && index - PlaceBearings.Centres.Length >= 0)
                     {
@@ -219,6 +245,11 @@ namespace Halcyonic.XR.Workspace.Editor
                             || tagsB.Any(tag => bodiesA.Any(tag.Overlaps)) || bodiesA.Any(body => bodiesB.Any(body.Overlaps));
                         if (crossed) failures.Add(nameA + " and " + nameB + " stand over each other as the eyes see them");
                     }
+                foreach (var (signOf, parts) in signRects)
+                    foreach (var part in parts)
+                        foreach (var (other, tagRects, bodyRects) in drawnByPlace)
+                            if (tagRects.Concat(bodyRects).Any(part.Overlaps))
+                                failures.Add(signOf + "'s sign stands over " + other + "'s team as the eyes see it");
                 // Neighbouring places in a ring keep the lead's 4 degrees, and ring two stands further and lower than ring one.
                 foreach (var a in extents)
                     foreach (var b in extents)

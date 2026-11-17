@@ -88,6 +88,7 @@ namespace Halcyonic.XR
         {
             public Transform Root = null!;
             public Transform Sign = null!;
+            public Transform More = null!;
             public LineRenderer Arc = null!;
             public LineRenderer[] Ticks = null!;
             public readonly Dictionary<string, CharacterView> Views = new Dictionary<string, CharacterView>(System.StringComparer.Ordinal);
@@ -255,16 +256,12 @@ namespace Halcyonic.XR
             // A place laid one to a row gathers its team at once (AUDIT's 21:4xZ); said once, so the next refresh stands its crowd.
             var projectId = others.First(pair => ReferenceEquals(pair.Value, stood)).Key;
             if (rowMost == 1 && stood.Laid.Count > 1 && Places.OneARow.Add(projectId)) gatherPending = true;
-            var tallestTag = 0f;
-            foreach (var view in stood.Views.Values)
-                if (DrawnTagSize?.Invoke(view) is Vector2 size) tallestTag = Mathf.Max(tallestTag, size.y);
-            // The floor arc spans the place, tags and all, about the eyes at its distance, under the feet, a tick at each end.
+            // FIELD's places sheet v4: the floor arc under the team's tags, the place's name once under the arc, and "{n} More" at the
+            // place's inner end over the front row's heads.
+            var arcY = StandSignPoints(stood.Root, stood.Laid, bearing.SpanDegrees, bearing.YawDegrees, distance, eyes, stood.Sign, stood.More);
             var half = bearing.SpanDegrees / 2f;
             var middle = stood.Root.eulerAngles.y;
-            DrawFloorArc(stood.Arc, stood.Ticks, eyes, stood.Root.position.y, distance, middle - half, middle + half);
-            var width = distance / PlaceBearings.RingOneDistance;
-            // The sign hangs under the place's lowest tag, at the front row's middle, sized for its distance (the room's units are 1 at it).
-            HangSign(stood.Sign, tallestTag, distance, eyes);
+            DrawFloorArc(stood.Arc, stood.Ticks, eyes, stood.Root.position.y + arcY, distance, middle - half, middle + half);
         }
 
         private LineRenderer? shelfArc;
@@ -321,19 +318,48 @@ namespace Halcyonic.XR
             }
         }
 
+        /// <summary>The floor arc's gap under the place's lowest tag, the name's under the arc, and the More's over the front heads, in metres at 1.4 m.</summary>
+        public const float ArcUnderTags = 0.02f, NameUnderArc = 0.015f, MoreOverHeads = 0.03f;
+
+        /// <summary>How far in from the place's inner edge its More stands, in degrees about the eyes (FIELD's sheet: three degrees).</summary>
+        public const float MoreInDegrees = 3f;
+
         /// <summary>
-        /// Hangs a place's sign point (its top middle) under its tallest tag (<paramref name="tallestTag"/> metres; the longest name's guess
-        /// before any draws), the sign gap clear, facing the eyes and sized for its distance (the room's units are 1 at it): the stage's rule,
-        /// which its check uses too.
+        /// Stands a place's sign points, as FIELD's places sheet v4 draws them, in the place's own space: <paramref name="name"/> centred under
+        /// the floor arc, which stands under the team's lowest tag; <paramref name="more"/> at the place's inner end (toward ahead), over the
+        /// front row's heads. Both stand upright facing the eyes, sized for their distance (the room's units are 1 at it). Returns the floor
+        /// arc's height in the place's space. The stage and its check stand them by this one rule.
         /// </summary>
-        public static void HangSign(Transform sign, float tallestTag, float distance, Vector3 eyes)
+        public static float StandSignPoints(Transform root, IReadOnlyList<CharacterView> team, float spanDegrees, float yawDegrees, float distance, Vector3 eyes,
+            Transform name, Transform more)
         {
             var width = distance / PlaceBearings.RingOneDistance;
-            var under = tallestTag > 0f ? tallestTag : WidestTagMetres * 0.3f;
-            sign.localPosition = new Vector3(0f, -(under + SignGap * width), 0f);
-            sign.rotation = Quaternion.LookRotation(sign.position - eyes, Vector3.up);
-            sign.localScale = Vector3.one * Vector3.Distance(sign.position, eyes);
+            var lowest = 0f;
+            var highestBody = 0f;
+            foreach (var view in team)
+            {
+                if (DrawnTagCorners?.Invoke(view) is Vector3[] tag)
+                    foreach (var corner in tag) lowest = Mathf.Min(lowest, root.InverseTransformPoint(corner).y);
+                foreach (var corner in view.BodyCorners()) highestBody = Mathf.Max(highestBody, root.InverseTransformPoint(corner).y);
+            }
+            var arcY = lowest - ArcUnderTags * width;
+            name.localPosition = new Vector3(0f, arcY - NameUnderArc * width, 0f);
+            // The inner end: toward ahead, the person's right for a place on the left.
+            var inner = yawDegrees < 0f ? 1f : -1f;
+            var across = (float)PlacePitch.MetresOf(Mathf.Max(0f, spanDegrees - 2f * MoreInDegrees), distance) / 2f;
+            more.localPosition = new Vector3(inner * across, highestBody + MoreOverHeads * width, 0f);
+            foreach (var point in new[] { name, more })
+            {
+                var away = point.position - eyes;
+                away.y = 0f;
+                if (away.sqrMagnitude > 1e-6f) point.rotation = Quaternion.LookRotation(away, Vector3.up);
+                point.localScale = Vector3.one * Vector3.Distance(point.position, eyes) / Mathf.Max(1e-4f, root.lossyScale.x);
+            }
+            return arcY;
         }
+
+        /// <summary>The point a place's "{n} More" stands at (<see cref="StandSignPoints"/>); null for a place not standing.</summary>
+        public Transform? MorePointOf(string projectId) => others.TryGetValue(projectId, out var stood) ? stood.More : null;
 
         /// <summary>
         /// Where a place whose bearing is <paramref name="bearing"/> stands for the eyes at <paramref name="eyes"/>, ahead at <paramref name="ahead"/>
@@ -503,11 +529,14 @@ namespace Halcyonic.XR
             root.SetParent(placesRoot, false);
             var sign = new GameObject("Place sign point").transform;
             sign.SetParent(root, false);
+            var more = new GameObject("Place more point").transform;
+            more.SetParent(root, false);
             floorArcMaterial ??= new Material(Shader.Find("Sprites/Default"));
             return new OtherPlace
             {
                 Root = root,
                 Sign = sign,
+                More = more,
                 Arc = FloorLine(root, "Floor arc", 24, FloorArcAlpha),
                 Ticks = new[] { FloorLine(root, "Floor arc tick", 2, FloorTickAlpha), FloorLine(root, "Floor arc tick", 2, FloorTickAlpha) },
             };

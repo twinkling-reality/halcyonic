@@ -31,6 +31,17 @@ namespace Halcyonic.XR.UI
         private RoomButton press = null!;
         private string? projectId;
         private string? action;
+        private bool pressApart;
+
+        /// <summary>
+        /// Stands the press at <paramref name="point"/>, apart from the name (FIELD's places sheet v4: "{n} More" at the place's inner end
+        /// over the front row, the name under the floor arc).
+        /// </summary>
+        public void StandPressAt(Transform point)
+        {
+            press.transform.SetParent(point, false);
+            pressApart = true;
+        }
 
         /// <summary>Raised with the place's project and the press's action (<see cref="RoomPlaceSign.MoreAction"/> or <see cref="RoomPlaceSign.FewerAction"/>).</summary>
         public event Action<string, string>? Pressed;
@@ -86,10 +97,14 @@ namespace Halcyonic.XR.UI
                 action = pressAction;
                 var icon = pressAction == RoomPlaceSign.MoreAction ? GlazeIcon.Next : GlazeIcon.Back;
                 var measured = press.Measure(words, 0f);
-                if (down > 0f) down += RoomType.Scaled(PressGapDp);
-                press.Show(words, icon, isMain: false, available: true, new Vector2(0f, -down - measured.y / 2f), measured.x);
-                down += measured.y;
-                wide = Mathf.Max(wide, measured.x);
+                if (pressApart) press.Show(words, icon, isMain: false, available: true, Vector2.zero, measured.x);
+                else
+                {
+                    if (down > 0f) down += RoomType.Scaled(PressGapDp);
+                    press.Show(words, icon, isMain: false, available: true, new Vector2(0f, -down - measured.y / 2f), measured.x);
+                    down += measured.y;
+                    wide = Mathf.Max(wide, measured.x);
+                }
             }
             else
             {

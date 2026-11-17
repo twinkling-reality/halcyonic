@@ -41,6 +41,7 @@ namespace Halcyonic.XR.UI
         private void Made(string projectId, Transform point)
         {
             var sign = RoomPlaceSignView.Create(point);
+            if (stage.MorePointOf(projectId) is Transform more) sign.StandPressAt(more);
             sign.Pressed += (project, action) =>
             {
                 if (RoomPlaceSign.Act(stage.Places, action, project) == true) stage.Refresh();
