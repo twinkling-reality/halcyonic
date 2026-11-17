@@ -247,7 +247,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var landed = RoomMotion.FlightBreathSeconds + RoomMotion.FlightSeconds;
                 const float ReleasedAt = 2f;
                 // The person's view of it all: from the eyes toward the middle of the shelf and the panel.
-                var beside = MenuDirector.BesidePanel(bar.Panel.transform, bar.Panel.Size);
+                var beside = MenuDirector.BesidePanel(bar.Panel.transform, bar.Panel.Size, bodyHome, eyes);
                 // Where it lands as the stage holds it: at or below the eyes, never within half a metre of the head.
                 var lands = beside;
                 lands.y = Mathf.Min(lands.y, eyes.y);
@@ -255,6 +255,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 Debug.Log("Halcyonic: flight walk: home " + bodyHome.ToString("F3") + " (" + (bodyHome - eyes).magnitude.ToString("0.00") + " m from the eyes), beside the panel "
                     + beside.ToString("F3") + " (" + (beside - eyes).magnitude.ToString("0.00") + " m), landing " + lands.ToString("F3") + ", the panel " + bar.Panel.transform.position.ToString("F3")
                     + " (" + (bar.Panel.transform.position - eyes).magnitude.ToString("0.00") + " m)");
+                // Never by the cheek (the lead's 19:21Z): it lands 0.65 m or more from the eyes, on its home's side of the panel.
+                if ((lands - eyes).magnitude < MenuDirector.FlightLandsFromEyesM - 0.01f)
+                    failures.Add("the character lands " + (lands - eyes).magnitude.ToString("0.00") + " m from the eyes, nearer than " + MenuDirector.FlightLandsFromEyesM.ToString("0.00"));
+                if (Vector3.Dot(lands - bar.Panel.transform.position, bar.Panel.transform.right) * Vector3.Dot(bodyHome - bar.Panel.transform.position, bar.Panel.transform.right) < 0f)
+                    failures.Add("the character lands on the panel's far side from its home, crossing the person's face");
                 // Home stands far to one side and the landing beside the panel near the eyes, further apart than one look takes in, so the
                 // clip is filmed from just behind the person and above, as a film camera over the shoulder, holding both in a 100 degree view.
                 var across = ((bodyHome - eyes).normalized + (lands - eyes).normalized).normalized;
@@ -308,6 +313,15 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     ForceMeshes(root);
                     var image = Render(camera, texture);
+                    // And the person's own look at the panel, as the eyes see it (the lead's 19:21Z: the eye-level capture for the film look).
+                    var filmAt = (camera.transform.position, camera.transform.rotation, camera.fieldOfView);
+                    camera.transform.SetPositionAndRotation(eyes, PlaneLayout.Facing(plane.Direction));
+                    camera.fieldOfView = 96f;
+                    var seen = Render(camera, texture);
+                    File.WriteAllBytes(Path.Combine(folder, "eye-" + frame.ToString("00", CultureInfo.InvariantCulture) + ".png"), seen.EncodeToPNG());
+                    UnityEngine.Object.DestroyImmediate(seen);
+                    camera.transform.SetPositionAndRotation(filmAt.position, filmAt.rotation);
+                    camera.fieldOfView = filmAt.fieldOfView;
                     var name = "flight-" + frame.ToString("00", CultureInfo.InvariantCulture);
                     File.WriteAllBytes(Path.Combine(folder, name + ".png"), image.EncodeToPNG());
                     UnityEngine.Object.DestroyImmediate(image);

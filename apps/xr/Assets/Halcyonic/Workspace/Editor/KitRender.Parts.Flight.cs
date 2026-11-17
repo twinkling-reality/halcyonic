@@ -47,8 +47,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 Halcyonic.Contracts.AttentionLevel.ActionRequired, System.Array.Empty<string>(), 0, true, true, false));
             view.transform.localScale = Vector3.one * AgentShelfDraft.Scale;
 
-            // Beside the panel as the director asks for it (MenuDirector.BesidePanel): to its left, at its upper third.
-            var beside = MenuDirector.BesidePanel(panel.transform, panelSize);
+            // Beside the panel as the director asks for it (MenuDirector.BesidePanel): on the side toward its shelf, at its upper third, 0.65 m or more from the eyes.
+            var beside = MenuDirector.BesidePanel(panel.transform, panelSize, shelf, eyes);
             CharacterFlight FlightAt(float at) => RoomMotion.Flight(at, at >= FlightReleasedAt ? at - FlightReleasedAt : (float?)null);
             // As CharacterStage.Fly holds it: at or below the eyes, never within half a metre of the head.
             Vector3 Held(Vector3 point)

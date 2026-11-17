@@ -37,19 +37,44 @@ namespace Halcyonic.XR.Workspace
 
         private bool Asking(RoomBarState state) => state == RoomBarState.Question || state == RoomBarState.Request;
 
+        /// <summary>
+        /// How near the eyes the called character may land, in metres (the lead's 2026-11-17T19:21Z: never by the cheek, at the panel's
+        /// distance or beyond): past the head's 0.5 m clearance by a body's width.
+        /// </summary>
+        public const float FlightLandsFromEyesM = 0.65f;
+
         /// <summary>A new moment on the bar: one that asks calls the task's character to beside its panel; any other sends it home.</summary>
         private void OnMoment(RoomBar moment, RoomBarView bar)
         {
-            if (Asking(moment.State) && navigator.BesideTask is string task && flyCall != null && flyCan?.Invoke(task) == true) flyCall(task, () => BesidePanel(bar));
+            if (Asking(moment.State) && navigator.BesideTask is string task && flyCall != null && flyCan?.Invoke(task) == true)
+            {
+                // Its home, where it stands as it is called, and the eyes it lands for: it comes to the panel's side toward its home.
+                var home = setup.CharacterOf(task) is CharacterTarget standing ? standing.transform.position : (Vector3?)null;
+                var eyes = setup.StageNow().Eyes;
+                flyCall(task, () => BesidePanel(bar.Panel.transform, bar.Panel.Size, home, eyes));
+            }
             else flyRelease?.Invoke();
         }
 
-        /// <summary>The point beside the bar's panel the called character flies to: to its left, at its upper third.</summary>
-        private static Vector3 BesidePanel(RoomBarView bar) => BesidePanel(bar.Panel.transform, bar.Panel.Size);
-
-        /// <summary>The point beside a panel of <paramref name="size"/> (its own units) the called character flies to: past its left edge, at its upper third.</summary>
-        public static Vector3 BesidePanel(Transform panel, Vector2 size) =>
-            panel.TransformPoint(new Vector3(-(size.x / 2f + RoomType.Units(FlightBesideDp)), size.y / 6f, 0f));
+        /// <summary>
+        /// The point beside a panel of <paramref name="size"/> (its own units) the called character flies to (the lead's 2026-11-17T19:21Z):
+        /// past the panel's edge on the side toward <paramref name="home"/> (its left where none is known), so it never crosses the person's
+        /// face, at its upper third and in the panel's own plane; where that stands nearer <paramref name="eyes"/> than
+        /// <see cref="FlightLandsFromEyesM"/>, it stands back beyond the panel until it is that far, never by the cheek.
+        /// </summary>
+        public static Vector3 BesidePanel(Transform panel, Vector2 size, Vector3? home, Vector3 eyes)
+        {
+            var side = home is Vector3 from && Vector3.Dot(from - panel.position, panel.right) > 0f ? 1f : -1f;
+            var point = panel.TransformPoint(new Vector3(side * (size.x / 2f + RoomType.Units(FlightBesideDp)), size.y / 6f, 0f));
+            // Back along the panel's own forward (away from the eyes it faces) until the eyes are FlightLandsFromEyesM away.
+            var back = panel.forward;
+            if (Vector3.Dot(back, point - eyes) < 0f) back = -back;
+            var near = point - eyes;
+            var b = Vector3.Dot(near, back);
+            var c = near.sqrMagnitude - FlightLandsFromEyesM * FlightLandsFromEyesM;
+            if (c < 0f) point += back * (-b + Mathf.Sqrt(b * b - c));
+            return point;
+        }
 
         public readonly struct Stage
         {
