@@ -21,8 +21,10 @@ import android.widget.TextView;
 /**
  * The compact panel beside the person's show, in the ONE design language every surface shares (FIELD's sheet, tile f7; the
  * lead, 2026-11-17 01:05Z): the owner's dark Ask glass with visionOS's corners and sheen, one face in three roles (Mirror's
- * Edge's wide spaced capitals for labels, a medium title, a plain sentence), the agent's command in mono, and the one accent
- * only as light, a lit rim and glow on the one main action, never a fill. The window is 640 x 720 dp; the tile is drawn
+ * Edge's wide spaced capitals for labels, a medium title, a plain sentence), the agent's command in mono, and no hue (the
+ * lead, 2026-11-17 19:15Z): the one main action stands apart by its lighter thin-glass plate (visionos-window-example.png's
+ * thin control) and its white glyph and words (visionos-label-vibrant-primary.png), no rim and no glow (AUDIT, 19:21Z: no
+ * outline traces to a reference), the kit's own values (FIELD's d1063db2f). The window is 640 x 720 dp; the tile is drawn
  * 340 x 520, so every size here is the tile's times 720 / 520. A Horizon OS panel cannot blur what is behind it, so the glass
  * is its tint alone over a clear window.
  */
@@ -38,20 +40,19 @@ final class PanelHud {
     static final int CAPSULE = Color.rgb(0x25, 0x27, 0x2E);
     static final int CAPSULE_POINTED = Color.rgb(0x3A, 0x3C, 0x43);
     static final int CAPSULE_HELD = Color.rgb(0x30, 0x32, 0x39);
-    /** The lit main action's own plate under its rim (RoomButton, Lit). */
-    static final int MAIN_PLATE = Color.rgb(0x2A, 0x2C, 0x33);
+    /** The main action's lighter thin-glass plate, at rest and pointed (RoomButton.MainPlateColour, FIELD's d1063db2f); held as every press. */
+    static final int MAIN_PLATE = Color.rgb(0x45, 0x47, 0x4E);
+    static final int MAIN_POINTED = Color.rgb(0x53, 0x55, 0x5C);
     /** The glass's hairline, lit along its top and easing to its foot (RoomSurface.LitEdgeTop, LitEdgeFoot). */
     static final int EDGE_TOP = Color.rgb(0x5A, 0x5D, 0x66);
     static final int EDGE_FOOT = Color.rgb(0x2B, 0x2C, 0x33);
     static final int W1 = Color.WHITE;
     static final int W2 = Color.argb(189, 255, 255, 255);
     static final int W3 = Color.argb(133, 255, 255, 255);
-    /** The one accent, as light only (#F39552). */
-    static final int LIGHT = Color.rgb(243, 149, 82);
     private PanelHud() {}
 
     static int px(float tile, float density) { return Math.round(tile * SCALE * density); }
-    /** The room the main action's glow takes outside its rim, half the kit's 12 dp, on every press so all line up. */
+    /** The room every press keeps round its plate, half the kit's 12 dp, so presses line up with the words above them. */
     static int glow(float density) { return Math.round(12 * density / 2f); }
     static float sp(float tile) { return tile * SCALE; }
 
@@ -107,8 +108,8 @@ final class PanelHud {
     }
 
     /**
-     * A press as the language draws it: a glyph and the words. The main action is a thin plate with the one accent as a lit
-     * rim and a soft glow, its glyph in the light; a quiet press has no plate and white-dim words.
+     * A press as the language draws it: a glyph and the words, both white. The main action stands on the lighter thin-glass
+     * plate; every other press on the plain thin glass. No rim, no glow, no hue.
      */
     static void press(Button button, String label, boolean main, boolean workspaceGlyph, float density) {
         button.setText(label); button.setAllCaps(false); button.setTextSize(sp(19)); button.setSingleLine(true); button.setContentDescription(label);
@@ -117,14 +118,14 @@ final class PanelHud {
         button.setMinHeight(px(56, density)); button.setMinimumHeight(px(56, density)); button.setMinWidth(0); button.setMinimumWidth(0);
         int glow = glow(density);
         button.setPadding(px(22, density) + glow, glow, px(26, density) + glow, glow);
-        Glyph glyph = new Glyph(workspaceGlyph, main ? LIGHT : W1, density);
+        Glyph glyph = new Glyph(workspaceGlyph, W1, density);
         button.setCompoundDrawablesRelative(glyph, null, null, null); button.setCompoundDrawablePadding(px(12, density));
         float radius = px(28, density);
         StateListDrawable states = new StateListDrawable();
         if (main) {
-            states.addState(new int[] {android.R.attr.state_pressed}, lit(CAPSULE_HELD, radius, glow, density));
-            states.addState(new int[] {android.R.attr.state_hovered}, lit(CAPSULE_POINTED, radius, glow, density));
-            states.addState(new int[0], lit(MAIN_PLATE, radius, glow, density));
+            states.addState(new int[] {android.R.attr.state_pressed}, capsule(CAPSULE_HELD, radius, glow));
+            states.addState(new int[] {android.R.attr.state_hovered}, capsule(MAIN_POINTED, radius, glow));
+            states.addState(new int[0], capsule(MAIN_PLATE, radius, glow));
         } else {
             states.addState(new int[] {android.R.attr.state_pressed}, capsule(CAPSULE_HELD, radius, glow));
             states.addState(new int[] {android.R.attr.state_hovered}, capsule(CAPSULE_POINTED, radius, glow));
@@ -133,25 +134,11 @@ final class PanelHud {
         button.setBackground(states);
     }
 
-    /** A quiet action's crisp thin-glass capsule, inset where the main action's glow would stand so the two line up. */
+    /** A press's thin-glass capsule, inset by the room every press keeps, so all line up. */
     private static Drawable capsule(int plate, float radius, int glow) {
         GradientDrawable shape = new GradientDrawable(); shape.setCornerRadius(radius); shape.setColor(plate);
         LayerDrawable layers = new LayerDrawable(new Drawable[] {shape});
         layers.setLayerInset(0, glow, glow, glow, glow);
-        return layers;
-    }
-
-    /** The main action's plate: the thin fill, its lit rim, and two faint static rings of glow outside it, never a pulse. */
-    private static Drawable lit(int plate, float radius, int glow, float density) {
-        GradientDrawable far = new GradientDrawable(); far.setCornerRadius(radius + glow); far.setColor(Color.TRANSPARENT);
-        far.setStroke(Math.max(1, Math.round(glow / 2f)), Color.argb(30, 243, 149, 82));
-        GradientDrawable near = new GradientDrawable(); near.setCornerRadius(radius + glow / 2f); near.setColor(Color.TRANSPARENT);
-        near.setStroke(Math.max(1, Math.round(glow / 2f)), Color.argb(56, 243, 149, 82));
-        GradientDrawable rim = new GradientDrawable(); rim.setCornerRadius(radius); rim.setColor(plate);
-        rim.setStroke(Math.max(1, Math.round(1.5f * SCALE * density)), LIGHT);
-        LayerDrawable layers = new LayerDrawable(new Drawable[] {far, near, rim});
-        layers.setLayerInset(1, glow / 2, glow / 2, glow / 2, glow / 2);
-        layers.setLayerInset(2, glow, glow, glow, glow);
         return layers;
     }
 

@@ -2023,3 +2023,21 @@ time.sleep(25)
     }
   });
 });
+
+describe('the compact panel in the one language, with no hue (the lead, 2026-11-17 19:15Z)', () => {
+  // Every colour the compact card draws is a grey or white: the main press stands apart by its lighter thin-glass plate
+  // (visionos-window-example.png) and its white glyph and words (visionos-label-vibrant-primary.png), never an accent.
+  test('every colour PanelHud draws is a grey or a white, never a hue', () => {
+    const source = readFileSync(join(PANEL, 'src/com/halcyonic/panel/PanelHud.java'), 'utf8');
+    const colours = [...source.matchAll(/Color\.a?rgb\(([^)]*)\)/g)].map((match) => {
+      const parts = (match[1] ?? '').split(',').map((part) => part.trim());
+      const channels = parts.slice(-3).map((part) => (part.startsWith('0x') ? Number.parseInt(part.slice(2), 16) : Number(part)));
+      return { text: match[0], channels };
+    });
+    assert.ok(colours.length >= 8, 'the card names its colours');
+    for (const { text, channels } of colours) {
+      assert.ok(channels.every((channel) => Number.isInteger(channel)), `${text} is read whole`);
+      assert.ok(Math.max(...channels) - Math.min(...channels) <= 12, `${text} carries a hue`);
+    }
+  });
+});
