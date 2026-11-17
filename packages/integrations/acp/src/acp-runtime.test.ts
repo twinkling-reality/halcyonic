@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -20,7 +21,12 @@ import {
   RuntimeActionError,
   type RuntimeObservation,
 } from '@halcyonic/runtime-core';
-import { ACP_CAPABILITIES, AcpRuntimeAdapter, UNCONFINED_REASON } from './acp-runtime.ts';
+import {
+  ACP_CAPABILITIES,
+  AcpRuntimeAdapter,
+  sweepSettingsHomes,
+  UNCONFINED_REASON,
+} from './acp-runtime.ts';
 import { approvalRequest } from './approvals.ts';
 import { type AcpProfile, ANTIGRAVITY, KIRO } from './profiles.ts';
 import { allowOnly } from './testing/directory-policy.ts';
@@ -268,7 +274,7 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
     assert.deepEqual(launched.slice(0, 3), ['acp', '--disable-telemetry', '--gemini-dir']);
     const own = launched[3] ?? '';
     assert.equal(dirname(own), join(run.root, '.gemini', 'halora'));
-    assert.match(basename(own), /^[0-9a-f-]{36}$/);
+    assert.match(basename(own), new RegExp(`^${process.pid}-[0-9a-f-]{36}$`));
     await run.adapter.close();
     assert.equal(existsSync(own), false);
     const created = run.sent().find((message) => message.method === 'session/new');
@@ -582,6 +588,51 @@ describe('ACP adapter: the mode that asks', () => {
     });
   });
 
+  test('the app leaving the asking mode during a turn stops the turn in words, and the mode is set back first', async (t) => {
+    const recorded = readFileSync(join(FIXTURES, 'antigravity-two.jsonl'), 'utf8').split('\n');
+    const firstPrompt = recorded.findIndex((line) => line.includes('"expect": "session/prompt"'));
+    const sessionId = '11579b02-6764-4e01-932b-629ccfeb8eef';
+    const said = (mode: string) =>
+      JSON.stringify({
+        send: {
+          jsonrpc: '2.0',
+          method: 'session/update',
+          params: {
+            sessionId,
+            update: { sessionUpdate: 'current_mode_update', currentModeId: mode },
+          },
+        },
+      });
+    // The recorded session, with the app announcing `auto` in its first turn; it answers the cancel as ACP says.
+    const cut = [
+      ...recorded.slice(0, firstPrompt + 1),
+      said('auto'),
+      '{"expectNotification": "session/cancel"}',
+      '{"answer": "session/prompt", "result": {"stopReason": "cancelled"}}',
+      '{"expect": "session/set_mode"}',
+      said('default'),
+      '{"answer": "session/set_mode", "result": {}}',
+      ...recorded.slice(
+        recorded.findIndex(
+          (line, index) => index > firstPrompt && line.includes('"expect": "session/prompt"'),
+        ),
+      ),
+    ].join('\n');
+    const run = setUp(t, 'cut', { fixtureText: cut });
+    await start(run);
+    const failed = await run.next('runtime.turn.failed');
+    assert.deepEqual((failed.payload as { error: unknown }).error, {
+      code: 'mode_left',
+      message:
+        'Antigravity 1.5.10 switched to a mode where it does not ask you first, so Halora stopped the turn.',
+    });
+    await run.adapter.sendInstruction({ execution: TEST_EXECUTION, text: 'And again.' });
+    await run.next('runtime.turn.completed');
+    const sent = run.sent().map((message) => message.method);
+    assert.deepEqual(sent.slice(3), ['session/cancel', 'session/set_mode', 'session/prompt']);
+    assertValidObservations(run.observations);
+  });
+
   test('a session that cannot be put in the asking mode is not started', async (t) => {
     const run = setUp(t, 'cut', { fixtureText: startedIn('auto', ['auto', 'accept-edits']) });
     await assert.rejects(
@@ -679,6 +730,26 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
     assert.deepEqual(run.args(), ['acp', '--agent-engine', 'v3']);
     assert.equal(dirname(run.kiroHome()), join(run.root, '.kiro', 'halora'));
     assert.equal(existsSync(run.kiroHome()), false, 'removed once the app ended');
+  });
+});
+
+describe('ACP settings homes left behind', () => {
+  test('a launch removes the homes whose control plane is gone, and leaves every other entry', (t) => {
+    const root = temporary(t);
+    const dead = 999_999;
+    assert.throws(
+      () => process.kill(dead, 0),
+      'no process has the id the test takes for a gone one',
+    );
+    const id = '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f';
+    for (const name of [`${dead}-${id}`, `${process.pid}-${id}`, `1-${id}`, 'not-a-home']) {
+      mkdirSync(join(root, name, 'antigravity-cli'), { recursive: true });
+    }
+    sweepSettingsHomes(root);
+    assert.deepEqual(
+      readdirSync(root).sort(),
+      [`${process.pid}-${id}`, `1-${id}`, 'not-a-home'].sort(),
+    );
   });
 });
 

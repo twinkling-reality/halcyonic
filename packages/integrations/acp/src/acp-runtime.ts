@@ -1,6 +1,6 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type {
@@ -105,6 +105,8 @@ export interface AcpRuntimeOptions {
 
 interface Turn {
   readonly id: string;
+  /** Set when the app said it left the asking mode during the turn, which Halora then cancelled (AUDIT3 AC4). */
+  modeLeft: boolean;
   /** Settles when the app answered `session/prompt`. */
   readonly done: Promise<void>;
   interrupting: {
@@ -247,6 +249,7 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
     if (request.leave_plan === true) {
       throw new RuntimeActionError('plan_unsupported', 'No plan was started here.');
     }
+    await session.restoreAskingMode();
     session.prompt(request.text);
   }
 
@@ -300,6 +303,7 @@ class AcpSession {
   #sessionId: string | null = null;
   #turn: Turn | null = null;
   #message = '';
+  #modeLeft = false;
   /** Each tool call as the app last reported it, its fields merged update by update (ACP `ToolCallUpdate`). */
   readonly #calls = new Map<string, Record<string, unknown>>();
   #profileFile: string | null = null;
@@ -444,6 +448,7 @@ class AcpSession {
       null,
     );
     const turn: Turn = {
+      modeLeft: false,
       id: turnId,
       done: answered.then(
         () => undefined,
@@ -598,7 +603,8 @@ class AcpSession {
     // A settings home of Halora's own, so the person's own settings for the app never apply here (AUDIT3 AC2), and a
     // fresh one for each launch, removed at its end, so nothing written there reaches a later one (AUDIT3 AC3).
     const homes = join(this.#options.home, profile.settingsHome.folder);
-    const settings = join(homes, this.#launch);
+    sweepSettingsHomes(homes);
+    const settings = join(homes, `${process.pid}-${this.#launch}`);
     mkdirSync(settings, { recursive: true, mode: 0o700 });
     this.#settingsHome = settings;
     for (const [file, text] of Object.entries(this.#options.standIn?.settings ?? {})) {
@@ -694,7 +700,56 @@ class AcpSession {
     if (kind === 'tool_call' || kind === 'tool_call_update') {
       this.#flushMessage();
       this.#toolUpdate(update, kind);
+      return;
     }
+    if (kind === 'current_mode_update') this.#modeSaid(text(update.currentModeId));
+    if (kind === 'config_option_update' && Array.isArray(update.configOptions)) {
+      const mode = update.configOptions.map(record).find((option) => option?.id === 'mode');
+      if (mode !== undefined) this.#modeSaid(text(mode?.currentValue));
+    }
+  }
+
+  /**
+   * The app said which mode the session is in now. Any other than the asking mode (an allow-by-itself one) cancels
+   * the running turn, which then ends failed in words, and the mode is set back before the next instruction (AC4).
+   */
+  #modeSaid(mode: string | null): void {
+    if (mode === null || mode === this.#options.profile.askingMode) return;
+    this.#modeLeft = true;
+    const turn = this.#turn;
+    const rpc = this.#rpc;
+    if (turn === null || turn.modeLeft || rpc === null || this.#sessionId === null) return;
+    turn.modeLeft = true;
+    rpc.notify('session/cancel', { sessionId: this.#sessionId });
+    for (const approval of this.#approvals.values()) {
+      if (approval.answered === null)
+        rpc.respond(approval.rpcId, { outcome: { outcome: 'cancelled' } });
+    }
+  }
+
+  /** Before an instruction: a session the app moved out of the asking mode is set back, or takes no more work. */
+  async restoreAskingMode(): Promise<void> {
+    if (!this.#modeLeft) return;
+    const rpc = this.#rpc;
+    if (rpc === null || !rpc.open || this.#sessionId === null) {
+      throw new RuntimeActionError(
+        'runtime_unavailable',
+        `The connection to ${this.#name} has ended.`,
+      );
+    }
+    try {
+      await rpc.request(
+        'session/set_mode',
+        { sessionId: this.#sessionId, modeId: this.#options.profile.askingMode },
+        HANDSHAKE_MS,
+      );
+    } catch {
+      throw new RuntimeActionError(
+        'mode_unavailable',
+        `${this.#name} could not go back to the mode where it asks you before it acts, so it takes no more work.`,
+      );
+    }
+    this.#modeLeft = false;
   }
 
   #toolUpdate(update: Record<string, unknown>, kind: string): void {
@@ -796,8 +851,8 @@ class AcpSession {
       const optionId = text(option?.optionId);
       return optionId === null || optionId === '' ? null : optionId;
     };
-    if (this.#turn === null) {
-      // Nobody can see a request outside a turn: it is withdrawn at once.
+    if (this.#turn === null || this.#turn.modeLeft) {
+      // Nobody can see a request outside a turn, nor one in a turn Halora is stopping: it is withdrawn at once.
       connection.respond(id, { outcome: { outcome: 'cancelled' } });
       return;
     }
@@ -852,6 +907,21 @@ class AcpSession {
     this.#turn = null;
     const stopReason = text(record(result)?.stopReason) ?? 'unknown';
     const native = observed(`session/prompt.${stopReason}`);
+    if (turn.modeLeft) {
+      this.#emit(
+        'runtime.turn.failed',
+        {
+          turn_id: turn.id,
+          error: {
+            code: 'mode_left',
+            message: `${this.#name} switched to a mode where it does not ask you first, so Halora stopped the turn.`,
+          },
+        },
+        native,
+      );
+      this.#settleInterrupt(turn, stopReason === 'cancelled');
+      return;
+    }
     if (stopReason === 'end_turn') {
       this.#emit('runtime.turn.completed', { turn_id: turn.id }, native);
     } else if (stopReason === 'cancelled') {
@@ -982,4 +1052,36 @@ function writeProfile(folder: string, name: string, scope: AgentAppScope): strin
   writeFileSync(draft, agentAppProfile(scope), { mode: 0o600, flag: 'wx' });
   renameSync(draft, path);
   return path;
+}
+
+/** A launch's settings home: the control plane's process id, then the launch's own id. */
+const SETTINGS_HOME_NAME = /^(\d+)-[0-9a-f-]{36}$/;
+
+/**
+ * Removes the settings homes a launch left behind (AUDIT3 AC5): a control plane killed hard never ran their exit. A
+ * home is removed only when no process has its control plane's id now; one whose process lives, this one's or
+ * another control plane's, and any entry not named as a home, is left.
+ */
+export function sweepSettingsHomes(homes: string): void {
+  let entries: string[];
+  try {
+    entries = readdirSync(homes);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const pid = Number(SETTINGS_HOME_NAME.exec(entry)?.[1] ?? Number.NaN);
+    if (!Number.isSafeInteger(pid) || pid <= 0 || pid === process.pid || alive(pid)) continue;
+    rmSync(join(homes, entry), { recursive: true, force: true });
+  }
+}
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: a process of another user has that id: it lives.
+    return (error as NodeJS.ErrnoException).code !== 'ESRCH';
+  }
 }
