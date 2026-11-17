@@ -486,6 +486,12 @@ describe('OpenCode 2.0.18 end to end', { skip: SKIP }, () => {
       kind: 'tool_use',
       tool_name: 'shell',
       summary: `[in the task's folder] ${FAKE_SHELL_COMMAND}`,
+      command: {
+        text: FAKE_SHELL_COMMAND,
+        runs_in: { kind: 'task_folder' },
+        background: false,
+        input_to_running: false,
+      },
     });
     await runtime.respondToApproval({
       execution: execution.context,
@@ -1921,8 +1927,18 @@ describe("OpenCode's ask before a shell command, whatever the configuration says
       const { runtime, sandbox, start } = await harness(t);
       const execution = await start(call('shell', { command: COMMAND }));
       const request = await asked(execution);
-      // What the person reads before Yes is the command itself.
-      assert.deepEqual(request.subject, { kind: 'tool_use', tool_name: 'shell', summary: SHOWN });
+      // What the person reads before Yes is the command itself, and its parts as OpenCode gave them.
+      assert.deepEqual(request.subject, {
+        kind: 'tool_use',
+        tool_name: 'shell',
+        summary: SHOWN,
+        command: {
+          text: COMMAND,
+          runs_in: { kind: 'task_folder' },
+          background: false,
+          input_to_running: false,
+        },
+      });
       await delay(500);
       assert.equal(existsSync(ran(sandbox)), false, 'the command ran before Yes');
       await runtime.respondToApproval({
