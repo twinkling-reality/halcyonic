@@ -1127,6 +1127,8 @@ describe('the agent-app profile: an ACP app on a folder the person connected (AD
         'project/.agents',
         'project/sub/.KIRO',
         'project/src',
+        'home/.gemini/halora/own',
+        'home/.gemini/halora/other',
       ])
         mkdirSync(at(folder), { recursive: true });
       for (const file of [
@@ -1151,6 +1153,7 @@ describe('the agent-app profile: an ACP app on a folder the person connected (AD
           home: at('home'),
           project: at('project'),
           projectSettings: ['.agents', '.kiro', '.gemini'],
+          settingsHomes: { root: at('home/.gemini/halora'), own: at('home/.gemini/halora/own') },
         }),
       );
       const exit = (command: string[]) =>
@@ -1170,6 +1173,13 @@ describe('the agent-app profile: an ACP app on a folder the person connected (AD
       ])
         assert.notEqual(await exit(['/bin/cat', at(refused)]), 0, refused);
       assert.notEqual(await exit(['/usr/bin/touch', at('project/.gemini')]), 0);
+      // Another launch's settings home, and the folder that holds them, are refused; this launch's own is open.
+      assert.notEqual(
+        await exit(['/usr/bin/touch', at('home/.gemini/halora/other/settings.json')]),
+        0,
+      );
+      assert.notEqual(await exit(['/usr/bin/touch', at('home/.gemini/halora/planted.json')]), 0);
+      assert.equal(await exit(['/usr/bin/touch', at('home/.gemini/halora/own/settings.json')]), 0);
       assert.notEqual(await exit(['/bin/mkdir', at('project/src/.Agents')]), 0);
       // The controls: beside each refused place, the same reads and writes go ahead.
       for (const open of ['home/other/marker.txt', 'project/src/marker.txt', 'project/agents.txt'])

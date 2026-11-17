@@ -906,6 +906,11 @@ export interface AgentAppScope extends HostFoldersScope {
    * widen what the app may do unasked, and the app cannot write one that would.
    */
   readonly projectSettings: readonly string[];
+  /**
+   * The app's settings homes of Halora's own (AUDIT3 AC3): every one under `root` refused, read and write, but this
+   * launch's `own`, so nothing the app writes there reaches another launch, and its own is removed at its end.
+   */
+  readonly settingsHomes?: { readonly root: string; readonly own: string };
 }
 
 /**
@@ -936,9 +941,25 @@ export function agentAppProfile(scope: AgentAppScope): string {
   const settings = scope.projectSettings.map(
     (name) => `(regex #"^${seatbeltRegexLiteral(project)}/(.*/)?${anyCase(name)}(/|$)")`,
   );
+  const homes: string[] = [];
+  if (scope.settingsHomes !== undefined) {
+    const root = resolved(scope.settingsHomes.root).replace(/\/+$/, '');
+    const own = resolved(scope.settingsHomes.own).replace(/\/+$/, '');
+    for (const path of [root, own]) {
+      if (/["\n\r]/.test(path))
+        throw new Error(`a folder Halora cannot name in its profile: ${path}`);
+    }
+    if (!own.startsWith(`${root}/`))
+      throw new Error("a launch's settings home is inside the settings homes' folder");
+    homes.push(
+      `(deny file-read* file-write* (subpath ${JSON.stringify(root)}))`,
+      `(allow file-read* file-write* (subpath ${JSON.stringify(own)}))`,
+    );
+  }
   return [
     hostFoldersDeniedProfile(scope).trimEnd(),
     `(deny file-read* file-write* ${[...credentials, ...settings].join(' ')})`,
+    ...homes,
     '',
   ].join('\n');
 }

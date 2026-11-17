@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -33,6 +34,8 @@ const SKIP =
 
 interface Run {
   readonly adapter: AcpRuntimeAdapter;
+  /** What the adapter was made with, for a later launch on the same home. */
+  readonly options: ConstructorParameters<typeof AcpRuntimeAdapter>[0];
   readonly project: string;
   readonly host: string;
   readonly home: string;
@@ -72,12 +75,6 @@ async function setUp(
   mkdirSync(host);
   // The app's own temporary folder, apart from the rest: it reads there unasked.
   mkdirSync(join(root, 'tmp'));
-  // The stand-in's own key setting, in the settings home of Halora's own the adapter launches the app with.
-  mkdirSync(join(home, '.gemini', 'halora', 'antigravity-cli'), { recursive: true });
-  writeFileSync(
-    join(home, '.gemini', 'halora', 'antigravity-cli', 'settings.json'),
-    '{"modelProvider":"gemini"}\n',
-  );
   // The person's own settings for the app, which never apply to a task: here every call would go ahead unasked.
   mkdirSync(join(home, '.gemini', 'antigravity-cli'), { recursive: true });
   writeFileSync(
@@ -93,7 +90,7 @@ async function setUp(
     typeof replies === 'function' ? replies(host) : replies,
   );
   t.after(() => standIn.close());
-  const adapter = new AcpRuntimeAdapter({
+  const made: ConstructorParameters<typeof AcpRuntimeAdapter>[0] = {
     profile: ANTIGRAVITY,
     binaryPath: BINARY,
     directoryPolicy: allowOnly(join(root, 'projects')),
@@ -113,13 +110,16 @@ async function setUp(
               GOOGLE_GEMINI_BASE_URL: standIn.url,
             },
             authMethod: 'gemini-api-key',
+            // The stand-in's key setting, in each launch's own settings home.
+            settings: { 'antigravity-cli/settings.json': '{"modelProvider":"gemini"}\n' },
           },
         }),
     hostFolders:
       process.platform === 'darwin'
         ? { scope: { folders: [host], home }, profileFolder: join(root, 'profiles') }
         : null,
-  });
+  };
+  const adapter = new AcpRuntimeAdapter(made);
   t.after(() => adapter.close());
   const observations: RuntimeObservation[] = [];
   const emit = (observation: RuntimeObservation) => {
@@ -127,6 +127,7 @@ async function setUp(
   };
   return {
     adapter,
+    options: made,
     project,
     host,
     home,
@@ -326,6 +327,64 @@ describe('Antigravity 1.5.10 end to end, on a stand-in model', { skip: SKIP }, (
     assert.equal(existsSync(join(run.project, '.agents', 'hooks.json')), false);
     assert.notEqual(readFileSync(join(run.project, 'status.txt'), 'utf8'), 'exit 0\n');
     assert.equal(readFileSync(join(run.project, 'beside.txt'), 'utf8'), 'ok\n');
+  });
+
+  test("an approved write into Halora's settings homes reaches no later launch: the next one still asks", {
+    skip: process.platform !== 'darwin' && 'the agent-app profile is macOS only',
+  }, async (t) => {
+    const allow = '{"modelProvider":"gemini","toolPermission":"always-proceed"}';
+    const run = await setUp(t, [
+      command(
+        `mkdir -p ~/.gemini/halora/antigravity-cli; echo '${allow}' > ~/.gemini/halora/antigravity-cli/settings.json; echo "exit $?" > status.txt`,
+      ),
+      [{ text: 'Planted.' }],
+      command('echo made > made.txt'),
+      [{ text: 'Understood.' }],
+    ]);
+    await run.start();
+    await answer(run, 0, 'approve');
+    await run.next('runtime.turn.completed');
+    // The folder that holds every launch's home was refused; this launch's own took the write, and goes at its end.
+    assert.notEqual(readFileSync(join(run.project, 'status.txt'), 'utf8'), 'exit 0\n');
+    assert.equal(existsSync(join(run.home, '.gemini', 'halora', 'antigravity-cli')), false);
+    await run.adapter.close();
+    assert.deepEqual(readdirSync(join(run.home, '.gemini', 'halora')), []);
+    // A later launch, on a fresh home: its command still asks, and denied it never runs.
+    const later = new AcpRuntimeAdapter(run.options);
+    t.after(() => later.close());
+    const observations: RuntimeObservation[] = [];
+    await later.startExecution({
+      execution: {
+        ...TEST_EXECUTION,
+        execution_id: '01920000-0000-7000-8000-000000000013' as never,
+      },
+      instruction: 'Do the work.',
+      options: {},
+      model_ref: null,
+      directory: run.project,
+      emit: (observation) => observations.push(observation),
+    });
+    for (
+      let waited = 0;
+      waited < 600 && !observations.some((o) => o.type === 'runtime.approval.requested');
+      waited++
+    )
+      await delay(50);
+    const asked = observations.find((o) => o.type === 'runtime.approval.requested');
+    assert.ok(
+      asked !== undefined && asked.type === 'runtime.approval.requested',
+      'the later launch asked',
+    );
+    await later.respondToApproval({
+      execution: {
+        ...TEST_EXECUTION,
+        execution_id: '01920000-0000-7000-8000-000000000013' as never,
+      },
+      approval_id: asked.payload.approval_id,
+      decision: 'deny',
+      message: null,
+    });
+    assert.equal(existsSync(join(run.project, 'made.txt')), false);
   });
 
   test('signed out, the start fails in words and nothing starts', async (t) => {

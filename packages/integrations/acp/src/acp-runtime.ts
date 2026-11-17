@@ -85,6 +85,8 @@ export interface AcpRuntimeOptions {
   readonly standIn?: {
     readonly variables: Readonly<Record<string, string>>;
     readonly authMethod: string;
+    /** Files the stand-in needs in the launch's settings home, by path inside it (its key setting). */
+    readonly settings?: Readonly<Record<string, string>>;
   };
   /**
    * ACP configuration options set on every session before its first prompt (`session/set_config_option`), such as
@@ -301,6 +303,7 @@ class AcpSession {
   /** Each tool call as the app last reported it, its fields merged update by update (ACP `ToolCallUpdate`). */
   readonly #calls = new Map<string, Record<string, unknown>>();
   #profileFile: string | null = null;
+  #settingsHome: string | null = null;
   #closing = false;
   #alive = false;
 
@@ -592,9 +595,16 @@ class AcpSession {
     const { profile, binaryPath, hostFolders } = this.#options;
     const env: Record<string, string> = { ...this.#options.env };
     for (const name of profile.ownVariables) delete env[name];
-    // A settings home of Halora's own, so the person's own settings for the app never apply here (AUDIT3 AC2).
-    const settings = join(this.#options.home, profile.settingsHome.folder);
+    // A settings home of Halora's own, so the person's own settings for the app never apply here (AUDIT3 AC2), and a
+    // fresh one for each launch, removed at its end, so nothing written there reaches a later one (AUDIT3 AC3).
+    const homes = join(this.#options.home, profile.settingsHome.folder);
+    const settings = join(homes, this.#launch);
     mkdirSync(settings, { recursive: true, mode: 0o700 });
+    this.#settingsHome = settings;
+    for (const [file, text] of Object.entries(this.#options.standIn?.settings ?? {})) {
+      mkdirSync(join(settings, file, '..'), { recursive: true, mode: 0o700 });
+      writeFileSync(join(settings, file), text, { mode: 0o600 });
+    }
     Object.assign(
       env,
       this.#options.standIn?.variables ?? {},
@@ -608,6 +618,7 @@ class AcpSession {
         ...hostFolders.scope,
         project: this.#directory,
         projectSettings: profile.projectSettings,
+        settingsHomes: { root: homes, own: settings },
       });
       this.#profileFile = path;
       args = ['-f', path, binaryPath, ...args];
@@ -913,6 +924,7 @@ class AcpSession {
 
   #exited(): void {
     if (this.#profileFile !== null) rmSync(this.#profileFile, { force: true });
+    if (this.#settingsHome !== null) rmSync(this.#settingsHome, { recursive: true, force: true });
     const wasAlive = this.#alive;
     this.#alive = false;
     const turn = this.#turn;

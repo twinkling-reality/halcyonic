@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -9,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { describe, type TestContext, test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -261,13 +262,15 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
     // The app signs in only its own way: no key from the host reaches it.
     assert.equal(run.variables().includes('GEMINI_API_KEY'), false);
     assert.equal(run.variables().includes('AGY_CLI_DISABLE_AUTO_UPDATE'), true);
-    // A settings home of Halora's own, so the person's own settings for the app never apply.
-    assert.deepEqual(run.args(), [
-      'acp',
-      '--disable-telemetry',
-      '--gemini-dir',
-      join(run.root, '.gemini', 'halora'),
-    ]);
+    // A settings home of Halora's own, so the person's own settings for the app never apply, fresh for this launch
+    // and removed at its end, so nothing written there reaches a later one.
+    const launched = run.args();
+    assert.deepEqual(launched.slice(0, 3), ['acp', '--disable-telemetry', '--gemini-dir']);
+    const own = launched[3] ?? '';
+    assert.equal(dirname(own), join(run.root, '.gemini', 'halora'));
+    assert.match(basename(own), /^[0-9a-f-]{36}$/);
+    await run.adapter.close();
+    assert.equal(existsSync(own), false);
     const created = run.sent().find((message) => message.method === 'session/new');
     assert.deepEqual(created?.params, { cwd: run.folder, mcpServers: [] });
   });
@@ -674,7 +677,8 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
     );
     assert.deepEqual(types(run), []);
     assert.deepEqual(run.args(), ['acp', '--agent-engine', 'v3']);
-    assert.equal(run.kiroHome(), join(run.root, '.kiro', 'halora'));
+    assert.equal(dirname(run.kiroHome()), join(run.root, '.kiro', 'halora'));
+    assert.equal(existsSync(run.kiroHome()), false, 'removed once the app ended');
   });
 });
 
