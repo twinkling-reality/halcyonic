@@ -10,8 +10,10 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
     /// Words read in a render's pixels on any plate (the lead's 2026-11-17T01:05Z: the words check reads words on any plate, never
-    /// only light strokes, stricter, never weaker). Along the middle of each of a label's lines, its ground is the median of the
-    /// samples (a line's middle crosses more gap than stroke). Each line is held to the polarity its label is drawn in (AUDIT3's
+    /// only light strokes, stricter, never weaker). Along the middle of each of a label's lines, the words' strokes and their soft
+    /// edges may cover more than half the samples (an e's bar, a heavy weight at a large size), so the ground is read from the far
+    /// side of the words: the 15th percentile of the samples' luminance under light words, the 85th under dark ones, whichever the
+    /// label's own colour is farther from. Each line is held to the polarity its label is drawn in (AUDIT3's
     /// 01:17Z I1): words drawn lighter than their ground are read by their lightest sample, words drawn darker by their darkest, so
     /// a glyph's dark edge, a rim or a dark spot of the room behind the glass never stands in for light words. The ink must hold the
     /// contrast the judges' walk holds (4.5 to 1, WCAG relative luminance, as KitRender.Luminance reads it), on the side it is drawn,
@@ -21,6 +23,9 @@ namespace Halcyonic.XR.Workspace.Editor
     {
         /// <summary>The contrast a label's words must hold against their own ground, in either polarity: the judges' walk's rule.</summary>
         public const double InkRatioFloor = 4.5;
+
+        /// <summary>The share of a line's samples taken as surely ground, from the far side of the words: a line's strokes never cover more.</summary>
+        private const double GroundShare = 0.15;
 
         /// <summary>The most a line's middle is sampled across its width.</summary>
         private const int InkSteps = 80;
@@ -53,14 +58,17 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// One line read from <paramref name="samples"/> along its middle, its words drawn in <paramref name="drawn"/>: the ground the
-        /// samples' median, the ink the sample farthest from it on the side the words are drawn.
+        /// samples' 15th or 85th percentile, whichever <paramref name="drawn"/> is farther from, the ink the sample farthest from it
+        /// on the side the words are drawn.
         /// </summary>
         public static InkRead ReadInkLine(int line, IReadOnlyList<Color32> samples, Color32 drawn)
         {
             if (samples.Count == 0) throw new ArgumentException("A line is read from at least one sample.", nameof(samples));
             var ordered = samples.OrderBy(Luminance).ToList();
-            var ground = ordered[ordered.Count / 2];
-            var drawnLight = Luminance(drawn) > Luminance(ground);
+            var low = ordered[(int)(GroundShare * (ordered.Count - 1))];
+            var high = ordered[(int)((1.0 - GroundShare) * (ordered.Count - 1))];
+            var drawnLight = Math.Abs(Luminance(drawn) - Luminance(high)) < Math.Abs(Luminance(drawn) - Luminance(low));
+            var ground = drawnLight ? low : high;
             var ink = drawnLight ? ordered[ordered.Count - 1] : ordered[0];
             return new InkRead(line, drawnLight, ink, ground);
         }
@@ -107,7 +115,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// The reader held to cases whose answer is known, before any render is read by it (AUDIT3's 01:17Z I1 fail-first): light words
         /// no brighter than 130 on a grey ground of 120 with one black sample fail (4.8 to 1 against the black), which a reader taking the farthest sample either way
-        /// passed; white on dark glass passes; near-black on the lifted orange passes; white on the orange fails; dark words read light fail.
+        /// passed; white on dark glass passes, as do words whose strokes cover most of their line's middle; near-black on the lifted orange passes; white on the orange fails; dark words read light fail.
         /// </summary>
         private static IEnumerable<string> InkReaderHolds()
         {
@@ -125,6 +133,8 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 ("white words reading 130 on a 120 ground, one black sample", Line(Grey(120), Grey(130), 20, Grey(0)), white, 150, false),
                 ("white words reading 230 on a 40 ground", Line(Grey(40), Grey(230), 20), white, 150, true),
+                ("white words covering 60 percent of their line's middle on a 20 ground", Line(Grey(20), white, 49), white, 170, true),
+                ("near-black words covering 60 percent of their line's middle on the lifted orange", Line(orange, ink, 49), ink, 150, true),
                 ("near-black words on the lifted orange", Line(orange, ink, 20), ink, 150, true),
                 ("white words on the lifted orange", Line(orange, white, 20), white, 150, false),
                 ("dark words that read only lighter than their ground", Line(Grey(200), white, 20), ink, 150, false),
