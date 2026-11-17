@@ -327,6 +327,7 @@ namespace Halcyonic.XR.Workspace
             director.plane.HandleTaken += director.OnHandleTaken;
             director.plane.SubjectLetGo += director.OnSubjectLetGo;
             director.plane.ScreenActed += director.OnScreenActed;
+            director.plane.ScreenAgentPressed += director.OnScreenAgentPressed;
             director.plane.ScreenBarToggled += director.OnScreenBarToggled;
             director.plane.MomentActed += director.OnMomentActed;
             if (setup.Voice is HoldToTalk talk)

@@ -36,6 +36,9 @@ namespace Halcyonic.XR.Workspace
         /// <summary>Raised when a button on <see cref="RoomBar"/> is pressed, with the action and current <see cref="ScreenProjectId"/>.</summary>
         public event Action<KitScreenAction, string?>? ScreenActed;
 
+        /// <summary>A swarm row on the project screen pressed: that task's own steps (limit #14).</summary>
+        public event Action<string>? ScreenAgentPressed;
+
         /// <summary>Raised when the folded <see cref="RoomBar"/> handle is pressed to open the command bar.</summary>
         public event Action? ScreenBarToggled;
 
@@ -52,7 +55,11 @@ namespace Halcyonic.XR.Workspace
                 room = new GameObject("Room of projects").transform;
                 room.SetParent(transform, false);
             }
-            if (RoomScreen == null) RoomScreen = KitScreen.Create(room);
+            if (RoomScreen == null)
+            {
+                RoomScreen = KitScreen.Create(room);
+                RoomScreen.AgentPressed += id => ScreenAgentPressed?.Invoke(id);
+            }
             if (RoomBar == null) RoomBar = KitScreenBar.Create(room);
             RoomScreen.Show(model);
             var at = new System.Numerics.Vector3(eyes.x, eyes.y, eyes.z);

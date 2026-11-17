@@ -934,6 +934,14 @@ namespace Halcyonic.XR.Workspace
                 relay: HeadsetRelay.Serves(target) ? project => HeadsetRelay.PortFor(target, project, setup.Presentation.ScreenProjectIds) : null));
         }
 
+        /// <summary>A swarm's row pressed on the project screen: that task's own steps, never the project's first task's (limit #14).</summary>
+        private void OnScreenAgentPressed(string workstreamId)
+        {
+            if (Away || drag != null || plane.Repositioning || plane.Sliding) return;
+            if (State?.Workstreams.ContainsKey(workstreamId) != true) return;
+            OpenFile(workstreamId, FileSection.Activity);
+        }
+
         private void OnScreenActed(KitScreenAction action, string? projectId)
         {
             if (Away || drag != null || plane.Repositioning || plane.Sliding) return;

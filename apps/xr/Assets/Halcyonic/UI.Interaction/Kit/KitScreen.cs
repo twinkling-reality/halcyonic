@@ -50,6 +50,16 @@ namespace Halcyonic.XR.UI
         /// <summary>Its words laid whole: the title and its facts on one line inside the chip.</summary>
         public bool ReadsWhole { get; private set; }
 
+        /// <summary>Raised with a swarm row's task when its row is pressed: that task's own steps (limit #14).</summary>
+        public event System.Action<string>? AgentPressed;
+
+        private readonly List<(KitButton Press, TextMeshPro State, string WorkstreamId)> agentRows = new List<(KitButton, TextMeshPro, string)>();
+
+        /// <summary>A swarm's rows as drawn: each task's press, its state's words, and its task.</summary>
+        public IReadOnlyList<(KitButton Press, TextMeshPro State, string WorkstreamId)> AgentRows => agentRows;
+
+        private const float AgentRowGapDegrees = 0.8f;
+
         public static KitScreen Create(Transform parent)
         {
             var go = new GameObject("Project screen");
@@ -128,9 +138,63 @@ namespace Halcyonic.XR.UI
                 mark.transform.localPosition = new Vector3(0f, markY, -0.0006f);
             }
 
+            // A swarm (the lead's 2026-11-17T19:17Z limit #14): every agent's row stands in the identity's place under the chip, its
+            // task's name a quiet press that opens that task's own steps and its own state at the row's right, in the shelf's order.
+            var swarm = model.Agents.Count >= 2;
+            var agentsWhole = LayAgents(model, width, below, inset, swarm);
+            if (swarm)
+            {
+                name.gameObject.SetActive(false);
+                disc.gameObject.SetActive(false);
+                mark.gameObject.SetActive(false);
+            }
+            else name.gameObject.SetActive(true);
+
             // The state stands on one line, whole.
-            ReadsWhole = nameWhole && titleLines == 1 && factLines == 1 && !title.isTextTruncated && !facts.isTextTruncated;
+            ReadsWhole = (swarm ? agentsWhole : nameWhole) && titleLines == 1 && factLines == 1 && !title.isTextTruncated && !facts.isTextTruncated;
             gameObject.SetActive(true);
+        }
+
+        /// <summary>Lays the swarm's rows down from <paramref name="top"/>; hides them where <paramref name="shown"/> is false. Whether each stands whole.</summary>
+        private bool LayAgents(KitScreenModel model, float width, float top, float inset, bool shown)
+        {
+            var whole = true;
+            var rows = shown ? model.Agents.Count : 0;
+            while (agentRows.Count < rows)
+            {
+                var press = KitButton.Create(transform, "Agent row", KitButtonRole.Quiet, room: true);
+                var state = KitType.Create(transform, "Agent state", KitRole.Body, KitType.Secondary, KitType.Order.Words, TextAlignmentOptions.TopRight, room: true);
+                state.textWrappingMode = TextWrappingModes.NoWrap;
+                var index = agentRows.Count;
+                press.Pressed += () => { if (index < agentRows.Count) AgentPressed?.Invoke(agentRows[index].WorkstreamId); };
+                agentRows.Add((press, state, ""));
+            }
+            var stateRoom = width * 0.3f;
+            var pressWidth = width - 2f * inset - stateRoom;
+            var down = top - KitType.Units(AgentRowGapDegrees);
+            for (var index = 0; index < agentRows.Count; index++)
+            {
+                var (press, state, _) = agentRows[index];
+                if (index >= rows)
+                {
+                    press.Hide();
+                    state.gameObject.SetActive(false);
+                    continue;
+                }
+                var agent = model.Agents[index];
+                agentRows[index] = (press, state, agent.WorkstreamId);
+                var centreY = down - KitButton.Height / 2f;
+                press.Show(agent.Task.Text, GlazeIcon.Next, new Vector2(-width / 2f + inset + pressWidth / 2f, centreY), pressWidth);
+                state.gameObject.SetActive(true);
+                KitType.Size(state, KitRole.Body);
+                GlazeText.SetLiteral(state, agent.State);
+                var (stateLines, stateWide, stateTall) = KitType.Lay(state, stateRoom - inset, 1);
+                state.transform.localPosition = new Vector3(width / 2f - inset - stateWide / 2f, centreY + stateTall / 2f, -0.0006f);
+                state.ForceMeshUpdate(true);
+                whole &= stateLines == 1 && !state.isTextTruncated;
+                down -= KitButton.Height + KitType.Units(AgentRowGapDegrees);
+            }
+            return whole;
         }
     }
 }
