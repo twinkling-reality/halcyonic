@@ -1043,17 +1043,24 @@ namespace Halcyonic.XR.UI
         {
             var label = mono ? measureRequest : measureBody;
             Set(label, words, mono);
-            KitType.Lay(label, BodyWidth, 200);
+            KitType.Lay(label, Measure(BodyWidth, mono), 200);
             var part = Rows(label, from, rows);
             GlazeRuns.Of(label).Set(LineWords.None);
             return part;
         }
 
+        /// <summary>
+        /// The measure a panel's words are laid at, <paramref name="wordsWidth"/> the text column's: a command's (<paramref name="mono"/>)
+        /// inside its well's pad, as the dialog's well stands on the text column (35990422e), so the file counts a request's rows at
+        /// the measure every panel draws them at and a part never holds rows it does not show (JUDGE's 19:57Z Larger walk).
+        /// </summary>
+        public static float Measure(float wordsWidth, bool mono) => mono ? wordsWidth - 2f * RoomType.Scaled(WellPadDp) : wordsWidth;
+
         public int Lines(LineWords words, bool mono, bool narrow = false)
         {
             var label = mono ? measureRequest : measureBody;
             Set(label, words, mono);
-            KitType.Lay(label, narrow ? NarrowWordsWidth : BodyWidth, 200);
+            KitType.Lay(label, Measure(narrow ? NarrowWordsWidth : BodyWidth, mono), 200);
             var lines = Mathf.Max(1, label.textInfo.lineCount);
             // The measure holds no words once it has counted them: it is never drawn, and nothing should read it as shown.
             GlazeRuns.Of(label).Set(LineWords.None);
@@ -1283,7 +1290,7 @@ namespace Halcyonic.XR.UI
                 var reading = bar.Mono ? request : body;
                 // An approval's command lays inside its well, and the well itself spans the text column, so the label, title, well and
                 // presses share one left edge (AUDIT's 19:38Z (5)) and the ticks stand inside the panel's pad (19:38Z (4); REFERENCES.md:44).
-                var measure = bar.Mono ? wordsWidth - 2f * RoomType.Scaled(WellPadDp) : wordsWidth;
+                var measure = Measure(wordsWidth, bar.Mono);
                 Set(reading, bar.Body, bar.Mono);
                 reading.gameObject.SetActive(true);
                 var laidBody = KitType.Lay(reading, measure, 200);
@@ -1312,13 +1319,16 @@ namespace Halcyonic.XR.UI
                 rowHeight = Mathf.Max(rowHeight, cores[index].y);
             }
             rowHeight = Mathf.Max(rowHeight, RoomType.Units(RoomButton.HeightDp));
-            // One press width per row, the row's widest (AUDIT's 19:38Z (2); visionos-window-example.png's controls of one size).
-            var shared = count > 0 ? cores.Take(count).Max(core => core.x) : 0f;
-            for (var index = 0; index < count; index++) cores[index].x = shared;
-
             // The row fits the words' measure, or (at the larger size, with the most actions) the others stand on a row of their own
             // over the main action's, both right-aligned inside the panel (AUDIT3's F1: never past the panel's left edge).
             var targetGap = KitType.Units(SpatialKit.TargetGapDegrees);
+            // One press width per row, the row's widest (AUDIT's 19:38Z (2); visionos-window-example.png's controls of one size), where
+            // the presses then still fit the text column on one row or, the others over the main, on two; else each keeps its own, so
+            // no press stands past the panel (JUDGE's 19:57Z Larger walk: Next drawn off the panel).
+            var shared = count > 0 ? cores.Take(count).Max(core => core.x) : 0f;
+            var sharedOthers = order.Count(index => !bar.Column[index].Main) * (shared + targetGap);
+            if (count > 0 && (sharedOthers + (order.Any(index => bar.Column[index].Main) ? shared : -targetGap) <= wordsWidth + 1e-4f || sharedOthers - targetGap <= wordsWidth + 1e-4f))
+                for (var index = 0; index < count; index++) cores[index].x = shared;
             var othersWide = order.Where(index => !bar.Column[index].Main).Sum(index => cores[index].x + targetGap);
             var mainWide = order.Where(index => bar.Column[index].Main).Sum(index => cores[index].x);
             var twoRows = mainWide > 0f && othersWide > 0f && othersWide + mainWide > wordsWidth + 1e-4f;
@@ -1504,7 +1514,9 @@ namespace Halcyonic.XR.UI
                 reading.parseCtrlCharacters = true;
                 reading.text = string.Join("\n", bar.Lines.Select(each => each.ForTextMeshPro().Text));
             }
-            var laid = KitType.Lay(reading, wordsWidth, 200);
+            // A command at the measure the file counts its rows at (Measure); every other reading at the text column's.
+            var laidWidth = Measure(wordsWidth, bar.Mono);
+            var laid = KitType.Lay(reading, laidWidth, 200);
             // Halcyonic's own words break only between segments and drop the dot there (WORDS rule 2). Only where no outside
             // words stand in the label, whose places in its text a changed text would move.
             if (!bar.Mono && bar.Part == null && GlazeRuns.Of(reading).Theirs.Count == 0) laid = BreakAtSeparators(reading, wordsWidth, 200);
@@ -1515,7 +1527,7 @@ namespace Halcyonic.XR.UI
                 // The piece is the label's own spelling, each backslash doubled: made words again before the label takes them, so
                 // the person reads exactly what will be sent or run (AUDIT, 2026-11-10); a well's part keeps its marks.
                 Set(reading, PartOf(reading, bar.Body, bar.Mono, from, most), bar.Mono);
-                laid = KitType.Lay(reading, wordsWidth, 200);
+                laid = KitType.Lay(reading, laidWidth, 200);
             }
             // No word alone on the words' last line (AUDIT 2026-11-16T16:57Z: "chosen" alone at Standard): the measure narrows a twentieth
             // at a time, down to six tenths, until the last line holds two words, never on more lines; where none does, as first laid.
@@ -1530,7 +1542,7 @@ namespace Halcyonic.XR.UI
                 var mended = false;
                 for (var step = 1; step <= 8 && !mended; step++)
                 {
-                    var tried = Again(wordsWidth * (1f - 0.05f * step));
+                    var tried = Again(laidWidth * (1f - 0.05f * step));
                     if (tried.Lines != laid.Lines) break;
                     if (!RoomCardView.LastLineIsOneWord(reading)) { laid = tried; mended = true; }
                 }
