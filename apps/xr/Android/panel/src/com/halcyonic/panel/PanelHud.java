@@ -46,6 +46,8 @@ final class PanelHud {
     /** The glass's hairline, lit along its top and easing to its foot (RoomSurface.LitEdgeTop, LitEdgeFoot). */
     static final int EDGE_TOP = Color.rgb(0x5A, 0x5D, 0x66);
     static final int EDGE_FOOT = Color.rgb(0x2B, 0x2C, 0x33);
+    /** The glass's own tint, opaque, where the full panel stands on its own rather than over the person's show. */
+    static final int GROUND = Color.rgb(12, 14, 22);
     static final int W1 = Color.WHITE;
     static final int W2 = Color.argb(189, 255, 255, 255);
     static final int W3 = Color.argb(133, 255, 255, 255);
@@ -132,6 +134,20 @@ final class PanelHud {
             states.addState(new int[0], capsule(CAPSULE, radius, glow));
         }
         button.setBackground(states);
+    }
+
+    /** A full-width press's thin-glass plates at rest, pointed and held: the lighter plate for a main action, no edge, no hue. */
+    static Drawable plates(boolean main, float radius) {
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[] {android.R.attr.state_pressed}, plate(CAPSULE_HELD, radius));
+        states.addState(new int[] {android.R.attr.state_hovered}, plate(main ? MAIN_POINTED : CAPSULE_POINTED, radius));
+        states.addState(new int[0], plate(main ? MAIN_PLATE : CAPSULE, radius));
+        return states;
+    }
+
+    private static Drawable plate(int colour, float radius) {
+        GradientDrawable shape = new GradientDrawable(); shape.setCornerRadius(radius); shape.setColor(colour);
+        return shape;
     }
 
     /** A press's thin-glass capsule, inset by the room every press keeps, so all line up. */

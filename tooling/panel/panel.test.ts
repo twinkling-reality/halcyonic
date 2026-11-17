@@ -2027,16 +2027,21 @@ time.sleep(25)
 describe('the compact panel in the one language, with no hue (the lead, 2026-11-17 19:15Z)', () => {
   // Every colour the compact card draws is a grey or white: the main press stands apart by its lighter thin-glass plate
   // (visionos-window-example.png) and its white glyph and words (visionos-label-vibrant-primary.png), never an accent.
-  test('every colour PanelHud draws is a grey or a white, never a hue', () => {
-    const source = readFileSync(join(PANEL, 'src/com/halcyonic/panel/PanelHud.java'), 'utf8');
+  test('every colour the panel draws, compact or full, is a grey or a white, never a hue', () => {
+    // The full panel too: the language sweep leaves nothing off the language (the lead, 2026-11-17 19:25Z).
+    const source = readdirSync(SOURCES)
+      .filter((name) => name.endsWith('.java'))
+      .map((name) => readFileSync(join(SOURCES, name), 'utf8'))
+      .join('\n');
     const colours = [...source.matchAll(/Color\.a?rgb\(([^)]*)\)/g)].map((match) => {
       const parts = (match[1] ?? '').split(',').map((part) => part.trim());
       const channels = parts.slice(-3).map((part) => (part.startsWith('0x') ? Number.parseInt(part.slice(2), 16) : Number(part)));
       return { text: match[0], channels };
     });
-    assert.ok(colours.length >= 8, 'the card names its colours');
-    for (const { text, channels } of colours) {
-      assert.ok(channels.every((channel) => Number.isInteger(channel)), `${text} is read whole`);
+    // A colour worked out from others (the loading words' lift) follows the literal tokens checked here.
+    const literal = colours.filter(({ channels }) => channels.every((channel) => Number.isInteger(channel)));
+    assert.ok(literal.length >= 8, 'the panel names its colours');
+    for (const { text, channels } of literal) {
       assert.ok(Math.max(...channels) - Math.min(...channels) <= 12, `${text} carries a hue`);
     }
   });

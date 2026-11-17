@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -202,7 +201,7 @@ public class AgentPanelActivity extends Activity {
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private LinearLayout column() { LinearLayout v = new LinearLayout(this); v.setOrientation(LinearLayout.VERTICAL); v.setPadding(dp(20), dp(16), dp(20), dp(16)); return v; }
     private TextView text(LinearLayout parent, String value, int size) {
-        TextView view = new TextView(this); view.setText(value); view.setTextSize(size); view.setTextColor(Color.rgb(233, 237, 242)); view.setPadding(0, dp(6), 0, dp(8));
+        TextView view = new TextView(this); view.setText(value); view.setTextSize(size); view.setTextColor(PanelHud.W1); view.setPadding(0, dp(6), 0, dp(8));
         parent.addView(view, new LinearLayout.LayoutParams(-1, -2)); return view;
     }
     private Button button(LinearLayout parent, String label, Runnable action) { return button(parent, label, action, false); }
@@ -213,16 +212,15 @@ public class AgentPanelActivity extends Activity {
         parent.addView(button, new LinearLayout.LayoutParams(-1, -2)); styleButton(button, label); button.setContentDescription(label); final Dialog owner = review; final long id = owner == null ? 0 : reviewOwner; final int offeredGeneration = generation; button.setOnClickListener(view -> { if (visible && generation == offeredGeneration && review == owner && (localConnection ? !busy && authority.connectionInteract(id) : authority.interact(id, busy, escape))) { cancelVoice(); action.run(); } }); return button;
     }
     private void styleButton(Button button, String label) {
-        GradientDrawable surface = new GradientDrawable();
+        // The compact card's own presses (the one language, FIELD's sheet f7): thin glass, a main action on the lighter plate
+        // (visionos-window-example.png's thin control), white words (visionos-label-vibrant-primary.png), no edge and no hue.
         boolean primary = label.startsWith("Send") || label.equals("Workspace") || label.startsWith("Review instruction");
-        surface.setColor(primary ? Color.rgb(35, 73, 126) : Color.rgb(26, 37, 54));
-        surface.setCornerRadius(dp(10)); surface.setStroke(dp(1), Color.rgb(75, 105, 145));
-        button.setBackground(surface); button.setTextColor(Color.rgb(238, 244, 255)); button.setPadding(dp(16), dp(10), dp(16), dp(10));
+        button.setBackground(PanelHud.plates(primary, dp(26))); button.setTextColor(PanelHud.W1); button.setPadding(dp(16), dp(10), dp(16), dp(10));
         LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2); layout.setMargins(0, dp(6), 0, dp(6)); button.setLayoutParams(layout);
     }
     private static String stateName(String value) { return PanelModel.stateWord(value); }
     private void shell() {
-        LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34)); shellRoot = root;
+        LinearLayout root = column(); root.setBackgroundColor(PanelHud.GROUND); shellRoot = root;
         brand = text(root, "Halora", 28);
         connection = new PanelLoadingText(this); connection.setTextSize(16); connection.setPadding(0, dp(6), 0, dp(8));
         root.addView(connection, new LinearLayout.LayoutParams(-1, -2));
@@ -848,10 +846,10 @@ public class AgentPanelActivity extends Activity {
         // Compact is the card alone: the window around it clear, so the card stands at the show's edge rather than at the top of
         // a dark slab (unverified on the headset whether Horizon OS composites a panel's clear pixels; if not they read black).
         getWindow().setFormat(hud ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
-        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(hud ? Color.TRANSPARENT : Color.rgb(18, 24, 34)));
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(hud ? Color.TRANSPARENT : PanelHud.GROUND));
         // In compact the window stands on glass by default, so every compact screen (offline, waiting for the computer, the
         // preview's line) is read on glass; only the at-rest line clears the rest of the window (AUDIT3's L1).
-        if (hud) shellRoot.setBackground(PanelHud.glass(getResources().getDisplayMetrics().density)); else shellRoot.setBackgroundColor(Color.rgb(18, 24, 34));
+        if (hud) shellRoot.setBackground(PanelHud.glass(getResources().getDisplayMetrics().density)); else shellRoot.setBackgroundColor(PanelHud.GROUND);
         float d = getResources().getDisplayMetrics().density;
         if (hud) shellRoot.setPadding(PanelHud.px(32, d), PanelHud.px(36, d), PanelHud.px(28, d), PanelHud.px(28, d)); else shellRoot.setPadding(dp(20), dp(16), dp(20), dp(16));
         if (hud) content.setPadding(0, 0, 0, 0); else content.setPadding(dp(20), dp(16), dp(20), dp(16));
@@ -1205,7 +1203,7 @@ public class AgentPanelActivity extends Activity {
     private LinearLayout dialog(String title) {
         closeReview(); reviewOwner = authority.open(); Dialog next = new ReviewDialog(reviewOwner); review = next;
         final long id = reviewOwner; next.setOnDismissListener(ignored -> { if (review == next) { review = null; authority.close(id); } });
-        LinearLayout root = column(); root.setBackgroundColor(Color.rgb(18, 24, 34)); text(root, title, 25);
+        LinearLayout root = column(); root.setBackgroundColor(PanelHud.GROUND); text(root, title, 25);
         button(root, "Back", this::closeReview, true);
         ScrollView scroll = new ScrollView(this); LinearLayout body = column(); scroll.addView(body); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         next.setContentView(root); if (!preview && !capturable) next.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE); next.show(); next.getWindow().setLayout(-1, -1);

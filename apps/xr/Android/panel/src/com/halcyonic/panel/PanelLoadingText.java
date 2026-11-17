@@ -12,7 +12,8 @@ import android.widget.TextView;
 
 /** A real in-flight check lifts its words, never changes the words or invents progress. */
 final class PanelLoadingText extends TextView {
-    private static final int NORMAL = Color.rgb(233, 237, 242), OWN = Color.rgb(184, 197, 213), ACTIVE = Color.rgb(171, 222, 243);
+    // White and greys only (the lead, 2026-11-17 19:15Z: no hue): the band that crosses the words is white light, never a colour.
+    private static final int NORMAL = Color.rgb(255, 255, 255), OWN = Color.rgb(189, 189, 189), ACTIVE = Color.rgb(255, 255, 255);
     private final PanelWait wait = new PanelWait();
     private final Matrix offset = new Matrix();
     private LinearGradient gradient;
