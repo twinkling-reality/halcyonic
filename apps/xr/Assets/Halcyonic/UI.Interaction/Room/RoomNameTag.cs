@@ -58,6 +58,7 @@ namespace Halcyonic.XR.UI
             if (made != null) return made;
             // A place's pitch comes from its widest tag as drawn (FIELD's PlacePitch): the stage reads it through this.
             CharacterStage.DrawnTagSize ??= DrawnSize;
+            CharacterStage.DrawnTagCorners ??= DrawnCorners;
             made = character.gameObject.AddComponent<RoomNameTag>();
             made.view = character;
             character.Shown += made.Show;
@@ -72,6 +73,19 @@ namespace Halcyonic.XR.UI
         {
             var tag = character.GetComponent<RoomNameTag>()?.Tag;
             return tag == null ? null : tag.Size * tag.transform.lossyScale.x;
+        }
+
+        /// <summary>The four corners of <paramref name="character"/>'s tag as drawn, in the world; null where it draws none.</summary>
+        public static Vector3[]? DrawnCorners(CharacterView character)
+        {
+            var tag = character.GetComponent<RoomNameTag>()?.Tag;
+            if (tag == null) return null;
+            var half = tag.Size / 2f;
+            return new[]
+            {
+                tag.transform.TransformPoint(new Vector3(-half.x, -half.y, 0f)), tag.transform.TransformPoint(new Vector3(half.x, -half.y, 0f)),
+                tag.transform.TransformPoint(new Vector3(-half.x, half.y, 0f)), tag.transform.TransformPoint(new Vector3(half.x, half.y, 0f)),
+            };
         }
 
         /// <summary>Stands the tag, or the older label, as the redesign is now.</summary>

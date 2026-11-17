@@ -22,6 +22,19 @@ namespace Halcyonic.XR
         /// </summary>
         public static System.Func<CharacterView, Vector2?>? DrawnTagSize { get; set; }
 
+        /// <summary>The four corners of <paramref name="view"/>'s tag as drawn now, in the world; null where it draws none. Published by the room's
+        /// parts as <see cref="DrawnTagSize"/> is, so a place's back row can rise until its tags clear the front row's bodies as the eyes see them.</summary>
+        public static System.Func<CharacterView, Vector3[]?>? DrawnTagCorners { get; set; }
+
+        /// <summary>How high a back row may rise to clear the front row's bodies, in metres: past it the row stands as high as it can.</summary>
+        public const float BackRowRiseMost = 0.8f;
+
+        /// <summary>The step a back row rises by while its tags stand over the front row's bodies, in metres.</summary>
+        public const float BackRowRiseStep = 0.02f;
+
+        /// <summary>The least angle kept between a back-row tag's foot and a front-row body's top, in degrees (the gap kept between things).</summary>
+        public const float BackRowClearDegrees = 0.3f;
+
         /// <summary>Raised once for each other project's place as it first stands, with the point its sign hangs from (its top middle), so
         /// the room's parts can stand <c>RoomPlaceSignView</c> there; <see cref="OtherPlaces"/> says what each place holds now.</summary>
         public event System.Action<string, Transform>? PlaceCreated;
@@ -148,21 +161,10 @@ namespace Halcyonic.XR
         private void LayOtherPlace(OtherPlace stood, IReadOnlyList<string> shown, PlaceBearing bearing, Vector3 eyes)
         {
             var distance = bearing.Distance;
-            var scale = radius;
-            var widestTag = 0f;
+            LayPlace(shown.Select(id => stood.Views[id]).ToList(), radius, distance, Places.Rule, eyes);
             var tallestTag = 0f;
             foreach (var view in stood.Views.Values)
-                if (DrawnTagSize?.Invoke(view) is Vector2 size) { widestTag = Mathf.Max(widestTag, size.x); tallestTag = Mathf.Max(tallestTag, size.y); }
-            var (pitch, rowMost) = PlaceRows(widestTag, scale, distance, Places.Rule);
-            for (var index = 0; index < shown.Count; index++)
-            {
-                var view = stood.Views[shown[index]];
-                var (local, size) = PlaceSpot(index, shown.Count, rowMost, pitch);
-                view.transform.localPosition = local;
-                view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-                view.transform.localScale = Vector3.one * scale * size;
-                view.PlaceShelfLabel(eyes);
-            }
+                if (DrawnTagSize?.Invoke(view) is Vector2 size) tallestTag = Mathf.Max(tallestTag, size.y);
             // The floor arc spans the place, tags and all, about the eyes at its distance, under the feet, a tick at each end.
             var half = (float)PlaceBearings.SpanDegrees / 2f;
             var middle = stood.Root.eulerAngles.y;
@@ -255,17 +257,77 @@ namespace Halcyonic.XR
         }
 
         /// <summary>
+        /// Stands a place's characters, <paramref name="views"/> in its order, under the place's root (each view's parent) for the eyes at
+        /// <paramref name="eyes"/>, by the one rule the stage and its check share. First at the longest name's pitch; then at the pitch of its
+        /// widest tag AS DRAWN there (a tag's size follows where it stands); then, where a back row stands, that row rises in steps until no
+        /// back-row tag stands over a front-row body as the eyes see them (AUDIT3's R1: seen from a seated person's eyes, a row behind
+        /// appears higher, so a tag hung under its feet would cover the heads in front). Returns the pitch, the row and the back row's rise.
+        /// </summary>
+        public static (float Pitch, int RowMost, float Rise) LayPlace(IReadOnlyList<CharacterView> views, float scale, float distance, PlaceRule rule, Vector3 eyes)
+        {
+            var count = views.Count;
+            var rise = BackRowRise;
+            var (pitch, rowMost) = PlaceRows(0f, scale, distance, rule);
+            void Lay()
+            {
+                for (var index = 0; index < count; index++)
+                {
+                    var (local, size) = PlaceSpot(index, count, rowMost, pitch, rise);
+                    var view = views[index];
+                    view.transform.localPosition = local;
+                    view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                    view.transform.localScale = Vector3.one * scale * size;
+                    view.PlaceShelfLabel(eyes);
+                }
+            }
+            Lay();
+            var widest = 0f;
+            foreach (var view in views)
+                if (DrawnTagSize?.Invoke(view) is Vector2 drawn) widest = Mathf.Max(widest, drawn.x);
+            if (widest > 0f)
+            {
+                (pitch, rowMost) = PlaceRows(widest, scale, distance, rule);
+                Lay();
+            }
+            if (count <= rowMost || DrawnTagCorners == null) return (pitch, rowMost, rise);
+            float Yaw(Vector3 point) => Mathf.Atan2(point.x - eyes.x, point.z - eyes.z) * Mathf.Rad2Deg;
+            float Up(Vector3 point) { var away = point - eyes; return Mathf.Atan2(away.y, new Vector2(away.x, away.z).magnitude) * Mathf.Rad2Deg; }
+            bool Covers()
+            {
+                for (var back = rowMost; back < count; back++)
+                {
+                    if (DrawnTagCorners(views[back]) is not Vector3[] tag) continue;
+                    float tagLeft = tag.Min(Yaw), tagRight = tag.Max(Yaw), tagFoot = tag.Min(Up);
+                    for (var front = 0; front < rowMost; front++)
+                    {
+                        var body = views[front].BodyCorners().ToList();
+                        if (body.Count == 0) continue;
+                        if (tagRight <= body.Min(Yaw) || tagLeft >= body.Max(Yaw)) continue;
+                        if (tagFoot < body.Max(Up) + BackRowClearDegrees) return true;
+                    }
+                }
+                return false;
+            }
+            while (Covers() && rise < BackRowRiseMost)
+            {
+                rise = Mathf.Min(BackRowRiseMost, rise + BackRowRiseStep);
+                Lay();
+            }
+            return (pitch, rowMost, rise);
+        }
+
+        /// <summary>
         /// Where a place's character <paramref name="index"/> of <paramref name="count"/> stands in the place's own space, and at what size:
         /// rows of <paramref name="rowMost"/>, each centred at <paramref name="pitch"/> a character, the first in front; each further row
         /// behind and above it at the back row's size (FIELD's places sheet: three in front, two behind).
         /// </summary>
-        public static (Vector3 Local, float Scale) PlaceSpot(int index, int count, int rowMost, float pitch)
+        public static (Vector3 Local, float Scale) PlaceSpot(int index, int count, int rowMost, float pitch, float rise = BackRowRise)
         {
             rowMost = Mathf.Max(1, rowMost);
             var row = index / rowMost;
             var inRow = Mathf.Min(rowMost, count - row * rowMost);
             var across = (index - row * rowMost - (inRow - 1) * 0.5f) * pitch;
-            return row == 0 ? (new Vector3(across, 0f, 0f), 1f) : (new Vector3(across, BackRowRise * row, BackRowDepth * row), BackRowScale);
+            return row == 0 ? (new Vector3(across, 0f, 0f), 1f) : (new Vector3(across, rise * row, BackRowDepth * row), BackRowScale);
         }
 
         private OtherPlace MakeOtherPlace(string projectId)

@@ -28,8 +28,7 @@ namespace Halcyonic.XR.Workspace.Editor
 
         /// <summary>
         /// The places of the projects beside the person's shelf (the lead's 2026-11-17T18:56Z and 19:05Z seated rule; FIELD's places sheet v4),
-        /// stood by the stage's own rule (<see cref="CharacterStage.PlacePose"/>, <see cref="CharacterStage.PlaceRows"/>,
-        /// <see cref="CharacterStage.PlaceSpot"/>) at both text sizes, the tags as the room draws them: every place's tags and bodies stand
+        /// stood by the stage's own rule (<see cref="CharacterStage.PlacePose"/>, <see cref="CharacterStage.LayPlace"/>) at both text sizes, the tags as the room draws them: every place's tags and bodies stand
         /// between the front's 30 degrees and the seated reach's 100 either side; neighbouring places in a ring keep the lead's 4 degrees;
         /// neighbouring tags in a row never meet (half a degree); the back row stands behind the front and no back-row tag stands over a
         /// front-row body as the eyes see it (AUDIT3's R1); ring two stands further and lower. The frames, looking left, right and from
@@ -98,20 +97,9 @@ namespace Halcyonic.XR.Workspace.Editor
                         view.Show(shown);
                         views.Add((view, tag));
                     }
-                    // The pitch from the widest tag as drawn, as the stage takes it.
-                    var widest = views.Select(each => RoomNameTag.DrawnSize(each.View)?.x ?? 0f).DefaultIfEmpty(0f).Max();
-                    var (pitch, rowMost) = CharacterStage.PlaceRows(widest, AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default);
-                    for (var task = 0; task < views.Count; task++)
-                    {
-                        var (local, size) = CharacterStage.PlaceSpot(task, views.Count, rowMost, pitch);
-                        var view = views[task].View;
-                        view.transform.localPosition = local;
-                        view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-                        view.transform.localScale = Vector3.one * AgentShelfDraft.Scale * size;
-                        view.PlaceShelfLabel(eyes);
-                        views[task].Tag.Place();
-                        Advance(view, 1f);
-                    }
+                    // Laid by the stage's own rule: the pitch of the widest tag as drawn there, and the back row risen clear of the front.
+                    foreach (var each in views) Advance(each.View, 1f);
+                    var (pitch, rowMost, rise) = CharacterStage.LayPlace(views.Select(each => each.View).ToList(), AgentShelfDraft.Scale, bearing.Distance, PlaceRule.Default, eyes);
                     WorkspaceRender.ForceMeshes(root);
                     var tags = views.Select(each => each.Tag.Tag).ToList();
                     if (tags.Any(tag => tag == null)) { failures.Add(project + ": a character stands with no tag"); continue; }
@@ -144,7 +132,7 @@ namespace Halcyonic.XR.Workspace.Editor
                                 failures.Add(project + ": back-row character " + (back - front + 1) + "'s tag stands over front-row character " + (task + 1) + "'s body as the eyes see it");
                     }
                     Debug.Log("Halcyonic: places: " + variant + " " + project + " at " + Degrees(bearing.YawDegrees) + " degrees, ring " + (bearing.Ring + 1) + ": " + views.Count
-                        + " in rows of " + rowMost + ", " + pitch.ToString("0.000", CultureInfo.InvariantCulture) + " m apart, seen from " + Degrees(whole.xMin) + " to " + Degrees(whole.xMax) + " degrees.");
+                        + " in rows of " + rowMost + ", " + pitch.ToString("0.000", CultureInfo.InvariantCulture) + " m apart, the back row " + rise.ToString("0.00", CultureInfo.InvariantCulture) + " m up, seen from " + Degrees(whole.xMin) + " to " + Degrees(whole.xMax) + " degrees.");
                 }
                 // Neighbouring places in a ring keep the lead's 4 degrees, and ring two stands further and lower than ring one.
                 foreach (var a in extents)
