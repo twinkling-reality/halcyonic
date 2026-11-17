@@ -29,6 +29,12 @@ namespace Halcyonic.XR.UI
         /// <summary>Between the band's tallest reach and the handle's hold area, in dp.</summary>
         public const float GapDp = 8f;
 
+        /// <summary>
+        /// Between the panel's foot and the pill's top, in dp: just under its panel, as visionos-window-example.png's controls sit with
+        /// their glass, never floating far below (AUDIT's kit pass at 9 (7)); the host stands it here once the band yields to the panel.
+        /// </summary>
+        public const float UnderPanelGapDp = 12f;
+
         /// <summary>The pill's light at rest, pointed and held (white over the room's glass).</summary>
         public const float RestAlpha = 0.45f;
 

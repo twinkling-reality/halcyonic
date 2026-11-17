@@ -206,10 +206,10 @@ namespace Halcyonic.XR.UI
                 shadowDropDp: 24f * ShadowScale, shadowBlurDp: 60f * ShadowScale, shadowAlpha: 0.35f, innerColour: new Color(1f, 1f, 1f, AskGlass.HairlineAlpha), innerCornerDp: 0f);
 
         /// <summary>
-        /// The hairline's top and foot (the one language: visionOS's glass catches light along its top): #5A5D66 at the top, easing
-        /// to #2B2C33 at the foot, where the reference's flat hairline read #313137 all round.
+        /// The hairline's top and foot (the one language: visionos-glass-window.png's glass catches light along its top edge): a thin
+        /// white highlight at the top, #8E9199, easing to #2B2C33 at the foot (the lead's 19:41Z, AUDIT's kit pass at 9 (6)).
         /// </summary>
-        public const int LitEdgeTop = 0x5A5D66;
+        public const int LitEdgeTop = 0x8E9199;
         public const int LitEdgeFoot = 0x2B2C33;
 
         /// <summary>
@@ -229,8 +229,12 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public const bool DrawsShadow = false;
 
-        /// <summary>The dark face's alpha in Unity's linear blend, solved with its colour from the reference's pixels.</summary>
-        public const float DarkAlpha = AskGlass.FaceAlpha;
+        /// <summary>
+        /// The dark face's alpha in Unity's linear blend over the room: denser than the owner's Ask glass (AskGlass.FaceAlpha 0.918), since
+        /// Quest draws no blur of the passthrough behind it and a bright room read through as a muddy patch (the critics at 9, the lead's
+        /// 19:41Z: visionos-glass-window.png's thick, even glass). The room now gives 4 percent of what is seen, not 8.
+        /// </summary>
+        public const float DarkAlpha = 0.96f;
 
         /// <summary>The light face's alpha in Unity's linear blend, solved the same way.</summary>
         public const float LightAlpha = 0.64f;
