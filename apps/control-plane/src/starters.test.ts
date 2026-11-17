@@ -24,8 +24,11 @@ import { createHostLocations } from './locations.ts';
 import {
   HostStarters,
   installedSet,
+  NAMED_FILES,
+  namedFile,
   originalFolderOf,
   originalRefusal,
+  STARTER_APP_NAME,
   templateDigest,
   VR_STARTER,
 } from './starters.ts';
@@ -153,6 +156,39 @@ describe('starters on the host', () => {
     assert.equal(second.ok && second.template, applied.template, 'the same files hash the same');
   });
 
+  test("a name is written as text, never markup, and only where the template names the starter's app", () => {
+    const named = (text: string, name: string) =>
+      namedFile(Buffer.from(text), name).toString('utf8');
+    assert.equal(
+      named('<title>Untitled Game</title>', 'Critter Row'),
+      '<title>Critter Row</title>',
+    );
+    assert.equal(
+      named('<title>Untitled Game</title>', 'Tom & Jerry <3 "Moles"'),
+      '<title>Tom &amp; Jerry &lt;3 &quot;Moles&quot;</title>',
+    );
+    assert.equal(named('<p>Untitled Games are fun</p>', 'Garden'), '<p>Untitled Games are fun</p>');
+    assert.equal(named('<title>Untitled Game</title>', '   '), '<title>Untitled Game</title>');
+    const bytes = Buffer.from('no name here');
+    assert.equal(
+      namedFile(bytes, 'Garden'),
+      bytes,
+      'a file without the name is returned as it was',
+    );
+  });
+
+  test("the VR starter's own files name its app where the project's name goes", () => {
+    const template = fileURLToPath(new URL('../../../starters/iwsdk-vr/template', import.meta.url));
+    for (const relative of NAMED_FILES) {
+      const text = readFileSync(join(template, relative), 'utf8');
+      assert.ok(text.includes(`>${STARTER_APP_NAME}<`), relative);
+      assert.ok(
+        namedFile(Buffer.from(text), 'Critter Row').toString('utf8').includes('>Critter Row<'),
+        relative,
+      );
+    }
+  });
+
   test('a template holding a link is refused before anything is copied', () => {
     const { tracked, projects, starters } = setup('link', { installed: 'matching' });
     symlinkSync('/etc/hosts', join(tracked, 'vr', 'template', 'hosts'));
@@ -230,6 +266,37 @@ describe('beginning a project from a starter', () => {
     );
     const applied = events[2];
     assert.equal(applied?.event_type === 'project.starter_applied' && applied.payload.files, 2);
+    await controlPlane.close();
+  });
+
+  test("the app is called by the project's name from the start, in its title and on its card", async () => {
+    // Take 15's app read "Untitled Game" though the person had named the project (the lead, 2026-11-17).
+    const { tracked, projects, controlPlane, submit } = plane('named', 'matching');
+    const template = join(tracked, 'vr', 'template');
+    writeFileSync(join(template, 'index.html'), '<html><title>Untitled Game</title></html>\n');
+    mkdirSync(join(template, 'public', 'ui'), { recursive: true });
+    writeFileSync(
+      join(template, 'public', 'ui', 'welcome.uikitml'),
+      '<div id="card-title" class="heading">Untitled Game</div>\n',
+    );
+    const before = templateDigest(template);
+    const outcome = submit({
+      kind: 'new_from_starter',
+      root: projects,
+      folder_name: 'garden',
+      starter_id: 'vr',
+    });
+    assert.equal(outcome.command?.status, 'completed');
+    assert.equal(
+      readFileSync(join(projects, 'garden', 'index.html'), 'utf8'),
+      '<html><title>Garden</title></html>\n',
+    );
+    assert.equal(
+      readFileSync(join(projects, 'garden', 'public', 'ui', 'welcome.uikitml'), 'utf8'),
+      '<div id="card-title" class="heading">Garden</div>\n',
+    );
+    assert.equal(readFileSync(join(projects, 'garden', 'src', 'index.ts'), 'utf8'), 'export {};\n');
+    assert.equal(templateDigest(template), before, 'the template itself is never changed');
     await controlPlane.close();
   });
 

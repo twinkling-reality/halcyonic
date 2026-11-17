@@ -507,3 +507,14 @@ rule (AUDIT2, 22:34Z). By path alone, never its contents: an audio extension (`.
 code", never a sound file; both read "sound files and the project's sound code". A removed file is neither. As for any `not_known`, the copy may be
 previewed and played on the laptop and in the headset, not shared or published, and AutoFix sends nothing. An
 untouched starter with no changed files keeps `starter_only` in the project's folder and `failed` in a task's copy.
+
+## Amendment, 2026-11-17: a new app is called by the project's name
+
+A project begun from the VR starter kept the template's "Untitled Game" in its page title and on its welcome card
+until an agent renamed it, so a take of three tasks added to "Critter Row" still showed "Untitled Game". When the host
+applies a starter for `project.create`, it now writes the project's name where the template names its app:
+`STARTER_APP_NAME` ("Untitled Game") as an element's whole text in the template's `NAMED_FILES` (`index.html` and
+`public/ui/welcome.uikitml`). The name goes in as text, with `&`, `<`, `>` and `"` escaped. Every other file is copied as
+it is, and the template itself never changes, so its digest and the starter's own reference picture are as before
+(the welcome card lies outside the drawn measures, `CARD_REGION`). `namedFile` is pure, so whatever compares a
+project's folder with its template can name the template the same way first.

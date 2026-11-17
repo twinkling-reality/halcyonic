@@ -3380,7 +3380,7 @@ export class CommandService {
       template: string;
     } | null = null;
     if (choice?.kind === 'new_from_starter' && location !== null) {
-      const result = this.#deps.starters?.apply(choice.starter_id, location.path) ?? {
+      const result = this.#deps.starters?.apply(choice.starter_id, location.path, name) ?? {
         ok: false as const,
         message: 'This computer has no starters.',
       };

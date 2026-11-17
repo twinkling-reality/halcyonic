@@ -63,6 +63,35 @@ const ID = /^[a-z][a-z0-9-]{0,62}$/;
 export const VR_STARTER = 'iwsdk-vr';
 
 /**
+ * The name a starter's template calls its app until it is made a project (`index.html`'s title and the welcome card's
+ * title). A project begun from it is called by the project's own name from the start (the lead, 2026-11-17: take 15's
+ * app read "Untitled Game" though the person had named it Critter Row).
+ */
+export const STARTER_APP_NAME = 'Untitled Game';
+/** The template's files that carry {@link STARTER_APP_NAME}, by their path in the template. */
+export const NAMED_FILES: readonly string[] = ['index.html', 'public/ui/welcome.uikitml'];
+
+/**
+ * A named file's bytes with the starter's app name made the project's name, written as text in markup: `&`, `<`,
+ * `>` and `"` escaped, so a name never becomes markup. Only an element's whole text equal to the starter's name is
+ * replaced (`>Untitled Game<`); a file without it is returned as it was. Pure, so whatever compares a project's folder
+ * with its template can name the template the same way.
+ */
+export function namedFile(bytes: Buffer, name: string): Buffer {
+  const text = bytes.toString('utf8');
+  const whole = `>${STARTER_APP_NAME}<`;
+  if (!text.includes(whole)) return bytes;
+  const escaped = name
+    .trim()
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+  if (escaped === '') return bytes;
+  return Buffer.from(text.replaceAll(whole, `>${escaped}<`), 'utf8');
+}
+
+/**
  * A starter that makes VR versions of other apps, as its `starter.json` says (`"vr_version"`): its
  * id, and the instruction a VR version's agent gets for an original in `originalFolder` (M1.8c-1,
  * M1.8-PLAN section 5). The instruction is the starter's own file, so it names the starter's own
@@ -229,9 +258,10 @@ export class HostStarters {
   /**
    * Copies the starter's template into `folder`, a new folder the host has just made, and links
    * `node_modules` to the shared dependencies. A template holding anything but files and folders is
-   * refused before anything is copied.
+   * refused before anything is copied. Given the project's `name`, the app is called by it from the
+   * start (`namedFile`); without one, the files are copied as they are.
    */
-  apply(id: string, folder: string): StarterApplied {
+  apply(id: string, folder: string, name?: string): StarterApplied {
     const checked = this.check(id);
     if (!checked.ok) return checked;
     const lockfile = this.#installedLockfile(id);
@@ -243,7 +273,12 @@ export class HostStarters {
     const digest = digestOf(template, files);
     for (const relative of files) {
       mkdirSync(join(folder, relative, '..'), { recursive: true });
-      copyFileSync(join(template, relative), join(folder, relative));
+      if (name !== undefined && NAMED_FILES.includes(relative))
+        writeFileSync(
+          join(folder, relative),
+          namedFile(readFileSync(join(template, relative)), name),
+        );
+      else copyFileSync(join(template, relative), join(folder, relative));
     }
     if (!this.#installsNothing(id, readFileSync(join(this.#tracked, id, 'package-lock.json'))))
       symlinkSync(join(this.#installed, id, 'node_modules'), join(folder, 'node_modules'), 'dir');
