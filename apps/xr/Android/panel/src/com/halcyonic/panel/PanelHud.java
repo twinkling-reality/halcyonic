@@ -23,6 +23,12 @@ import android.widget.TextView;
 final class PanelHud {
     static final int FILL = Color.rgb(12, 14, 22);
     static final int ACCENT = Color.rgb(237, 120, 51);
+    /**
+     * The one main action, as the kit's RoomButton draws it (FIELD's 10244550e; the lead, 00:52Z): the orange lifted to #F39552,
+     * its words in the near-black ink #07090B, 8.8 to 1 by the colours, since white words on the orange read only 3 to 1.
+     */
+    static final int MAIN = Color.rgb(243, 149, 82);
+    static final int MAIN_INK = Color.rgb(7, 9, 11);
     static final int QUIET = Color.argb(184, 255, 255, 255);
     static final int TEXT = Color.WHITE;
     static final int SECOND = Color.argb(219, 255, 255, 255);
@@ -70,11 +76,11 @@ final class PanelHud {
         // Title Case, the headset's actions (AUDIT's mend 1, 23:48Z): spaced capitals are the state word's alone.
         button.setText(label); button.setAllCaps(false); button.setTextSize(17); button.setGravity(Gravity.CENTER);
         button.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
-        button.setTextColor(main ? TEXT : SECOND); button.setSingleLine(true); button.setContentDescription(label);
+        button.setTextColor(main ? MAIN_INK : SECOND); button.setSingleLine(true); button.setContentDescription(label);
         button.setMinHeight(px(44, density)); button.setMinimumHeight(px(44, density));
         button.setPadding(px(16, density), 0, px(16, density), 0);
         GradientDrawable surface = new GradientDrawable(); surface.setCornerRadius(px(8, density));
-        if (main) surface.setColor(ACCENT); else { surface.setColor(Color.TRANSPARENT); surface.setStroke(Math.max(1, px(1, density)), Color.argb(72, 255, 255, 255)); }
+        if (main) surface.setColor(MAIN); else { surface.setColor(Color.TRANSPARENT); surface.setStroke(Math.max(1, px(1, density)), Color.argb(72, 255, 255, 255)); }
         button.setBackground(surface);
     }
 
