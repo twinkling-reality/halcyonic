@@ -546,13 +546,18 @@ namespace Halcyonic.XR.UI
         }
 
         /// <summary>
-        /// The backing's colours: the neutral halo (#343A3F), and the one main action's, the brand's kingfisher orange (#ED7833,
-        /// #F08A4B while pointed or held) under the dark ink's words (5.6 to 1); white words on it read only 3 to 1, so the main
-        /// action's words take the ink.
+        /// The backing's colours: the neutral halo (#343A3F), and the one main action's, the brand's kingfisher orange family lifted
+        /// to #F39552 (#F5A366 while pointed or held) under <see cref="MainInkColour"/>'s words, 8.8 to 1 by the colours. The walk
+        /// reads contrast from a frame's pixels, where thin strokes read about 0.6 of the colours' ratio: #ED7833 under #172024
+        /// (5.8 by the colours) read 3.4 to 3.9 to 1 in twelve moments (TASKS, 2026-11-17 00:48Z), and the old #22586A under white
+        /// (7.8 by the colours) passed; white words on the orange read only 3 to 1 by the colours.
         /// </summary>
         public const int HaloColour = 0x343A3F;
-        public const int MainHaloColour = 0xED7833;
-        public const int MainPointedHaloColour = 0xF08A4B;
+        public const int MainHaloColour = 0xF39552;
+        public const int MainPointedHaloColour = 0xF5A366;
+
+        /// <summary>The main action's words: near black, so they hold 4.5 to 1 on its orange as the walk reads a frame.</summary>
+        public const int MainInkColour = 0x07090B;
 
         /// <summary>
         /// The destructive kind's colours (<see cref="Prompt.Destructive"/>): the kit's failure red on its chip (#D4463B, the
@@ -666,8 +671,8 @@ namespace Halcyonic.XR.UI
             block.SetFloat(FadeId, fade);
             halo.SetPropertyBlock(block);
             if (glyphShown is RoomGlyph shown) glyph.Show(shown, glyphDp, new Color(glyphNow.r, glyphNow.g, glyphNow.b, glyphNow.a * fade));
-            // The main action's words in the dark ink on its orange backing (5.6 to 1), every other action's white on its own.
-            var ink = (main || locked) && !destructive ? RoomSurface.Hex(InkColour) : Color.white;
+            // The main action's words in the near black ink on its orange backing (8.8 to 1 by the colours), every other action's white on its own.
+            var ink = (main || locked) && !destructive ? RoomSurface.Hex(MainInkColour) : Color.white;
             if (words.color.r != ink.r || words.color.g != ink.g || words.color.b != ink.b) words.color = new Color(ink.r, ink.g, ink.b, move.Shown);
             if (!Mathf.Approximately(words.alpha, move.Shown)) words.alpha = move.Shown;
             if (shownAside != null)
