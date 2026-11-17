@@ -257,6 +257,9 @@ namespace Halcyonic.XR.Workspace.Editor
                 var navigator = director.Navigator;
                 var plane = director.Plane;
 
+                // The session's projection is one object changed in place (RealtimeSession.State), so the walk follows the pump's
+                // changes, not the object: a turn of the count is a change the stage would refresh for.
+                var projectionTurn = 0;
                 void Pump()
                 {
                     if (fallback.Player is DemonstrationPlayer player) player.Reading = navigator.Reading;
@@ -268,17 +271,18 @@ namespace Halcyonic.XR.Workspace.Editor
                         journal = State()?.Journal?.JournalId;
                     }
                     activity.Record(changes.Events);
+                    if (!changes.IsEmpty) projectionTurn++;
                 }
                 // The stood character follows the projection as the product's stage does (CharacterStage.Refresh shows
                 // CharacterPresenter.Present again at every change), so its tag reads the task's state now, never the state it
                 // first stood in (the WORKING tag over a finished turn was the walk's own frozen picture, JUDGE 17:42Z).
                 CharacterView? stoodView = null;
                 string? stoodWorkstream = null;
-                ClientProjection? shownState = null;
+                var shownTurn = 0;
                 void FollowCharacter()
                 {
-                    if (stoodView == null || stoodWorkstream == null || State() is not ClientProjection now || ReferenceEquals(now, shownState)) return;
-                    shownState = now;
+                    if (stoodView == null || stoodWorkstream == null || State() is not ClientProjection now || projectionTurn == shownTurn) return;
+                    shownTurn = projectionTurn;
                     if (now.Workstreams.TryGetValue(stoodWorkstream, out var nowWork))
                         stoodView.Show(CharacterPresenter.Present(nowWork, now, live != null || fallback.Current?.Status.IsLive == true));
                 }
@@ -295,7 +299,7 @@ namespace Halcyonic.XR.Workspace.Editor
                         // The redesign's name tag, as the player attaches it to every character on the shelf (WorkspaceDirector.Attach;
                         // FIELD 06:21Z): under RoomDesign it hides the older label, so the walk's frames show what a person sees.
                         RoomNameTag.On(agent.View);
-                        (stoodView, stoodWorkstream, shownState) = (agent.View, work.WorkstreamId, state);
+                        (stoodView, stoodWorkstream, shownTurn) = (agent.View, work.WorkstreamId, projectionTurn);
                         stood.Add(agent.Target);
                         stageParts.Add(agent.View.transform.parent);
                         shelfEnvelope = new Vector3[8];
