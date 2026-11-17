@@ -88,8 +88,10 @@ public class NewWorkSafetyTests
     {
         // AUDIT3's TM1: the whole review's successor to "outside words show as printable ASCII". Whatever comes in, every run of theirs
         // holds only characters a kit face draws, and every code point shown (‹U+…›) stands in a mark of ours, never in their text.
-        // The kit faces' own set (FIELD's KitFontAtlas.Characters, 2026-11-17): printable ASCII and nine marks, written out here on purpose.
-        bool InFace(char unit) => unit >= 0x20 && unit <= 0x7E || "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u00B7\u2212".IndexOf(unit) >= 0;
+        // The kit faces' own set (FIELD's KitFontAtlas.Characters, 2026-11-17), written out here on purpose: printable ASCII,
+        // U+00A0 to U+017F but the soft hyphen and ŉ (KitGlyphs.Latin), and the marks; a no-break space stays a mark, never theirs.
+        bool InFace(char unit) => unit >= 0x20 && unit <= 0x7E || unit > 0xA0 && unit < 0x180 && unit != 0xAD && unit != 0x149
+            || "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u2212".IndexOf(unit) >= 0;
         var hard = " lead\ttab\nnext\r\nCRLF 中🙂 Café \u202E\u200B\u0007 ‹U+0041› ↵ ⇥ \\u{41} “q” — … trail ";
         var reviews = new[]
         {
