@@ -8,14 +8,15 @@ export type StandInReply = readonly Record<string, unknown>[];
  * A stand-in for the Gemini API on loopback, for the end to end suite: Antigravity reaches it
  * through `GOOGLE_GEMINI_BASE_URL` with a dummy key, so whole turns run with no sign-in and no
  * spend. A request that offers tools takes the next scripted reply (the last one repeats); one
- * without tools, Antigravity's title request, is answered with a title. It keeps nothing a
- * request says but which model each asked for.
+ * without tools, Antigravity's title request, is answered with a title. It keeps each request's
+ * body in memory, for a test to ask whether a marker reached the model (`heard`).
  */
 export class StandInGemini {
   readonly #server: Server;
   readonly #replies: StandInReply[];
   #next = 0;
   readonly models: string[] = [];
+  readonly #bodies: string[] = [];
 
   private constructor(replies: StandInReply[]) {
     this.#replies = replies;
@@ -27,6 +28,7 @@ export class StandInGemini {
       });
       request.on('end', () => {
         const url = request.url ?? '';
+        this.#bodies.push(body);
         const model = /models\/([^:/?]+)/.exec(url)?.[1];
         if (model !== undefined) this.models.push(model);
         let tools = false;
@@ -69,6 +71,11 @@ export class StandInGemini {
 
   get url(): string {
     return `http://127.0.0.1:${(this.#server.address() as AddressInfo).port}`;
+  }
+
+  /** Whether any request the app sent the model carried `marker`. */
+  heard(marker: string): boolean {
+    return this.#bodies.some((body) => body.includes(marker));
   }
 
   /** How many scripted replies were taken. */

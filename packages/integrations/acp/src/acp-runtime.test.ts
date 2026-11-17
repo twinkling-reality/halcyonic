@@ -37,6 +37,10 @@ interface Run {
   sent(): Record<string, unknown>[];
   /** The names of the variables the app was launched with. */
   variables(): string[];
+  /** The arguments the app was launched with, and the settings home Kiro was given. */
+  args(): string[];
+  kiroHome(): string;
+  readonly root: string;
   /** Resolves with the first observation of `type` (after `after` of them), waiting for it. */
   next(type: RuntimeObservation['type'], after?: number): Promise<RuntimeObservation>;
 }
@@ -73,7 +77,7 @@ function setUp(
   const binary = join(root, 'app');
   writeFileSync(
     binary,
-    `#!/bin/sh\nenv | cut -d= -f1 > '${variables}'\nexec '${process.execPath}' '${FAKE}' '${replay}'\n`,
+    `#!/bin/sh\nenv | cut -d= -f1 > '${variables}'\nprintf '%s\\n' "$@" > '${join(root, 'args.txt')}'\nprintf '%s' "$KIRO_HOME" > '${join(root, 'kiro-home.txt')}'\nexec '${process.execPath}' '${FAKE}' '${replay}'\n`,
   );
   chmodSync(binary, 0o755);
   writeFileSync(log, '');
@@ -88,6 +92,7 @@ function setUp(
       ...(options.version === undefined ? {} : { FAKE_ACP_VERSION: options.version }),
       ...options.env,
     },
+    home: root,
     hostFolders: null,
   });
   t.after(() => adapter.close());
@@ -111,6 +116,12 @@ function setUp(
       readFileSync(variables, 'utf8')
         .split('\n')
         .filter((line) => line !== ''),
+    args: () =>
+      readFileSync(join(root, 'args.txt'), 'utf8')
+        .split('\n')
+        .filter((line) => line !== ''),
+    kiroHome: () => readFileSync(join(root, 'kiro-home.txt'), 'utf8'),
+    root,
     async next(type, after = 0) {
       for (let waited = 0; waited < 200; waited++) {
         const found = observations.filter((observation) => observation.type === type)[after];
@@ -145,6 +156,7 @@ describe('ACP adapter descriptor', () => {
         binaryPath: '/nonexistent',
         directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
         env: {},
+        home: '/nonexistent-home',
         hostFolders: null,
       });
       assert.deepEqual(capabilityProblems(adapter), []);
@@ -165,6 +177,7 @@ describe('ACP adapter descriptor', () => {
       binaryPath: '/nonexistent',
       directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
       env: {},
+      home: '/nonexistent-home',
       hostFolders: null,
     });
     assert.equal(adapter.validateStartOptions({}, null).ok, true);
@@ -179,6 +192,7 @@ describe('ACP adapter descriptor', () => {
       binaryPath: '/nonexistent',
       directoryPolicy: () => ({ ok: false, code: 'location_not_allowed', message: 'no' }),
       env: {},
+      home: '/nonexistent-home',
       hostFolders: null,
     });
     assert.equal(adapter.ownsEnvironmentName('GEMINI_API_KEY'), true);
@@ -244,6 +258,13 @@ describe('ACP adapter on Antigravity 1.5.10 traces', () => {
     // The app signs in only its own way: no key from the host reaches it.
     assert.equal(run.variables().includes('GEMINI_API_KEY'), false);
     assert.equal(run.variables().includes('AGY_CLI_DISABLE_AUTO_UPDATE'), true);
+    // A settings home of Halora's own, so the person's own settings for the app never apply.
+    assert.deepEqual(run.args(), [
+      'acp',
+      '--disable-telemetry',
+      '--gemini-dir',
+      join(run.root, '.gemini', 'halora'),
+    ]);
     const created = run.sent().find((message) => message.method === 'session/new');
     assert.deepEqual(created?.params, { cwd: run.folder, mcpServers: [] });
   });
@@ -441,6 +462,8 @@ describe('ACP adapter on Kiro 3.4.0 traces', () => {
         error.message.includes('not signed in'),
     );
     assert.deepEqual(types(run), []);
+    assert.deepEqual(run.args(), ['acp', '--agent-engine', 'v3']);
+    assert.equal(run.kiroHome(), join(run.root, '.kiro', 'halora'));
   });
 });
 

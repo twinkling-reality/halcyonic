@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
   ApprovalDecision,
@@ -24,7 +24,12 @@ import {
   type StartExecutionRequest,
   type StartExecutionResult,
 } from '@halcyonic/runtime-core';
-import { type HostFoldersScope, hostFoldersDeniedProfile, SANDBOX_EXEC } from '@halcyonic/seatbelt';
+import {
+  type AgentAppScope,
+  agentAppProfile,
+  type HostFoldersScope,
+  SANDBOX_EXEC,
+} from '@halcyonic/seatbelt';
 import { approvalRequest, toolNameOf } from './approvals.ts';
 import type { AcpProfile } from './profiles.ts';
 import { type RequestId, RpcConnection, RpcError, RpcUnanswered } from './rpc.ts';
@@ -52,7 +57,7 @@ export const ACP_CAPABILITIES: RuntimeCapabilities = {
 
 /** Why a run is not counted confined, in words the headset can show (`unconfined_reason`). */
 export const UNCONFINED_REASON =
-  "It reaches its maker's service directly, which Halora's closed sandbox does not let through; Halora's own folders are kept from it.";
+  "It talks to its maker's service directly, which Halora's closed setup does not allow, so it runs outside it. Halora's own folders and your sign-in files are still kept from it.";
 
 /** How long the app has to answer `initialize` and `session/new`. */
 const HANDSHAKE_MS = 60_000;
@@ -68,6 +73,8 @@ export interface AcpRuntimeOptions {
    * taken out of it, so the app signs in only its own way, never with a key from the host.
    */
   readonly env: Readonly<Record<string, string>>;
+  /** The person's home, where the app's settings home of Halora's own is made (`AcpProfile.settingsHome`). */
+  readonly home: string;
   /**
    * Variables of the app's own a test sets, such as a stand-in model's address and a dummy key, with
    * the ACP auth method that uses them. The control plane never passes this.
@@ -179,7 +186,10 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
       };
     }
     if (approvalLevel !== undefined && approvalLevel !== 'ask') {
-      return { ok: false, message: `${this.descriptor.display_name} always asks before it acts.` };
+      return {
+        ok: false,
+        message: `${this.descriptor.display_name} always asks before it acts, so it cannot start without asking. Choose Ask Me First.`,
+      };
     }
     return { ok: true };
   }
@@ -202,7 +212,7 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
     if ((request.approval_level ?? 'ask') !== 'ask') {
       throw new RuntimeActionError(
         'level_unsupported',
-        `${this.descriptor.display_name} always asks before it acts.`,
+        `${this.descriptor.display_name} always asks before it acts, so it cannot start without asking. Choose Ask Me First.`,
       );
     }
     const directory = confirmProjectLocation(this.#options.directoryPolicy, request.directory);
@@ -254,7 +264,7 @@ export class AcpRuntimeAdapter implements RuntimeAdapter {
     if (session === undefined || !session.alive) {
       throw new RuntimeActionError(
         'execution_not_found',
-        `${this.descriptor.display_name} no longer holds this execution.`,
+        `${this.descriptor.display_name} is no longer running this task.`,
       );
     }
     return session;
@@ -279,6 +289,7 @@ class AcpSession {
   #sessionId: string | null = null;
   #turn: Turn | null = null;
   #message = '';
+  #profileFile: string | null = null;
   #closing = false;
   #alive = false;
 
@@ -328,7 +339,7 @@ class AcpSession {
     ) {
       throw new RuntimeActionError(
         'runtime_version_unsupported',
-        `Halora directs ${this.#name} only: this app reports ${version === null ? 'no version' : `version ${version}`}${record(initialized)?.protocolVersion === ACP_PROTOCOL_VERSION ? '' : ' and another protocol version'}.`,
+        `Halora works with ${this.#name} only; this computer has ${version === null ? 'a version that does not say which it is' : version}${record(initialized)?.protocolVersion === ACP_PROTOCOL_VERSION ? '' : ', which speaks another protocol version'}. Install ${this.#name}, then start again.`,
       );
     }
     if (this.#options.standIn !== undefined) {
@@ -375,7 +386,7 @@ class AcpSession {
     if (rpc === null || sessionId === null || !this.#alive) {
       throw new RuntimeActionError(
         'execution_not_found',
-        `${this.#name} no longer holds this execution.`,
+        `${this.#name} is no longer running this task.`,
       );
     }
     if (this.#turn !== null) {
@@ -481,7 +492,9 @@ class AcpSession {
       );
     }
     if (turn === null) {
-      return Promise.reject(new RuntimeActionError('turn_not_running', 'No turn is running.'));
+      return Promise.reject(
+        new RuntimeActionError('turn_not_running', 'Nothing is running in this task now.'),
+      );
     }
     if (turn.interrupting !== null) return turn.done;
     const { promise, resolve, reject } = Promise.withResolvers<void>();
@@ -526,11 +539,24 @@ class AcpSession {
     const { profile, binaryPath, hostFolders } = this.#options;
     const env: Record<string, string> = { ...this.#options.env };
     for (const name of profile.ownVariables) delete env[name];
-    Object.assign(env, this.#options.standIn?.variables ?? {}, profile.environment);
+    // A settings home of Halora's own, so the person's own settings for the app never apply here (AUDIT3 AC2).
+    const settings = join(this.#options.home, profile.settingsHome.folder);
+    mkdirSync(settings, { recursive: true, mode: 0o700 });
+    Object.assign(
+      env,
+      this.#options.standIn?.variables ?? {},
+      profile.environment,
+      profile.settingsHome.environment(settings),
+    );
     let command = binaryPath;
-    let args = [...profile.args];
+    let args = [...profile.args, ...profile.settingsHome.args(settings)];
     if (hostFolders !== null) {
-      const path = writeProfile(hostFolders.profileFolder, profile.runtimeId, hostFolders.scope);
+      const path = writeProfile(hostFolders.profileFolder, `${profile.runtimeId}-${this.#launch}`, {
+        ...hostFolders.scope,
+        project: this.#directory,
+        projectSettings: profile.projectSettings,
+      });
+      this.#profileFile = path;
       args = ['-f', path, binaryPath, ...args];
       command = SANDBOX_EXEC;
     }
@@ -554,7 +580,7 @@ class AcpSession {
       this.#name,
     );
     this.#rpc = rpc;
-    child.once('exit', (code, signal) => this.#exited(code, signal));
+    child.once('exit', () => this.#exited());
     return rpc;
   }
 
@@ -772,7 +798,7 @@ class AcpSession {
       interrupting.reject(
         new RuntimeActionError(
           'interrupt_unconfirmed',
-          `${this.#name} ended the turn otherwise than cancelled.`,
+          `${this.#name} ended the turn another way than the cancel you asked for.`,
           'unknown',
         ),
       );
@@ -790,7 +816,8 @@ class AcpSession {
     this.#approvals.clear();
   }
 
-  #exited(code: number | null, signal: NodeJS.Signals | null): void {
+  #exited(): void {
+    if (this.#profileFile !== null) rmSync(this.#profileFile, { force: true });
     const wasAlive = this.#alive;
     this.#alive = false;
     const turn = this.#turn;
@@ -802,7 +829,7 @@ class AcpSession {
     this.#emit(
       'runtime.connection.lost',
       {
-        reason: `${this.#name} stopped (${signal === null ? `exit code ${code ?? 'unknown'}` : `signal ${signal}`}); its session can no longer be followed here.`,
+        reason: `${this.#name} stopped, so this session can no longer be followed here.`,
       },
       observed('process.exit'),
     );
@@ -840,12 +867,12 @@ class AcpSession {
   }
 }
 
-/** Writes the light profile for one app whole, replacing any older one at once. */
-function writeProfile(folder: string, runtimeId: string, scope: HostFoldersScope): string {
+/** Writes one launch's agent-app profile whole, replacing any older one of its name at once. */
+function writeProfile(folder: string, name: string, scope: AgentAppScope): string {
   mkdirSync(folder, { recursive: true, mode: 0o700 });
-  const path = join(folder, `${runtimeId}.sb`);
+  const path = join(folder, `${name}.sb`);
   const draft = `${path}.${process.pid}.${randomUUID()}`;
-  writeFileSync(draft, hostFoldersDeniedProfile(scope), { mode: 0o600, flag: 'wx' });
+  writeFileSync(draft, agentAppProfile(scope), { mode: 0o600, flag: 'wx' });
   renameSync(draft, path);
   return path;
 }

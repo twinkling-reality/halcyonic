@@ -888,6 +888,61 @@ export function copyProfile(scope: CopyScope): string {
   ].join('\n');
 }
 
+/**
+ * Where the person's cloud tools keep their sign-ins, under `home`: AWS, Google Cloud, Azure, Kubernetes and a
+ * container registry's login. The agent-app profile refuses reading and writing each, beside `PUSH_CREDENTIALS`.
+ */
+export const CLOUD_CREDENTIALS = {
+  folders: ['.aws', '.config/gcloud', '.azure', '.kube'],
+  files: ['.docker/config.json'],
+} as const;
+
+export interface AgentAppScope extends HostFoldersScope {
+  /** The folder the app works in. */
+  readonly project: string;
+  /**
+   * Names of folders the app would load from its working folder as settings of its own (hooks, rules, tool
+   * servers): refused to it, read and write, at any depth of the project and in any case, so a project cannot
+   * widen what the app may do unasked, and the app cannot write one that would.
+   */
+  readonly projectSettings: readonly string[];
+}
+
+/**
+ * The agent-app profile (ADR 0067), for an app that reaches its maker's service with the person's own sign-in and
+ * asks the person over its own protocol: the light profile, with the person's push and cloud credentials refused,
+ * and the folders the app would load from the project as its own settings refused. The network, the rest of the
+ * person's home and their tools stay open. A run under it is never recorded confined.
+ */
+export function agentAppProfile(scope: AgentAppScope): string {
+  const project = resolved(scope.project).replace(/\/+$/, '');
+  if (/["\n\r]/.test(project))
+    throw new Error(`a folder Halora cannot name in its profile: ${project}`);
+  for (const name of scope.projectSettings) {
+    if (!/^[A-Za-z0-9._-]+$/.test(name) || name === '.' || name === '..') {
+      throw new Error(`a settings folder Halora cannot name in its profile: ${name}`);
+    }
+  }
+  const home = resolved(scope.home).replace(/\/+$/, '');
+  const under = `^${seatbeltRegexLiteral(home)}/`;
+  const credentials = [
+    ...[...PUSH_CREDENTIALS.folders, ...CLOUD_CREDENTIALS.folders].map(
+      (path) => `(regex #"${under}${anyCase(path)}(/|$)")`,
+    ),
+    ...[...PUSH_CREDENTIALS.files, ...CLOUD_CREDENTIALS.files].map(
+      (path) => `(regex #"${under}${anyCase(path)}$")`,
+    ),
+  ];
+  const settings = scope.projectSettings.map(
+    (name) => `(regex #"^${seatbeltRegexLiteral(project)}/(.*/)?${anyCase(name)}(/|$)")`,
+  );
+  return [
+    hostFoldersDeniedProfile(scope).trimEnd(),
+    `(deny file-read* file-write* ${[...credentials, ...settings].join(' ')})`,
+    '',
+  ].join('\n');
+}
+
 function within(path: string, folder: string): boolean {
   return path === folder || path.startsWith(`${folder}/`);
 }

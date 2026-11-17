@@ -30,6 +30,21 @@ export interface AcpProfile {
    * that field, the field that says it runs in the background, and the inputs that change neither what
    * runs nor where. A request of it is shown as the command, said to run in the task's folder.
    */
+  /**
+   * Folders the app would load from its working folder as settings of its own (hooks, rules, tool servers): the
+   * agent-app profile refuses them to it, so a project cannot widen what it does unasked (AUDIT3 AC1).
+   */
+  readonly projectSettings: readonly string[];
+  /**
+   * The settings home of Halora's own the app is launched with, under the person's home, so the person's own
+   * settings for it (an allow-everything mode, hooks, tool servers) never apply to a task (AUDIT3 AC2). Its
+   * sign-in is kept elsewhere, so it still applies.
+   */
+  readonly settingsHome: {
+    readonly folder: string;
+    readonly args: (folder: string) => readonly string[];
+    readonly environment: (folder: string) => Readonly<Record<string, string>>;
+  };
   readonly shell: {
     readonly tool: string;
     readonly command: string;
@@ -59,6 +74,14 @@ export const ANTIGRAVITY: AcpProfile = {
     'ANTIGRAVITY_HARNESS_PATH',
   ],
   replacesEveryOccurrence: ['edit_file'],
+  projectSettings: ['.agents', '.gemini'],
+  // `--gemini-dir` moves both its settings (`antigravity-cli/`) and its hooks, tool servers and plugins
+  // (`config/`); its Google sign-in is kept in the system keychain (validation/acp-agents.md).
+  settingsHome: {
+    folder: '.gemini/halora',
+    args: (folder) => ['--gemini-dir', folder],
+    environment: () => ({}),
+  },
   shell: {
     tool: 'run_command',
     command: 'CommandLine',
@@ -79,6 +102,13 @@ export const KIRO: AcpProfile = {
   // Not yet seen on a signed-in run: no tool's semantics are claimed, so an edit shown as one
   // replacement cannot be approved, and a command is shown as its whole input.
   replacesEveryOccurrence: [],
+  projectSettings: ['.kiro', '.amazonq'],
+  // `KIRO_HOME` moves its settings, agents, hooks and sessions; its sign-in stays in Application Support.
+  settingsHome: {
+    folder: '.kiro/halora',
+    args: () => [],
+    environment: (folder) => ({ KIRO_HOME: folder }),
+  },
   shell: null,
 };
 

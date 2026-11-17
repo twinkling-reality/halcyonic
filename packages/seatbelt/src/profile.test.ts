@@ -18,6 +18,7 @@ import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { promisify } from 'node:util';
 import {
+  agentAppProfile,
   confinedProfile,
   confinementKey,
   copyProfile,
@@ -1094,6 +1095,87 @@ describe("the light profile outside the closed one: the host's own folders out o
       assert.equal(await exit(['/bin/cat', join(root, 'home/project/marker.txt')]), 0);
       assert.equal(await exit(['/bin/cat', join(root, 'home/.halcyonicnot/marker.txt')]), 0);
       assert.equal(await exit(['/usr/bin/touch', join(root, 'home/project/made')]), 0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('the agent-app profile: an ACP app on a folder the person connected (ADR 0067)', () => {
+  test('names no folder it cannot quote', () => {
+    assert.throws(() =>
+      agentAppProfile({ folders: [], home: '/Users/a', project: '/p/"x', projectSettings: [] }),
+    );
+    assert.throws(() =>
+      agentAppProfile({ folders: [], home: '/Users/a', project: '/p', projectSettings: ['../x'] }),
+    );
+  });
+
+  test("on this Mac: credentials and the project's own app settings are refused at any case and depth; the rest is open", {
+    skip: process.platform !== 'darwin',
+  }, async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-agent-app-profile-')));
+    try {
+      const at = (path: string) => join(root, path);
+      for (const folder of [
+        'data',
+        'home/.ssh',
+        'home/.aws',
+        'home/.config/gcloud',
+        'home/.docker',
+        'home/other',
+        'project/.agents',
+        'project/sub/.KIRO',
+        'project/src',
+      ])
+        mkdirSync(at(folder), { recursive: true });
+      for (const file of [
+        'data/marker.txt',
+        'home/.ssh/id_marker',
+        'home/.aws/credentials',
+        'home/.config/gcloud/marker.json',
+        'home/.docker/config.json',
+        'home/.netrc',
+        'home/other/marker.txt',
+        'project/.agents/hooks.json',
+        'project/sub/.KIRO/settings.json',
+        'project/src/marker.txt',
+        'project/agents.txt',
+      ])
+        writeFileSync(at(file), 'marker');
+      const file = at('agent-app.sb');
+      writeFileSync(
+        file,
+        agentAppProfile({
+          folders: [at('data')],
+          home: at('home'),
+          project: at('project'),
+          projectSettings: ['.agents', '.kiro', '.gemini'],
+        }),
+      );
+      const exit = (command: string[]) =>
+        run(SANDBOX_EXEC, ['-f', file, ...command]).then(
+          () => 0,
+          (error: { code?: number }) => error.code ?? -1,
+        );
+      for (const refused of [
+        'data/marker.txt',
+        'home/.ssh/id_marker',
+        'home/.aws/credentials',
+        'home/.config/gcloud/marker.json',
+        'home/.docker/config.json',
+        'home/.netrc',
+        'project/.agents/hooks.json',
+        'project/sub/.KIRO/settings.json',
+      ])
+        assert.notEqual(await exit(['/bin/cat', at(refused)]), 0, refused);
+      assert.notEqual(await exit(['/usr/bin/touch', at('project/.gemini')]), 0);
+      assert.notEqual(await exit(['/bin/mkdir', at('project/src/.Agents')]), 0);
+      // The controls: beside each refused place, the same reads and writes go ahead.
+      for (const open of ['home/other/marker.txt', 'project/src/marker.txt', 'project/agents.txt'])
+        assert.equal(await exit(['/bin/cat', at(open)]), 0, open);
+      assert.equal(await exit(['/usr/bin/touch', at('project/src/made')]), 0);
+      assert.equal(await exit(['/bin/mkdir', at('home/.docker/other')]), 0);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

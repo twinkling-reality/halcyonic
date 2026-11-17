@@ -35,6 +35,7 @@ interface Run {
   readonly adapter: AcpRuntimeAdapter;
   readonly project: string;
   readonly host: string;
+  readonly home: string;
   readonly observations: RuntimeObservation[];
   readonly standIn: StandInGemini;
   next(type: RuntimeObservation['type'], after?: number): Promise<RuntimeObservation>;
@@ -69,12 +70,24 @@ async function setUp(
   const home = join(root, 'home');
   mkdirSync(project, { recursive: true });
   mkdirSync(host);
-  // The stand-in's own key setting, in the app's own home for this run (Antigravity reads it there).
+  // The app's own temporary folder, apart from the rest: it reads there unasked.
+  mkdirSync(join(root, 'tmp'));
+  // The stand-in's own key setting, in the settings home of Halora's own the adapter launches the app with.
+  mkdirSync(join(home, '.gemini', 'halora', 'antigravity-cli'), { recursive: true });
+  writeFileSync(
+    join(home, '.gemini', 'halora', 'antigravity-cli', 'settings.json'),
+    '{"modelProvider":"gemini"}\n',
+  );
+  // The person's own settings for the app, which never apply to a task: here every call would go ahead unasked.
   mkdirSync(join(home, '.gemini', 'antigravity-cli'), { recursive: true });
   writeFileSync(
     join(home, '.gemini', 'antigravity-cli', 'settings.json'),
-    '{"modelProvider":"gemini"}\n',
+    '{"modelProvider":"gemini","toolPermission":"always-proceed"}\n',
   );
+  // A sign-in file of the person's and a file beside it, outside the project.
+  mkdirSync(join(home, '.ssh'));
+  writeFileSync(join(home, '.ssh', 'id_marker'), 'halcyonic-ssh-marker\n');
+  writeFileSync(join(home, 'beside.txt'), 'halcyonic-beside-marker\n');
   writeFileSync(join(host, 'held.txt'), 'halcyonic-held-value\n');
   const standIn = await StandInGemini.start(
     typeof replies === 'function' ? replies(host) : replies,
@@ -88,8 +101,9 @@ async function setUp(
       PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
       HOME: home,
       LANG: 'en_US.UTF-8',
-      TMPDIR: `${root}/`,
+      TMPDIR: `${join(root, 'tmp')}/`,
     },
+    home,
     ...(options.signedIn === false
       ? {}
       : {
@@ -115,6 +129,7 @@ async function setUp(
     adapter,
     project,
     host,
+    home,
     observations,
     standIn,
     async next(type, after = 0) {
@@ -230,6 +245,89 @@ describe('Antigravity 1.5.10 end to end, on a stand-in model', { skip: SKIP }, (
     assert.equal(readFileSync(join(second.project, 'control.txt'), 'utf8'), 'readable\n');
   });
 
+  test("the person's own allow-everything setting does not apply: a command still asks, and denied never runs", async (t) => {
+    const run = await setUp(t, [command('echo made > made.txt'), [{ text: 'Understood.' }]]);
+    assert.match(
+      readFileSync(join(run.home, '.gemini', 'antigravity-cli', 'settings.json'), 'utf8'),
+      /always-proceed/,
+    );
+    await run.start();
+    const asked = await answer(run, 0, 'deny');
+    assert.equal(asked.type, 'runtime.approval.requested');
+    await run.next('runtime.turn.completed');
+    assert.equal(existsSync(join(run.project, 'made.txt')), false);
+  });
+
+  test('a read outside the folder asks, and denied its words never reach the model', async (t) => {
+    const run = await setUp(t, (host) => [
+      [
+        {
+          functionCall: {
+            name: 'read_file',
+            args: { Path: join(host, '..', 'home', 'beside.txt') },
+          },
+        },
+      ],
+      [{ text: 'Read.' }],
+    ]);
+    await run.start();
+    const asked = await answer(run, 0, 'deny');
+    if (asked.type !== 'runtime.approval.requested') return;
+    assert.equal(asked.payload.subject.tool_name, 'read_file');
+    assert.deepEqual(asked.payload.subject.paths, [
+      { path: join(run.home, 'beside.txt'), access: 'read' },
+    ]);
+    await run.next('runtime.turn.completed');
+    assert.equal(run.standIn.heard('halcyonic-beside-marker'), false);
+  });
+
+  test("an approved read of the person's sign-in files is refused by the profile; the same read beside them goes ahead", {
+    skip: process.platform !== 'darwin' && 'the agent-app profile is macOS only',
+  }, async (t) => {
+    const run = await setUp(t, (host) => [
+      [
+        {
+          functionCall: {
+            name: 'read_file',
+            args: { Path: join(host, '..', 'home', '.ssh', 'id_marker') },
+          },
+        },
+      ],
+      [
+        {
+          functionCall: {
+            name: 'read_file',
+            args: { Path: join(host, '..', 'home', 'beside.txt') },
+          },
+        },
+      ],
+      [{ text: 'Read.' }],
+    ]);
+    await run.start();
+    await answer(run, 0, 'approve');
+    await answer(run, 1, 'approve');
+    await run.next('runtime.turn.completed');
+    assert.equal(run.standIn.heard('halcyonic-ssh-marker'), false);
+    assert.equal(run.standIn.heard('halcyonic-beside-marker'), true);
+  });
+
+  test("the project's own settings for the app are kept from it: an approved write of a hook there fails", {
+    skip: process.platform !== 'darwin' && 'the agent-app profile is macOS only',
+  }, async (t) => {
+    const run = await setUp(t, [
+      command(
+        `mkdir -p .agents && echo planted > .agents/hooks.json; echo "exit $?" > status.txt; echo ok > beside.txt`,
+      ),
+      [{ text: 'Tried.' }],
+    ]);
+    await run.start();
+    await answer(run, 0, 'approve');
+    await run.next('runtime.turn.completed');
+    assert.equal(existsSync(join(run.project, '.agents', 'hooks.json')), false);
+    assert.notEqual(readFileSync(join(run.project, 'status.txt'), 'utf8'), 'exit 0\n');
+    assert.equal(readFileSync(join(run.project, 'beside.txt'), 'utf8'), 'ok\n');
+  });
+
   test('signed out, the start fails in words and nothing starts', async (t) => {
     const run = await setUp(t, [[{ text: 'Never.' }]], { signedIn: false });
     await assert.rejects(
@@ -273,6 +371,7 @@ describe('Kiro 3.4.0 end to end, signed out', { skip: KIRO_SKIP }, () => {
         TMPDIR: `${root}/`,
         KIRO_API_KEY: 'halcyonic-stand-in-not-a-key',
       },
+      home,
       hostFolders:
         process.platform === 'darwin'
           ? {

@@ -248,6 +248,7 @@ export function createRuntimeAdapters(
         binaryPath: binary,
         directoryPolicy: dependencies.directoryPolicy,
         env: acpEnvironment(dependencies.environment, additions),
+        home: userInfo().homedir,
         hostFolders:
           process.platform === 'darwin'
             ? {
