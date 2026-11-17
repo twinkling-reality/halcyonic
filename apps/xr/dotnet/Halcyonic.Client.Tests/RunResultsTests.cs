@@ -75,6 +75,19 @@ public class RunResultsTests
     }
 
     [Test]
+    public void ErrorsStandUnderActivityNotChanges()
+    {
+        var measured = Measured();
+        measured.Outcome.Measure!.ErrorCount = 4;
+        var laid = Laid(RunResults.Of(measured)!);
+        Assert.That(laid[0].Rows.Last(), Is.EqualTo(("Errors", "4", (string?)null)), "an error count is not a change (AUDIT2's 21:20Z)");
+        Assert.That(laid[1].Rows.Select(row => row.Label), Has.None.EqualTo("Errors"));
+        measured.Activity = null!;
+        Assert.That(Laid(RunResults.Of(measured)!)[0], Is.EqualTo(("Activity", new (string, string, string?)[] { ("Errors", "4", null) })),
+            "Activity shows only the rows measured");
+    }
+
+    [Test]
     public void UnderAMinuteTheTimeIsSecondsAlone()
     {
         Assert.That(RunResults.Of(Measured(elapsed: 48))!.Sections[0].Rows[0].Value, Is.EqualTo("48 s"));

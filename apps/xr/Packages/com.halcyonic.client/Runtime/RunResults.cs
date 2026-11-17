@@ -69,13 +69,18 @@ namespace Halcyonic.Client
         {
             if (evaluation == null) return null;
             var sections = new List<Section>();
+            var measure = Measured(evaluation.Outcome?.Availability) ? evaluation.Outcome?.Measure : null;
+            // Activity: each row only where measured; Errors stand here, not under Changes, as an error count is not a change (AUDIT2's 21:20Z).
+            var did = new List<Row>();
             if (Measured(evaluation.Activity?.Availability) && evaluation.Activity is EvaluationActivity activity)
             {
-                var rows = new List<Row> { new Row(Words.Time, Time(activity.ElapsedSeconds)), new Row(Words.ToolCalls, Count(activity.ToolCalls)) };
-                if (activity.Prompts is long prompts) rows.Add(new Row(Words.Instructions, Count(prompts)));
-                sections.Add(new Section(Words.Activity, rows));
+                did.Add(new Row(Words.Time, Time(activity.ElapsedSeconds)));
+                did.Add(new Row(Words.ToolCalls, Count(activity.ToolCalls)));
+                if (activity.Prompts is long prompts) did.Add(new Row(Words.Instructions, Count(prompts)));
             }
-            if (Measured(evaluation.Outcome?.Availability) && evaluation.Outcome?.Measure is EvaluationOutcomeMeasure measure)
+            if (measure?.ErrorCount is long errors) did.Add(new Row(Words.Errors, Count(errors)));
+            if (did.Count > 0) sections.Add(new Section(Words.Activity, did));
+            if (measure != null)
             {
                 var rows = new List<Row>();
                 if (measure.Uncommitted is EvaluationUncommitted changed)
@@ -86,7 +91,6 @@ namespace Halcyonic.Client
                     rows.Add(new Row(Words.LinesRemoved, Count(changed.LinesRemoved)));
                 }
                 if (measure.CommitsLanded is long commits) rows.Add(new Row(Words.Commits, Count(commits)));
-                if (measure.ErrorCount is long errors) rows.Add(new Row(Words.Errors, Count(errors)));
                 // Only where the source measured a fate (never Unknown) and gave its own rate.
                 if (measure.LineSurvival is EvaluationLineSurvival kept && kept.Fate != EvaluationLineSurvivalFate.Unknown && kept.Rate is double rate)
                     rows.Add(new Row(Words.LinesKept, Count(kept.LinesSurviving) + " of " + Count(kept.LinesAuthored) + " Kept",
