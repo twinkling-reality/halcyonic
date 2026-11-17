@@ -1632,9 +1632,10 @@ namespace Halcyonic.XR.UI
                         + (Answer(index) != Answer(index + 1) ? RoomType.Units(GroupGapDp) : 0f);
             var columnHeight = places == 0 ? 0f : rises[0] + Mathf.Max(target, cores[0].y) / 2f;
             var gap = RoomType.Units(RoomGeometry.PairGapDp);
-            // A plain foot row keeps the pair's footprint, as the dialog does, so the plane places the bar where it placed the pair.
+            // A plain foot row keeps the pair's footprint, as the dialog does, so the plane places the bar where it placed the pair; a panel
+            // widened for its row is its own footprint, never the widened panel and a column's room besides (F297: 982 dp against 728).
             var total = footRow && !plainFoot ? panelWidth
-                : footRow ? panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp)
+                : footRow ? Mathf.Max(panelWidth, RoomType.Units(RoomGeometry.PanelDp) + gap + RoomType.Units(RoomGeometry.ColumnDp))
                 : bar.Wide ? Mathf.Max(panelWidth + gap + RoomType.Units(RoomGeometry.ColumnDp), widest)
                 : narrow ? Mathf.Max(panelWidth, widest)
                 : panelWidth + gap + Mathf.Max(RoomType.Units(RoomGeometry.ColumnDp), widest);
