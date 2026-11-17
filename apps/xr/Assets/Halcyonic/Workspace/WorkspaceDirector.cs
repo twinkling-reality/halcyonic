@@ -667,6 +667,14 @@ namespace Halcyonic.XR.Workspace
                 HeadForward = new System.Numerics.Vector3(headForward.x, headForward.y, headForward.z),
             };
             peekChoice.Update(input, Time.unscaledTime);
+            // Under the redesign, with the peek retired below, the pointed character's tag brightens by the kit's own hover (the lead's
+            // 2026-11-17T19:25Z (1)): RoomTag.Pointed, a pointed button's lift.
+            if (RoomDesign.Enabled)
+            {
+                // Every target, so a tag whose character stopped standing never stays lit.
+                foreach (var target in targets.Values)
+                    if (target != null && target.View != null && target.View.GetComponent<RoomNameTag>() is RoomNameTag nameTag) nameTag.Pointed = target == pointed;
+            }
             var shown = peekChoice.Shown != null && targets.TryGetValue(peekChoice.Shown, out var peeked) ? peeked : null;
             if (shown != null && peekFor != shown.WorkstreamId)
             {

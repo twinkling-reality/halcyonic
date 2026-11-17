@@ -231,6 +231,31 @@ namespace Halcyonic.XR.UI
 
         private static Color Hex(int rgb) => new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
 
+        /// <summary>
+        /// Pointed at (the lead's 2026-11-17T19:25Z: the peek card retires; pointing brightens the tag by the kit's own hover): the tag
+        /// grows by <see cref="RoomButton"/>'s pointed share and its glass takes a lit edge, as a pointed button's plate lifts. Words
+        /// and size as shown; nothing is laid again.
+        /// </summary>
+        public bool Pointed
+        {
+            get => pointed;
+            set
+            {
+                if (pointed == value) return;
+                pointed = value;
+                transform.localScale = Vector3.one * (value ? PointedScale : 1f);
+                plate.LitEdge = value ? (PointedEdgeDp, PointedEdgeStrength) : ((float, float)?)null;
+                if (gameObject.activeSelf && !IsPlate) plate.Draw(Size);
+            }
+        }
+
+        private bool pointed;
+
+        /// <summary>A pointed button's growth (RoomButton: "Pointed it grows 3 percent"), and the lit edge its glass takes.</summary>
+        public const float PointedScale = 1.03f;
+        public const float PointedEdgeDp = 1.5f;
+        public const float PointedEdgeStrength = 0.6f;
+
         public void Hide() => gameObject.SetActive(false);
     }
 }

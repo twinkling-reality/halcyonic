@@ -77,6 +77,13 @@ namespace Halcyonic.XR.UI
             Place();
         }
 
+        /// <summary>Whether a hand points at this character: its tag brightens by the kit's hover (the peek card retired, the lead's 19:25Z).</summary>
+        public bool Pointed
+        {
+            get => tag?.Pointed ?? false;
+            set { if (tag != null) tag.Pointed = value; }
+        }
+
         /// <summary>Stands the tag where its character's labels now stand, its words as they are: each time the shelf places them.</summary>
         public void Place()
         {
