@@ -101,15 +101,39 @@ namespace Halcyonic.XR.UI.Editor
         public static string AssetPath(string name) => Resources + name + ".asset";
 
         /// <summary>Builds every face and checks it; for a batch run.</summary>
+        /// <summary>
+        /// Checks every committed face against what a rebuild makes, writing nothing (the lead's MUST, 2026-11-17T23:0xZ): each face
+        /// is built in memory from its font and settings and compared with the committed one, glyph by glyph and byte by byte, then
+        /// <see cref="ValidateSaved"/>; for a batch run. A face that differs fails with the difference; <see cref="Rebuild"/> writes.
+        /// </summary>
         public static void Check()
         {
             try
             {
-                // Every face is tried, so one run names every glyph a font lacks.
+                // Every face is tried, so one run names every difference and every glyph a font lacks.
                 var errors = new List<string>();
-                foreach (var face in Faces)
+                foreach (var (name, font, _, _) in Faces)
                 {
-                    try { Build(face.Name, face.Font); }
+                    try { errors.AddRange(Differences(name, Built(name, font, CharactersOf(name), FallbacksOf(name)), AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath(name)))); }
+                    catch (InvalidOperationException error) { errors.Add(error.Message); }
+                }
+                if (errors.Count > 0) throw new InvalidOperationException(string.Join(" ", errors));
+                ValidateSaved();
+                Debug.Log("Halcyonic: kit faces: every committed face is what a rebuild makes.");
+                EditorApplication.Exit(0);
+            }
+            catch (Exception error) { Debug.LogError("Halcyonic: kit faces: " + error.Message); EditorApplication.Exit(1); }
+        }
+
+        /// <summary>Rebuilds every face in place from its font and settings, keeping each asset's file IDs, then checks them; for a batch run.</summary>
+        public static void Rebuild()
+        {
+            try
+            {
+                var errors = new List<string>();
+                foreach (var (name, font, _, _) in Faces)
+                {
+                    try { Keep(Built(name, font, CharactersOf(name), FallbacksOf(name)), AssetPath(name)); }
                     catch (InvalidOperationException error) { errors.Add(error.Message); }
                 }
                 if (errors.Count > 0) throw new InvalidOperationException(string.Join(" ", errors));
@@ -117,6 +141,64 @@ namespace Halcyonic.XR.UI.Editor
                 EditorApplication.Exit(0);
             }
             catch (Exception error) { Debug.LogError("Halcyonic: kit faces: " + error.Message); EditorApplication.Exit(1); }
+        }
+
+        /// <summary>A face built in memory, named and with its fallbacks, from the font at <paramref name="fontPath"/>; nothing is written.</summary>
+        public static TMP_FontAsset Built(string name, string fontPath, string characters, List<TMP_FontAsset> fallbacks)
+        {
+            var font = AssetDatabase.LoadAssetAtPath<Font>(fontPath);
+            if (font == null) throw new InvalidOperationException(name + ": the bundled OFL font is missing.");
+            var atlas = StaticAtlas(font, characters, name);
+            atlas.name = name;
+            atlas.atlasTexture.name = name + " Atlas";
+            atlas.material.name = name + " Material";
+            atlas.fallbackFontAssetTable = fallbacks;
+            return atlas;
+        }
+
+        /// <summary>
+        /// How a committed face differs from <paramref name="built"/>, the same face built in memory: its atlas, settings, characters,
+        /// glyphs, fallbacks and atlas pixels. <paramref name="built"/> is destroyed after.
+        /// </summary>
+        public static List<string> Differences(string name, TMP_FontAsset built, TMP_FontAsset? saved)
+        {
+            var found = new List<string>();
+            try
+            {
+                if (saved == null) { found.Add(name + ": no committed face."); return found; }
+                void Same<T>(string what, T committed, T rebuilt)
+                {
+                    if (!EqualityComparer<T>.Default.Equals(committed, rebuilt)) found.Add(name + ": " + what + " is " + committed + " committed, " + rebuilt + " rebuilt.");
+                }
+                Same("the atlas", (saved.atlasWidth, saved.atlasHeight, saved.atlasPadding, saved.atlasRenderMode), (built.atlasWidth, built.atlasHeight, built.atlasPadding, built.atlasRenderMode));
+                Same("the point size", saved.faceInfo.pointSize, built.faceInfo.pointSize);
+                Same("the population mode", saved.atlasPopulationMode, built.atlasPopulationMode);
+                Same("the fallbacks", string.Join(",", saved.fallbackFontAssetTable.Select(each => each == null ? "none" : each.name)),
+                    string.Join(",", built.fallbackFontAssetTable.Select(each => each == null ? "none" : each.name)));
+                static string CharacterTable(TMP_FontAsset face) => string.Join(",", face.characterTable.Select(each => each.unicode + ">" + each.glyphIndex).OrderBy(each => each, StringComparer.Ordinal));
+                Same("the character table", CharacterTable(saved), CharacterTable(built));
+                static string GlyphTable(TMP_FontAsset face) => string.Join(";", face.glyphTable.OrderBy(glyph => glyph.index).Select(glyph =>
+                    glyph.index + ":" + glyph.glyphRect.x + "," + glyph.glyphRect.y + "," + glyph.glyphRect.width + "," + glyph.glyphRect.height + ","
+                    + glyph.metrics.width + "," + glyph.metrics.height + "," + glyph.metrics.horizontalBearingX + "," + glyph.metrics.horizontalBearingY + ","
+                    + glyph.metrics.horizontalAdvance + "," + glyph.scale + "," + glyph.atlasIndex));
+                if (GlyphTable(saved) != GlyphTable(built)) found.Add(name + ": its glyphs' places or metrics differ from a rebuild.");
+                var committedPixels = saved.atlasTexture.GetRawTextureData<byte>();
+                var rebuiltPixels = built.atlasTexture.GetRawTextureData<byte>();
+                if (committedPixels.Length != rebuiltPixels.Length) found.Add(name + ": its atlas holds " + committedPixels.Length + " bytes committed, " + rebuiltPixels.Length + " rebuilt.");
+                else
+                {
+                    var differing = 0;
+                    for (var index = 0; index < committedPixels.Length; index++) if (committedPixels[index] != rebuiltPixels[index]) differing++;
+                    if (differing > 0) found.Add(name + ": " + differing + " of its atlas's " + committedPixels.Length + " bytes differ from a rebuild.");
+                }
+                return found;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(built.atlasTexture);
+                UnityEngine.Object.DestroyImmediate(built.material);
+                UnityEngine.Object.DestroyImmediate(built);
+            }
         }
 
         /// <summary>Checks the saved faces without rebuilding them or exiting the caller.</summary>
@@ -145,21 +227,11 @@ namespace Halcyonic.XR.UI.Editor
             ? new List<TMP_FontAsset> { AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath(MarksFace)), TMP_Settings.defaultFontAsset }
             : new List<TMP_FontAsset> { TMP_Settings.defaultFontAsset };
 
-        private static void Build(string name, string fontPath)
-        {
-            var font = AssetDatabase.LoadAssetAtPath<Font>(fontPath);
-            if (font == null) throw new InvalidOperationException(name + ": the bundled OFL font is missing.");
-            var atlas = StaticAtlas(font, CharactersOf(name), name);
-            atlas.name = name;
-            atlas.atlasTexture.name = name + " Atlas";
-            atlas.material.name = name + " Material";
-            atlas.fallbackFontAssetTable = FallbacksOf(name);
-            Keep(atlas, AssetPath(name));
-        }
-
         /// <summary>
-        /// Saves a built face at <paramref name="path"/>: in place over a face built before, so it keeps its asset and its .meta,
-        /// or as a new asset. The title face is saved the same way (InstrumentFontAtlas), since a file copied over it read back stale.
+        /// Saves a built face at <paramref name="path"/>: over a face built before, its atlas's pixels and its material's properties are
+        /// copied into the face's own texture and material, so the asset, its .meta and every sub-object's file ID stay as they were
+        /// (materials such as KitReading Underlay name the atlas by its file ID; 2026-11-17T23:0xZ); otherwise as a new asset. The title
+        /// face is saved the same way (InstrumentFontAtlas), since a file copied over it read back stale.
         /// </summary>
         public static void Keep(TMP_FontAsset atlas, string path)
         {
@@ -167,20 +239,33 @@ namespace Halcyonic.XR.UI.Editor
             var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
             if (existing != null)
             {
-                // A face built before is rebuilt in place, so it keeps its asset and its .meta: its old atlas and material
-                // leave it and the new ones join it. Copying a building file over it left the face half loaded (2026-10-31).
-                foreach (var part in AssetDatabase.LoadAllAssetRepresentationsAtPath(path))
-                {
-                    AssetDatabase.RemoveObjectFromAsset(part);
-                    UnityEngine.Object.DestroyImmediate(part, true);
-                }
+                // A face built before is rebuilt in place: copying a building file over it left the face half loaded (2026-10-31),
+                // and replacing its texture and material gave them new file IDs, which left the underlay materials naming none.
+                var parts = AssetDatabase.LoadAllAssetRepresentationsAtPath(path);
+                var texture = parts.OfType<Texture2D>().SingleOrDefault();
+                var material = parts.OfType<Material>().SingleOrDefault();
+                if (texture == null || material == null) throw new InvalidOperationException(name + ": the committed face has no single atlas and material to keep.");
+                var source = atlas.atlasTexture;
+                if (!texture.Reinitialize(source.width, source.height, source.format, false))
+                    throw new InvalidOperationException(name + ": its atlas could not take the rebuilt size.");
+                texture.LoadRawTextureData(source.GetRawTextureData<byte>());
+                texture.Apply(false, false);
+                texture.name = name + " Atlas";
+                material.shader = atlas.material.shader;
+                material.CopyPropertiesFromMaterial(atlas.material);
+                material.SetTexture(ShaderUtilities.ID_MainTex, texture);
+                material.name = name + " Material";
                 EditorUtility.CopySerialized(atlas, existing);
                 existing.name = name;
-                AssetDatabase.AddObjectToAsset(atlas.atlasTexture, existing);
-                AssetDatabase.AddObjectToAsset(atlas.material, existing);
+                existing.atlasTextures = new[] { texture };
+                existing.material = material;
+                EditorUtility.SetDirty(texture);
+                EditorUtility.SetDirty(material);
                 EditorUtility.SetDirty(existing);
                 FontAssetsKept.Save();
                 existing.ReadFontAssetDefinition();
+                UnityEngine.Object.DestroyImmediate(source);
+                UnityEngine.Object.DestroyImmediate(atlas.material);
                 UnityEngine.Object.DestroyImmediate(atlas);
                 return;
             }

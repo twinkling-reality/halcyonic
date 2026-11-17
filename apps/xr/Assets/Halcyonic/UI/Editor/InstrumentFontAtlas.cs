@@ -30,11 +30,29 @@ namespace Halcyonic.XR.UI.Editor
         private static List<TMP_FontAsset> Fallbacks() =>
             new List<TMP_FontAsset> { AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(KitFontAtlas.AssetPath(LacksFace)), TMP_Settings.defaultFontAsset };
 
+        /// <summary>
+        /// Checks the committed title face against what a rebuild makes, writing nothing (the lead's MUST, 2026-11-17T23:0xZ), then
+        /// <see cref="ValidateSaved"/>; for a batch run. <see cref="Rebuild"/> writes.
+        /// </summary>
         public static void Check()
         {
             try
             {
-                Build();
+                var found = KitFontAtlas.Differences("InstrumentType", Built(), AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetPath));
+                if (found.Count > 0) throw new InvalidOperationException(string.Join(" ", found));
+                ValidateSaved();
+                EditorApplication.Exit(0);
+            }
+            catch (Exception error) { Debug.LogError("Halcyonic: instrument type: " + error.Message); EditorApplication.Exit(1); }
+        }
+
+        /// <summary>Rebuilds the title face in place, keeping its file IDs, then checks it; for a batch run.</summary>
+        public static void Rebuild()
+        {
+            try
+            {
+                // In place, as the kit's faces are: a building file copied over the face read back without its new glyphs (2026-11-17T22:31Z).
+                KitFontAtlas.Keep(Built(), AssetPath);
                 ValidateSaved();
                 EditorApplication.Exit(0);
             }
@@ -102,18 +120,7 @@ namespace Halcyonic.XR.UI.Editor
             }
         }
 
-        private static void Build()
-        {
-            var font = AssetDatabase.LoadAssetAtPath<Font>(FontPath);
-            if (font == null) throw new InvalidOperationException("The bundled OFL title font is missing.");
-            // The same sizes, settings and font check as the kit's faces (KitFontAtlas.StaticAtlas).
-            var atlas = KitFontAtlas.StaticAtlas(font, Characters, "InstrumentType");
-            atlas.name = "InstrumentType";
-            atlas.atlasTexture.name = "InstrumentType Atlas";
-            atlas.material.name = "InstrumentType Material";
-            atlas.fallbackFontAssetTable = Fallbacks();
-            // In place, as the kit's faces are: a building file copied over the face read back without its new glyphs (2026-11-17T22:31Z).
-            KitFontAtlas.Keep(atlas, AssetPath);
-        }
+        /// <summary>The title face built in memory with the kit's sizes, settings and font check (KitFontAtlas.Built); nothing is written.</summary>
+        private static TMP_FontAsset Built() => KitFontAtlas.Built("InstrumentType", FontPath, Characters, Fallbacks());
     }
 }
