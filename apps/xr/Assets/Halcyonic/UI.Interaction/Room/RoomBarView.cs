@@ -1715,7 +1715,8 @@ namespace Halcyonic.XR.UI
             if (bar.Field != null)
             {
                 // Over the sentence bar and the foot row, so the field never takes a press meant for an action.
-                var fieldHeight = panelHeight - (barHeight > 0f ? barHeight + inset + lift : footRow ? footBlock + pad + KitType.Units(SpatialKit.TargetGapDegrees) + RoomType.Units(4f) : 0f);
+                var fieldHeight = panelHeight - (barHeight > 0f ? barHeight + inset + lift : 0f);
+                if (footRow) fieldHeight = Mathf.Min(fieldHeight, panelHeight - (footBlock + pad + KitType.Units(SpatialKit.TargetGapDegrees) + RoomType.Units(8f)));
                 var fieldWidth = Mathf.Min(panelWidth, panelWidth + gap - KitType.Units(SpatialKit.TargetGapDegrees));
                 field.transform.localPosition = new Vector3(-panelWidth / 2f + fieldWidth / 2f, top - fieldHeight / 2f, -RoomType.Units(0.5f));
                 field.Resize(new Vector2(fieldWidth, Mathf.Max(fieldHeight, RoomType.Units(RoomButton.HeightDp))));
