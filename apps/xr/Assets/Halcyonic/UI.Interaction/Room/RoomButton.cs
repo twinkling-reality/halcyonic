@@ -598,10 +598,13 @@ namespace Halcyonic.XR.UI
         /// <summary>Whether the accent's lit rim stands round it: the moment's one main action, and Confirm behind its lock.</summary>
         public bool Lit => gameObject.activeSelf && (main || LockProgress != null) && mark == AnswerMark.None;
 
-        /// <summary>Whether the rim was drawn when it was last painted: read from what was drawn, never the flag alone.</summary>
+        /// <summary>
+        /// The rim flag the plate was last painted with (what the shader was handed as _Rim.w), not the pixels: a press whose main flag
+        /// changed since its last paint reads its old rim here; the pixels themselves are proven by the parts and judges' walks.
+        /// </summary>
         public bool RimPainted { get; private set; }
 
-        /// <summary>The rim's colour where <see cref="Lit"/>: the kingfisher orange, or the warning red on a destructive main action.</summary>
+        /// <summary>The rim's colour where <see cref="Lit"/>, from the action's own flag: the kingfisher orange, or the warning red on a destructive main action.</summary>
         public Color RimNow => RoomSurface.Hex(destructive ? DestructiveRimColour : RimColour);
 
         private void Paint(bool immediately)
