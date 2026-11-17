@@ -373,9 +373,9 @@ namespace Halcyonic.XR.UI
             var (folded, shown) = PathWrap.Fold(lead, path, Fits, LineMostLines);
             lineWords[index] = lead + shown;
             var joined = string.Join("\n", folded);
-            label.text = joined;
+            GlazeText.SetLiteral(label, joined);
             // The act stays ours; every character of the path, the elision with it, leans as theirs.
-            GlazeRuns.Of(label).Lean(new List<(int Start, int End)> { (lead.Length, joined.Length) });
+            GlazeRuns.Of(label).Lean(new List<(int Start, int End)> { (lead.Length, label.text.Length) });
             var drawn = KitType.Lay(label, column, Mathf.Max(LineMostLines, folded.Count));
             return Mathf.Max(drawn.Lines, 1) * KitType.LinePitch(label);
         }
