@@ -30,10 +30,10 @@ namespace Halcyonic.XR.Workspace
         private Func<string, bool>? flyCan;
 
         /// <summary>
-        /// How far beyond the panel's left edge the called character stands, in dp on the plane (the lead's 2026-11-17T02:15Z
+        /// How far beyond the panel's left edge the called character's middle stands, in dp on the plane, clear of its body (the lead's 2026-11-17T02:15Z
         /// "beside the panel"): in the plane's own measure, so it stands beside it however far the plane stands.
         /// </summary>
-        public const float FlightBesideDp = 96f;
+        public const float FlightBesideDp = 280f;
 
         private bool Asking(RoomBarState state) => state == RoomBarState.Question || state == RoomBarState.Request;
 
