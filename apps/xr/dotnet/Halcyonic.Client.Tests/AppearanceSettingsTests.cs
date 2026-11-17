@@ -72,7 +72,7 @@ public class AppearanceSettingsTests
             var expected = leaving == "apply" ? GlazePalette.Neutral : GlazePalette.Glaze;
             Assert.That(Glaze.Palette, Is.SameAs(expected), leaving);
             Assert.That(settings.Applied, Is.SameAs(expected), leaving);
-            Assert.That(saved, Is.EqualTo(leaving == "apply" ? new[] { "version=2;theme=neutral;panels=dark" } : Array.Empty<string>()));
+            Assert.That(saved, Is.EqualTo(leaving == "apply" ? new[] { "version=3;theme=neutral;panels=dark;code=halora" } : Array.Empty<string>()));
             Assert.That(AppearanceSettings.Load(settings.Save()).Applied, Is.SameAs(expected));
         }
     }
@@ -105,7 +105,7 @@ public class AppearanceSettingsTests
         {
             var settings = new AppearanceSettings();
             settings.Apply(palette);
-            Assert.That(settings.Save(), Is.EqualTo("version=2;theme=" + palette.Key + ";panels=dark"));
+            Assert.That(settings.Save(), Is.EqualTo("version=3;theme=" + palette.Key + ";panels=dark;code=halora"));
             Assert.That(AppearanceSettings.Load(settings.Save()).Applied, Is.SameAs(palette));
         }
     }
@@ -138,7 +138,7 @@ public class AppearanceSettingsTests
         Assert.That(column.Frame.Footer[PromptSlot.FarRight]!.Words, Is.EqualTo("Apply Theme"));
         column.Act(AppearanceColumn.Apply, null);
         Assert.That(settings.Applied, Is.SameAs(GlazePalette.Graphite));
-        Assert.That(saved, Is.EqualTo(new[] { "version=2;theme=graphite;panels=dark" }));
+        Assert.That(saved, Is.EqualTo(new[] { "version=3;theme=graphite;panels=dark;code=halora" }));
         column.FocusLeft();
         Assert.That(Glaze.Palette, Is.SameAs(GlazePalette.Graphite), "departure restores the newly applied appearance");
     }
@@ -685,7 +685,7 @@ public class AppearanceSettingsTests
 
             column.Act(AppearanceColumn.ChoosePanels, "light");
             Assert.That((settings.Panels, PanelThemes.Current), Is.EqualTo((PanelTheme.Light, PanelTheme.Light)));
-            Assert.That(saved, Is.EqualTo(new[] { "version=2;theme=neutral;panels=light" }), "kept once, the moment it is chosen");
+            Assert.That(saved, Is.EqualTo(new[] { "version=3;theme=neutral;panels=light;code=halora" }), "kept once, the moment it is chosen");
             Assert.That(heard, Is.EqualTo(new[] { PanelTheme.Light }));
             Assert.That(column.Frame!.Lines.Select(line => line.Chosen), Is.EqualTo(new[] { false, true }));
 
@@ -702,5 +702,58 @@ public class AppearanceSettingsTests
             PanelThemes.Set(PanelTheme.Dark);
             RoomDesign.Enabled = was;
         }
+    }
+
+    [Test]
+    public void CodeColoursAreKeptBesideTheAppearanceAndOlderValuesReadHalora()
+    {
+        var settings = new AppearanceSettings();
+        Assert.That(settings.Code, Is.EqualTo(CodeTheme.Halora));
+        settings.ApplyCode(CodeTheme.HighContrast);
+        Assert.That(AppearanceSettings.Load(settings.Save()).Code, Is.EqualTo(CodeTheme.HighContrast));
+        Assert.That(AppearanceSettings.Load("version=2;theme=" + GlazePalette.Default.Key + ";panels=dark").Code, Is.EqualTo(CodeTheme.Halora), "a value from before Code Colours");
+        Assert.That(AppearanceSettings.Load("version=3;theme=" + GlazePalette.Default.Key + ";panels=dark;code=rainbow").Code, Is.EqualTo(CodeTheme.Halora), "an unknown code theme");
+        Assert.That(CodeThemes.All.Select(CodeThemes.Key).Select(CodeThemes.Find), Is.EqualTo(CodeThemes.All.Cast<CodeTheme?>()));
+    }
+
+    [Test]
+    public void CodeColoursPreviewsThenAppliesOrGoesBackAsTheThemesDo()
+    {
+        var settings = new AppearanceSettings();
+        var saved = new System.Collections.Generic.List<string>();
+        var column = new AppearanceColumn(settings, () => saved.Add(settings.Save()));
+        var was = CodeThemes.Current;
+        try
+        {
+            CodeThemes.Set(CodeTheme.Halora);
+            var row = column.Frame!.Lines.Single(line => line.Action == AppearanceColumn.OpenCode);
+            Assert.That(row.Words, Is.EqualTo(CodeThemes.Title));
+            column.Act(AppearanceColumn.OpenCode, null);
+            var page = column.Frame!;
+            // AUDIT2's 03:36Z: three choices, each with its plain line, the one in force Current, then Preview Colours.
+            Assert.That(page.Subject, Is.EqualTo("Code Colours"));
+            Assert.That(page.Lines.Select(line => (line.Words, line.Under?.Text, line.Fact)), Is.EqualTo(new[]
+            {
+                ("Halora", (string?)"Soft colours by kind of code, made for the glass.", (string?)"Current"),
+                ("Plain", "All code in white, as before.", null),
+                ("High Contrast", "Stronger colours for the clearest reading.", null),
+            }));
+            Assert.That(page.Footer.All.Single(each => each.Prompt.Main).Prompt.Words, Is.EqualTo("Preview Colours"));
+
+            column.Act(AppearanceColumn.ChooseCode, "high-contrast");
+            column.Act(AppearanceColumn.PreviewCode, null);
+            Assert.That(CodeThemes.Current, Is.EqualTo(CodeTheme.HighContrast), "the preview shows the chosen colours");
+            Assert.That(column.Frame!.Lines.Select(line => line.Words), Is.EqualTo(CodeThemes.Example), "real code, drawn in them");
+            Assert.That(column.Frame!.Footer.All.Select(each => each.Prompt.Words), Does.Contain("Apply Colours").And.Contain("Cancel"));
+            column.Act(AppearanceColumn.Cancel, null);
+            Assert.That((CodeThemes.Current, settings.Code, saved.Count), Is.EqualTo((CodeTheme.Halora, CodeTheme.Halora, 0)), "Cancel keeps what was kept");
+
+            column.Act(AppearanceColumn.ChooseCode, "plain");
+            column.Act(AppearanceColumn.PreviewCode, null);
+            column.Act(AppearanceColumn.ApplyCode, null);
+            Assert.That((CodeThemes.Current, settings.Code), Is.EqualTo((CodeTheme.Plain, CodeTheme.Plain)));
+            Assert.That(saved.Single(), Does.EndWith(";code=plain"));
+        }
+        finally { CodeThemes.Set(was); }
     }
 }

@@ -17,6 +17,15 @@ namespace Halcyonic.Client
 
         /// <summary>Under the redesign, a panel theme chosen (its key "dark" or "light"): applied, kept and in force at once.</summary>
         public const string ChoosePanels = "appearance-panels";
+
+        /// <summary>Code Colours (the lead's 03:36Z, AUDIT2's words): its row on the page, a choice on its page, its preview, its apply.</summary>
+        public const string OpenCode = "appearance-code";
+        public const string ChooseCode = "appearance-code-choose";
+        public const string PreviewCode = "appearance-code-preview";
+        public const string ApplyCode = "appearance-code-apply";
+        private CodeTheme chosenCode;
+        private bool codeOpen;
+        private bool codePreview;
         private const string Example = "appearance-example";
         private readonly AppearanceSettings settings;
         private readonly Action saved;
@@ -30,6 +39,7 @@ namespace Halcyonic.Client
             this.settings = settings;
             this.saved = saved;
             chosen = settings.Applied;
+            chosenCode = settings.Code;
         }
 
         public event Action? Changed;
@@ -40,6 +50,22 @@ namespace Halcyonic.Client
             get
             {
                 var close = new Prompt(Footer.Close, "Close", GlazeIcon.Close, PromptKind.Close);
+                if (codePreview)
+                {
+                    // The example in the chosen colours, read-only, the theme in force while it shows; Apply keeps it, Cancel goes back.
+                    var example = CodeThemes.Example.Select(line => new PageLine(LineWords.Theirs(line))).ToList();
+                    return new MenuFrame("Preview: " + CodeThemes.Words(chosenCode), new Footer(close, rare: new Prompt(Cancel, "Cancel", GlazeIcon.Close),
+                        farRight: new Prompt(ApplyCode, CodeThemes.ApplyWords, GlazeIcon.Change, main: true)), lines: example);
+                }
+                if (codeOpen)
+                {
+                    // Three choices, each with its plain line under it, the one in force marked Current, as Appearance's themes are.
+                    var choices = CodeThemes.All.Select(theme => new PageLine(CodeThemes.Words(theme), fact: theme == settings.Code ? "Current" : null,
+                        action: ChooseCode, key: CodeThemes.Key(theme), choice: true, chosen: theme == chosenCode, answerMark: AnswerMark.Single)
+                        .WithUnder(LineWords.Ours(CodeThemes.Line(theme)))).ToList();
+                    return new MenuFrame(CodeThemes.Title, new Footer(close, rare: new Prompt(Cancel, "Back", GlazeIcon.Back),
+                        farRight: new Prompt(PreviewCode, CodeThemes.PreviewWords, GlazeIcon.OpenNow, main: true)), lines: choices);
+                }
                 // The redesign's glass (the lead's 13:33Z): Dark and Light are the page's choice, the one in force chosen; choosing one
                 // applies it at once, so there is no preview or apply step for two looks a person sees by choosing.
                 if (RoomDesign.Enabled && PanelThemes.Offered)
@@ -59,6 +85,7 @@ namespace Halcyonic.Client
                 {
                     var lines = GlazePalette.Presets.Select(palette => new PageLine(palette.Name, fact: palette == settings.Applied ? "Current" : null,
                         action: Choose, key: palette.Key, choice: true, chosen: palette == chosen, answerMark: AnswerMark.Single)).ToList();
+                    lines.Add(new PageLine(CodeThemes.Title, action: OpenCode, opens: true));
                     lines.Add(new PageLine("Restore Default", action: ReadRestore, opens: true));
                     return new MenuFrame("Appearance", new Footer(close,
                         farRight: new Prompt(Preview, "Preview Theme", GlazeIcon.OpenNow, main: true)), lines: lines);
@@ -140,6 +167,24 @@ namespace Halcyonic.Client
                     Glaze.SetPalette(settings.Applied);
                     saved();
                     break;
+                case OpenCode when !preview && !restoring:
+                    codeOpen = true;
+                    chosenCode = settings.Code;
+                    break;
+                case ChooseCode when codeOpen && !codePreview && CodeThemes.Find(key) is CodeTheme code:
+                    chosenCode = code;
+                    break;
+                case PreviewCode when codeOpen && !codePreview:
+                    codePreview = true;
+                    CodeThemes.Set(chosenCode);
+                    break;
+                case ApplyCode when codePreview:
+                    settings.ApplyCode(chosenCode);
+                    CodeThemes.Set(settings.Code);
+                    saved();
+                    codePreview = false;
+                    codeOpen = false;
+                    break;
                 case Footer.NextPage when preview:
                     page = (page + 1) % 5;
                     break;
@@ -157,6 +202,11 @@ namespace Halcyonic.Client
             preview = false;
             chosen = settings.Applied;
             Glaze.SetPalette(settings.Applied);
+            // Code Colours: a preview goes back to its choices, its choices back to the page; the theme in force is the one kept.
+            if (codePreview) codePreview = false;
+            else codeOpen = false;
+            chosenCode = settings.Code;
+            CodeThemes.Set(settings.Code);
         }
 
         public void FocusLeft() { Rollback(); restoring = false; Changed?.Invoke(); }

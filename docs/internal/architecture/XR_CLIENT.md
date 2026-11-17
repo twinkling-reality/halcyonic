@@ -2403,7 +2403,11 @@ all in place ([ADR 0014](../decisions/0014-hand-interaction-through-the-interact
   preview, uses immutable `GlazePalette` semantic colours through `Glaze`, and keeps selection
   local until Preview theme. The specimen is explicitly labelled and its examples are inert;
   paging is in the body, with at most three footer prompts. Apply theme updates `AppearanceSettings`
-  and invokes only the local saved callback. `AppearanceControls` stores `version=1;theme=<key>` in
+  and invokes only the local saved callback. Code Colours (the lead's 2026-11-17T03:36Z) is a row of the same page
+  opening its own: Halora, Plain and High Contrast (`CodeTheme`, `CodeThemes`), each with its line, Current on the kept
+  one; Preview Colours sets `CodeThemes.Current` for every code view while the example shows, Apply Colours keeps it in
+  `AppearanceSettings.Code` (saved as `version=3;...;code=<key>`, older values reading Halora), Cancel and leaving restore
+  the kept one. The colours are FIELD's palette, drawn by the shared highlighter. `AppearanceControls` stores `version=1;theme=<key>` in
   the separate `halcyonic.appearance` device preference. Unknown versions, incomplete, extra or
   unsupported values fall back to Glaze. Cancel, Back, Close, focus loss and the existing compact,
   Move and session-replacement `FocusLeft` paths restore the applied palette. These paths never
