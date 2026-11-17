@@ -218,9 +218,10 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The characters every kit face holds (KitFontAtlas.Characters, an Editor list FIELD keeps, 2026-11-17T21:5xZ): printable
-        /// ASCII and these. Anything else would reach only the dynamic fallback, which draws no CJK or emoji, so it shows by code.
+        /// ASCII, the accented Latin letters of <see cref="KitGlyphs.Latin"/> (the lead, 2026-11-17T22:10Z), and these. Anything else
+        /// would reach only the dynamic fallback, which draws no CJK or emoji, so it shows by code.
         /// </summary>
-        internal const string FaceExtras = "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u00B7\u2212";
+        internal const string FaceExtras = "\u2026\u2013\u2014\u2018\u2019\u201C\u201D\u2212";
 
         /// <summary>
         /// Outside text as the review draws it: by the approval well's one rule (<see cref="LineWords.Literal"/>), each printable
@@ -237,7 +238,7 @@ namespace Halcyonic.Client
                 var codePoint = paired ? char.ConvertToUtf32(unit, text[index + 1]) : unit;
                 // What the well marks itself (white space, a hidden or lone character) goes on to it as it came.
                 var wellMarks = LabelText.IsWhiteSpace(codePoint) || LabelText.ShowsByCode(codePoint) || (!paired && char.IsSurrogate(unit));
-                var inFace = !paired && (unit >= 0x20 && unit <= 0x7E || FaceExtras.IndexOf(unit) >= 0);
+                var inFace = !paired && (unit >= 0x20 && unit <= 0x7E || KitGlyphs.HoldsLatin(unit) || FaceExtras.IndexOf(unit) >= 0);
                 if (wellMarks || inFace) faced.Append(text, index, paired ? 2 : 1);
                 else faced.Append(LabelText.CodePoint(codePoint));
                 if (paired) index++;

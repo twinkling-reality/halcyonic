@@ -36,12 +36,21 @@ public class NewWorkSafetyTests
         var first = review.Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel);
         var shown = first.Value;
         // AUDIT2's marks (21:48Z), the approval well's one rule, and FIELD's font check (21:5xZ): every kit face holds printable
-        // ASCII and nine marks, so a character none holds (CJK, emoji, é) shows by its code point, never as a missing glyph's box.
+        // ASCII, the accented Latin letters and nine marks, so a character none holds (CJK, emoji) shows by its code point, never as a
+        // missing glyph's box.
         Assert.That(shown, Does.StartWith("‹U+4E2D›‹U+304B›‹U+306A›‹U+1F642› \\u{4E2D}↵\nsecond⇥third‹U+202E›"), "a typed \\u{4E2D} stays their text");
         Assert.That(first.ValueRuns.Runs.Where(run => run.Theirs).Select(run => run.Text), Has.Some.Contain("\\u{4E2D}"), "a typed marker stays their text, never a mark");
         Assert.That(first.ValueRuns.Runs.Where(run => run.Theirs).Any(run => run.Text.Contains("‹U+")), Is.False, "every code point shown is a mark of ours");
         var faced = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Café \u2014 “quoted” \u2026 done").Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel).Value;
-        Assert.That(faced, Is.EqualTo("Caf‹U+00E9› \u2014 “quoted” \u2026 done"), "é shows by code; a dash, quotes and an ellipsis every face holds stand as written");
+        Assert.That(faced, Is.EqualTo("Café \u2014 “quoted” \u2026 done"), "é, a dash, quotes and an ellipsis every face holds stand as written");
+        // The lead's line (22:10Z): Latin-1 Supplement and Latin Extended-A stand as written; the next letter after them, ƀ, by code.
+        var latin = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Caf\u00E9, se\u00F1or, \u00FCber, \u0141\u00F3d\u017A \u0180").Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel);
+        Assert.That(latin.Value, Is.EqualTo("Caf\u00E9, se\u00F1or, \u00FCber, \u0141\u00F3d\u017A ‹U+0180›"));
+        Assert.That(latin.ValueRuns.Runs.Where(run => run.Mark).Select(run => run.Text), Is.EqualTo(new[] { "‹U+0180›" }), "the one mark is ƀ's");
+        // AUDIT3's condition: a no-break space is in the Latin list but still shows as a mark, never as a plain space.
+        var spaced = new NewWorkReview("Project", "Title", "Runtime", "Model", "unknown", "ref", "Caf\u00E9\u00A0bar").Items.Single(item => item.Label == NewWorkReview.FirstTaskLabel).Value;
+        Assert.That(spaced, Does.Contain("‹U+00A0›"));
+        Assert.That(spaced.IndexOf('\u00A0'), Is.EqualTo(-1), "no bare no-break space stands in the review");
     }
 
     [Test]
