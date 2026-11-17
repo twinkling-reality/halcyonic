@@ -69,6 +69,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var narrowed = !string.IsNullOrWhiteSpace(only);
             try
             {
+                failures.AddRange(InkReaderHolds());
                 if (!narrowed)
                 {
                     failures.AddRange(BandMotion());
