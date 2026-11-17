@@ -13,7 +13,8 @@ namespace Halcyonic.XR.Workspace.Editor
     /// only light strokes, stricter, never weaker). Along the middle of each of a label's lines, the words' strokes and their soft
     /// edges may cover more than half the samples (an e's bar, a heavy weight at a large size), so the ground is read from the far
     /// side of the words: the 15th percentile of the samples' luminance under light words, the 85th under dark ones, whichever the
-    /// label's own colour is farther from. Each line is held to the polarity its label is drawn in (AUDIT3's
+    /// label's own colour is farther from. Whatever stands under the words there is their ground: the glass, a dark underlay laid under
+    /// them (a band's subtitle ground), or the room through a translucent plate, never the plate the eye might expect. Each line is held to the polarity its label is drawn in (AUDIT3's
     /// 01:17Z I1): words drawn lighter than their ground are read by their lightest sample, words drawn darker by their darkest, so
     /// a glyph's dark edge, a rim or a dark spot of the room behind the glass never stands in for light words. The ink must hold the
     /// contrast the judges' walk holds (4.5 to 1, WCAG relative luminance, as KitRender.Luminance reads it), on the side it is drawn,
