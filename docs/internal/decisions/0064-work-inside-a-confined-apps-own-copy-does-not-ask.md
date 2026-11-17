@@ -88,8 +88,9 @@ answers, as above, in a task's own copy of a folder the person connected too, wh
 Same kinds and refusals as a starter's project: OpenCode's shell, whole; Codex's command only from its parts
 (`ApprovalSubject.command`): one that asks for the network, has no folder, or runs in a folder outside the copy (links
 resolved) asks. Every answer is journaled with its reason. Add to Project still shows its own review and asks.
-A start's level says "Asks Only Outside Task Folder" there only for a kind answered whole (OpenCode); Codex, answered
-from each command's parts, is said to ask first, and the host only ever asks less than that.
+A start's level says "Asks Only Outside Task Folder" there for OpenCode and for Codex, whose patches inside its writable
+folder apply without asking at its own layer (codex-capabilities.md) and whose commands there the host answers; Claude
+Code's copies say "Asks First", since nothing there is answered.
 
 The temporary folder counts only while it is a real folder, never a link: a run may remove its own TMPDIR and put a
 link in its place (seen by LOOP's probe under the profile), so the host takes the folder only when it is a real

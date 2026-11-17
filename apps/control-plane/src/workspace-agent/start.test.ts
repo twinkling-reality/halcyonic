@@ -771,6 +771,10 @@ test("the level says what the run will really ask: a confined app's own work goe
     await level({ kind: 'opencode', starter: false, copies: true }),
     'Asks Only Outside Task Folder',
   );
+  assert.equal(
+    await level({ kind: 'codex', starter: false, copies: true, levelAt: () => 'ask' }),
+    'Asks Only Outside Task Folder',
+  );
   assert.equal(await level({ kind: 'claude-agent', starter: false, copies: true }), 'Asks First');
   // An app whose adapter says the start will run without asking (Codex on a starter's project, ADR 0041; its real
   // choice is tested in runtimes.test.ts) is carded so, whatever was asked for: never "Asks First" over a run that
@@ -781,7 +785,12 @@ test("the level says what the run will really ask: a confined app's own work goe
     code: 'never_asks',
     line: 'Runs commands and changes files without asking you',
   });
-  assert.equal(await level({ kind: 'codex', levelAt: () => 'ask' }), 'Asks First');
+  // Codex at the asking level in a starter's project: its patches inside apply without asking and its commands
+  // there the host answers from their parts, so it asks only for what reaches outside (AUDIT2's MUST, 15:29Z).
+  assert.equal(
+    await level({ kind: 'codex', levelAt: () => 'ask' }),
+    'Asks Only Outside Task Folder',
+  );
   // An adapter that cannot say for these bounds: not known, never a guess, and no never-asks line either.
   assert.equal(await level({ kind: 'codex', levelAt: () => null }), 'Not Known');
   assert.notEqual((firstWarning as { code?: string } | undefined)?.code, 'never_asks');

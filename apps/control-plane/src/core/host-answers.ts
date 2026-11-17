@@ -91,14 +91,14 @@ export interface HostAnswersDeps {
  * with the no-ask unit). Codex is not in it: a confined Codex run asks as before.
  */
 export function answersOwnWork(runtimeKind: string): boolean {
-  // A kind answered only from each command's parts (Codex) is not promised: whether its run asks depends on each
-  // request, so its start says it asks first, and the host's answers only ever ask less than that.
-  return Object.hasOwn(ANSWERABLE, runtimeKind) && ANSWERABLE[runtimeKind]?.partsOnly !== true;
+  // Codex's own work inside its folder goes ahead too: its patches inside its writable folder apply without asking
+  // (codex-capabilities.md), and its commands there the host answers from their parts; what asks reaches outside.
+  return Object.hasOwn(ANSWERABLE, runtimeKind);
 }
 
 /**
- * Whether a start promises the host's answers for this kind in a copy of a folder the person connected
- * (`connectedCopies`), on the same terms as `answersOwnWork`.
+ * Whether a start says the host answers this kind's own work in a copy of a folder the person connected
+ * (`connectedCopies`), on the same terms as `answersOwnWork` (AUDIT2's MUST, 15:29Z).
  */
 export function answersInConnectedCopy(runtimeKind: string): boolean {
   return answersOwnWork(runtimeKind) && ANSWERABLE[runtimeKind]?.connectedCopies === true;
