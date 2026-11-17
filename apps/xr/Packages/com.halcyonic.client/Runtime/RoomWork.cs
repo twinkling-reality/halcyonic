@@ -53,6 +53,14 @@ namespace Halcyonic.Client
         public const string Reading = "Reading";
         public const string Editing = "Editing";
 
+        /// <summary>
+        /// A file the host observed did not exist before this act, and a file written where the host cannot tell new from
+        /// changed: AUDIT2's words (2026-11-17T02:37Z); "Editing" is only ever for a known edit of a file that existed.
+        /// </summary>
+        public const string Creating = "Creating";
+
+        public const string Writing = "Writing";
+
         /// <summary>A tool with no verb of its own: the product's word for a task at work (<see cref="StateLanguage"/>).</summary>
         public const string Running = "Working";
 

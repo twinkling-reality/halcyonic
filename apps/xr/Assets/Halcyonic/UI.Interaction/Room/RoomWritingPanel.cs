@@ -55,8 +55,12 @@ namespace Halcyonic.XR.UI
         private TextMeshPro headLabel = null!;
         private TextMeshPro headTitle = null!;
 
-        /// <summary>The label's words: the step's own verb for a file being written (<see cref="RoomWork.Editing"/>), never a new one.</summary>
-        public const string LabelWords = RoomWork.Editing;
+        /// <summary>
+        /// The label's words, true to what the host reported (the lead's 2026-11-17T02:36Z W2): "Creating" where it observed the
+        /// file new, else "Writing", true for a new file and a changed one alike, since the panel cannot tell a known edit from
+        /// one the host said nothing about. Never "Editing" for a file that may be new.
+        /// </summary>
+        public static string LabelFor(WritingPanel panel) => panel.New ? RoomWork.Creating : RoomWork.Writing;
 
         /// <summary>The label over the title, then the title's gap over the code, in dp.</summary>
         public const float LabelGapDp = 6f;
@@ -304,7 +308,7 @@ namespace Halcyonic.XR.UI
         /// <summary>Lays the head for <paramref name="panel"/>: the quiet label, then the file's path; returns how tall it stands with its gap under it.</summary>
         private float LayHead(WritingPanel panel, float width)
         {
-            RoomType.Label(headLabel, LabelWords);
+            RoomType.Label(headLabel, LabelFor(panel));
             headLabel.enableWordWrapping = false;
             headLabel.overflowMode = TextOverflowModes.Truncate;
             headLabel.rectTransform.sizeDelta = new Vector2(width, RoomType.Scaled(LabelLineDp));
@@ -315,7 +319,7 @@ namespace Halcyonic.XR.UI
             headTitle.rectTransform.sizeDelta = new Vector2(width, RoomType.Scaled(TitleLineDp) * 2f);
             GlazeRuns.Of(headTitle).Set(LineWords.Theirs(panel.Path));
             headTitle.color = Color.white;
-            headTitle.ForceMeshUpdate(true);
+            headTitle.ForceMeshUpdate(true, true);
             var titleLines = Mathf.Clamp(headTitle.textInfo.lineCount, 1, 2);
             return RoomType.Scaled(LabelLineDp + LabelGapDp + TitleLineDp * titleLines + TitleGapDp);
         }

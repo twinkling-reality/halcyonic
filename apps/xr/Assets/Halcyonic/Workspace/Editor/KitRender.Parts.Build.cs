@@ -383,7 +383,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 var (headLabel, nameLabel) = view.Head;
                 headLabel.ForceMeshUpdate(true);
                 nameLabel.ForceMeshUpdate(true);
-                Require(headLabel.gameObject.activeInHierarchy && headLabel.GetParsedText().Trim() == RoomWritingPanel.LabelWords.ToUpperInvariant(), "the label does not read " + RoomWritingPanel.LabelWords + " in capitals: " + headLabel.GetParsedText());
+                Require(headLabel.gameObject.activeInHierarchy && headLabel.GetParsedText().Trim() == RoomWritingPanel.LabelFor(shown).ToUpperInvariant(), "the label does not read " + RoomWritingPanel.LabelFor(shown) + " in capitals: " + headLabel.GetParsedText());
                 Require(headLabel.characterSpacing > 20f && headLabel.color.a < 0.7f, "the label is not quiet and spaced wide");
                 Require(nameLabel.gameObject.activeInHierarchy && nameLabel.GetParsedText().Replace("\n", "").Trim() == shown.Path && !nameLabel.isTextOverflowing, "the file's path is not the title whole: " + nameLabel.GetParsedText());
                 Require(nameLabel.font != null && !nameLabel.font.name.Contains("Mono") && (nameLabel.fontStyle & FontStyles.UpperCase) == 0, "the title is not in the sans face in its own case: " + nameLabel.font?.name);
