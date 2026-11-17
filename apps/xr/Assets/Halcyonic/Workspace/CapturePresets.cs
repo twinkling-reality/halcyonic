@@ -20,7 +20,8 @@ namespace Halcyonic.XR.Workspace
     /// chooses a registered runtime by its id; <c>halcyonic.arm</c> arms the waiting approval so its confirming bar shows;
     /// <c>halcyonic.bar</c> opens the screen's bar; <c>halcyonic.generic</c>, on its own or with any of them, draws every agent
     /// app, model, host and sibling source by a generic name (<see cref="CaptureNames"/>), for footage free of product
-    /// names. Presentation only: it never sends a command, never confirms, and
+    /// names, and nothing else; <c>halcyonic.panelcapture</c>, its own setting, lets the native panel's window be recorded in
+    /// this process (ADR 0029 amendment), with real names or generic ones. Presentation only: it never sends a command, never confirms, and
     /// never approves, denies, answers, starts or previews anything; it arms only where a confirm step stands before the
     /// send, as an approval's always does. Ids and fixed words only: extras that are neither are ignored.
     /// It waits for the live snapshot to hold the id; one fixed log line then says what it applied, or that it found
@@ -124,14 +125,18 @@ namespace Halcyonic.XR.Workspace
             {
                 CaptureNames.UseGeneric(true);
                 Debug.Log("Halcyonic: capture names generic.");
-                // The film records the real native panel beside the room: it may be captured in this process (ADR 0029 amendment).
+            }
+            // Its own setting, apart from the names (the lead's 2026-11-17): a film may record the real native panel beside the
+            // room with real app names or generic ones. In this process only, and only where the panel's own gates hold (ADR 0029 amendment).
+            if (ReadExtra("halcyonic.panelcapture"))
+            {
                 AndroidPanelBridge.AllowCapture();
             }
             if (ReadIntent() is not Preset preset) return;
             new GameObject("Halcyonic capture preset").AddComponent<CapturePresets>().preset = preset;
         }
 
-        /// <summary>Whether the launch intent carries the boolean extra <paramref name="name"/>: generic names (<c>halcyonic.generic</c>), the redesign (<c>halcyonic.redesign</c>).</summary>
+        /// <summary>Whether the launch intent carries the boolean extra <paramref name="name"/>: generic names (<c>halcyonic.generic</c>), the panel's capture (<c>halcyonic.panelcapture</c>), the redesign (<c>halcyonic.redesign</c>).</summary>
         private static bool ReadExtra(string name)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR

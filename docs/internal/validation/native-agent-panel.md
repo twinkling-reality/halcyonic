@@ -180,7 +180,8 @@ of its four places. That decision is taken once in `onCreate` and never cleared 
 - It is a development build: `PanelCaptureDevelopment` is packaged, from the development-only
   folder that `PanelInBuilds` copies only into development builds. This is a build-time gate a
   release APK never passes.
-- The person launched the immersive app with the capture extra `halcyonic.generic`. Only then does
+- The person launched the immersive app with the capture extra `halcyonic.panelcapture` (its own setting since
+  2026-11-17; `halcyonic.generic` only makes names generic and never makes the panel capturable). Only then does
   `CapturePresets` (compiled into development builds alone) call `PanelBridge.allowCapture` in this
   process.
 

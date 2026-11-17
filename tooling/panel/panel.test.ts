@@ -1163,8 +1163,8 @@ describe('production native agent panel', () => {
         activity.indexOf('if (syntheticSurface()) {'),
       'decided in onCreate, before anything is shown',
     );
-    // F2 and F5: the panel reads no extra of its own intent, so an intent carrying halcyonic.generic does nothing.
-    assert.doesNotMatch(activity, /getExtras\(|get[A-Za-z]*Extra\(|halcyonic\.generic/);
+    // F2 and F5: the panel reads no extra of its own intent, so an intent carrying either launch setting does nothing.
+    assert.doesNotMatch(activity, /getExtras\(|get[A-Za-z]*Extra\(|halcyonic\.generic|halcyonic\.panelcapture/);
     // F1 and F1a: allowed only when debuggable AND the development-only class is packaged (a build-time gate).
     const capture = readFileSync(join(SOURCES, 'PanelCapture.java'), 'utf8');
     assert.match(capture, /FLAG_DEBUGGABLE\) == 0\) return false/);
@@ -1192,10 +1192,16 @@ describe('production native agent panel', () => {
       'utf8',
     );
     assert.match(presets, /^#if DEVELOPMENT_BUILD \|\| UNITY_EDITOR/);
+    // The capture switch has its own launch setting (the lead's 21:2xZ): a film may keep real app names and still record
+    // the panel, so the generic names' setting only names and never makes the panel capturable.
     assert.match(
       presets,
-      /if \(ReadExtra\("halcyonic\.generic"\)\)\s*\{[^}]*AndroidPanelBridge\.AllowCapture\(\);[^}]*\}/,
+      /if \(ReadExtra\("halcyonic\.panelcapture"\)\)\s*\{[^}]*AndroidPanelBridge\.AllowCapture\(\);[^}]*\}/,
     );
+    const generic = presets.match(/if \(ReadExtra\("halcyonic\.generic"\)\)\s*\{([^}]*)\}/);
+    assert.ok(generic, 'the generic names keep their own setting');
+    assert.doesNotMatch(generic[1], /AllowCapture/, 'the names setting never makes the panel capturable');
+    assert.equal(presets.match(/AllowCapture\(\)/g)?.length, 1, 'one place allows capture, under its own setting');
     const callers = execFileSync('git', ['grep', '-l', 'AllowCapture()', '--', 'apps/xr/Assets'], {
       cwd: ROOT,
       encoding: 'utf8',

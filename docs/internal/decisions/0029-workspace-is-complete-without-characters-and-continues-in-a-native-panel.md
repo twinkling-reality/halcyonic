@@ -107,8 +107,9 @@ product's work-while-you-watch promise.
 
 Decision: the real panel stays secure in every build except one case. A panel created after the
 immersive app, in the same process, allowed capture leaves its window capturable. The app allows
-it only when the person launched a development build with the capture extra `halcyonic.generic`
-(the same extra that makes names generic for footage).
+it only when the person launched a development build with the capture extra `halcyonic.panelcapture`
+(amended 2026-11-17: its own setting, apart from `halcyonic.generic`, which only makes names generic, so a film can
+record the panel with real app names or generic ones).
 
 The gate has three conditions:
 - debuggable;

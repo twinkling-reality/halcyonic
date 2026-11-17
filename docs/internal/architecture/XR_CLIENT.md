@@ -2795,6 +2795,9 @@ check applies each preset to a director with a counting submit and requires noth
 to wait, the approval armed with nothing sent even under a low-consequence approval policy, and the arm
 pressed again after a layout drops it, with nothing sent.
 
+The extra `halcyonic.panelcapture`, its own development setting (2026-11-17), lets the native panel's window be recorded
+in this process through `PanelBridge.allowCapture` (ADR 0029 amendment), with real names or generic ones; it does nothing
+else, and `halcyonic.generic` never makes the panel capturable (`tooling/panel/panel.test.ts`).
 The extra `halcyonic.generic` (alone or with any preset) turns on `CaptureNames` (client core) for footage free of
 product names (2026-11-04): wherever the headset draws an agent app's name it draws "Coding Agent", a model's name or
 reference "AI Model" (true whether a model is hosted or local), the host "This Computer" (the Host chip, "Observed on This Computer"), Salidium "Explanation"
