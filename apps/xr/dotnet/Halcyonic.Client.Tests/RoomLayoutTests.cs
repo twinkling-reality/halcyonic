@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Numerics;
 using NUnit.Framework;
 
@@ -342,5 +343,66 @@ public class RoomLayoutTests
         Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screens(new[] { float.NaN }, ScreenDegrees));
         Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screens(new[] { 0f }, 0f));
         Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screens(new[] { 0f }, ScreenDegrees, gapDegrees: -1f));
+    }
+
+    // FIELD's 19:11Z places: each 32.5 degrees wide, inner at 46.75, outer at 83.25, 4 degrees between, the front clear past 30.
+    private const float PlaceDegrees = 32.5f;
+
+    [Test]
+    public void ScreensOverFieldsPlacesStandOverThemAndKeepTheFrontClear()
+    {
+        var places = new[] { -83.25f, -46.75f, 46.75f, 83.25f };
+        var stood = RoomLayout.Screens(places, PlaceDegrees, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+        Assert.That(stood, Is.EqualTo(places).Within(1e-3f), "each screen over its own place");
+        Apart(stood, PlaceDegrees);
+        foreach (var bearing in stood) Assert.That(MathF.Abs(bearing) - PlaceDegrees / 2f, Is.GreaterThanOrEqualTo(RoomLayout.ClearAheadDegrees - 1e-3f), "a screen stands in the clear front");
+    }
+
+    [Test]
+    public void AScreenAskedInTheClearFrontStandsBesideItOnItsOwnSide()
+    {
+        var right = RoomLayout.Screens(new[] { 10f }, PlaceDegrees, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+        Assert.That(right[0], Is.EqualTo(RoomLayout.ClearAheadDegrees + PlaceDegrees / 2f).Within(1e-3f));
+        var left = RoomLayout.Screens(new[] { -5f }, PlaceDegrees, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+        Assert.That(left[0], Is.EqualTo(-(RoomLayout.ClearAheadDegrees + PlaceDegrees / 2f)).Within(1e-3f));
+        // Measured from where the person faces.
+        var turned = RoomLayout.Screens(new[] { 40f }, PlaceDegrees, ahead: 40f, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+        Assert.That(turned[0], Is.EqualTo(40f + RoomLayout.ClearAheadDegrees + PlaceDegrees / 2f).Within(1e-3f), "straight ahead goes right");
+    }
+
+    [Test]
+    public void AFullSidePassesItsNearestScreenAcrossTheFront()
+    {
+        // Three asked on the right, which holds two: the leftmost of them crosses to the left side.
+        var stood = RoomLayout.Screens(new[] { 40f, 60f, 90f }, PlaceDegrees, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+        Assert.That(stood[0], Is.LessThan(0f));
+        Assert.That(stood[1], Is.GreaterThan(0f));
+        Apart(new[] { stood[1], stood[2] }, PlaceDegrees);
+        foreach (var bearing in stood) Assert.That(MathF.Abs(bearing) - PlaceDegrees / 2f, Is.GreaterThanOrEqualTo(RoomLayout.ClearAheadDegrees - 1e-3f));
+        // Five never fit four places' room; full-width screens fit one a side.
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screens(new float[5], PlaceDegrees, clearAheadDegrees: RoomLayout.ClearAheadDegrees));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RoomLayout.Screens(new float[3], ScreenDegrees, clearAheadDegrees: RoomLayout.ClearAheadDegrees));
+        Assert.That(RoomLayout.Screens(new[] { -50f, 50f }, ScreenDegrees, clearAheadDegrees: RoomLayout.ClearAheadDegrees), Has.Length.EqualTo(2));
+    }
+
+    [Test]
+    public void ScreensBesideTheClearFrontStayInOrderApartAndInReach()
+    {
+        var random = new Random(23);
+        for (var trial = 0; trial < 500; trial++)
+        {
+            var count = random.Next(1, 5);
+            var ahead = (float)(random.NextDouble() * 360.0 - 180.0);
+            var wanted = new float[count];
+            for (var index = 0; index < count; index++) wanted[index] = (float)(random.NextDouble() * 360.0 - 180.0);
+            var stood = RoomLayout.Screens(wanted, PlaceDegrees, ahead, clearAheadDegrees: RoomLayout.ClearAheadDegrees);
+            var about = stood.Select(bearing => RoomLayout.Wrap(bearing - ahead)).ToArray();
+            for (var index = 1; index < count; index++) Assert.That(about[index] - about[index - 1], Is.GreaterThanOrEqualTo(PlaceDegrees + RoomLayout.ScreensGapDegrees - 1e-3f), "order or overlap");
+            foreach (var bearing in about)
+            {
+                Assert.That(MathF.Abs(bearing) - PlaceDegrees / 2f, Is.GreaterThanOrEqualTo(RoomLayout.ClearAheadDegrees - 1e-3f), "in the clear front");
+                Assert.That(MathF.Abs(bearing) + PlaceDegrees / 2f, Is.LessThanOrEqualTo(RoomLayout.SeatedReachDegrees + 1e-3f), "past the reach");
+            }
+        }
     }
 }

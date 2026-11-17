@@ -122,38 +122,80 @@ namespace Halcyonic.Client
         public const float SeatedReachDegrees = 100f;
 
         /// <summary>
+        /// How far either side of straight ahead stays clear for the work or the show the person watches (the lead's
+        /// 2026-11-17T19:05Z; FIELD's places stand past it): a screen beside its place keeps its edges out of it.
+        /// </summary>
+        public const float ClearAheadDegrees = 30f;
+
+        /// <summary>
         /// Where several project screens stand round the person (the lead's 2026-11-17T18:55Z (d)), as bearings: one for each of
         /// <paramref name="wantedBearings"/>, given left to right (RoomPlaces' order), each the bearing of its project's place.
         /// Each screen stands as near its own place's bearing as it can while every one stands at least
         /// <paramref name="widthDegrees"/> and <paramref name="gapDegrees"/> past the one on its left, so none covers another,
         /// and every screen's edges stay within <paramref name="reachDegrees"/> of <paramref name="ahead"/>: the least-squares
         /// fit under that order and that reach (pool-adjacent violators, then held to the reach), a room of windows round a
-        /// seated person, never behind them.
+        /// seated person, never behind them. With <paramref name="clearAheadDegrees"/> above 0, no screen's edge stands within
+        /// that much of ahead either: the screens asked left of ahead fit on the left, the rest on the right, a side that cannot
+        /// hold its own passing its nearest to the other side, each side fitted the same way within its own bounds.
         /// </summary>
         public static float[] Screens(System.Collections.Generic.IReadOnlyList<float> wantedBearings, float widthDegrees, float ahead = 0f,
-            float gapDegrees = ScreensGapDegrees, float reachDegrees = SeatedReachDegrees)
+            float gapDegrees = ScreensGapDegrees, float reachDegrees = SeatedReachDegrees, float clearAheadDegrees = 0f)
         {
             if (wantedBearings == null) throw new ArgumentNullException(nameof(wantedBearings));
             Angle(widthDegrees, nameof(widthDegrees));
             if (!(gapDegrees >= 0f)) throw new ArgumentOutOfRangeException(nameof(gapDegrees), gapDegrees, "A gap can't be negative.");
             if (!(reachDegrees > 0f && reachDegrees <= 180f)) throw new ArgumentOutOfRangeException(nameof(reachDegrees), reachDegrees, "A reach is between 0 and 180 degrees each side.");
+            if (!(clearAheadDegrees >= 0f && clearAheadDegrees < reachDegrees)) throw new ArgumentOutOfRangeException(nameof(clearAheadDegrees), clearAheadDegrees, "The clear front lies inside the reach.");
             if (float.IsNaN(ahead) || float.IsInfinity(ahead)) throw new ArgumentOutOfRangeException(nameof(ahead), ahead, "A bearing must be a number.");
             var count = wantedBearings.Count;
-            if (count == 0) return Array.Empty<float>();
+            var wanted = new float[count];
+            for (var index = 0; index < count; index++)
+            {
+                var bearing = wantedBearings[index];
+                if (float.IsNaN(bearing) || float.IsInfinity(bearing)) throw new ArgumentOutOfRangeException(nameof(wantedBearings), bearing, "A bearing must be a number.");
+                wanted[index] = Wrap(bearing - ahead);
+            }
             var apart = widthDegrees + gapDegrees;
-            // The leftmost centre at least half a screen inside the reach, the rightmost likewise, with the row between them.
-            var least = -reachDegrees + widthDegrees / 2f;
-            var most = reachDegrees - widthDegrees / 2f - (count - 1) * apart;
-            if (least > most + 1e-4f) throw new ArgumentOutOfRangeException(nameof(wantedBearings), count, "That many screens can't stand within the person's reach without covering one another.");
+            var stood = new float[count];
+            if (clearAheadDegrees <= 0f)
+            {
+                if (!FitRow(wanted, 0, count, -reachDegrees + widthDegrees / 2f, reachDegrees - widthDegrees / 2f, apart, stood))
+                    throw new ArgumentOutOfRangeException(nameof(wantedBearings), count, "That many screens can't stand within the person's reach without covering one another.");
+            }
+            else
+            {
+                // How many each side holds, then the split: those asked left of ahead, moved across where a side is full.
+                var side = reachDegrees - clearAheadDegrees;
+                var holds = side < widthDegrees ? 0 : 1 + (int)MathF.Floor((side - widthDegrees) / apart + 1e-4f);
+                if (count > 2 * holds) throw new ArgumentOutOfRangeException(nameof(wantedBearings), count, "That many screens can't stand beside the clear front within the person's reach.");
+                var left = 0;
+                while (left < count && wanted[left] < 0f) left++;
+                left = Math.Max(Math.Min(left, holds), count - holds);
+                FitRow(wanted, 0, left, -reachDegrees + widthDegrees / 2f, -clearAheadDegrees - widthDegrees / 2f, apart, stood);
+                FitRow(wanted, left, count, clearAheadDegrees + widthDegrees / 2f, reachDegrees - widthDegrees / 2f, apart, stood);
+            }
+            for (var index = 0; index < count; index++) stood[index] = Wrap(ahead + stood[index]);
+            return stood;
+        }
+
+        /// <summary>
+        /// Fits screens <paramref name="from"/> up to <paramref name="to"/> of <paramref name="wanted"/> (bearings about ahead) in a
+        /// row, centres <paramref name="apart"/> or more, the first no lower than <paramref name="lowest"/> and the last no higher than
+        /// <paramref name="highest"/>, into <paramref name="stood"/>; false where the row does not fit.
+        /// </summary>
+        private static bool FitRow(float[] wanted, int from, int to, float lowest, float highest, float apart, float[] stood)
+        {
+            var count = to - from;
+            if (count <= 0) return true;
+            var most = highest - (count - 1) * apart;
+            if (lowest > most + 1e-4f) return false;
             // Each screen less its place in the row is non-decreasing: pool adjacent blocks that break it, each at its mean.
             var means = new float[count];
             var sizes = new int[count];
             var blocks = 0;
             for (var index = 0; index < count; index++)
             {
-                var wanted = wantedBearings[index];
-                if (float.IsNaN(wanted) || float.IsInfinity(wanted)) throw new ArgumentOutOfRangeException(nameof(wantedBearings), wanted, "A bearing must be a number.");
-                means[blocks] = Wrap(wanted - ahead) - index * apart;
+                means[blocks] = wanted[from + index] - index * apart;
                 sizes[blocks] = 1;
                 blocks++;
                 while (blocks > 1 && means[blocks - 2] > means[blocks - 1])
@@ -164,13 +206,12 @@ namespace Halcyonic.Client
                     blocks--;
                 }
             }
-            // Held to the reach: the fit, clamped to one bound for every screen, is still the least-squares fit within it.
-            var stood = new float[count];
+            // Held to the bounds: the fit, clamped to one bound for every screen, is still the least-squares fit within them.
             var at = 0;
             for (var block = 0; block < blocks; block++)
                 for (var member = 0; member < sizes[block]; member++, at++)
-                    stood[at] = Wrap(ahead + MathF.Min(MathF.Max(means[block], least), MathF.Max(least, most)) + at * apart);
-            return stood;
+                    stood[from + at] = MathF.Min(MathF.Max(means[block], lowest), MathF.Max(lowest, most)) + at * apart;
+            return true;
         }
 
         /// <summary>
