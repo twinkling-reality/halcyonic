@@ -723,38 +723,43 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// What an approval's well draws, literally (<see cref="LineWords.Literal"/>, AUDIT3's LI4): the bare command it would run,
-        /// from the command's own parts; or, for a tool that runs no command, each of its inputs (<see cref="ToolUseSubject.Inputs"/>)
-        /// in its order, a block each: its name on a line of its own, Halcyonic's run as a label, then its value as the agent app
-        /// gave it, a JSON value as written. In both a line break, a tab, a space at an end and a character that would not show as
-        /// itself draw as marks of their own. Null where the approval carries neither, and then no well is drawn. A command
-        /// stands alone where both are given.
+        /// from the command's own parts; and, for a tool's inputs (<see cref="ToolUseSubject.Inputs"/>), each in its order, a block
+        /// each: its name on a quiet line of its own, as given, no colon added, Halcyonic's run, then its value as the agent app
+        /// gave it, a JSON value as written, no quote added and nothing reformatted. An empty name draws its value with no name
+        /// line above it; an empty value keeps its empty row. Where an approval carries both, which no adapter sends, the
+        /// command comes first and its inputs below it, neither dropped. Null where the approval carries neither, and then no
+        /// well is drawn. Every mark is <see cref="LineWords.Literal"/>'s alone.
         /// </summary>
         public static LineWords? Well(ApprovalView? approval)
         {
             if (approval?.Subject is not ToolUseSubject tool) return null;
-            if (tool.Command is { } command) return LineWords.Literal(command.Text);
-            if (tool.Inputs is not { Count: > 0 } inputs) return null;
-            var well = LineWords.None;
+            var inputs = tool.Inputs ?? new List<ApprovalInput>();
+            if (tool.Command == null && inputs.Count == 0) return null;
+            var well = tool.Command is { } command ? LineWords.Literal(command.Text) : LineWords.None;
             for (var index = 0; index < inputs.Count; index++)
             {
                 var input = inputs[index];
                 var named = LabelText.Name(input.Name);
-                if (index > 0) well = well.Then(LineWords.Break);
-                if (named.Length > 0) well = well.Then(LineWords.Ours(named));
-                well = well.Then(LineWords.Break).Then(LineWords.Literal(input.Value));
+                if (tool.Command != null || index > 0) well = well.Then(LineWords.Break);
+                if (named.Length > 0) well = well.Then(LineWords.Ours(named)).Then(LineWords.Break);
+                well = well.Then(LineWords.Literal(input.Value));
             }
             return well;
         }
 
+        /// <summary>The key line beside a well that draws a line break's mark (<see cref="LineWords.LineBreakMark"/>): Halcyonic's own words.</summary>
+        public const string LineBreakKey = LineWords.LineBreakMark + " marks a new line.";
+
         /// <summary>
-        /// The first line of what an approval asks (<see cref="ToolUseSubject.Summary"/>): for a tool that runs no command, "Use
-        /// {tool}", the line its adapter writes above one line for each input, which the well draws in their parts instead.
+        /// The one heading of an approval whose well holds a tool's inputs and no command: the summary's first line as the adapter
+        /// wrote it ("Use {tool}", its name quoted where the host quoted it), only a markdown code span's backticks removed, and its
+        /// folder named as the capture extra names it; never "Use " composed with the tool's name, and no other line of the
+        /// summary, which says the inputs again. The dialog draws it once, as its title. Null for every other approval.
         /// </summary>
-        private static string FirstLine(string summary)
-        {
-            var end = summary.IndexOf('\n');
-            return (end < 0 ? summary : summary.Substring(0, end)).TrimEnd('\r');
-        }
+        public static string? Heading(ApprovalView? approval) =>
+            approval?.Subject is ToolUseSubject { Command: null, Inputs: { Count: > 0 } } tool
+                ? WithoutCodeMarks(CaptureNames.Request(tool.Summary.Split('\n')[0]))
+                : null;
 
         /// <summary>
         /// The agent's own sentence of what an approval asks (<see cref="ToolUseSubject.Summary"/>), theirs, laid above the
@@ -763,15 +768,15 @@ namespace Halcyonic.Client
         /// (<see cref="WithoutCodeMarks"/>); nothing else in it changes. Where the sentence begins or ends with the command the
         /// well holds, as an adapter builds it from the command's parts (Codex: the command, then the folder it runs in and any
         /// network; Claude Code: its shell's bracket, then the command), the command is not said twice: the sentence keeps only
-        /// its other words, how and where the command runs, and is null where nothing else is left. Where the well holds a
-        /// tool's inputs instead (<see cref="Well"/>), the sentence is the summary's first line alone, "Use {tool}", as the
-        /// lines after it say each input the well draws in its parts. Null where the approval names no tool. Only the sentence
-        /// above the well: every other surface reads the summary whole (<see cref="Request"/>).
+        /// its other words, how and where the command runs, and is null where nothing else is left. Null where the well holds a
+        /// tool's inputs and no command, whose summary's first line is the title (<see cref="Heading"/>) and whose other lines say
+        /// the inputs the well draws. Null where the approval names no tool. Only the sentence above the well: every other
+        /// surface reads the summary whole (<see cref="Request"/>).
         /// </summary>
         public static string? Description(ApprovalView? approval)
         {
             if (approval?.Subject is not ToolUseSubject tool) return null;
-            if (tool.Command == null && tool.Inputs is { Count: > 0 }) return WithoutCodeMarks(CaptureNames.Request(FirstLine(tool.Summary)));
+            if (Heading(approval) != null) return null;
             var said = WithoutCodeMarks(CaptureNames.Request(tool.Summary));
             if (BareCommand(approval) is not string command) return said;
             foreach (var bare in new[] { CaptureNames.Request(command), command }.Distinct())

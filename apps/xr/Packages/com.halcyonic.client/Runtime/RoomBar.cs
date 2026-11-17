@@ -198,9 +198,10 @@ namespace Halcyonic.Client
         public bool Caret { get; }
 
         /// <summary>
-        /// An approval's own sentence of what it asks, the agent's (<see cref="KitNeed.Description"/>), where the well holds its bare
-        /// command (<see cref="Mono"/>): the dialog lays it above the well in body type. Null where no command stands in the well,
-        /// whose sentence is then <see cref="Body"/> itself, and for every other bar.
+        /// An approval's own sentence of what it asks, the agent's (<see cref="KitNeed.Description"/>), where a well stands
+        /// (<see cref="Mono"/>), with Halcyonic's key line under it where the well draws a ↵ (<see cref="WorkspaceText.LineBreakKey"/>),
+        /// or that key line alone: the dialog lays it above the well in body type. Null where no well stands, whose sentence is
+        /// then <see cref="Body"/> itself, for a tool's inputs with no ↵ (their heading is the title), and for every other bar.
         /// </summary>
         public LineWords? Description { get; }
 
@@ -505,6 +506,7 @@ namespace Halcyonic.Client
             {
                 if (need.Part != null) (body, mono) = Reading(need.Part, need.Request, instruction: false, need.Well, need.Description);
                 if (!mono) description = null;
+                description = Keyed(description, body, mono);
                 var yes = Available(KitPlace.Yes);
                 if (yes != null) column.Add(new RoomAction(yes, main: true, locks: true));
                 foreach (var step in binding.Controls.Where(control => control.Place == KitPlace.Step && control.Available))
@@ -512,14 +514,33 @@ namespace Halcyonic.Client
                 if (Available(KitPlace.Cancel) is KitControl cancel) column.Add(new RoomAction(cancel, main: false));
                 return new RoomBar(RoomBarState.Request, body: body, part: need.Part, sentence: confirming.Ask, column: column, mono: mono, rows: need.Rows, description: description);
             }
+            description = Keyed(description, body, mono);
             if (need.Sending) return new RoomBar(RoomBarState.Request, body: body, sentence: WorkspaceText.Sent, mono: mono, waits: true, description: description);
             if (need.ApproveOffered && Available(KitPlace.Approve) is KitControl approve) column.Add(new RoomAction(approve, main: true));
             if (need.DenyOffered && Available(KitPlace.Deny) is KitControl deny) column.Add(new RoomAction(deny, main: false));
             // The sentence: what the file says now (a lapse, why nothing can be answered), else why only Deny stands, else what it asks.
             var onlyDeny = need.Notes.FirstOrDefault(note => note == WorkspaceText.TooLongToShow || note == WorkspaceText.CommandNotKnown || note == WorkspaceText.RequestNotKnown);
-            var asks = need.Commands ? KitMomentWords.RunThisCommand : need.Asks.Text;
+            // A tool's inputs take the summary's first line as their one heading, the dialog's title (WorkspaceText.Heading), theirs,
+            // never "Use " composed with the tool's name; a command keeps Run Command?.
+            var heading = need.Heading is string first ? LabelText.Plain(first) : null;
+            var asks = heading ?? (need.Commands ? KitMomentWords.RunThisCommand : need.Asks.Text);
             var sentence = need.Says ?? onlyDeny ?? (need.Request != null ? asks : null);
-            return new RoomBar(RoomBarState.Request, body: body, sentence: sentence, column: column, mono: mono, description: description);
+            return new RoomBar(RoomBarState.Request, body: body, sentence: sentence, column: column, mono: mono, description: description)
+            {
+                DialogTitle = heading != null && sentence == heading ? LineWords.Theirs(heading) : null,
+            };
+        }
+
+        /// <summary>
+        /// The sentence above a well with its key line where the well draws a line break's mark (<see cref="WorkspaceText.LineBreakKey"/>,
+        /// AUDIT2's words pass, 2026-11-17): Halcyonic's own words, in body type, on a line of their own under the agent's sentence, or
+        /// alone; unchanged where no well stands or it draws no ↵.
+        /// </summary>
+        private static LineWords? Keyed(LineWords? description, LineWords body, bool mono)
+        {
+            if (!mono || !body.MarksLineBreak) return description;
+            var key = LineWords.Ours(WorkspaceText.LineBreakKey);
+            return description == null || description.IsEmpty ? key : description.Then(LineWords.Break).Then(key);
         }
 
         /// <summary>

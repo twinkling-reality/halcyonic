@@ -172,15 +172,27 @@ namespace Halcyonic.Client
         public const string SpaceMark = "\u00B7";
 
         /// <summary>
-        /// Text whose every character can change what happens, as a command or a tool's input a person approves, for a well
-        /// that draws it literally (AUDIT3's LI4, 2026-11-17): outside text, with what would not show as itself drawn as a
-        /// <see cref="WordRun.Mark"/> of its own. A line break is <see cref="LineBreakMark"/> and the line breaks after it
-        /// (a carriage return before it shows by its code point too); a tab is <see cref="TabMark"/>; a space at either end,
-        /// or just before a line break, is <see cref="SpaceMark"/>; every other white space character, control, format,
-        /// bidi, default ignorable or private use character, and a surrogate without its pair, is its code point, such as
-        /// ‹U+202E›, by <see cref="LabelText.Exact"/>'s rule. Everything else is outside text as written, spaces between
-        /// words included, so the same glyphs typed ("↵", "‹U+000A›") stay outside text and never draw as a mark. None where
-        /// the text is empty.
+        /// Text whose every character can change what happens, as a command or a tool's input a person approves, for a well that
+        /// draws it literally (AUDIT3's LI4, 2026-11-17): outside text, with every mark a <see cref="WordRun.Mark"/> run of its own.
+        /// The client's one marking function: nothing else marks a character, and it shrinks to its first rule alone once the
+        /// host writes every mark itself (the lead's ruling, 2026-11-17).
+        /// <list type="bullet">
+        /// <item>
+        /// The marks the host writes are given the mark role, styling only, never changed: a code point shown by code ("‹", "U+",
+        /// hex digits, "›", as ‹U+202E›), <see cref="LineBreakMark"/> and <see cref="TabMark"/>. The host escapes those characters
+        /// where an app's own text holds them (‹U+2039› for a ‹), so any that arrives is a mark. Until that host lands, a ↵ an
+        /// agent typed is styled as a mark too; the host closes that.
+        /// </item>
+        /// <item>
+        /// Until the host writes them, the marks of what reaches the client raw: <see cref="LineBreakMark"/> before a line feed,
+        /// unless one already stands just before it, the line still breaking after it; <see cref="TabMark"/> for a tab;
+        /// <see cref="SpaceMark"/> for a space at either end, or just before a line break; and, as a guard, any other white
+        /// space, control, format, bidi, default ignorable or private use character, or a surrogate without its pair, by its
+        /// code point, as <see cref="LabelText.Exact"/> shows it. So text from the new host is never marked twice.
+        /// </item>
+        /// </list>
+        /// Everything else is outside text as written, spaces between words included, and so is "\u{202E}" text, which older
+        /// events carry and which cannot be told from what an agent typed. None where the text is empty.
         /// </summary>
         public static LineWords Literal(string? text)
         {
@@ -192,27 +204,36 @@ namespace Halcyonic.Client
                 if (last != null && last.Theirs == theirs && last.Mark == mark) runs[runs.Count - 1] = new WordRun(last.Text + piece, theirs, mark: mark);
                 else runs.Add(new WordRun(piece, theirs, mark: mark));
             }
-            // A space shows as a mark where nothing visible stands between it and an end or a line break: from the end back, a
-            // space is marked while only spaces lie between it and the end or the next break; then from the start, every leading one.
+            var lineBreak = LineBreakMark[0];
+            var tab = TabMark[0];
+            // A space shows as a mark where nothing visible stands between it and an end or a line break (a ↵ or a carriage
+            // return just before the break counts as the break): from the end back, then every leading one from the start.
             var marked = new bool[text!.Length];
             var open = true;
             for (var index = text.Length - 1; index >= 0; index--)
             {
                 var unit = text[index];
                 if (unit == ' ') marked[index] = open;
-                else open = unit == '\n' || (unit == '\r' && index + 1 < text.Length && text[index + 1] == '\n');
+                else open = unit == '\n' || ((unit == '\r' || unit == lineBreak) && index + 1 < text.Length && text[index + 1] == '\n');
             }
             for (var index = 0; index < text.Length && text[index] == ' '; index++) marked[index] = true;
             for (var index = 0; index < text.Length; index++)
             {
                 var unit = text[index];
+                if (ShownCodeAt(text, index) is var length && length > 0)
+                {
+                    Add(text.Substring(index, length), theirs: false, mark: true);
+                    index += length - 1;
+                    continue;
+                }
                 var paired = char.IsHighSurrogate(unit) && index + 1 < text.Length && char.IsLowSurrogate(text[index + 1]);
                 var codePoint = paired ? char.ConvertToUtf32(unit, text[index + 1]) : unit;
                 if (unit == '\n')
                 {
-                    Add(LineBreakMark, theirs: false, mark: true);
+                    if (index == 0 || text[index - 1] != lineBreak) Add(LineBreakMark, theirs: false, mark: true);
                     Add("\n", theirs: false, mark: false);
                 }
+                else if (unit == lineBreak || unit == tab) Add(unit.ToString(), theirs: false, mark: true);
                 else if (unit == '\t') Add(TabMark, theirs: false, mark: true);
                 else if (unit == ' ' && marked[index]) Add(SpaceMark, theirs: false, mark: true);
                 else if (unit != ' ' && (LabelText.IsWhiteSpace(codePoint) || LabelText.ShowsByCode(codePoint) || (!paired && char.IsSurrogate(unit))))
@@ -221,6 +242,18 @@ namespace Halcyonic.Client
                 if (paired) index++;
             }
             return new LineWords(runs);
+        }
+
+        /// <summary>
+        /// The length of a code point shown by code that starts at <paramref name="at"/> in <paramref name="text"/>: "‹", "U+", one
+        /// to six hex digits, "›", as ‹U+202E›; 0 where none starts there.
+        /// </summary>
+        private static int ShownCodeAt(string text, int at)
+        {
+            if (text[at] != '‹' || at + 3 >= text.Length || text[at + 1] != 'U' || text[at + 2] != '+') return 0;
+            var end = at + 3;
+            while (end < text.Length && end - at - 3 < 6 && Uri.IsHexDigit(text[end])) end++;
+            return end > at + 3 && end < text.Length && text[end] == '›' ? end - at + 1 : 0;
         }
 
         /// <summary>The runs in order, two side by side never the same kind.</summary>
@@ -235,6 +268,9 @@ namespace Halcyonic.Client
         public bool AllTheirs => Runs.Count > 0 && Runs.All(run => run.Theirs);
 
         public bool AnyTheirs => Runs.Any(run => run.Theirs);
+
+        /// <summary>A mark run here draws a line break's mark (<see cref="LineBreakMark"/>), so a well's key line belongs beside it.</summary>
+        public bool MarksLineBreak => Runs.Any(run => run.Mark && run.Text.Contains(LineBreakMark));
 
         /// <summary>
         /// Some of Halcyonic's words come after outside text, so an ellipsis at the line's end would

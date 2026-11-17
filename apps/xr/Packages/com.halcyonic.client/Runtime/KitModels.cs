@@ -126,11 +126,12 @@ namespace Halcyonic.Client
     {
         public KitNeed(LineWords asks, string? request, string? scopeNote, IReadOnlyList<string> notes, string denyWords, string approveWords,
             bool denyOffered, bool approveOffered, KitConfirmation? confirming = null, PageLine? part = null, string? says = null, bool sending = false, bool commands = false,
-            int? rows = null, LineWords? well = null, string? description = null)
+            int? rows = null, LineWords? well = null, string? description = null, string? heading = null)
         {
             Commands = commands;
             Rows = rows;
             Well = well;
+            Heading = heading;
             Description = description;
             Part = part;
             Says = says;
@@ -201,9 +202,16 @@ namespace Halcyonic.Client
 
         /// <summary>
         /// The agent's own sentence of what it asks (<see cref="WorkspaceText.Description"/>), theirs: above the well where there
-        /// is one (for a tool's inputs, "Use {tool}" alone), else the request's words alone; null where no tool was named.
+        /// is a command, else the request's words alone; null where no tool was named, and for a tool's inputs, whose summary's
+        /// first line is their heading (<see cref="Heading"/>).
         /// </summary>
         public string? Description { get; }
+
+        /// <summary>
+        /// The one heading of an approval whose well holds a tool's inputs and no command (<see cref="WorkspaceText.Heading"/>):
+        /// the summary's first line, theirs, drawn once, as the dialog's title; null for every other approval.
+        /// </summary>
+        public string? Heading { get; }
     }
 
     /// <summary>The confirmation of an approval's answer: the question about the request above, Yes's words, and whether all of it has been read.</summary>

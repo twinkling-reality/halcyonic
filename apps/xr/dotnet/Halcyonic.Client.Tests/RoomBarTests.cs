@@ -520,8 +520,14 @@ public class RoomBarTests
 
     private static ApprovalInput Input(string name, string value, ApprovalInputKind kind = ApprovalInputKind.Text) => new() { Name = name, Value = value, Kind = kind };
 
+    /// <summary>The well <paramref name="inputs"/> draw, asked, for a tool that runs no command.</summary>
+    private RoomBar AskedWith(params ApprovalInput[] inputs) => AskedAndConfirming(Asking(new ToolUseSubject
+    {
+        ToolName = "tool", Summary = "Use tool\n" + string.Join("\n", inputs.Select(input => input.Name + ": " + input.Value)), Inputs = inputs.ToList(),
+    })).Asked;
+
     [Test]
-    public void AToolThatRunsNoCommandDrawsEachInputInTheWellItsNameThenItsValueWithUseToolAboveIt()
+    public void AToolThatRunsNoCommandDrawsEachInputInTheWellUnderItsSummarysFirstLineAsItsOneHeading()
     {
         // The live case (Kiro, Antigravity, Cursor over ACP, 2026-11-17): a fetch with its url, no command, the inputs in their parts.
         var workspace = Asking(new ToolUseSubject
@@ -534,11 +540,13 @@ public class RoomBarTests
         foreach (var bar in new[] { asked, confirming })
         {
             Assert.That(bar.Mono, Is.True, "the inputs stand in the well");
-            Assert.That(Kinds(bar.Body), Is.EqualTo(well), "each input its name, then its value literally, one input a block");
-            Assert.That(bar.Description?.Text, Is.EqualTo("Use fetch"), "the summary's first line above the well, its code marks gone");
-            Assert.That(bar.Description!.AllTheirs, Is.True);
+            Assert.That(Kinds(bar.Body), Is.EqualTo(well), "each input its name, as given and no colon added, then its value literally, one input a block");
+            Assert.That(bar.Description, Is.Null, "no line of the summary under the heading, and no key line where no line breaks");
         }
+        Assert.That((asked.Sentence, asked.DialogTitle?.Text, asked.DialogTitle?.AllTheirs), Is.EqualTo(((string?)"Use fetch", (string?)"Use fetch", (bool?)true)),
+            "the summary's first line, its code marks gone, is the one heading, the dialog's title, the agent's words");
         Assert.That(asked.AsDialog, Is.True, "the approval stands as its dialog, the inputs in its well");
+        Assert.That((confirming.Sentence, confirming.DialogTitle), Is.EqualTo(((string?)"Approve Request?", (LineWords?)null)), "the confirmation asks its own question");
         var (words, mono) = RoomBar.Reading(line, workspace, instruction: false);
         Assert.That((Kinds(words), mono), Is.EqualTo((well, true)).Using<(IEnumerable<(string, string)> Runs, bool Mono)>(
             (a, b) => a.Runs.SequenceEqual(b.Runs) && a.Mono == b.Mono), "the file counts the parts by exactly what the well draws");
@@ -547,38 +555,66 @@ public class RoomBarTests
     }
 
     [Test]
-    public void AJsonInputIsDrawnAsItIsWritten()
+    public void TheHeadingIsTheSummarysFirstLineAsTheHostWroteItNeverUseComposedWithTheToolsName()
     {
-        const string json = "{\"depth\":2,\"paths\":[\"a b\",\"c\"],\"note\":\"x\\ny\\t\"}";
         var workspace = Asking(new ToolUseSubject
         {
-            ToolName = "search", Summary = "Use search\noptions: " + json, Inputs = new List<ApprovalInput> { Input("options", json, ApprovalInputKind.Json) },
+            ToolName = "odd‮name", Summary = "Use \"odd\\u202Ename\"\nq: x", Inputs = new List<ApprovalInput> { Input("q", "x") },
         });
         var asked = AskedAndConfirming(workspace).Asked;
-        Assert.That(Kinds(asked.Body), Is.EqualTo(new[] { ("ours", "options\n"), ("theirs", json) }), "JSON's own escapes stay as written, never marks");
+        Assert.That((asked.Sentence, asked.DialogTitle?.Text), Is.EqualTo(((string?)"Use \"odd\\u202Ename\"", (string?)"Use \"odd\\u202Ename\"")));
+        // A command keeps its own question and the agent's sentence above its well.
+        var command = AskedAndConfirming(Asking(new ToolUseSubject { ToolName = "Bash", Summary = "Run the tests", Command = Bare("pnpm test") })).Asked;
+        Assert.That((command.Sentence, command.DialogTitle, command.Description?.Text), Is.EqualTo(((string?)"Run Command?", (LineWords?)null, (string?)"Run the tests")));
     }
 
     [Test]
-    public void InAValueALineBreakATabABidiControlAndEdgeSpacesAreMarksAndTypedLookAlikesStayTheAgents()
+    public void AJsonInputIsDrawnAsItIsWrittenNoQuoteAddedNothingReformatted()
     {
-        var workspace = Asking(new ToolUseSubject
+        const string json = "{\"depth\":2,\"paths\":[\"a b\",\"c\"],\"note\":\"x\\ny\\t\"}";
+        var asked = AskedWith(Input("n", "2", ApprovalInputKind.Json), Input("on", "true", ApprovalInputKind.Json), Input("o", "{\"a\":1}", ApprovalInputKind.Json),
+            Input("options", json, ApprovalInputKind.Json));
+        Assert.That(Kinds(asked.Body), Is.EqualTo(new[]
         {
-            ToolName = "write_note", Summary = "Use write_note\ntext: ...\ntyped: ...",
-            Inputs = new List<ApprovalInput> { Input("text", " one\n\ttwo‮three⁦four\u0085five "), Input("typed", "a↵b‹U+000A›c⇥d·") },
-        });
-        var (asked, confirming, line) = AskedAndConfirming(workspace);
-        var well = new[]
+            ("ours", "n\n"), ("theirs", "2"), ("ours", "\non\n"), ("theirs", "true"), ("ours", "\no\n"), ("theirs", "{\"a\":1}"), ("ours", "\noptions\n"), ("theirs", json),
+        }), "JSON's own escapes stay as written, never marks");
+    }
+
+    [Test]
+    public void AnEmptyValueKeepsItsEmptyRowAndAnEmptyNameDrawsItsValueWithNoNameLine()
+    {
+        Assert.That(Kinds(AskedWith(Input("a", ""), Input("b", "x")).Body), Is.EqualTo(new[] { ("ours", "a\n\nb\n"), ("theirs", "x") }));
+        Assert.That(AskedWith(Input("a", ""), Input("b", "x")).Body.Text, Is.EqualTo("a\n\nb\nx"), "the empty value's row between the names");
+        Assert.That(Kinds(AskedWith(Input("", "v1"), Input("n", "v2")).Body), Is.EqualTo(new[] { ("theirs", "v1"), ("ours", "\nn\n"), ("theirs", "v2") }));
+        Assert.That(Kinds(AskedWith(Input("a", "1"), Input("", "2")).Body), Is.EqualTo(new[] { ("ours", "a\n"), ("theirs", "1"), ("ours", "\n"), ("theirs", "2") }));
+    }
+
+    [Test]
+    public void OldHostInputHasItsRawLineBreaksTabsAndEdgeSpacesMarkedAndTheKeyLineStandsAboveTheWell()
+    {
+        var asked = AskedWith(Input("text", " one\n\ttwo‮three "), Input("old", "\\u{202E} stays"));
+        Assert.That(Kinds(asked.Body), Is.EqualTo(new[]
         {
             ("ours", "text\n"), ("mark", "·"), ("theirs", "one"), ("mark", "↵"), ("ours", "\n"), ("mark", "⇥"), ("theirs", "two"), ("mark", "‹U+202E›"),
-            ("theirs", "three"), ("mark", "‹U+2066›"), ("theirs", "four"), ("mark", "‹U+0085›"), ("theirs", "five"), ("mark", "·"),
-            ("ours", "\ntyped\n"), ("theirs", "a↵b‹U+000A›c⇥d·"),
-        };
-        foreach (var bar in new[] { asked, confirming }) Assert.That(Kinds(bar.Body), Is.EqualTo(well));
-        Assert.That(Kinds(RoomBar.Reading(line, workspace, instruction: false).Words), Is.EqualTo(well));
+            ("theirs", "three"), ("mark", "·"), ("ours", "\nold\n"), ("theirs", "\\u{202E} stays"),
+        }), "a raw control is still marked by its code point, as a guard; an older event's escape text is the agent's text");
+        Assert.That(Kinds(asked.Description!), Is.EqualTo(new[] { ("ours", "↵ marks a new line.") }), "Halcyonic's key line, where a ↵ is drawn");
     }
 
     [Test]
-    public void TheCommandsWellMarksItsLineBreaksTabsAndEdgeSpacesTheSameWay()
+    public void NewHostInputKeepsTheMarksItWritesStyledAsMarksAndNeverMarkedTwice()
+    {
+        var asked = AskedWith(Input("text", "a↵\nb⇥c‹U+202E›d‹U+2039›e"));
+        Assert.That(Kinds(asked.Body), Is.EqualTo(new[]
+        {
+            ("ours", "text\n"), ("theirs", "a"), ("mark", "↵"), ("ours", "\n"), ("theirs", "b"), ("mark", "⇥"), ("theirs", "c"), ("mark", "‹U+202E›"),
+            ("theirs", "d"), ("mark", "‹U+2039›"), ("theirs", "e"),
+        }), "one ↵ before the break, the host's; a ‹ the app wrote arrives as ‹U+2039›, a mark");
+        Assert.That(asked.Description?.Text, Is.EqualTo("↵ marks a new line."));
+    }
+
+    [Test]
+    public void TheCommandsWellMarksItsLineBreaksTabsAndEdgeSpacesTheSameWayWithItsKeyLineUnderTheAgentsSentence()
     {
         var workspace = Asking(new ToolUseSubject { ToolName = "Bash", Summary = "Run the tests in the app", Command = Bare(" cd app\n\tpnpm test ") });
         var (asked, confirming, line) = AskedAndConfirming(workspace);
@@ -587,8 +623,24 @@ public class RoomBarTests
         {
             Assert.That(bar.Mono, Is.True);
             Assert.That(Kinds(bar.Body), Is.EqualTo(well));
+            Assert.That(Kinds(bar.Description!), Is.EqualTo(new[] { ("theirs", "Run the tests in the app"), ("ours", "\n↵ marks a new line.") }));
         }
         Assert.That(Kinds(RoomBar.Reading(line, workspace, instruction: false).Words), Is.EqualTo(well));
+        Assert.That(AskedAndConfirming(Asking(new ToolUseSubject { ToolName = "Bash", Summary = "Run it", Command = Bare("pnpm test") })).Asked.Description?.Text,
+            Is.EqualTo("Run it"), "no key line where no ↵ is drawn");
+    }
+
+    [Test]
+    public void ACommandAndInputsTogetherDrawTheCommandThenItsInputsDroppingNeither()
+    {
+        var workspace = Asking(new ToolUseSubject
+        {
+            ToolName = "Bash", Summary = "Run ls", Command = Bare("ls -la"), Inputs = new List<ApprovalInput> { Input("command", "ls -la"), Input("timeout", "30", ApprovalInputKind.Json) },
+        });
+        var (asked, confirming, _) = AskedAndConfirming(workspace);
+        foreach (var bar in new[] { asked, confirming })
+            Assert.That(Kinds(bar.Body), Is.EqualTo(new[] { ("theirs", "ls -la"), ("ours", "\ncommand\n"), ("theirs", "ls -la"), ("ours", "\ntimeout\n"), ("theirs", "30") }));
+        Assert.That((asked.Sentence, asked.DialogTitle), Is.EqualTo(((string?)"Run Command?", (LineWords?)null)), "a command keeps its own title");
     }
 
     [Test]
@@ -600,13 +652,6 @@ public class RoomBarTests
         Assert.That((confirming.Mono, confirming.Body.Text), Is.EqualTo((false, "Use fetch")));
         Assert.That(RoomBar.Reading(line, workspace, instruction: false).Mono, Is.False);
         Assert.That(WorkspaceText.Well(workspace.ApprovalToAnswer), Is.Null);
-        // Where a command stands, its well is the command's alone.
-        var both = new ApprovalView
-        {
-            ApprovalId = WaitingWork.ApprovalId, Approvable = true, RequestedAt = Samples.Time,
-            Subject = new ToolUseSubject { ToolName = "Bash", Summary = "ls", Command = Bare("ls"), Inputs = new List<ApprovalInput> { Input("command", "ls") } },
-        };
-        Assert.That(Kinds(WorkspaceText.Well(both)!), Is.EqualTo(new[] { ("theirs", "ls") }));
     }
 
     [Test]

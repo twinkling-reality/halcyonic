@@ -337,7 +337,7 @@ public class LineWordsTests
     }
 
     [Test]
-    public void ALiteralDrawsControlsBidiControlsAndOtherWhiteSpaceAsMarksByTheirCodePoints()
+    public void ALiteralDrawsRawControlsBidiControlsAndOtherWhiteSpaceAsMarksByTheirCodePointsAsAGuard()
     {
         Assert.That(Kinds(LineWords.Literal("x‪y‮z⁦w⁩v\u0085u\r\nt\u0007s r​q")), Is.EqualTo(new[]
         {
@@ -347,13 +347,25 @@ public class LineWordsTests
         }));
     }
 
-    [TestCase("a↵b")]
-    [TestCase("‹U+000A›")]
-    [TestCase("tab⇥ dot· ‹U+202E›")]
-    [TestCase("\\u{202E} \\n")]
-    public void WhatAnAgentTypesThatLooksLikeAMarkStaysItsOwnText(string typed)
+    [Test]
+    public void TheMarksTheHostWritesAreStyledAsMarksAndNeverDoubled()
     {
-        Assert.That(Kinds(LineWords.Literal(typed)), Is.EqualTo(new[] { ("theirs", typed) }), "only a mark run draws as a mark");
+        Assert.That(Kinds(LineWords.Literal("a↵\nb")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "↵"), ("ours", "\n"), ("theirs", "b") }), "one ↵, the host's");
+        Assert.That(Kinds(LineWords.Literal("a ↵\nb")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "·↵"), ("ours", "\n"), ("theirs", "b") }), "the space before the host's break shows");
+        Assert.That(Kinds(LineWords.Literal("⇥x")), Is.EqualTo(new[] { ("mark", "⇥"), ("theirs", "x") }));
+        Assert.That(Kinds(LineWords.Literal("a‹U+202E›b‹U+2039›c‹U+1F600›")), Is.EqualTo(new[]
+        {
+            ("theirs", "a"), ("mark", "‹U+202E›"), ("theirs", "b"), ("mark", "‹U+2039›"), ("theirs", "c"), ("mark", "‹U+1F600›"),
+        }));
+        Assert.That(Kinds(LineWords.Literal("a↵b")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "↵"), ("theirs", "b") }), "a ↵ with no break is still a mark");
+    }
+
+    [TestCase("\\u{202E} \\n")]
+    [TestCase("dot· ‹U+› ‹U+12 ‹U+1234567› ‹u+00A0› U+0041")]
+    [TestCase("‹x›")]
+    public void WhatIsNoMarkStaysOutsideText(string typed)
+    {
+        Assert.That(Kinds(LineWords.Literal(typed)), Is.EqualTo(new[] { ("theirs", typed) }), "escape text and a code point not shown by the rule are words");
     }
 
     [Test]
@@ -363,6 +375,7 @@ public class LineWordsTests
         Assert.That(Kinds(LineWords.Literal("a ") + LineWords.Theirs("b")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "·"), ("theirs", "b") }));
         Assert.That(Kinds(LineWords.Literal("a\t") + LineWords.Ours("x")), Is.EqualTo(new[] { ("theirs", "a"), ("mark", "⇥"), ("ours", "x") }));
         Assert.That(LineWords.Literal("a\t").AllTheirs, Is.False);
+        Assert.That((LineWords.Literal("a\nb").MarksLineBreak, LineWords.Literal("a\tb").MarksLineBreak), Is.EqualTo((true, false)));
     }
 
     [Test]

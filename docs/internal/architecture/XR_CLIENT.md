@@ -2957,26 +2957,34 @@ in order, as before.
   a markdown code span's backticks removed (`WorkspaceText.WithoutCodeMarks`), as `RoomBar.Description`, which the
   dialog lays between its question and its well (the narrow pair does not lay it yet). A tool that runs no command but
   carries its inputs in their parts (`ToolUseSubject.Inputs`, an ACP app's fetch and its kin) has them in the well
-  instead, in their order, one block each: the input's name on a line of its own, Halcyonic's run, then its value as the
-  app gave it, a JSON value as written; the sentence above the well is then only the summary's first line, "Use {tool}",
-  as the lines after it say the inputs the well draws. A command wins where both are given. The well is literal by
-  `LineWords.Literal` (AUDIT3's LI4): a line break draws as ↵ and the line breaks after it, a tab as ⇥, a space at either
-  end or just before a line break as a middle dot, and every other white space, control, bidi control (U+202A to U+202E,
-  U+2066 to U+2069), NEL, format or private use character by its code point (‹U+202E›), each a mark run of its own
-  (`WordRun.Mark`), never the agent's text, so the same glyphs typed by an agent stay its text. `RoomBarView` sets the well
-  through `GlazeRuns.SetWell`: the agent's text in the label's white, each mark at half of it and an input's name at 78
-  percent of it, white alone, no hue (one label draws one face, so a mark takes the label role's lighter white, not its
-  face). The host escapes the controls and bidi characters of a command's and an input's parts as `\u{...}` text before
-  any client sees them (`visible` in the control plane's drafts), so those arrive as the agent's text; only what reaches
-  the client raw (a line break, a tab, a space, other white space such as a no-break space, a private use character)
-  draws as a mark today. A known gap: the static faces (`KitFontAtlas.Characters`) hold neither ↵ nor ⇥, nor does their
-  Liberation Sans fallback, and JetBrains Mono has no ↵ at all, so until a face that draws them backs the mono face those
-  two marks draw as missing glyphs (the middle dot and the code points draw). An approval with neither the
-  command's own parts nor any input draws no well: the panel holds that sentence alone, in body type, asked and under its
-  confirmation.
+  instead, in their order, one block each: the input's name on a quiet line of its own, as given, no colon added,
+  Halcyonic's run, then its value as the app gave it, a JSON value as written, no quote added and nothing reformatted. An
+  empty value keeps its empty row; an empty name draws its value with no name line above it. Such an approval has one
+  heading, the summary's first line as the adapter wrote it (`WorkspaceText.Heading`, `Summary.Split('\n')[0]`, "Use
+  {tool}", quoted where the host quoted the name, only its code marks removed), drawn once as the dialog's title
+  (`RoomBar.DialogTitle`, theirs), never "Use " composed with the tool's name; no other line of the summary is drawn, as
+  they say the inputs again, and no sentence stands above the well. Where both a command and inputs arrive, which no
+  adapter sends, the well holds the command, then the inputs below it, neither dropped, under the command's title. The
+  well is literal by `LineWords.Literal` (AUDIT3's LI4), the client's one marking function, each mark a run of its own
+  (`WordRun.Mark`): the marks the host writes (a code point as ‹U+202E›, ↵ before a line break, ⇥ for a tab) are given
+  the mark role as they arrive, as the host escapes those glyphs in an app's own text (‹U+2039› for a ‹); and until the
+  host writes them (the lead's ruling, 2026-11-17), it marks what reaches it raw itself: ↵ before a line feed with none
+  before it, the line still breaking after it, ⇥ for a tab, a middle dot for a space at either end or just before a line
+  break, and, as a guard, a raw control, bidi, format or other hidden character by its code point. Text such as
+  `\u{202E}`, which older events carry, is the agent's text and never re-parsed. Until the host lands, a ↵ an agent typed
+  draws as a mark too; the host closes that, and the function then shrinks to styling the host's marks. Where the well
+  draws a ↵, Halcyonic's key line "↵ marks a new line." stands above it in body type (`WorkspaceText.LineBreakKey`, in
+  `RoomBar.Description`, under the agent's sentence or alone), for the whole well, not only the part on screen.
+  `RoomBarView` sets the well through `GlazeRuns.SetWell`: the agent's text in the label's white, each mark at half of it
+  and an input's name at 78 percent of it, white alone, no hue (one label draws one face, so a mark takes the label
+  role's lighter white, not its face). A known gap: the static faces (`KitFontAtlas.Characters`) hold neither ↵ nor ⇥,
+  nor does their Liberation Sans fallback, and JetBrains Mono has no ↵ at all, so until a face that draws them backs the
+  mono and reading faces those two marks, and the key line's ↵, draw as missing glyphs (the middle dot and the code
+  points draw). An approval with neither the command's own parts nor any input draws no well: the panel holds that
+  sentence alone, in body type, asked and under its confirmation.
   `WorkspaceText.Request` ("bash: ..."), the file's own line and the confirmation's identity, never feeds the well or the
   title. What it asks stands in the sentence bar, the dialog's title
-  (Run Command? for a command, else the product's Use {tool}; with no tool named the panel is the one line Approval
+  (Run Command? for a command, a tool's inputs their heading, else the product's Use {tool}; with no tool named the panel is the one line Approval
   Requested and has no bar), and in the column Approve (main) and Deny, the frame's own prompts. A request that can
   only be denied shows Deny alone and the product's reason in the sentence bar (The command is too long to show, so you can only deny it. and its
   kin). Either answer asks the file for its confirmation, which sends nothing: the panel then reads the request part
