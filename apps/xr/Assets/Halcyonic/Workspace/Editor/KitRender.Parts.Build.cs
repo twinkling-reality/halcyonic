@@ -20,7 +20,18 @@ namespace Halcyonic.XR.Workspace.Editor
     /// </summary>
     public static partial class KitRender
     {
-        private static readonly string[] BuildStates = { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after" };
+        private static readonly string[] BuildStates = new[] { "47-build-one", "47-build-edited", "47-build-arriving", "47-build-held", "47-build-light", "47-build-light-after" }
+            .Concat(System.Environment.GetEnvironmentVariable("HALCYONIC_KIT_STRIP") == "1" ? Enumerable.Range(0, PourFrames).Select(frame => "47-build-pour-" + frame.ToString("00", CultureInfo.InvariantCulture)) : System.Array.Empty<string>())
+            .ToArray();
+
+        /// <summary>
+        /// The pour in motion, for AUDIT's read (HALCYONIC_KIT_STRIP=1 only, never a gate's run): the edited file from the moment
+        /// its changed lines start to pour in, a frame every 0.1 s across 1.2 s.
+        /// </summary>
+        private const int PourFrames = 13;
+
+        private static bool Moving(string state) =>
+            state.StartsWith("47-build-light", System.StringComparison.Ordinal) || state.StartsWith("47-build-pour", System.StringComparison.Ordinal);
 
         /// <summary>The arc's states: three files (two panels, the first a row), and a fourth that folds the older panel into the files so far, settled and caught mid-fold.</summary>
         private static readonly string[] BuildArcStates = { "47-build-three", "47-build-most", "47-build-folding", "47-build-settle", "47-build-after" };
@@ -258,7 +269,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 WritingPanel shown;
                 IReadOnlyList<int> lit = new int[0];
-                if (state == "47-build-edited" || state.StartsWith("47-build-light", System.StringComparison.Ordinal))
+                if (state == "47-build-edited" || Moving(state))
                 {
                     view.Show(BuildPanel(BuildFile));
                     view.Settle();
@@ -277,6 +288,12 @@ namespace Halcyonic.XR.Workspace.Editor
                     Require(Mathf.Abs(view.RowShown(first) - firstIn) < 0.01f, "the first changed row stands " + view.RowShown(first).ToString("0.00") + " in, not " + firstIn.ToString("0.00"));
                     Require(view.RowShown(first + 2) < 0.01f, "a row two after the change is already in: " + view.RowShown(first + 2).ToString("0.00"));
                     Require(lit.Count >= 3, "the edit lit " + lit.Count + " rows, not three or more");
+                    if (state.StartsWith("47-build-pour", System.StringComparison.Ordinal))
+                    {
+                        // The strip's frame: this far into the pour (frame 0 at its start), drawn as the panel draws it then.
+                        clock += int.Parse(state.Substring("47-build-pour-".Length), CultureInfo.InvariantCulture) * 0.1f - 0.1f;
+                        view.Show(shown);
+                    }
                     if (state.StartsWith("47-build-light", System.StringComparison.Ordinal))
                     {
                         // The light, frame by frame (AUDIT's raised bar): 0.1 s in, the first new row's light has run most of
@@ -328,7 +345,7 @@ namespace Halcyonic.XR.Workspace.Editor
                             view.Show(shown);
                         }
                     }
-                    else
+                    else if (!state.StartsWith("47-build-pour", System.StringComparison.Ordinal))
                     {
                         clock += RoomWritingPanel.RevealMostSeconds + RoomWritingPanel.RowFadeSeconds;
                         view.Show(shown);
@@ -388,10 +405,10 @@ namespace Halcyonic.XR.Workspace.Editor
                         Require(!rows[index].isTextOverflowing && !rows[index].isTextTruncated && rows[index].GetParsedText().TrimEnd(' ') == texts[index], "row " + index + " is not whole: \"" + rows[index].GetParsedText() + "\"");
                         // A read that changed some lines leaves the others quiet (RoomWritingPanel.QuietRow); none falls below that.
                         var floor = (shown.Lit?.Count ?? 0) > 0 ? 0.79f * RoomWritingPanel.QuietRow : 0.79f;
-                        if (state != "47-build-arriving" && !state.StartsWith("47-build-light", System.StringComparison.Ordinal)) Require(rows[index].alpha > floor, "settled, row " + index + " stands at " + rows[index].alpha.ToString("0.00"));
+                        if (state != "47-build-arriving" && !Moving(state)) Require(rows[index].alpha > floor, "settled, row " + index + " stands at " + rows[index].alpha.ToString("0.00"));
                     }
                     // And the changed lines stand whole, brighter than the quiet ones, so what changed reads at a glance.
-                    if ((shown.Lit?.Count ?? 0) > 0 && state != "47-build-arriving" && !state.StartsWith("47-build-light", System.StringComparison.Ordinal))
+                    if ((shown.Lit?.Count ?? 0) > 0 && state != "47-build-arriving" && !Moving(state))
                         Require(rows.Any(each => each.alpha > 0.79f), "no changed line stands whole over the quiet ones");
                     // Each row keeps its line's indent: a row the file indents stands right of one it does not, a continued row further.
                     var lefts = shown.Lines.Where(line => line.Trim(' ').Length > 0).Select(line => line.Length - line.TrimStart(' ').Length).ToList();
@@ -403,7 +420,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 }
                 var bands = view.Card.Plates.Where(each => each.What == "reading lit band").ToList();
                 var rules = view.Card.Plates.Where(each => each.What == "reading lit rule").ToList();
-                if (state == "47-build-edited" || state.StartsWith("47-build-light", System.StringComparison.Ordinal)) Require(bands.Count > 0 && rules.Count == bands.Count, "the changed rows are not lit: " + bands.Count + " bands, " + rules.Count + " rules");
+                if (state == "47-build-edited" || Moving(state)) Require(bands.Count > 0 && rules.Count == bands.Count, "the changed rows are not lit: " + bands.Count + " bands, " + rules.Count + " rules");
                 else Require(bands.Count == 0, "rows no read changed are lit");
                 // Each rule stands clear of the words, left of the first letter, and inside the glass.
                 if (rows.Count > 0 && rules.Count > 0)
@@ -452,11 +469,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     // A read that changed some lines leaves the others quiet (RoomWritingPanel.QuietRow), still plainly there.
                     var rowFloor = bands.Count > 0 ? 100 : 140;
-                    if (state != "47-build-arriving" && !state.StartsWith("47-build-light", System.StringComparison.Ordinal) && rowLight.Any(value => value < rowFloor)) failures.Add("a row is not in the pixels: " + string.Join(", ", rowLight));
+                    if (state != "47-build-arriving" && !Moving(state) && rowLight.Any(value => value < rowFloor)) failures.Add("a row is not in the pixels: " + string.Join(", ", rowLight));
                     // The code stands on the glass: no well under it.
                     if (view.Card.Plates.Any(each => each.What == "reading well" && each.Plate.gameObject.activeInHierarchy && each.Plate.Fill.a > 0.01f)) failures.Add("a well stands under the code");
                     var ruleNote = "";
-                    if (rules.Count > 0)
+                    // A run's rule grows down with its rows, so a pour's frame before its first changed row has none yet; settled, it stands.
+                    if (rules.Count > 0 && !Moving(state) && !rules[0].Plate.gameObject.activeInHierarchy) failures.Add("a settled read draws no lit rule");
+                    if (rules.Count > 0 && rules[0].Plate.gameObject.activeInHierarchy)
                     {
                         var pixel = At(dark, rules[0].Plate.transform.TransformPoint(Vector3.zero));
                         ruleNote = ", the lit rule " + pixel;
