@@ -26,6 +26,9 @@ namespace Halcyonic.XR
         /// parts as <see cref="DrawnTagSize"/> is, so a place's back row can rise until its tags clear the front row's bodies as the eyes see them.</summary>
         public static System.Func<CharacterView, Vector3[]?>? DrawnTagCorners { get; set; }
 
+        /// <summary>Lays <paramref name="view"/>'s tag again with its words as they are, after its bound changed (published by the room's parts).</summary>
+        public static System.Action<CharacterView>? RedrawTag { get; set; }
+
         /// <summary>How high a back row may rise to clear the front row's bodies, in metres: past it the row stands as high as it can.</summary>
         public const float BackRowRiseMost = 0.8f;
 
@@ -290,6 +293,30 @@ namespace Halcyonic.XR
                 }
             }
             Lay();
+            float WidestDegrees()
+            {
+                var most = 0f;
+                foreach (var view in views)
+                    if (DrawnTagSize?.Invoke(view) is Vector2 drawn)
+                        most = Mathf.Max(most, (float)PlacePitch.DegreesOf(drawn.x, Vector3.Distance(view.Labels.position, eyes)));
+                return most;
+            }
+            // A tag bounded in degrees is held to them as DRAWN: where the widest stands wider, every bound tightens by as much and the tags
+            // are laid again, so the row of three holds whatever the type's metrics (two passes settle it).
+            for (var pass = 0; pass < 3 && RedrawTag != null; pass++)
+            {
+                var target = views.Where(view => view.TagMostDegrees.HasValue).Select(view => view.TagMostDegrees!.Value).DefaultIfEmpty(0f).Min();
+                var drawnMost = WidestDegrees();
+                if (target <= 0f || drawnMost <= PlaceTagMostDegrees + 0.05f) break;
+                var tighter = PlaceTagMostDegrees / drawnMost;
+                foreach (var view in views)
+                {
+                    if (view.TagMostDegrees is not float bound) continue;
+                    view.TagMostDegrees = bound * tighter;
+                    RedrawTag(view);
+                }
+                Lay();
+            }
             var widest = 0f;
             foreach (var view in views)
                 if (DrawnTagSize?.Invoke(view) is Vector2 drawn) widest = Mathf.Max(widest, drawn.x);
@@ -322,7 +349,26 @@ namespace Halcyonic.XR
                 rise = Mathf.Min(BackRowRiseMost, rise + BackRowRiseStep);
                 Lay();
             }
+            HoldBackRowType(views, rowMost, eyes);
             return (pitch, rowMost, rise);
+        }
+
+        /// <summary>
+        /// A back row's tags keep the front row's type size as seen and never stand larger (the lead's 2026-11-17T20:4xZ MUST): each back-row
+        /// character's labels shrink by how much larger a tag unit stands at its distance than the front row's mean.
+        /// </summary>
+        private static void HoldBackRowType(IReadOnlyList<CharacterView> views, int rowMost, Vector3 eyes)
+        {
+            if (views.Count <= rowMost) return;
+            float TypeAt(CharacterView view) => view.Labels.lossyScale.x / Mathf.Max(1e-4f, Vector3.Distance(view.Labels.position, eyes));
+            var front = 0f;
+            for (var index = 0; index < rowMost; index++) front += TypeAt(views[index]);
+            front /= rowMost;
+            for (var index = rowMost; index < views.Count; index++)
+            {
+                var type = TypeAt(views[index]);
+                if (type > front) views[index].Labels.localScale *= front / type;
+            }
         }
 
         /// <summary>

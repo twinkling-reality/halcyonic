@@ -59,6 +59,7 @@ namespace Halcyonic.XR.UI
             // A place's pitch comes from its widest tag as drawn (FIELD's PlacePitch): the stage reads it through this.
             CharacterStage.DrawnTagSize ??= DrawnSize;
             CharacterStage.DrawnTagCorners ??= DrawnCorners;
+            CharacterStage.RedrawTag ??= character => On(character).Show();
             made = character.gameObject.AddComponent<RoomNameTag>();
             made.view = character;
             character.Shown += made.Show;
