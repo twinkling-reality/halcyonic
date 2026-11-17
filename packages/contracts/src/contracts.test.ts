@@ -756,6 +756,10 @@ describe('the C# bindings', () => {
     'ProjectOwnCheckRecordedPayload.workstream_id', // ADR 0055, as ADR 0045
     'ProjectOwnCheckRunView.workstream_id', // ADR 0055
     'ProjectOwnCheckView.open_ports',
+    'ProjectPreviewStartPayload.workstream_id', // one task's copy previewed beside others (limits audit #5 and #6)
+    'ProjectPreviewStartedPayload.workstream_id',
+    'ProjectPreviewStopPayload.workstream_id',
+    'ProjectPreviewStoppedPayload.workstream_id',
     'ProjectPublishPayload.make_public', // ADR 0039, amended: the first Send, its title, Make Public
     'ProjectRemoveFromListPayload.review', // the review a removal carries (ADR 0063)
     'ProjectRestorePayload.review', // the review a restore carries (ADR 0051)
@@ -828,6 +832,7 @@ describe('the C# bindings', () => {
     'WorkstreamCreatedPayload.from_checkpoint', // the version a task starts from (ADR 0045)
     'WorkstreamView.copy', // a task's own copy (ADR 0045)
     'WorkstreamView.from_checkpoint', // the version a task starts from (ADR 0045)
+    'WorkstreamView.preview', // the preview of the task's own copy (limits audit #5 and #6)
     'WorkstreamView.usage', // what its runs used, by its project's rule (the lead, 2026-11-16)
   ];
 

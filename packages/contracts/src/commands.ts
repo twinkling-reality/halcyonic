@@ -137,10 +137,6 @@ export const ProjectCheckCommand = defineCommand(
 );
 
 /**
- * Serves the built copy of the project's latest check on a loopback port, only when that check
- * passed. The live folder is never served, so nothing changed after the check reaches the page.
- */
-/**
  * The person chooses a project's own check (ADR 0055): scripts of the project's own `package.json`,
  * by name and the SHA-256 of each command as the host offered it (`GET /api/projects/:project_id/own-check`);
  * a command changed since is refused. The host records
@@ -168,15 +164,36 @@ export const ProjectOwnCheckChooseCommand = defineCommand(
   ),
 );
 
+/**
+ * Serves the built copy of the project's latest check on a loopback port, only when that check
+ * passed. The live folder is never served, so nothing changed after the check reaches the page.
+ */
 export const ProjectPreviewStartCommand = defineCommand(
   'project.preview.start',
-  Type.Object({ project_id: ProjectId }, strict),
+  Type.Object(
+    {
+      project_id: ProjectId,
+      /**
+       * The task whose own copy's latest passed check is served (ADR 0045, limits audit #5 and #6), beside the
+       * project's own preview and every other task's; absent, the project's preview as before.
+       */
+      workstream_id: Type.Optional(WorkstreamId),
+    },
+    strict,
+  ),
 );
 
-/** Stops the project's preview. */
+/** Stops the project's preview, or the preview of one task's own copy when it names the task. */
 export const ProjectPreviewStopCommand = defineCommand(
   'project.preview.stop',
-  Type.Object({ project_id: ProjectId }, strict),
+  Type.Object(
+    {
+      project_id: ProjectId,
+      /** The task whose preview stops; absent, the project's own preview. */
+      workstream_id: Type.Optional(WorkstreamId),
+    },
+    strict,
+  ),
 );
 
 /**

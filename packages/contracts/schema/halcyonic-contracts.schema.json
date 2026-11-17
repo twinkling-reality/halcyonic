@@ -4250,6 +4250,10 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 65535
+                },
+                "workstream_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 }
               },
               "additionalProperties": false
@@ -4373,6 +4377,10 @@
                 },
                 "reason": {
                   "$ref": "#/$defs/PreviewStopReason"
+                },
+                "workstream_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 }
               },
               "additionalProperties": false
@@ -14896,6 +14904,10 @@
                 "project_id": {
                   "type": "string",
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "workstream_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 }
               },
               "additionalProperties": false
@@ -14941,6 +14953,10 @@
               ],
               "properties": {
                 "project_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "workstream_id": {
                   "type": "string",
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 }
@@ -21976,6 +21992,42 @@
         },
         "usage": {
           "$ref": "#/$defs/RunUsage"
+        },
+        "preview": {
+          "type": "object",
+          "required": [
+            "check_id",
+            "port",
+            "files"
+          ],
+          "properties": {
+            "check_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "files": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "unknown"
+                },
+                {
+                  "type": "string",
+                  "const": "current"
+                },
+                {
+                  "type": "string",
+                  "const": "changed"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "created_at": {
           "type": "string",

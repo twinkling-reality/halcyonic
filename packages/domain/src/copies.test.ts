@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { deserialize, serialize } from 'node:v8';
 import type {
   CommandEnvelope,
   CommandId,
@@ -8,7 +9,7 @@ import type {
   WorkstreamId,
 } from '@halcyonic/contracts';
 import { admitCommand, type RuntimeCatalog } from './admission.ts';
-import { Projection } from './projection.ts';
+import { Projection, type ProjectionState } from './projection.ts';
 import { EventBuilder } from './testing/events.ts';
 
 // A task's own copy of its project's folder, and the one step that adds its work (ADR 0045).
@@ -526,6 +527,174 @@ describe("checking a task's own copy (ADR 0045)", () => {
       }),
     );
     assert.equal(projection.latestCheck(project.projectId)?.files, 'changed');
+  });
+
+  test("two tasks' copies are checked and previewed side by side, each by its own latest check, and neither stops the other (limits audit #5 and #6)", () => {
+    const { b, projection, project, task, copyMade, running, accept, admit, refusal } = setup();
+    const projectScope = { project_id: project.projectId, workstream_id: null, execution_id: null };
+    projection.apply(
+      b.controlPlane('project.starter_applied', projectScope, {
+        starter_id: 'iwsdk-vr',
+        lockfile: 'a'.repeat(64),
+        files: 12,
+        template: 'b'.repeat(64),
+      } as never),
+    );
+    let n = 0;
+    const command = (
+      type: 'project.check' | 'project.preview.start' | 'project.preview.stop',
+      workstreamId?: WorkstreamId,
+    ): CommandEnvelope => {
+      n += 1;
+      return {
+        schema_version: 1,
+        command_id: `00000000-0000-4000-8000-${String(950 + n).padStart(12, '0')}` as CommandId,
+        issued_at: '2026-11-17T10:00:00.000Z',
+        client: { name: 'test', version: null, device_label: null },
+        command_type: type,
+        payload: {
+          project_id: project.projectId,
+          ...(workstreamId === undefined ? {} : { workstream_id: workstreamId }),
+        },
+      } as CommandEnvelope;
+    };
+    const first = task('First');
+    const second = task('Second');
+    const shared = task('Shared');
+    copyMade(first);
+    copyMade(second);
+
+    // A check of the first task's copy under way: the second's is admitted beside it, the first's own is not.
+    const checking = command('project.check', first);
+    accept(checking, first);
+    assert.equal(admit(command('project.check', second)).admitted, true);
+    assert.match(refusal(command('project.check', first)) ?? '', /this task is still under way/);
+    // Nor does its preview start while it is checked; the second task's may.
+    assert.match(
+      refusal(command('project.preview.start', first)) ?? '',
+      /A check of this task is still under way/,
+    );
+    projection.apply(
+      b.controlPlane(
+        'command.completed',
+        { ...projectScope, workstream_id: first },
+        {
+          command_id: checking.command_id,
+          command_type: 'project.check',
+          result: null,
+        },
+      ),
+    );
+
+    // Neither task has a check yet: its preview is refused in words.
+    assert.equal(
+      refusal(command('project.preview.start', first)),
+      'Only the copy of a passed check is served. Check this task first.',
+    );
+    assert.equal(
+      refusal(command('project.preview.start', shared)),
+      "This task works in the project's own folder: preview the project.",
+    );
+    assert.equal(
+      refusal(command('project.preview.stop', first)),
+      'This task has no preview running.',
+    );
+
+    const checkA = '01920000-0000-7000-8000-0000000000f1' as never;
+    const checkB = '01920000-0000-7000-8000-0000000000f2' as never;
+    projection.apply(
+      b.controlPlane('project.check.recorded', projectScope, {
+        check_id: checkA,
+        findings: findings(true),
+        workstream_id: first,
+      }),
+    );
+    projection.apply(
+      b.controlPlane('project.check.recorded', projectScope, {
+        check_id: checkB,
+        findings: findings(true),
+        workstream_id: second,
+      }),
+    );
+    // The project's latest check is still the latest of all; each task has its own.
+    assert.equal(projection.latestCheck(project.projectId)?.check_id, checkB);
+    assert.equal(projection.latestTaskCheck(first)?.check_id, checkA);
+    assert.equal(projection.latestTaskCheck(second)?.check_id, checkB);
+    assert.equal(projection.latestTaskCheck(shared), undefined);
+
+    const started = admit(command('project.preview.start', first));
+    assert.equal(started.admitted, true);
+    assert.equal(started.scope.workstream_id, first);
+    projection.apply(
+      b.controlPlane('project.preview.started', projectScope, {
+        check_id: checkA,
+        port: 47931,
+        workstream_id: first,
+      }),
+    );
+    projection.apply(
+      b.controlPlane('project.preview.started', projectScope, {
+        check_id: checkB,
+        port: 47932,
+        workstream_id: second,
+      }),
+    );
+    assert.deepEqual(projection.taskPreview(first), {
+      check_id: checkA,
+      port: 47931,
+      files: 'current',
+    });
+    assert.deepEqual(projection.workstream(second)?.preview, {
+      check_id: checkB,
+      port: 47932,
+      files: 'current',
+    });
+    // The project's own preview is another: none runs, and a start of it is admitted.
+    assert.equal(projection.preview(project.projectId), undefined);
+    assert.equal(projection.project(project.projectId)?.preview, undefined);
+    assert.equal(admit(command('project.preview.start')).admitted, true);
+    assert.equal(
+      refusal(command('project.preview.start', first)),
+      'This task already has a preview running.',
+    );
+    // A check of the first task under way leaves the second's preview admitted to stop, and runs beside it.
+    assert.equal(admit(command('project.check', first)).admitted, true);
+
+    // Stopping the first leaves the second.
+    projection.apply(
+      b.controlPlane('project.preview.stopped', projectScope, {
+        check_id: checkA,
+        reason: 'asked',
+        workstream_id: first,
+      }),
+    );
+    assert.equal(projection.taskPreview(first), undefined);
+    assert.equal(projection.workstream(first)?.preview, undefined);
+    assert.equal(projection.taskPreview(second)?.port, 47932);
+    // A stop naming another check, or the project, changes neither.
+    projection.apply(
+      b.controlPlane('project.preview.stopped', projectScope, {
+        check_id: checkB,
+        reason: 'asked',
+      }),
+    );
+    assert.equal(projection.taskPreview(second)?.port, 47932);
+
+    // A turn in the second task's copy makes its preview's files unknown, as its check's.
+    running(second, `${COPIES}/${second}/app`);
+    assert.equal(projection.taskPreview(second)?.files, 'unknown');
+    assert.equal(projection.workstream(second)?.preview?.files, 'unknown');
+
+    // Kept across a start that restores the projection from its checkpoint.
+    const state = deserialize(serialize(projection.exportState())) as ProjectionState;
+    const restarted = new Projection();
+    restarted.restoreState(state);
+    assert.equal(restarted.taskPreview(second)?.port, 47932);
+    assert.equal(restarted.latestTaskCheck(first)?.check_id, checkA);
+    assert.deepEqual(
+      restarted.taskPreviews(project.projectId).map((preview) => preview.workstream_id),
+      [second],
+    );
   });
 });
 

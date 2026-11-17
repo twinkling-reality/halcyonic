@@ -2950,6 +2950,26 @@ namespace Halcyonic.Contracts
         public string RefusedAt { get; set; } = default!;
     }
 
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum WorkstreamViewPreviewFiles
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+        [global::System.Runtime.Serialization.EnumMember(Value = "current")] Current,
+        [global::System.Runtime.Serialization.EnumMember(Value = "changed")] Changed,
+    }
+
+    public sealed class WorkstreamViewPreview
+    {
+        [global::Newtonsoft.Json.JsonProperty("check_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string CheckId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("port", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Port { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public WorkstreamViewPreviewFiles Files { get; set; }
+    }
+
     public sealed class WorkstreamView
     {
         [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -2984,6 +3004,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("usage", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
         public RunUsage? Usage { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("preview", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public WorkstreamViewPreview? Preview { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("created_at", Required = global::Newtonsoft.Json.Required.Always)]
         public string CreatedAt { get; set; } = default!;
@@ -4438,6 +4461,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("port", Required = global::Newtonsoft.Json.Required.Always)]
         public long Port { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? WorkstreamId { get; set; }
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -4456,6 +4482,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
         public PreviewStopReason Reason { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? WorkstreamId { get; set; }
     }
 
     public sealed class ProjectMacPlayStartedPayload
@@ -5439,12 +5468,18 @@ namespace Halcyonic.Contracts
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? WorkstreamId { get; set; }
     }
 
     public sealed class ProjectPreviewStopPayload
     {
         [global::Newtonsoft.Json.JsonProperty("project_id", Required = global::Newtonsoft.Json.Required.Always)]
         public string ProjectId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("workstream_id", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public string? WorkstreamId { get; set; }
     }
 
     public sealed class ProjectOpenOnMacPayload

@@ -501,13 +501,29 @@ export const ProjectOwnCheckRecorded = projectEvent(
  */
 export const ProjectPreviewStarted = projectEvent(
   'project.preview.started',
-  Type.Object({ check_id: CheckId, port: Type.Integer({ minimum: 1, maximum: 65535 }) }, strict),
+  Type.Object(
+    {
+      check_id: CheckId,
+      port: Type.Integer({ minimum: 1, maximum: 65535 }),
+      /** The task whose own copy's check is served (limits audit #5 and #6); absent, the project's own preview. */
+      workstream_id: Type.Optional(WorkstreamId),
+    },
+    strict,
+  ),
 );
 
-/** The project's preview stopped, and why. */
+/** The project's preview, or one task's when it names the task, stopped, and why. */
 export const ProjectPreviewStopped = projectEvent(
   'project.preview.stopped',
-  Type.Object({ check_id: CheckId, reason: PreviewStopReason }, strict),
+  Type.Object(
+    {
+      check_id: CheckId,
+      reason: PreviewStopReason,
+      /** The task whose preview stopped; absent, the project's own preview. */
+      workstream_id: Type.Optional(WorkstreamId),
+    },
+    strict,
+  ),
 );
 
 /**

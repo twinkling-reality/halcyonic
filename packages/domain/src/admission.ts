@@ -2,6 +2,7 @@ import type {
   CommandEnvelope,
   CommandRejection,
   CommandType,
+  CommandView,
   ExecutionId,
   ExecutionStatus,
   InstructionAttachment,
@@ -460,15 +461,22 @@ function admit(
               'invalid_state',
               `${commandInWords(busy.commandType)} for this task is still under way. Check it once that has finished.`,
             );
+          // One check or preview start of each task's copy at a time (limits audit #5 and #6): other tasks' copies
+          // and the project's own folder are checked and previewed beside it.
+          const same = sameTaskCheckOrStart(projection, projectId, task.workstream_id);
+          if (same !== undefined)
+            return reject(
+              taskScope,
+              'invalid_state',
+              `${commandInWords(same.command_type)} of this task is still under way. Check it once that has finished.`,
+            );
           const other = projection
             .pendingCommands()
             .find(
               (pending) =>
                 pending.project_id === projectId &&
-                (pending.command_type === 'project.check' ||
-                  pending.command_type === 'project.own_check.choose' ||
-                  pending.command_type === 'project.restore' ||
-                  pending.command_type === 'project.preview.start'),
+                (pending.command_type === 'project.own_check.choose' ||
+                  pending.command_type === 'project.restore'),
             );
           if (other !== undefined)
             return reject(
@@ -488,6 +496,9 @@ function admit(
           );
         return { admitted: true, policy, scope, runtime: null };
       }
+      const previewTask = command.payload.workstream_id;
+      if (previewTask !== undefined)
+        return admitTaskPreview(command.command_type, projection, scope, policy, previewTask);
       const preview = projection.preview(projectId);
       if (command.command_type === 'project.preview.stop') {
         if (preview === undefined)
@@ -1702,6 +1713,86 @@ function commandInWords(type: CommandType): string {
     default:
       return 'A command';
   }
+}
+
+/**
+ * A start or stop of the preview of one task's own copy (limits audit #5 and #6): the task is the project's and has a
+ * copy of its own, and its latest check, of that copy, is current and may be served, as the project's preview asks of
+ * the project's. One start at a time per task, never while its copy is checked; other tasks' and the project's own
+ * previews run beside it.
+ */
+function admitTaskPreview(
+  type: 'project.preview.start' | 'project.preview.stop',
+  projection: Projection,
+  scope: CommandScope,
+  policy: PolicyCategory,
+  taskId: WorkstreamId,
+): Admission {
+  const projectId = scope.project_id as ProjectId;
+  const task = projection.workstream(taskId);
+  if (task === undefined || task.project_id !== projectId)
+    return reject(scope, 'workstream_not_found', `Workstream ${taskId} is not this project's.`);
+  const taskScope = { ...scope, workstream_id: task.workstream_id };
+  const preview = projection.taskPreview(task.workstream_id);
+  if (type === 'project.preview.stop') {
+    if (preview === undefined)
+      return reject(taskScope, 'invalid_state', 'This task has no preview running.');
+    return { admitted: true, policy, scope: taskScope, runtime: null };
+  }
+  if (task.copy?.state !== 'own')
+    return reject(
+      taskScope,
+      'invalid_state',
+      "This task works in the project's own folder: preview the project.",
+    );
+  if (preview !== undefined)
+    return reject(taskScope, 'invalid_state', 'This task already has a preview running.');
+  const same = sameTaskCheckOrStart(projection, projectId, task.workstream_id);
+  if (same !== undefined)
+    return reject(
+      taskScope,
+      'invalid_state',
+      same.command_type === 'project.check'
+        ? 'A check of this task is still under way. Start its preview once that has finished.'
+        : 'A preview of this task is already starting.',
+    );
+  const check = projection.latestTaskCheck(task.workstream_id);
+  if (check === undefined || !checkServable(check.findings))
+    return reject(
+      taskScope,
+      'invalid_state',
+      'Only the copy of a passed check is served. Check this task first.',
+    );
+  if (check.files === 'changed')
+    return reject(
+      taskScope,
+      'invalid_state',
+      "This task's files changed since its last check. Check it again first.",
+    );
+  if (check.files !== 'current')
+    return reject(
+      taskScope,
+      'invalid_state',
+      "This task's files may have changed since its last check. Check it again first.",
+    );
+  return { admitted: true, policy, scope: taskScope, runtime: null };
+}
+
+/** A check or a preview start of this one task's copy still without its outcome, if there is one. */
+function sameTaskCheckOrStart(
+  projection: Projection,
+  projectId: ProjectId,
+  taskId: WorkstreamId,
+): CommandView | undefined {
+  return projection
+    .pendingCommands()
+    .find(
+      (pending) =>
+        pending.project_id === projectId &&
+        pending.workstream_id === taskId &&
+        (pending.command_type === 'project.check' ||
+          pending.command_type === 'project.preview.start'),
+    );
 }
 
 /**

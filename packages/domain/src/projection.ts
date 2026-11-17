@@ -312,9 +312,10 @@ const BUSY_WORDS: Readonly<Record<ExecutionStatus, string>> = {
  * runs before its run (`before`, the recap is the review). 26: each project's photos and videos (`media`) and the
  * ones each execution was given (ADR 0066). 27: the files each execution's running turn changed (`writing`). 28: whether
  * the person let each project's own check start test servers (`openPorts`, ADR 0055, 2026-11-16). 29: the person's own
- * yes a request's held proposal offers (`options`, ADR 0055 amended 2026-11-16, AUDIT3's O1).
+ * yes a request's held proposal offers (`options`, ADR 0055 amended 2026-11-16, AUDIT3's O1). 30: each task's latest
+ * check and the preview of its own copy (`taskChecks`, `taskPreviews`, limits audit #5 and #6, 2026-11-17).
  */
-export const PROJECTION_STATE_FORMAT = 29;
+export const PROJECTION_STATE_FORMAT = 30;
 
 /**
  * A projection's whole state at a position, as `exportState` gives it, for a checkpoint (ADR 0050).
@@ -336,6 +337,8 @@ export interface ProjectionState {
   readonly openChecks: ReadonlyMap<unknown, unknown>;
   readonly ownChecks: ReadonlyMap<unknown, unknown>;
   readonly previews: ReadonlyMap<unknown, unknown>;
+  readonly taskChecks: ReadonlyMap<unknown, unknown>;
+  readonly taskPreviews: ReadonlyMap<unknown, unknown>;
   readonly macPlays: ReadonlyMap<unknown, unknown>;
   readonly shares: ReadonlyMap<unknown, unknown>;
   readonly published: ReadonlyMap<unknown, unknown>;
@@ -443,6 +446,16 @@ export class Projection {
   readonly #ownChecks = new Map<ProjectId, OwnCheckState>();
   /** Each project's running preview, by the check it serves. */
   readonly #previews = new Map<ProjectId, { readonly check_id: CheckId; readonly port: number }>();
+  /** Each task's latest check of its own copy (ADR 0045), the same state its project's checks hold. */
+  readonly #taskChecks = new Map<WorkstreamId, CheckState>();
+  /**
+   * The preview of each task's own copy running now, by the check it serves (limits audit #5 and #6): beside its
+   * project's preview and every other task's.
+   */
+  readonly #taskPreviews = new Map<
+    WorkstreamId,
+    { readonly projectId: ProjectId; readonly check_id: CheckId; readonly port: number }
+  >();
   /** The check whose game plays on the Mac now, per project (ADR 0037). */
   readonly #macPlays = new Map<ProjectId, CheckId>();
   /** Each project's shared link now (F1): the check its preview serves and the public address. */
@@ -542,6 +555,8 @@ export class Projection {
       openChecks: this.#openChecks,
       ownChecks: this.#ownChecks,
       previews: this.#previews,
+      taskChecks: this.#taskChecks,
+      taskPreviews: this.#taskPreviews,
       macPlays: this.#macPlays,
       shares: this.#shares,
       published: this.#published,
@@ -587,6 +602,8 @@ export class Projection {
       !(state.checksById instanceof Map) ||
       !(state.openChecks instanceof Map) ||
       !(state.previews instanceof Map) ||
+      !(state.taskChecks instanceof Map) ||
+      !(state.taskPreviews instanceof Map) ||
       !(state.macPlays instanceof Map) ||
       !(state.shares instanceof Map) ||
       !(state.published instanceof Map) ||
@@ -628,6 +645,10 @@ export class Projection {
     for (const [key, value] of state.ownChecks as Map<never, never>)
       this.#ownChecks.set(key, value);
     for (const [key, value] of state.previews as Map<never, never>) this.#previews.set(key, value);
+    for (const [key, value] of state.taskChecks as Map<never, never>)
+      this.#taskChecks.set(key, value);
+    for (const [key, value] of state.taskPreviews as Map<never, never>)
+      this.#taskPreviews.set(key, value);
     for (const [key, value] of state.macPlays as Map<never, never>) this.#macPlays.set(key, value);
     for (const [key, value] of state.shares as Map<never, never>) this.#shares.set(key, value);
     for (const [key, value] of state.published as Map<never, never>)
@@ -1370,6 +1391,48 @@ export class Projection {
         };
   }
 
+  /** The latest check of one task's own copy (ADR 0045), or undefined when it has none. */
+  latestTaskCheck(workstreamId: string): ProjectCheck | undefined {
+    const state = this.#taskChecks.get(workstreamId as WorkstreamId);
+    return state === undefined
+      ? undefined
+      : {
+          check_id: state.checkId,
+          findings: state.findings,
+          recorded_at: state.recordedAt,
+          position: state.position,
+          files: checkFilesState(state),
+          workstream_id: state.workstreamId,
+        };
+  }
+
+  /** The running preview of one task's own copy (limits audit #5 and #6), or undefined when none runs. */
+  taskPreview(workstreamId: string): ProjectPreview | undefined {
+    const running = this.#taskPreviews.get(workstreamId as WorkstreamId);
+    return running === undefined
+      ? undefined
+      : {
+          check_id: running.check_id,
+          port: running.port,
+          files: this.#filesOfCheck(running.projectId, running.check_id),
+        };
+  }
+
+  /** Every running preview of a task's own copy in the project, by its task. */
+  taskPreviews(projectId: string): (ProjectPreview & { readonly workstream_id: WorkstreamId })[] {
+    const previews: (ProjectPreview & { readonly workstream_id: WorkstreamId })[] = [];
+    for (const [workstreamId, running] of this.#taskPreviews) {
+      if (running.projectId !== projectId) continue;
+      previews.push({
+        workstream_id: workstreamId,
+        check_id: running.check_id,
+        port: running.port,
+        files: this.#filesOfCheck(running.projectId, running.check_id),
+      });
+    }
+    return previews;
+  }
+
   /** A check of the project as the projection holds it, or undefined for one not known here. */
   #checkFindings(projectId: string, checkId: string): CheckFindings | undefined {
     return this.#checksById.get(projectId as ProjectId)?.get(checkId as CheckId)?.findings;
@@ -1908,6 +1971,8 @@ export class Projection {
           event.occurred_at,
         );
         this.#checks.set(event.project_id, checkState);
+        if (checkState.workstreamId !== null)
+          this.#taskChecks.set(checkState.workstreamId, checkState);
         const byId = this.#checksById.get(event.project_id) ?? new Map<CheckId, CheckState>();
         const open = this.#openChecks.get(event.project_id) ?? new Set<AnyCheckState>();
         const replaced = byId.get(event.payload.check_id);
@@ -2113,9 +2178,24 @@ export class Projection {
         this.#touchExecution(execution, event.ingested_at, changes);
         return;
       }
-      case 'project.preview.started':
+      case 'project.preview.started': {
         if (!this.#projects.has(event.project_id)) {
           notes.push(note('unknown_entity', event, `project ${event.project_id} does not exist`));
+          return;
+        }
+        const taskId = event.payload.workstream_id;
+        if (taskId !== undefined) {
+          // A preview of one task's own copy, beside its project's and every other task's.
+          if (this.#workstreams.get(taskId)?.projectId !== event.project_id) {
+            notes.push(note('unknown_entity', event, `task ${taskId} is not this project's`));
+            return;
+          }
+          this.#taskPreviews.set(taskId, {
+            projectId: event.project_id,
+            check_id: event.payload.check_id,
+            port: event.payload.port,
+          });
+          changes.workstreams.add(taskId);
           return;
         }
         this.#previews.set(event.project_id, {
@@ -2124,12 +2204,26 @@ export class Projection {
         });
         changes.projects.add(event.project_id);
         return;
-      case 'project.preview.stopped':
+      }
+      case 'project.preview.stopped': {
+        const taskId = event.payload.workstream_id;
+        if (taskId !== undefined) {
+          const running = this.#taskPreviews.get(taskId);
+          if (
+            running?.projectId === event.project_id &&
+            running.check_id === event.payload.check_id
+          ) {
+            this.#taskPreviews.delete(taskId);
+            changes.workstreams.add(taskId);
+          }
+          return;
+        }
         if (this.#previews.get(event.project_id)?.check_id === event.payload.check_id) {
           this.#previews.delete(event.project_id);
           changes.projects.add(event.project_id);
         }
         return;
+      }
       case 'project.share.started':
         this.#shares.set(event.project_id, {
           checkId: event.payload.check_id,
@@ -3022,10 +3116,17 @@ export class Projection {
       ...(state.fromCheckpoint == null ? {} : { from_checkpoint: state.fromCheckpoint }),
       // The same sum as its project's (workstreamUsage), made on read: no state of its own.
       ...(usage === null ? {} : { usage }),
+      ...this.#taskPreviewView(state.workstreamId),
       created_at: state.createdAt,
       updated_at: state.updatedAt,
     };
   };
+
+  /** The preview of the task's own copy as its view carries it, or nothing when none runs. */
+  #taskPreviewView(workstreamId: WorkstreamId): { preview?: ProjectPreview } {
+    const preview = this.taskPreview(workstreamId);
+    return preview === undefined ? {} : { preview: { ...preview } };
+  }
 
   /** The project with its latest check, its preview and its play, each only when there is one (M1.8e, T2). */
   #projectView = (state: ProjectState): ProjectView => {
@@ -3107,6 +3208,8 @@ export class Projection {
     const playId = this.#macPlays.get(projectId);
     const shareId = this.#shares.get(projectId)?.checkId;
     const ownId = this.#ownChecks.get(projectId)?.latest?.checkId;
+    // The tasks whose view shows a preview of one of these checks (limits audit #5 and #6).
+    const taskPreviews = this.taskPreviews(projectId);
     let viewChanged = false;
     for (const state of checks) {
       this.#onCheckVisited?.();
@@ -3129,6 +3232,9 @@ export class Projection {
       ) {
         viewChanged = true;
       }
+      if (before !== after)
+        for (const preview of taskPreviews)
+          if (preview.check_id === state.checkId) changes.workstreams.add(preview.workstream_id);
       // Changed reads changed whatever comes next, so nothing later needs to visit it.
       if (state.changed) checks.delete(state);
     }

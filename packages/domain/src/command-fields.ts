@@ -138,8 +138,9 @@ export const COMMAND_FIELDS: Readonly<
     // assistant's to fill: admission refuses it from the assistant, and its list never offers it (AUDIT3, CORE 16:22Z).
     open_ports: need('yes_no', ALLOW_TEST_SERVERS.label, optional),
   },
-  'project.preview.start': { project_id: project },
-  'project.preview.stop': { project_id: project },
+  // From a task's own place, that task's copy, as its check (limits audit #5 and #6).
+  'project.preview.start': { project_id: project, workstream_id: workstream },
+  'project.preview.stop': { project_id: project, workstream_id: workstream },
   'project.open_on_mac': { project_id: project },
   'project.show_in_finder': { project_id: project },
   'project.save_copy': { project_id: project },

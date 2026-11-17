@@ -297,6 +297,11 @@ export const WorkstreamView = Type.Object(
      * one reports, which never reads as nothing used.
      */
     usage: Type.Optional(RunUsage),
+    /**
+     * The preview of the task's own copy running now (limits audit #5 and #6): the task's latest passed check, on a
+     * port of its own beside the project's preview and other tasks'. Absent when none runs.
+     */
+    preview: Type.Optional(ProjectPreviewView),
     created_at: Timestamp,
     updated_at: Timestamp,
   },
