@@ -14,7 +14,8 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>
         /// No hue in the chrome (the lead's 2026-11-17T19:15Z; the lead's 2026-11-18 MUST after AUDIT's eye on 26-receipt): every glass of
         /// the kit draws no tone and no tint, and every plate, ring, disc and word it draws is a grey or white. A character's body and a figure
-        /// keep their identity hue: they are not chrome. Read from what each part is drawn with, in every kit state.
+        /// keep their identity hue, and a code row's syntax spans are content: they are not chrome. Read from what each part is drawn with,
+        /// in every kit state.
         /// </summary>
         private static IEnumerable<string> ChromeTakesNoHue(GameObject root, string what)
         {
@@ -41,7 +42,10 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var label in root.GetComponentsInChildren<TMPro.TMP_Text>(false))
             {
                 if (Exempt(label) || string.IsNullOrEmpty(label.text)) continue;
-                if (Hued(DrawnColour(label)) is string ink) yield return what + ": " + Path(label.transform) + " \"" + Clip(label.text) + "\" is drawn in a hue, " + ink;
+                // A code row's syntax spans are content, the owner's Code Colours (the lead's 2026-11-18 ruling): exactly those spans are
+                // exempt, so its own colour, the words outside every span, is what is read. Nothing else of the code view is.
+                var drawnIn = CodeColouring.Colours(label) ? label.color : DrawnColour(label);
+                if (Hued(drawnIn) is string ink) yield return what + ": " + Path(label.transform) + " \"" + Clip(label.text) + "\" is drawn in a hue, " + ink;
             }
         }
     }

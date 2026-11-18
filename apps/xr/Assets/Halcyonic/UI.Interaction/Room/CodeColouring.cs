@@ -114,6 +114,12 @@ namespace Halcyonic.XR.UI
             was.Ranges = ranges;
         }
 
+        /// <summary>
+        /// Whether <paramref name="row"/> is a code row this colours: its syntax spans are content, the owner's Code Colours, and the
+        /// no-hue check reads only the row's own colour (the lead's 2026-11-18 ruling).
+        /// </summary>
+        public static bool Colours(TMP_Text row) => laid.ContainsKey(row);
+
         /// <summary>Forgets a row's colours, so a reused label is worked out afresh.</summary>
         public static void Forget(TMP_Text row) => laid.Remove(row);
     }
