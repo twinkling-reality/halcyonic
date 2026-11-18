@@ -34,7 +34,7 @@ namespace Halcyonic.Client
         /// <summary>The band's top edge, a degree under the Hold to Talk row's feet; it grows downward.</summary>
         public const float TopPitch = -24.5f;
 
-        /// <summary>The ground's colour and its alpha as the page mixes it, in sRGB: the kit's one glass, <see cref="AskGlass"/>, #0C0E16 at 0.72.</summary>
+        /// <summary>The ground's colour and its alpha as the page mixes it, in sRGB: the kit's one glass, <see cref="AskGlass"/>, #0E0E0E at 0.72.</summary>
         public const int GroundColour = AskGlass.PageColour;
 
         public const float GroundAlpha = AskGlass.PageAlpha;
@@ -222,7 +222,7 @@ namespace Halcyonic.Client
         /// <summary>
         /// The alpha that shows over a white wall, blended in linear light as the headset blends, what the page shows there
         /// with <paramref name="pageAlpha"/> mixed in sRGB: the binding case (BUILD-SPEC-v4 1.2). <paramref name="ground"/> is
-        /// the ground's value in sRGB, 0 to 1. The page's 0.72 on #0C0E16 comes to about 0.92.
+        /// the ground's value in sRGB, 0 to 1. The page's 0.72 on #0E0E0E comes to about 0.92.
         /// </summary>
         public static float LinearAlpha(float pageAlpha, float ground)
         {

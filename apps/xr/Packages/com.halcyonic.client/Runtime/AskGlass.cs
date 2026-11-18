@@ -8,8 +8,8 @@ namespace Halcyonic.Client
     /// </summary>
     public static class AskGlass
     {
-        /// <summary>The page's colour, rgb(12, 14, 22), for a ground mixed in sRGB as the page mixes it.</summary>
-        public const int PageColour = 0x0C0E16;
+        /// <summary>The page's colour for a ground mixed in sRGB as the page mixes it: the true grey, rgb(14, 14, 14), of the reference's rgb(12, 14, 22) at its luminance (no hue in the chrome, the lead's 2026-11-18).</summary>
+        public const int PageColour = 0x0E0E0E;
 
         /// <summary>The page's alpha, 0.72, mixed in sRGB.</summary>
         public const float PageAlpha = 0.72f;

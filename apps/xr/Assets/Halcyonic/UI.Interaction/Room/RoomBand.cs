@@ -9,7 +9,7 @@ namespace Halcyonic.XR.UI
 {
     /// <summary>
     /// The agent's own words low in the view (DESIGN's BUILD-SPEC-v4 1.6, FINISH-2 2026-11-05): game dialogue. One faded
-    /// ground (<c>Halcyonic/Room Band</c>: the kit's one glass, #0C0E16, gone at its edges, whole under every word), 880 dp wide, and on it the
+    /// ground (<c>Halcyonic/Room Band</c>: the kit's one glass, #0E0E0E, gone at its edges, whole under every word), 880 dp wide, and on it the
     /// words alone, white, centred in a 600 dp measure, in the one type size, at most three lines a part
     /// (<see cref="RoomWords"/>). It holds nothing else: no name, no chip, no time. Its origin is the middle of its top edge
     /// and it grows downward, so a line never moves the ones above it. The ground fades in over 360 ms and each line then

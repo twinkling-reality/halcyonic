@@ -1,4 +1,4 @@
-// The agent's words band's ground (DESIGN's BUILD-SPEC-v4 1.6, FINISH-2 2026-11-05): one colour, the kit's one glass (AskGlass), #0C0E16 at the page's 0.72,
+// The agent's words band's ground (DESIGN's BUILD-SPEC-v4 1.6, FINISH-2 2026-11-05): one colour, the kit's one glass (AskGlass), #0E0E0E at the page's 0.72,
 // fading to nothing in a straight line over the outer 120 dp at each side and over 22 dp at its top and foot, flat in the
 // middle so every word sits on the full ground. No edge, no corner, no sheen: it is a fade, not a surface. One quad the
 // band's own size, no texture. The page mixes its alpha in sRGB and this buffer blends in linear light, so each pixel takes
@@ -9,7 +9,7 @@ Shader "Halcyonic/Room Band"
     Properties
     {
         _Band ("The band's width and height, its side fade and its top and foot fade, in dp", Vector) = (880, 136, 120, 22)
-        _Ground ("The ground's colour, sRGB, and its alpha as the page mixes it", Vector) = (0.0471, 0.0549, 0.0863, 0.72)
+        _Ground ("The ground's colour, sRGB, and its alpha as the page mixes it", Vector) = (0.0549, 0.0549, 0.0549, 0.72)
         _Shown ("How far into view the band is, 0 to 1", Float) = 1
     }
 
