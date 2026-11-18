@@ -53,13 +53,18 @@ namespace Halcyonic.Client
         /// <summary>How far pointing lifts the gradient toward white in sRGB, and how far pressing deepens it toward black.</summary>
         public const double PointedLift = 0.05, PressedDarken = 0.12;
 
+        /// <summary>
+        /// The primary press, as the redesign's main action (the lead's ruling 2a, the owner's no-hue order; visionos-button-prominent.jpg:
+        /// the main action stands out as lighter glass, never by colour): the neutral ramp lifted so its middle is RoomButton's main plate,
+        /// #474747, white words on it.
+        /// </summary>
         private static readonly KitGlassMaterial.Stop[] BlueStops =
         {
-            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0x2E8AE6), 1),
-            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x0E5098), 1),
-            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x0C488A), 1),
-            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x093B72), 1),
-            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0x1D70CC), 1),
+            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0x5F5F5F), 1),
+            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x4A4A4A), 1),
+            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x474747), 1),
+            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x3A3A3A), 1),
+            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0x515151), 1),
         };
 
         private static readonly KitGlassMaterial.Stop[] GreenStops =
@@ -116,7 +121,7 @@ namespace Halcyonic.Client
             KitPillMeaning.Green => GlazeColor.Hex(0x09441A),
             KitPillMeaning.Red => GlazeColor.Hex(0x6C1411),
             KitPillMeaning.Neutral => GlazeColor.Hex(0x222222),
-            _ => GlazeColor.Hex(0x083870),
+            _ => GlazeColor.Hex(0x2C2C2C),
         };
 
         /// <summary>The bottom inner bounce / glow colour for <paramref name="meaning"/>.</summary>
@@ -125,7 +130,7 @@ namespace Halcyonic.Client
             KitPillMeaning.Green => GlazeColor.Hex(0x6EF58C),
             KitPillMeaning.Red => GlazeColor.Hex(0xFF826E),
             KitPillMeaning.Neutral => GlazeColor.Hex(0x797979),
-            _ => GlazeColor.Hex(0x6ED7FF),
+            _ => GlazeColor.Hex(0x8A8A8A),
         };
 
         /// <summary>The deep middle fill of <paramref name="meaning"/> at rest, where its white word stands.</summary>
@@ -134,7 +139,7 @@ namespace Halcyonic.Client
             KitPillMeaning.Green => GlazeColor.Hex(0x0F5A24),
             KitPillMeaning.Red => GlazeColor.Hex(0x881C18),
             KitPillMeaning.Neutral => GlazeColor.Hex(0x3D3D3D),
-            _ => GlazeColor.Hex(0x0C488A),
+            _ => GlazeColor.Hex(0x474747),
         };
 
         /// <summary>The middle fill of <paramref name="meaning"/> when pointed.</summary>

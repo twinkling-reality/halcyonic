@@ -19,7 +19,7 @@ namespace Halcyonic.Client
         /// over the kit's three rooms (#1E1C1A, #B9AE9E, #EEEEEE), whose faces read #121217, #3E3A3A and #4B4C52; this lands
         /// within 7 of 255 of each.
         /// </summary>
-        public const int FaceColour = 0x0F111E;
+        public const int FaceColour = 0x121212;
 
         /// <summary>The face's alpha in Unity's linear blend, solved with <see cref="FaceColour"/>.</summary>
         public const float FaceAlpha = 0.918f;

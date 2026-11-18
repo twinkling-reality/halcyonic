@@ -52,7 +52,7 @@ carries meaning. The figure (`KitFigureLook`) keeps its own neutral and state to
 | n6 | #E1E2E3 | Secondary words (white at 82 percent) |
 | n7 | #FFFFFF | Primary words, and a glossy capsule's word (`OnFill`) |
 | Primary | #006ADB | The fallback flat primary fill (5.14 under n7), pressed #0058B8 (6.80); in the room, every capsule and round button uses `KitPillMaterial` |
-| Pill Blue | #0C488A | A blue glossy capsule's middle band (`#2E8AE6`, `#0E5098`, `#0C488A`, `#093B72`, `#1D70CC`; rim `#083870`, bottom bounce `#6ED7FF`) |
+| Pill Blue | #474747 | The primary capsule, the main action's lighter grey glass (the owner's no-hue order, the lead's ruling 2a; stops `#5F5F5F`, `#4A4A4A`, `#474747`, `#3A3A3A`, `#515151`; rim `#2C2C2C`, bottom bounce `#8A8A8A`) |
 | Pill Green | #0F5A24 | A green glossy capsule's middle band (`#34A856`, `#116228`, `#0F5A24`, `#0C4B1D`, `#208840`; rim `#09441A`, bottom bounce `#6EF58C`) |
 | Pill Red | #881C18 | A red glossy capsule's middle band (`#D84840`, `#941F1B`, `#881C18`, `#741714`, `#BC342E`; rim `#6C1411`, bottom bounce `#FF826E`) |
 | Pill Neutral | #42464D | A smoked-slate secondary or round glass capsule's middle band (`#5C626C`, `#444850`, `#42464D`, `#32363D`, `#4A5059`; rim `#24282E`, bottom bounce `#7A8088`) |
@@ -134,7 +134,7 @@ shader): every answer is a glass capsule 60 dp tall and at least 60 wide, 12 apa
 vertical gradient, bottom inner bounce, continuous upper-half glass specular crown (`0.50` of the height, fading smoothly
 from top to `0.36` to `0.00` at `0.50` without a pasted oval sticker edge), 1.2 dp top rim catch-light, and 1.5 dp darker
 outer rim. The one primary action on a card or the reader (`Run`, `Try Build`, `Read Command`, a failure's `Read Output`,
-or the screen bar's primary) is a sapphire-blue glass capsule (`KitPillMeaning.Blue`); every secondary capsule (`Decline`,
+or the screen bar's primary) is the lighter grey glass capsule (`KitPillMeaning.Blue`); every secondary capsule (`Decline`,
 `Reply`, `Restore Checkpoint`, a passed check's `Read Output`, `Stop`) and round 60 dp icon button
 (`KitButtonRole.Round`, such as the reader's close button carrying `GlazeIcon.Close` while keeping `Fold` as its name) is a
 dark neutral grey glass capsule (`KitPillMeaning.Neutral`: `#555555` to `#404040` to `#3D3D3D` to `#303030` to `#474747`,
@@ -173,7 +173,7 @@ the eyebrow (a 20 dp mark, a ring for the runtime's report and a disc for what t
 Label n6, its segments joined by " · ", a path or a name of theirs in their monospace; or the runtime's own prose in Body;
 a command of theirs in a well 14 dp below (`KitWell`: Mono n7 on n0, radius 12, padding 12 by 14, cut after two lines with
 the last fading and "Cut · {n} More Lines" in Label n5 beneath); any supporting line 12 dp below in Body n6 (a question carries no static `"Runs on This Mac"` text line on the card; its declared `KitSandbox` stays on `KitMoment.Sandbox`, and the environment and agent the composer's Send reaches show as chips with icons and category prefixes, `>_ Host: This Mac` or the lock glyph's `Host: Sandbox`, and `<> Agent: {Agent}` with the agent app's or the model's own name whole, in `KitComposer`'s flush full-width footer grid above the glossy `Hold to Talk` and `Send Instruction` capsules: the two chips share the grid's equal halves where each fits its half whole, and otherwise each takes the full width on its own row, so no name is cut and no chip leaves the slate (the slate grows by one row of chips at most, and a second row comes out of the reading room, which pages, so the instrument stays inside the field at Larger); the Host chip shows only for a runtime that declares its environment, and a chip no press can change, as both are while Send instructs the task's own execution, stands locked as a fact, its glyph and words in n5 with no outline (a locked quiet control keeps no shape, as a locked word answer keeps none), an outlined quiet capsule only where a press would change what runs; while `KitSpine` leads with navigation at the top and anchors `KitModeSwitch` inside a framed segmented track at its foot, and `KitCarrier` draws no top accent stripe); the answers 16 dp
-below, the one primary at full width in sapphire-blue glass (`KitPillMeaning.Blue`), then the secondary capsules sharing the
+below, the one primary at full width in the lighter grey glass (`KitPillMeaning.Blue`), then the secondary capsules sharing the
 row's full inner width equally in cool dark-slate glass (`KitPillMeaning.Neutral`). The earlier moments stand as one subtle lip of the same glass, 28 dp
 narrower, rising 10 dp above the card, inset 8; their count (`"{n} Earlier"`, then `"{n} Newer"` after a question that waits, in the cadence: `"2 Earlier · 1 Newer"`) stands at the eyebrow's end in Label n5. No locked answer stands in the card's
 top 40 percent, where the bloom peaks. The render names any part that does not read whole.
@@ -192,7 +192,7 @@ stands half-shown under a 24 dp fade, from 0.95 of the well at its edge to 0.12,
 does not count as read. "End of Command · " and what answering may do, in Label n6, is the content's last part, scrolled
 into view after the command's last row like any other row, so nothing reflows when the end arrives. Its foot stands fixed from the first frame, 12 dp above the bottom: Run's 240 dp slot, then Decline and Reply sharing the rest of the footer width equally as cool dark-slate glass capsules (`KitPillMeaning.Neutral`),
 12 apart. The slot is the locked "Read to End", filled from its left in n7 at 14 percent over n1 as far as the command has been read, with
-its word in n6 while the fill stands under it, and becomes a sapphire-blue glossy Run capsule (`KitPillMeaning.Blue`) only once the last row of
+its word in n6 while the fill stands under it, and becomes a lighter grey glossy Run capsule (`KitPillMeaning.Blue`) only once the last row of
 the last line has been shown; scrolling back never locks it again. The unlock sounds the Moment cue where its owner gives
 the reader a player.
 

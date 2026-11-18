@@ -2899,7 +2899,7 @@ in order, as before.
 - **One surface and one button:** every redesign part stands on `RoomSurface` and presses through `RoomButton`
   (`UI.Interaction/Room`). The surface follows the owner's glass reference (the lead's 2026-11-16 13:33Z: equipped-test's
   ask panel): the shader `Halcyonic/Room Glass` (material `Resources/HalcyonicUI/RoomGlass`) draws black glass, a flat face
-  #0F111E at 0.918 (the kit's one glass token, `AskGlass`, which the band's ground and the agent's plate take too), a 1 dp
+  #121212 at 0.918 (the kit's one glass token, `AskGlass`, which the band's ground and the agent's plate take too), a 1 dp
   hairline lit along its top (#5A5D66 easing to #2C2C2C at the foot: the one language of 2026-11-17, visionOS's glass catching
   light), its long soft shadow held back for now (the reference's 0 24 60 at 0.35, scaled to the panel's 440 dp, stands
   ready in the looks; `RoomSurface.DrawsShadow` is false until the shadow has a renderer of its own that the measures of what

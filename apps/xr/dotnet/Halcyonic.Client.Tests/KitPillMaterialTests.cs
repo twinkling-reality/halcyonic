@@ -61,7 +61,7 @@ public class KitPillMaterialTests
             else if (meaning == KitPillMeaning.Red)
                 Assert.That(glossTop.R, Is.GreaterThan(Math.Max(glossTop.G, glossTop.B)), "crimson body hue shines through the translucent top crown");
             else if (meaning == KitPillMeaning.Blue)
-                Assert.That(glossTop.B, Is.GreaterThan(Math.Max(glossTop.R, glossTop.G)), "sapphire body hue shines through the translucent top crown");
+                Assert.That((glossTop.G, glossTop.B), Is.EqualTo((glossTop.R, glossTop.R)), "the primary's crown is a true grey: no hue (the lead's ruling 2a)");
         }
     }
 
@@ -85,9 +85,13 @@ public class KitPillMaterialTests
             else if (meaning == KitPillMeaning.Red)
                 Assert.That(middle.R, Is.GreaterThan(Math.Max(middle.G, middle.B)), "red pill is red");
             else if (meaning == KitPillMeaning.Blue)
-                Assert.That(middle.B, Is.GreaterThan(Math.Max(middle.R, middle.G)), "blue pill is blue");
+            {
+                // The primary press is the main action's lighter glass, never a colour (the lead's ruling 2a; visionos-button-prominent.jpg).
+                Assert.That((middle.G, middle.B), Is.EqualTo((middle.R, middle.R)), "the primary pill is a true grey");
+                Assert.That(middle.Luminance, Is.GreaterThan(KitPillMaterial.Middle(KitPillMeaning.Neutral).Luminance), "the primary stands lighter than the neutral");
+            }
             else
-                Assert.That(Math.Max(middle.R, Math.Max(middle.G, middle.B)) - Math.Min(middle.R, Math.Min(middle.G, middle.B)), Is.LessThanOrEqualTo(28), "neutral pill is cool dark-slate glass");
+                Assert.That((middle.G, middle.B), Is.EqualTo((middle.R, middle.R)), "the neutral pill is a true grey (the owner's no-hue order)");
         }
     }
 }

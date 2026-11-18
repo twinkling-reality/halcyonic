@@ -188,7 +188,8 @@ public class SpatialKitTests
         // a neutral pill's face and rim, are true greys, each at its slate's own relative luminance, so every contrast holds.
         var greys = new[] { SpatialKit.Well, SpatialKit.Carrier, SpatialKit.Raised, SpatialKit.Control, SpatialKit.Hairline, SpatialKit.Thumb,
             SpatialKit.FaceTop, SpatialKit.FaceBottom, KitPillMaterial.Middle(KitPillMeaning.Neutral), KitPillMaterial.Rim(KitPillMeaning.Neutral),
-            KitPillMaterial.Glow(KitPillMeaning.Neutral) };
+            KitPillMaterial.Glow(KitPillMeaning.Neutral), KitPillMaterial.Middle(KitPillMeaning.Blue), KitPillMaterial.Rim(KitPillMeaning.Blue),
+            KitPillMaterial.Glow(KitPillMeaning.Blue), GlazeColor.Hex((uint)AskGlass.FaceColour) };
         foreach (var grey in greys)
             Assert.That((grey.G, grey.B), Is.EqualTo((grey.R, grey.R)), grey + " carries a hue");
     }
