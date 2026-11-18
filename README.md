@@ -27,6 +27,26 @@ Halora is a spatial VR environment for directing autonomous software work across
   <img src="docs/images/halora-agent-flight.gif" width="100%" alt="Halora in VR: an embodied Workstream character lifts off its project shelf in the room and lands beside a dark-glass Question 1 of 2 panel asking which colour scheme the dashboard should use.">
 </p>
 
+## See it in VR
+
+<p align="center">
+  <a href="https://youtu.be/Onu9mu5tyI4"><img src="docs/images/gallery/halora-film.jpg" width="100%" alt="Watch the Halora film: the Halora logo surrounded by twelve scenes from inside the headset."></a>
+  <br><a href="https://youtu.be/Onu9mu5tyI4"><strong>Watch the film (2:13)</strong></a>
+</p>
+
+| | |
+| --- | --- |
+| <img src="docs/images/gallery/agents-room.jpg" alt="Three agent characters in the room, each above its task card: two Working, one asking Needs You."> | <img src="docs/images/gallery/three-agents-one-scene.jpg" alt="A night island with a reflecting lake, glowing flowers and floating lanterns."> |
+| **Every agent is a character.** Who is working and who needs you, at a glance. | **Three agents, one scene.** Each added a part at the same time; Halora landed all three together. |
+| <img src="docs/images/gallery/piano-of-light.jpg" alt="A piano of falling light, notes streaming toward the keys."> | <img src="docs/images/gallery/camel-ride.jpg" alt="Riding in a line of camels across the dunes."> |
+| **A piano of light**, made in Halora one request at a time. | **A camel ride I filmed in Morocco**, made into a place you can step into. |
+| <img src="docs/images/gallery/jellyfish-bloom.jpg" alt="Glowing jellyfish drifting in bright deep-blue water."> | <img src="docs/images/gallery/sky-tower.jpg" alt="A tower-stacking game on a floating island in a pastel sky."> |
+| **Jellyfish Bloom**, made in Halora. | **Sky Tower**, a small game made in Halora. |
+| <img src="docs/images/gallery/equipped-in-vr.jpg" alt="A lesson in VR: a recursion call stack beside a figure made of light."> | <img src="docs/images/gallery/albedian-in-vr.jpg" alt="Saturn's rings in VR."> |
+| **Equipped**, one of my own web apps, in VR. | **Albedian**, one of my own web apps, in VR. |
+| <img src="docs/images/gallery/siterra-in-vr.jpg" alt="A layered landscape rising in VR."> | |
+| **Siterra**, one of my own web apps, in VR. | |
+
 ## Why Halora exists: four structural fault lines
 
 Agentic coding tools, 3D engines, and verification harnesses currently sit in separate loops, leaving four structural gaps when directing autonomous software work:
