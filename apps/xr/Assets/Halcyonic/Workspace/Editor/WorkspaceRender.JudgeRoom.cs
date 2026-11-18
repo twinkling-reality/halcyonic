@@ -348,6 +348,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     Draw();
                     Thread.Sleep(TimeSpan.FromSeconds(0.45));
                     Draw();
+                    // The panel stands whole before a person presses its answers (its arrival waits for the flight and its lines' build-up,
+                    // 6edd11ab8; the Editor's clock never runs it): settled as a render settles it, so a press it refuses is never counted.
+                    if (plane.KitShows) plane.Kit.Bar.SettleArrival();
                     // The drawn control: a column button, else a row of the panel's card that carries the press (a described answer
                     // stands as a card row since 7e101f1ab, SCREENS 23:03Z), pressed the same way a person presses either.
                     var drawnPress = Drawn(action, key)?.Press ?? (plane.KitShows ? plane.Kit.Bar.Card?.RowTargets
@@ -360,6 +363,12 @@ namespace Halcyonic.XR.Workspace.Editor
                         var refused = navigator.Taking(column, action, director.Plane.Showing(column), null) == null;
                         var before = (sent.Count, navigator.Shown, navigator.Beside, Opened()?.Screen.Section, Opened()?.Frame?.Side);
                         drawnPress.SettleForRender();
+                        // A drawn press that refuses a person's press (its panel not yet whole) is a press that never took: said, never counted.
+                        if (drawnPress.Accepting?.Invoke() == false)
+                        {
+                            failures.Add("judge room: the drawn " + action + (key == null ? "" : " " + key) + " refuses a press where a person would press it");
+                            return false;
+                        }
                         drawnPress.PressForRender(990);
                         Draw();
                         if (refused && before == (sent.Count, navigator.Shown, navigator.Beside, Opened()?.Screen.Section, Opened()?.Frame?.Side))
@@ -609,6 +618,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var band in root.GetComponentsInChildren<RoomBand>(false)) band.Settle();
                     foreach (var cursor in root.GetComponentsInChildren<RoomCursor>(false)) cursor.Settle();
                     foreach (var field in root.GetComponentsInChildren<RoomField>(false)) field.Settle();
+                    if (plane.KitShows) plane.Kit.Bar.SettleArrival();
                     ForceMeshes(root);
                     // No hue in the chrome the shipped room draws, a frame no redesign reader takes (the MenuPlane's older columns) included
                     // (the lead's 2026-11-18 rulings): the kit's own check, read on the walk's every moment.
