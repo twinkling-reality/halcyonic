@@ -188,21 +188,27 @@ const LensRow = Type.Object({
       unit: Growing,
     }),
   ),
+  /** Only the tool-mix lens gives a row its share of all tool calls. */
+  share: Type.Optional(Type.Number()),
 });
 type LensRow = Static<typeof LensRow>;
 
-/** `PrivateReplayLensDto` for the `verification` lens of one session. */
-const WireLens = Type.Object({
-  ...Metadata,
-  result: Nullable(
-    Type.Object({
-      lens: Type.Literal('verification'),
-      target: Type.Object({ kind: Type.Literal('session'), sessionRef: SessionRef }),
-      rows: Type.Array(LensRow),
-      emptyReason: Nullable(Type.String({ maxLength: 600 })),
-    }),
-  ),
-});
+/** The replay lenses this client reads, by the name Seorak gives each in its route and result. */
+export type LensName = 'verification' | 'tool-mix' | 'cadence';
+
+/** `PrivateReplayLensDto` for one lens of one session. */
+const wireLens = (name: LensName) =>
+  Type.Object({
+    ...Metadata,
+    result: Nullable(
+      Type.Object({
+        lens: Type.Literal(name),
+        target: Type.Object({ kind: Type.Literal('session'), sessionRef: SessionRef }),
+        rows: Type.Array(LensRow),
+        emptyReason: Nullable(Type.String({ maxLength: 600 })),
+      }),
+    ),
+  });
 
 /** One kind of check in the verification lens, with the three metrics this client reads. */
 export interface VerificationRow {
@@ -212,11 +218,28 @@ export interface VerificationRow {
   readonly passRate: number | null;
 }
 
-/** A verification lens whose rows have been read. */
-export interface ReadLens extends WireMetadata {
+/** One tool in the tool-mix lens, with the three metrics and the share this client reads. */
+export interface ToolMixRow {
+  readonly label: string;
+  readonly calls: number | null;
+  readonly errors: number | null;
+  readonly costUsd: number | null;
+  readonly share: number | null;
+}
+
+/** The cadence lens's one row, with the three metrics this client reads. */
+export interface CadenceRow {
+  readonly label: string;
+  readonly moments: number | null;
+  readonly averageGap: number | null;
+  readonly longestGap: number | null;
+}
+
+/** A lens whose rows have been read. */
+export interface ReadLens<Row = VerificationRow> extends WireMetadata {
   readonly result: {
     readonly sessionRef: string;
-    readonly rows: readonly VerificationRow[];
+    readonly rows: readonly Row[];
     readonly emptyReason: string | null;
   } | null;
 }
@@ -225,6 +248,8 @@ const isCount = (value: number | boolean) =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0;
 const isFraction = (value: number | boolean) =>
   typeof value === 'number' && value >= 0 && value <= 1;
+const isAmount = (value: number | boolean) =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
 /** `PrivateReplayLensUnit` as published. v1 may add units; a metric in one is unknown. */
 const KNOWN_UNITS: ReadonlySet<string> = new Set([
@@ -237,27 +262,62 @@ const KNOWN_UNITS: ReadonlySet<string> = new Set([
   'none',
 ]);
 
+interface MetricSpec {
+  readonly unit: string;
+  readonly valid: (value: number | boolean) => boolean;
+  readonly expected: string;
+}
+
+const COUNT: MetricSpec = { unit: 'count', valid: isCount, expected: 'a count' };
+const MILLISECONDS: MetricSpec = {
+  unit: 'milliseconds',
+  valid: isAmount,
+  expected: 'a duration of at least 0',
+};
+
 /**
  * The verification lens as ADR 007 (section 2) states it: one row per kind of check that was
  * measured, with `runs` and `passed` in the unit `count` and `passRate` in the unit `percent`,
  * whose value is nonetheless a fraction from 0 to 1, or null when nothing ran.
  */
 const VERIFICATION_METRICS = {
-  runs: { unit: 'count', valid: isCount, expected: 'a count' },
-  passed: { unit: 'count', valid: isCount, expected: 'a count' },
+  runs: COUNT,
+  passed: COUNT,
   passRate: { unit: 'percent', valid: isFraction, expected: 'a fraction from 0 to 1' },
-} as const;
+} as const satisfies Record<string, MetricSpec>;
 
 /**
- * Reads one metric of a verification row by its key. A metric in a unit v1 added after this
- * client is unknown, so it reads as null. A missing metric, another known unit, or a value of the
- * wrong kind or range contradicts the lens as stated, so it is an issue: refused rather than
- * rescaled or guessed.
+ * The tool-mix lens as Seorak's reducer writes it (local-integration-replay-lenses.ts): one row
+ * per tool, `calls` and `errors` in the unit `count`, `costUsd` in `usd`, each null where a call
+ * did not measure it, and the row's `share` of all tool calls from 0 to 1.
+ */
+const TOOL_MIX_METRICS = {
+  calls: COUNT,
+  errors: COUNT,
+  costUsd: { unit: 'usd', valid: isAmount, expected: 'an amount of at least 0' },
+} as const satisfies Record<string, MetricSpec>;
+
+/**
+ * The cadence lens as Seorak's reducer writes it: at most one row, `moments` in the unit `count`
+ * and `averageGap` and `longestGap` in `milliseconds`, null with fewer than two moments.
+ */
+const CADENCE_METRICS = {
+  moments: COUNT,
+  averageGap: MILLISECONDS,
+  longestGap: MILLISECONDS,
+} as const satisfies Record<string, MetricSpec>;
+
+/**
+ * Reads one metric of a lens row by its key. A metric in a unit v1 added after this client is
+ * unknown, so it reads as null. A missing metric, another known unit, or a value of the wrong kind
+ * or range contradicts the lens as stated, so it is an issue: refused rather than rescaled or
+ * guessed.
  */
 function metric(
   row: LensRow,
   path: string,
-  key: keyof typeof VERIFICATION_METRICS,
+  key: string,
+  spec: MetricSpec,
   issues: ValidationIssue[],
 ): number | null {
   const at = row.metrics.findIndex((candidate) => candidate.key === key);
@@ -267,7 +327,7 @@ function metric(
     return null;
   }
   if (!KNOWN_UNITS.has(found.unit)) return null;
-  const { unit, valid, expected } = VERIFICATION_METRICS[key];
+  const { unit, valid, expected } = spec;
   if (found.unit !== unit) {
     issues.push({ path: `${path}/metrics/${at}/unit`, message: `must be ${unit} for ${key}` });
     return null;
@@ -277,27 +337,70 @@ function metric(
   return null;
 }
 
-const validateLensShape = compileValidator(WireLens);
-
-export function readLens(value: unknown): Validated<ReadLens> {
-  const shape = validateLensShape(value);
-  if (!shape.ok) return shape;
-  const { result, ...metadata } = shape.value;
-  if (result === null) return { ok: true, value: { ...metadata, result: null } };
-  const issues: ValidationIssue[] = [];
-  const rows = result.rows.map((row, index): VerificationRow => {
-    const path = `/result/rows/${index}`;
-    const runs = metric(row, path, 'runs', issues);
-    const passed = metric(row, path, 'passed', issues);
-    const passRate = metric(row, path, 'passRate', issues);
-    if (runs !== null && passed !== null && passed > runs)
-      issues.push({ path, message: 'has more passed runs than runs' });
-    return { label: row.label, runs, passed, passRate };
-  });
-  if (issues.length > 0) return { ok: false, issues };
-  const read = { sessionRef: result.target.sessionRef, rows, emptyReason: result.emptyReason };
-  return { ok: true, value: { ...metadata, result: read } };
+/** Every metric of one row, by the keys of `specs`. */
+function metrics<K extends string>(
+  row: LensRow,
+  path: string,
+  specs: Record<K, MetricSpec>,
+  issues: ValidationIssue[],
+): Record<K, number | null> {
+  const read = {} as Record<K, number | null>;
+  for (const key of Object.keys(specs) as K[])
+    read[key] = metric(row, path, key, specs[key], issues);
+  return read;
 }
+
+/** Validates one lens's shape, then reads its rows with `row`, refusing the lens on any issue. */
+function lensReader<Row>(
+  name: LensName,
+  row: (row: LensRow, path: string, issues: ValidationIssue[]) => Row,
+  whole: (rows: readonly Row[], issues: ValidationIssue[]) => void = () => {},
+): (value: unknown) => Validated<ReadLens<Row>> {
+  const validateShape = compileValidator(wireLens(name));
+  return (value) => {
+    const shape = validateShape(value);
+    if (!shape.ok) return shape;
+    const { result, ...metadata } = shape.value;
+    if (result === null) return { ok: true, value: { ...metadata, result: null } };
+    const issues: ValidationIssue[] = [];
+    const rows = result.rows.map((each, index) => row(each, `/result/rows/${index}`, issues));
+    whole(rows, issues);
+    if (issues.length > 0) return { ok: false, issues };
+    const read = { sessionRef: result.target.sessionRef, rows, emptyReason: result.emptyReason };
+    return { ok: true, value: { ...metadata, result: read } };
+  };
+}
+
+export const readLens = lensReader('verification', (row, path, issues): VerificationRow => {
+  const { runs, passed, passRate } = metrics(row, path, VERIFICATION_METRICS, issues);
+  if (runs !== null && passed !== null && passed > runs)
+    issues.push({ path, message: 'has more passed runs than runs' });
+  return { label: row.label, runs, passed, passRate };
+});
+
+export const readToolMixLens = lensReader('tool-mix', (row, path, issues): ToolMixRow => {
+  const { calls, errors, costUsd } = metrics(row, path, TOOL_MIX_METRICS, issues);
+  if (calls !== null && errors !== null && errors > calls)
+    issues.push({ path, message: 'has more errored calls than calls' });
+  const share = row.share ?? null;
+  if (share !== null && !isFraction(share))
+    issues.push({ path: `${path}/share`, message: 'must be a fraction from 0 to 1' });
+  return { label: row.label, calls, errors, costUsd, share };
+});
+
+export const readCadenceLens = lensReader(
+  'cadence',
+  (row, path, issues): CadenceRow => {
+    const { moments, averageGap, longestGap } = metrics(row, path, CADENCE_METRICS, issues);
+    if (averageGap !== null && longestGap !== null && averageGap > longestGap)
+      issues.push({ path, message: 'has an average gap longer than its longest gap' });
+    return { label: row.label, moments, averageGap, longestGap };
+  },
+  (rows, issues) => {
+    if (rows.length > 1)
+      issues.push({ path: '/result/rows', message: 'must hold at most one row' });
+  },
+);
 
 export const validateSession = compileValidator(WireSession);
 export const validateOutcome = compileValidator(WireOutcome);

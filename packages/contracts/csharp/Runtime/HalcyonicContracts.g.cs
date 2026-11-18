@@ -9437,6 +9437,78 @@ namespace Halcyonic.Contracts
         public EvaluationVerificationLens? Lens { get; set; }
     }
 
+    public sealed class EvaluationToolMixRow
+    {
+        [global::Newtonsoft.Json.JsonProperty("tool", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Tool { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("calls", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Calls { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("errors", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Errors { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("cost_usd", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public double? CostUsd { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("share", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public double? Share { get; set; }
+    }
+
+    public sealed class EvaluationToolMixLens
+    {
+        [global::Newtonsoft.Json.JsonProperty("by_tool", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<EvaluationToolMixRow> ByTool { get; set; } = new global::System.Collections.Generic.List<EvaluationToolMixRow>();
+
+        [global::Newtonsoft.Json.JsonProperty("empty_reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? EmptyReason { get; set; }
+    }
+
+    public sealed class EvaluationToolMix
+    {
+        [global::Newtonsoft.Json.JsonProperty("availability", Required = global::Newtonsoft.Json.Required.Always)]
+        public EvaluationAvailability Availability { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("coverage", Required = global::Newtonsoft.Json.Required.Always)]
+        public EvaluationCoverage Coverage { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("freshness", Required = global::Newtonsoft.Json.Required.Always)]
+        public EvaluationFreshness Freshness { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("lens", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public EvaluationToolMixLens? Lens { get; set; }
+    }
+
+    public sealed class EvaluationCadenceLens
+    {
+        [global::Newtonsoft.Json.JsonProperty("moments", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? Moments { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("average_gap_ms", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public double? AverageGapMs { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("longest_gap_ms", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public double? LongestGapMs { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("empty_reason", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? EmptyReason { get; set; }
+    }
+
+    public sealed class EvaluationCadence
+    {
+        [global::Newtonsoft.Json.JsonProperty("availability", Required = global::Newtonsoft.Json.Required.Always)]
+        public EvaluationAvailability Availability { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("coverage", Required = global::Newtonsoft.Json.Required.Always)]
+        public EvaluationCoverage Coverage { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("freshness", Required = global::Newtonsoft.Json.Required.Always)]
+        public EvaluationFreshness Freshness { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("lens", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public EvaluationCadenceLens? Lens { get; set; }
+    }
+
     public sealed class Evaluation
     {
         [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
@@ -9453,6 +9525,12 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("verification", Required = global::Newtonsoft.Json.Required.Always)]
         public EvaluationVerification Verification { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("tool_mix", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public EvaluationToolMix? ToolMix { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("cadence", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public EvaluationCadence? Cadence { get; set; }
     }
 
     [global::Newtonsoft.Json.JsonConverter(typeof(EvaluationResultConverter))]

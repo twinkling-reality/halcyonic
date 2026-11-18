@@ -1,5 +1,12 @@
 import { ESTIMATED_COST_NOTE, type Evaluation } from '@halcyonic/contracts';
-import type { ReadLens, WireMetadata, WireOutcome, WireSession } from './wire.ts';
+import type {
+  CadenceRow,
+  ReadLens,
+  ToolMixRow,
+  WireMetadata,
+  WireOutcome,
+  WireSession,
+} from './wire.ts';
 
 type Read = Pick<Evaluation['cost'], 'availability' | 'coverage' | 'freshness'>;
 type Reason = NonNullable<Read['availability']['reason']>;
@@ -109,8 +116,44 @@ function activity(
   };
 }
 
+/** The lenses an evaluation may add; absent where the read failed or did not run. */
+export interface ExtraLenses {
+  readonly toolMix?: ReadLens<ToolMixRow> | undefined;
+  readonly cadence?: ReadLens<CadenceRow> | undefined;
+}
+
+function toolMix(lens: ReadLens<ToolMixRow>): NonNullable<Evaluation['tool_mix']> {
+  return {
+    ...read(lens),
+    lens: lens.result && {
+      by_tool: lens.result.rows.map((row) => ({
+        tool: row.label,
+        calls: row.calls,
+        errors: row.errors,
+        cost_usd: row.costUsd,
+        share: row.share,
+      })),
+      empty_reason: lens.result.emptyReason,
+    },
+  };
+}
+
+/** Seorak's one cadence row, or nulls with its reason when it observed no moment. */
+function cadence(lens: ReadLens<CadenceRow>): NonNullable<Evaluation['cadence']> {
+  const row = lens.result?.rows[0];
+  return {
+    ...read(lens),
+    lens: lens.result && {
+      moments: row?.moments ?? null,
+      average_gap_ms: row?.averageGap ?? null,
+      longest_gap_ms: row?.longestGap ?? null,
+      empty_reason: lens.result.emptyReason,
+    },
+  };
+}
+
 /**
- * Maps the three reads onto Halcyonic's evaluation, field by field. Null stays null: an unpriced
+ * Maps the reads onto Halcyonic's evaluation, field by field. Null stays null: an unpriced
  * cost, an outcome that has not matured and a metric without a result stay unknown, never zero.
  * Nothing is combined, and properties this function does not name never reach the result.
  */
@@ -119,6 +162,7 @@ export function toEvaluation(
   session: NonNullable<WireSession['session']>,
   outcome: WireOutcome,
   lens: ReadLens,
+  extra: ExtraLenses = {},
 ): Evaluation {
   const measure = outcome.outcome;
   const measured = activity(resolved, session);
@@ -162,5 +206,7 @@ export function toEvaluation(
         empty_reason: lens.result.emptyReason,
       },
     },
+    ...(extra.toolMix === undefined ? {} : { tool_mix: toolMix(extra.toolMix) }),
+    ...(extra.cadence === undefined ? {} : { cadence: cadence(extra.cadence) }),
   };
 }

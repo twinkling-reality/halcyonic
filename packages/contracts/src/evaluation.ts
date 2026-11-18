@@ -288,6 +288,80 @@ export const EvaluationVerification = Type.Object(
   strict,
 );
 
+/**
+ * One tool in the session's tool mix. Each metric is null when the source could not measure it
+ * for every call of this tool, or reports it in a unit Halcyonic does not know yet.
+ */
+export const EvaluationToolMixRow = Type.Object(
+  {
+    /** The source's name for the tool, or its own "Unknown tool" for a call that named none. */
+    tool: Text(120),
+    /** Calls of this tool. */
+    calls: Nullable(Count),
+    /** Calls of this tool that errored; null unless every call reported whether it errored. */
+    errors: Nullable(Count),
+    /**
+     * The measured cost of this tool's calls in US dollars, an estimate like every cost; null
+     * unless every call had a measured cost. Never added to the session's cost.
+     */
+    cost_usd: Nullable(Type.Number({ minimum: 0 })),
+    /** This tool's share of all the session's tool calls, from 0 to 1. */
+    share: Nullable(Fraction),
+  },
+  strict,
+);
+
+/**
+ * The session's tool calls by tool, most calls first and then by name, as the source orders them.
+ * Two tools can share the most calls; the source does not say so, so a view naming the busiest
+ * tool checks the second row first.
+ */
+export const EvaluationToolMixLens = Type.Object(
+  {
+    by_tool: Type.Array(EvaluationToolMixRow),
+    /** The source's explanation when it measured nothing, as it does when `by_tool` is empty. */
+    empty_reason: Nullable(Text(600)),
+  },
+  strict,
+);
+
+export const EvaluationToolMix = Type.Object(
+  {
+    ...Read,
+    /** Null when the source could not produce the tool-mix lens. */
+    lens: Nullable(EvaluationToolMixLens),
+  },
+  strict,
+);
+
+/**
+ * How the session's moments (tool calls, prompts, notifications) were spaced in time. A gap is
+ * the time between two consecutive moments; the time before the first and after the last is not
+ * one, and the source says neither where a gap fell nor why.
+ */
+export const EvaluationCadenceLens = Type.Object(
+  {
+    /** The moments the source observed. */
+    moments: Nullable(Count),
+    /** The mean gap in milliseconds; null with fewer than two moments. */
+    average_gap_ms: Nullable(Type.Number({ minimum: 0 })),
+    /** The longest gap in milliseconds; null with fewer than two moments. */
+    longest_gap_ms: Nullable(Type.Number({ minimum: 0 })),
+    /** The source's explanation when it observed no moment. */
+    empty_reason: Nullable(Text(600)),
+  },
+  strict,
+);
+
+export const EvaluationCadence = Type.Object(
+  {
+    ...Read,
+    /** Null when the source could not produce the cadence lens. */
+    lens: Nullable(EvaluationCadenceLens),
+  },
+  strict,
+);
+
 export const Evaluation = Type.Object(
   {
     source: EvaluationSource,
@@ -296,6 +370,10 @@ export const Evaluation = Type.Object(
     activity: Type.Optional(EvaluationActivity),
     outcome: EvaluationOutcome,
     verification: EvaluationVerification,
+    /** Absent when the tool-mix lens was not read or its read failed: unknown, never empty. */
+    tool_mix: Type.Optional(EvaluationToolMix),
+    /** Absent when the cadence lens was not read or its read failed: unknown, never empty. */
+    cadence: Type.Optional(EvaluationCadence),
   },
   strict,
 );

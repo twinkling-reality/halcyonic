@@ -125,10 +125,10 @@ in [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md).
   another session, a payload under `unavailable`, a null payload under `available` or `partial`, a
   verification metric in another known unit, or a rate outside 0 to 1.
 - One client per process keeps the credential's budget: at most 60 requests in any rolling
-  minute, an evaluation's three reserved before the first, and nothing sent until the time a 429
-  names (its `Retry-After`, a minute without one, an hour at most). An evaluation costs three
-  requests, so at most 20 fit in a minute: clients fetch one on demand, for example when a
-  workstream is opened, and never poll.
+  minute, an evaluation's five reserved before the first, and nothing sent until the time a 429
+  names (its `Retry-After`, a minute without one, an hour at most). An evaluation costs five
+  requests (three until 2026-11-18, below), so at most 12 fit in a minute: clients fetch one on
+  demand, for example when a workstream is opened, and never poll.
 - The credential lives in `<data dir>/seorak-credential` with mode 0600 and is read on every
   request. It is sent only to 127.0.0.1 on Seorak's port, never follows a redirect, and is never
   logged or passed to launched agents.
@@ -257,3 +257,41 @@ confined Codex home is now asked about with the credential (before, it answered 
 request); a resolve miss (`not_captured`) there answers `not_found` (`own_sources_not_set_up`). OpenCode
 executions stay `runtime_not_observed`. Tested against the fake plane (`evaluation.test.ts`); not run against a
 real Seorak holding e3aa039e.
+
+## Tool-mix and cadence lenses (2026-11-18)
+
+Read in Seorak's checkout at `35446e32` (clean working tree), not run against a live plane.
+
+- **Routes.** `GET /api/v1/sessions/{ref}/replay/tool-mix` and `/replay/cadence`, the same route
+  and `replay:read` scope as the verification lens: the local plane serves every name in
+  `INTEGRATION_REPLAY_LENSES` (`packages/types/src/integration-api.ts:508`: `tool-mix`,
+  `verification`, `cadence`, `session-detail`) and answers 400 "Replay lens unsupported" for any
+  other (`packages/collector/src/local-private-http.ts:269`). The answer is the same
+  `PrivateReplayLensDto` envelope, with the same availability, coverage and freshness.
+- **Rows** (`packages/collector/src/local-integration-replay-lenses.ts`, "content-free reducers
+  matching the hosted private integration surface"):
+  - Tool mix: one row per tool, labeled with the tool's name or "Unknown tool", sorted by calls
+    descending and then by label. Metrics `calls` (`count`), `errors` (`count`, null unless every
+    call said whether it errored) and `costUsd` (`usd`, "Measured cost", null unless every call's
+    cost was measured), and a row-level `share` of all tool calls from 0 to 1. Empty: the reason
+    "No tool-call evidence was captured."
+  - Cadence: one row, "Observed cadence", or none. Metrics `moments` (`count`, every moment, not
+    only tool calls), `averageGap` and `longestGap` (`milliseconds`, the time between consecutive
+    moments, null with one moment). No gap's place or cause is given. Empty: "No cadence moments
+    were captured."
+- **Not in ADR 007.** The ADR documents the verification lens only; these two are in the code and
+  the published lens list, not in the ADR's prose. Risk: Seorak may change their rows without the
+  notice ADR 007 promises for its documented shapes. Halcyonic reads them as strictly as the
+  verification lens and states the source of every rule.
+- **Halcyonic's side.** An evaluation now reads both after the verification lens and carries them
+  as the optional `tool_mix` and `cadence`, each with Seorak's own availability, coverage and
+  freshness and a lens that is null when Seorak could not produce it. A failed read of either (a
+  Seorak without the lens answers 400, a refusal, a contradiction such as more errored calls than
+  calls, a share outside 0 to 1, a second cadence row, another session) leaves only that field
+  absent: the rest of the evaluation stands. A metric in a unit Halcyonic does not know is null.
+  The tool's `cost_usd` is an estimate like every cost and is never added to the session's.
+- **Cost.** An evaluation now costs five requests of the credential's 60 a minute instead of
+  three, so at most 12 evaluations fit in a minute instead of 20.
+- **Not verified:** a live plane's answer to either lens, and whether a long tool call's own time
+  sits inside a cadence gap. Tested against the fake plane built from the reducer
+  (`client.test.ts`, `wire.test.ts`).

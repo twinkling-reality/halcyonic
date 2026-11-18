@@ -105,7 +105,7 @@ export type UnderstandingResponse = Static<typeof UnderstandingResponse>;
 
 /**
  * What the evaluation source (Seorak) measured about one execution, read through on request and
- * never journaled (ADR 0010). Each answer costs the source three requests of a budget of 60 a
+ * never journaled (ADR 0010). Each answer costs the source five requests of a budget of 60 a
  * minute, so clients fetch it on demand, for example when a workstream is opened, and never poll.
  */
 export const EvaluationResponse = Type.Object(

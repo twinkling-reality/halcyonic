@@ -183,8 +183,8 @@ describe('provider usage limits', () => {
     const absent = await client.usageLimits({ credential: null });
     assert.equal(absent.availability, 'unauthorized');
     assert.equal(fake.requests.length, count);
-    const tight = new SeorakClient({ port: fake.port, requestsPerMinute: 3 });
-    for (let i = 0; i < 3; i++)
+    const tight = new SeorakClient({ port: fake.port, requestsPerMinute: 5 });
+    for (let i = 0; i < 5; i++)
       assert.equal((await tight.usageLimits({ credential: fake.token })).availability, 'available');
     const limited = await tight.usageLimits({ credential: fake.token });
     assert.equal(limited.availability, 'unavailable');

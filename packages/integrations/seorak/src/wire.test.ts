@@ -1,19 +1,24 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import {
+  cadenceRow,
   EXAMPLE,
   lensDocument,
   lensExample,
+  otherLensDocument,
   outcomeDocument,
   outcomeExample,
   resolveHit,
   resolveMiss,
+  toolMixRow,
   verificationRow,
 } from './testing/fake-seorak.ts';
 import {
   CREDENTIAL_PATTERN,
   NATIVE_SESSION_ID_PATTERN,
+  readCadenceLens,
   readLens,
+  readToolMixLens,
   validateOutcome,
   validateSession,
 } from './wire.ts';
@@ -141,5 +146,80 @@ describe('integration API v1 reader', () => {
       assert.equal(CREDENTIAL_PATTERN.test(token), true, token);
     for (const token of ['srkx_', 'srkx_a b', 'srkx_a\n', 'srmcp_abc', 'abc', ' srkx_abc'])
       assert.equal(CREDENTIAL_PATTERN.test(token), false, token);
+  });
+});
+
+describe("Seorak's tool-mix and cadence lenses", () => {
+  const ref = EXAMPLE.sessionRef;
+  const toolMix = (rows: Json[]) => readToolMixLens(otherLensDocument('tool-mix', ref, rows));
+  const cadence = (rows: Json[]) => readCadenceLens(otherLensDocument('cadence', ref, rows));
+
+  test('reads each tool with its calls, errors, cost and share, in the order Seorak gives', () => {
+    const read = toolMix([
+      toolMixRow('Bash', 2, 0, 0.5, 2 / 3),
+      toolMixRow('Unknown tool', 1, null, null, 1 / 3),
+    ]);
+    assert.ok(read.ok);
+    assert.deepEqual(read.value.result?.rows, [
+      { label: 'Bash', calls: 2, errors: 0, costUsd: 0.5, share: 2 / 3 },
+      { label: 'Unknown tool', calls: 1, errors: null, costUsd: null, share: 1 / 3 },
+    ]);
+  });
+
+  test('refuses a tool mix that contradicts itself rather than guessing', () => {
+    assert.deepEqual(issues(toolMix([toolMixRow('Bash', 1, 2, null, 1)])), [
+      '/result/rows/0 has more errored calls than calls',
+    ]);
+    assert.deepEqual(issues(toolMix([toolMixRow('Bash', 1, 0, null, 1.5)])), [
+      '/result/rows/0/share must be a fraction from 0 to 1',
+    ]);
+    assert.deepEqual(issues(toolMix([toolMixRow('Bash', 1, 0, -1, 1)])), [
+      '/result/rows/0/metrics/2/value must be an amount of at least 0 or null',
+    ]);
+    assert.deepEqual(issues(toolMix([{ label: 'Bash', metrics: [], share: 1 }])).length, 3);
+    assert.equal(readToolMixLens(otherLensDocument('cadence', ref)).ok, false);
+  });
+
+  test('reads a metric in a unit added later as unknown, never rescaled', () => {
+    const row = toolMixRow('Bash', 1, 0, 0.2, 1);
+    (row.metrics as Json[])[2] = {
+      key: 'costUsd',
+      label: 'Measured cost',
+      value: 20,
+      unit: 'cents',
+    };
+    const read = toolMix([row]);
+    assert.ok(read.ok);
+    assert.equal(read.value.result?.rows[0]?.costUsd, null);
+  });
+
+  test('reads the one cadence row in milliseconds, and nulls with a single moment', () => {
+    const read = cadence([cadenceRow(1, null, null)]);
+    assert.ok(read.ok);
+    assert.deepEqual(read.value.result?.rows, [
+      { label: 'Observed cadence', moments: 1, averageGap: null, longestGap: null },
+    ]);
+    const empty = cadence([]);
+    assert.ok(empty.ok);
+    assert.equal(empty.value.result?.emptyReason, 'No cadence moments were captured.');
+  });
+
+  test('refuses a cadence of two rows or an average past its longest gap', () => {
+    assert.deepEqual(issues(cadence([cadenceRow(3, 1, 2), cadenceRow(3, 1, 2)])), [
+      '/result/rows must hold at most one row',
+    ]);
+    assert.deepEqual(issues(cadence([cadenceRow(3, 5, 2)])), [
+      '/result/rows/0 has an average gap longer than its longest gap',
+    ]);
+    const seconds = cadenceRow(3, 1, 2);
+    (seconds.metrics as Json[])[2] = {
+      key: 'longestGap',
+      label: 'Longest gap',
+      value: 2,
+      unit: 'seconds',
+    };
+    assert.deepEqual(issues(cadence([seconds])), [
+      '/result/rows/0/metrics/2/unit must be milliseconds for longestGap',
+    ]);
   });
 });

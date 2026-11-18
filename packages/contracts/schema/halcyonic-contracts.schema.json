@@ -24519,6 +24519,12 @@
         },
         "verification": {
           "$ref": "#/$defs/EvaluationVerification"
+        },
+        "tool_mix": {
+          "$ref": "#/$defs/EvaluationToolMix"
+        },
+        "cadence": {
+          "$ref": "#/$defs/EvaluationCadence"
         }
       },
       "additionalProperties": false
@@ -24973,6 +24979,213 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationToolMix": {
+      "type": "object",
+      "required": [
+        "availability",
+        "coverage",
+        "freshness",
+        "lens"
+      ],
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/EvaluationAvailability"
+        },
+        "coverage": {
+          "$ref": "#/$defs/EvaluationCoverage"
+        },
+        "freshness": {
+          "$ref": "#/$defs/EvaluationFreshness"
+        },
+        "lens": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationToolMixLens"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationToolMixLens": {
+      "type": "object",
+      "required": [
+        "by_tool",
+        "empty_reason"
+      ],
+      "properties": {
+        "by_tool": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvaluationToolMixRow"
+          }
+        },
+        "empty_reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 600
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationToolMixRow": {
+      "type": "object",
+      "required": [
+        "tool",
+        "calls",
+        "errors",
+        "cost_usd",
+        "share"
+      ],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "calls": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "errors": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cost_usd": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "share": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationCadence": {
+      "type": "object",
+      "required": [
+        "availability",
+        "coverage",
+        "freshness",
+        "lens"
+      ],
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/EvaluationAvailability"
+        },
+        "coverage": {
+          "$ref": "#/$defs/EvaluationCoverage"
+        },
+        "freshness": {
+          "$ref": "#/$defs/EvaluationFreshness"
+        },
+        "lens": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationCadenceLens"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "EvaluationCadenceLens": {
+      "type": "object",
+      "required": [
+        "moments",
+        "average_gap_ms",
+        "longest_gap_ms",
+        "empty_reason"
+      ],
+      "properties": {
+        "moments": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "average_gap_ms": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "longest_gap_ms": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "empty_reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 600
             },
             {
               "type": "null"

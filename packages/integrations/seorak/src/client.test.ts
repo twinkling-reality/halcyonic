@@ -17,8 +17,10 @@ import {
   integrationToken,
   json,
   lensDocument,
+  otherLensDocument,
   resolveDocument,
   resolveMiss,
+  toolMixRow,
   verificationRow,
 } from './testing/fake-seorak.ts';
 
@@ -31,6 +33,8 @@ const CODEX = { kind: 'codex', id: '0199a3f2-7c4e-7b10-8d2a-5e6f9c1b3a47' };
 const RESOLVE = '/api/v1/sessions/resolve';
 const OUTCOME = `/api/v1/sessions/${EXAMPLE.sessionRef}/outcome`;
 const LENS = `/api/v1/sessions/${EXAMPLE.sessionRef}/replay/verification`;
+const TOOL_MIX = `/api/v1/sessions/${EXAMPLE.sessionRef}/replay/tool-mix`;
+const CADENCE = `/api/v1/sessions/${EXAMPLE.sessionRef}/replay/cadence`;
 
 async function start(t: TestContext): Promise<FakeSeorak> {
   const fake = await FakeSeorak.start();
@@ -99,7 +103,7 @@ async function closedPort(): Promise<number> {
 }
 
 describe('evaluating a session through Seorak', () => {
-  test('resolves the native id in a POST body, then reads the outcome and verification lens', async (t) => {
+  test('resolves the native id in a POST body, then reads the outcome and the three lenses', async (t) => {
     const fake = await start(t);
     const result = evaluation(await evaluate(fake));
     assert.deepEqual(result.source, { system: 'seorak', synthetic: false, api_version: 'v1' });
@@ -111,6 +115,8 @@ describe('evaluating a session through Seorak', () => {
         ['POST', RESOLVE, bearer],
         ['GET', OUTCOME, bearer],
         ['GET', LENS, bearer],
+        ['GET', TOOL_MIX, bearer],
+        ['GET', CADENCE, bearer],
       ],
     );
     const [resolve] = fake.requests;
@@ -584,7 +590,7 @@ describe('evaluating a session through Seorak', () => {
   test('throttles on the client: no more requests in a rolling minute than the budget', async (t) => {
     const fake = await start(t);
     const client = clientFor(fake);
-    for (let evaluation = 0; evaluation < 20; evaluation++)
+    for (let evaluation = 0; evaluation < 12; evaluation++)
       assert.equal((await evaluate(fake, CLAUDE, { client })).availability, 'available');
     assert.equal(fake.requests.length, 60);
     const held = await evaluate(fake, CLAUDE, { client });
@@ -596,7 +602,7 @@ describe('evaluating a session through Seorak', () => {
 
   test('reserves a whole evaluation before its first request and releases what it did not need', async (t) => {
     const fake = await start(t);
-    const client = clientFor(fake, { requestsPerMinute: 6 });
+    const client = clientFor(fake, { requestsPerMinute: 8 });
     const missed = { kind: 'claude-agent', id: 'not-captured-yet' };
     for (let attempt = 0; attempt < 3; attempt++)
       assert.deepEqual(reason(await evaluate(fake, missed, { client })), [
@@ -604,12 +610,12 @@ describe('evaluating a session through Seorak', () => {
         'not_captured',
       ]);
     assert.equal((await evaluate(fake, CLAUDE, { client })).availability, 'available');
-    assert.equal(fake.requests.length, 6);
+    assert.equal(fake.requests.length, 8);
     assert.deepEqual(reason(await evaluate(fake, missed, { client })), [
       'unavailable',
       'rate_limited',
     ]);
-    assert.equal(fake.requests.length, 6);
+    assert.equal(fake.requests.length, 8);
   });
 
   test('says incompatible for an answer the contract does not give', async (t) => {
@@ -753,8 +759,72 @@ describe('evaluating a session through Seorak', () => {
     assert.equal((await evaluate(fake)).availability, 'available');
   });
 
+  test('reads the tool mix and the cadence as Seorak measured them, nulls kept', async (t) => {
+    const fake = await start(t);
+    const result = evaluation(await evaluate(fake));
+    assert.deepEqual(result.tool_mix?.lens, {
+      by_tool: [
+        { tool: 'Bash', calls: 4, errors: 1, cost_usd: 0.12, share: 0.5 },
+        { tool: 'Edit', calls: 3, errors: 0, cost_usd: null, share: 0.375 },
+        { tool: 'Read', calls: 1, errors: null, cost_usd: null, share: 0.125 },
+      ],
+      empty_reason: null,
+    });
+    assert.deepEqual(result.cadence?.lens, {
+      moments: 7,
+      average_gap_ms: 30_000,
+      longest_gap_ms: 120_000,
+      empty_reason: null,
+    });
+    // Each lens carries Seorak's own statement about its read, as the verification lens does.
+    assert.deepEqual(result.tool_mix?.availability, { state: 'available', reason: null });
+    assert.equal(result.cadence?.freshness.state, result.verification.freshness.state);
+  });
+
+  test("keeps Seorak's reason when a lens measured nothing, and no row is made up", async (t) => {
+    const fake = await start(t);
+    fake.example.toolMix = otherLensDocument('tool-mix', EXAMPLE.sessionRef, []);
+    fake.example.cadence = otherLensDocument('cadence', EXAMPLE.sessionRef, []);
+    const result = evaluation(await evaluate(fake));
+    assert.deepEqual(result.tool_mix?.lens, {
+      by_tool: [],
+      empty_reason: 'No tool-call evidence was captured.',
+    });
+    assert.deepEqual(result.cadence?.lens, {
+      moments: null,
+      average_gap_ms: null,
+      longest_gap_ms: null,
+      empty_reason: 'No cadence moments were captured.',
+    });
+  });
+
+  test('leaves out only the lens Seorak does not serve or answers wrongly, never the rest', async (t) => {
+    const fake = await start(t);
+    fake.example.toolMix = null;
+    const unknownRoute = evaluation(await evaluate(fake));
+    assert.equal('tool_mix' in unknownRoute, false);
+    assert.equal(unknownRoute.cadence?.lens?.moments, 7);
+    assert.equal(unknownRoute.verification.lens?.by_kind.length, 1);
+
+    fake.example.toolMix = otherLensDocument('tool-mix', EXAMPLE.sessionRef, [
+      toolMixRow('Bash', 1, 2, null, 1),
+    ]);
+    fake.example.cadence = otherLensDocument('cadence', 'ses_00000000000000000000000000000000');
+    const contradicted = evaluation(await evaluate(fake));
+    assert.equal('tool_mix' in contradicted, false);
+    assert.equal('cadence' in contradicted, false);
+    assert.equal(
+      contradicted.outcome.measure?.commits_landed,
+      unknownRoute.outcome.measure?.commits_landed,
+    );
+    assert.ok(
+      compileValidator(EvaluationResult)({ availability: 'available', evaluation: contradicted })
+        .ok,
+    );
+  });
+
   test('refuses a budget smaller than one evaluation and a port that is not one', () => {
-    assert.throws(() => new SeorakClient({ requestsPerMinute: 2 }), RangeError);
+    assert.throws(() => new SeorakClient({ requestsPerMinute: 4 }), RangeError);
     assert.throws(() => new SeorakClient({ port: 70_000 }), RangeError);
   });
 });

@@ -187,10 +187,11 @@ namespace Halcyonic.Client
         }
 
         /// <summary>
-        /// What the evaluation provider (Seorak) measured about an execution: its estimated cost, outcome
-        /// and verification runs. The control plane reads it through on request; the result states its
-        /// availability instead of failing. Each read costs Seorak three requests of a budget of 60 a
-        /// minute, so fetch it on demand, for example when a workstream is opened, and never poll.
+        /// What the evaluation provider (Seorak) measured about an execution: its estimated cost,
+        /// outcome, verification runs, tool mix and cadence. The control plane reads it through on
+        /// request; the result states its availability instead of failing. Each read costs Seorak five
+        /// requests of a budget of 60 a minute, so fetch it on demand, for example when a workstream is
+        /// opened, and never poll.
         /// </summary>
         public async Task<EvaluationResponse> GetEvaluationAsync(string executionId, CancellationToken cancellationToken = default)
         {

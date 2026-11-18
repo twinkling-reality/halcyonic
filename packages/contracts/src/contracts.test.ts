@@ -722,6 +722,8 @@ describe('the C# bindings', () => {
     'CheckReading.last_hidden_kind', // that kind held from the last measured reading (VRIFY, 2026-11-14)
     'CheckpointView.turn_id', // the turn an after_turn version follows (History)
     'Evaluation.activity', // Seorak's activity of a session
+    'Evaluation.cadence', // Seorak's cadence lens, absent when not read (CORE, 2026-11-18)
+    'Evaluation.tool_mix', // Seorak's tool-mix lens, absent when not read (CORE, 2026-11-18)
     'ExecutionApprovalAnsweredByHostPayload.cut', // a confined answer longer than the record keeps (M1)
     'ExecutionApprovalDeniedByHostPayload.length', // a too-long request's length; absent for one not recorded (ADR 0065)
     'ExecutionApprovalDeniedByHostPayload.tool_name', // a request not recorded: its tool, for display only (F2)

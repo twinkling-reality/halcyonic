@@ -150,6 +150,76 @@ function defaultRows(): Json[] {
 }
 
 /**
+ * One row of the tool-mix lens as Seorak's reducer writes it (local-integration-replay-lenses.ts):
+ * a tool with `calls` and `errors` in the unit `count`, `costUsd` in `usd`, and its `share`.
+ */
+export function toolMixRow(
+  label: string,
+  calls: number | null,
+  errors: number | null,
+  costUsd: number | null,
+  share: number | null,
+): Json {
+  return {
+    label,
+    metrics: [
+      { key: 'calls', label: 'Tool calls', value: calls, unit: 'count' },
+      { key: 'errors', label: 'Errored calls', value: errors, unit: 'count' },
+      { key: 'costUsd', label: 'Measured cost', value: costUsd, unit: 'usd' },
+    ],
+    ...(share === null ? {} : { share }),
+  };
+}
+
+/** The cadence lens's one row as Seorak's reducer writes it, gaps in milliseconds. */
+export function cadenceRow(
+  moments: number | null,
+  averageGap: number | null,
+  longestGap: number | null,
+): Json {
+  return {
+    label: 'Observed cadence',
+    metrics: [
+      { key: 'moments', label: 'Observed moments', value: moments, unit: 'count' },
+      { key: 'averageGap', label: 'Average gap', value: averageGap, unit: 'milliseconds' },
+      { key: 'longestGap', label: 'Longest gap', value: longestGap, unit: 'milliseconds' },
+    ],
+  };
+}
+
+/** A `PrivateReplayLensDto` for another lens of one session, with Seorak's empty reason when empty. */
+export function otherLensDocument(
+  lens: 'tool-mix' | 'cadence',
+  ref: string,
+  rows: Json[] = lens === 'tool-mix'
+    ? [
+        toolMixRow('Bash', 4, 1, 0.12, 0.5),
+        toolMixRow('Edit', 3, 0, null, 0.375),
+        toolMixRow('Read', 1, null, null, 0.125),
+      ]
+    : [cadenceRow(7, 30_000, 120_000)],
+): Json {
+  const empty =
+    lens === 'tool-mix'
+      ? 'No tool-call evidence was captured.'
+      : 'No cadence moments were captured.';
+  return {
+    ...envelope(),
+    result: {
+      lens,
+      level: 'session',
+      target: { kind: 'session', sessionRef: ref },
+      headline: null,
+      rows,
+      emptyReason: rows.length === 0 ? empty : null,
+      loadedSessionCount: 1,
+      momentCount: 7,
+      nextCursor: null,
+    },
+  };
+}
+
+/**
  * One provider-reported limit reading in the form Seorak's usage-limits read serves (the Seorak
  * provider limits lane's final format, 2026-09-30), observed a minute ago and reset a day away.
  */
@@ -204,6 +274,10 @@ export interface CapturedSession {
   resolve: Json;
   outcome: Json;
   lens: Json;
+  /** The tool-mix lens, or null to answer 404 as a Seorak without the lens would. */
+  toolMix: Json | null;
+  /** The cadence lens, or null to answer 404 as a Seorak without the lens would. */
+  cadence: Json | null;
 }
 
 const RESOLVABLE_AGENTS = new Set(['claude-code', 'codex']);
@@ -264,6 +338,8 @@ export class FakeSeorak {
       resolve,
       outcome: outcomeDocument(ref),
       lens: lensDocument(ref),
+      toolMix: otherLensDocument('tool-mix', ref),
+      cadence: otherLensDocument('cadence', ref),
     };
     this.sessions.push(session);
     return session;
@@ -323,16 +399,26 @@ export class FakeSeorak {
     }
     if (method === 'POST' && url.pathname === '/api/v1/sessions/resolve')
       return this.#resolve(request, body, response);
-    const read = /^\/api\/v1\/sessions\/(ses_[0-9a-f]{32})\/(outcome|replay\/verification)$/.exec(
-      url.pathname,
-    );
+    const read =
+      /^\/api\/v1\/sessions\/(ses_[0-9a-f]{32})\/(outcome|replay\/verification|replay\/tool-mix|replay\/cadence)$/.exec(
+        url.pathname,
+      );
     if (method !== 'GET' || read === null) return json(response, 404, { error: 'not_found' });
     const [, ref, what] = read;
     const scope = what === 'outcome' ? 'sessions:read' : 'replay:read';
     if (!this.scopes.has(scope)) return insufficientScope(response, scope);
     const session = this.sessions.find((candidate) => candidate.ref === ref);
     if (session === undefined) return json(response, 404, { error: 'not_found' });
-    return json(response, 200, what === 'outcome' ? session.outcome : session.lens);
+    const answer =
+      what === 'outcome'
+        ? session.outcome
+        : what === 'replay/verification'
+          ? session.lens
+          : what === 'replay/tool-mix'
+            ? session.toolMix
+            : session.cadence;
+    if (answer === null) return json(response, 404, { error: 'not_found' });
+    return json(response, 200, answer);
   }
 
   #resolve(request: IncomingMessage, body: string, response: ServerResponse): undefined {

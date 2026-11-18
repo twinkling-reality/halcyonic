@@ -3,6 +3,7 @@ import type {
   EvaluationResult,
   UsageLimit,
   UsageLimitsResponse,
+  Validated,
   ValidationIssue,
 } from '@halcyonic/contracts';
 import { RequestBudget, WINDOW_MS } from './budget.ts';
@@ -11,8 +12,12 @@ import {
   API_BASE_PATH,
   CREDENTIAL_PATTERN,
   DEFAULT_PORT,
+  type LensName,
   NATIVE_SESSION_ID_PATTERN,
+  type ReadLens,
+  readCadenceLens,
   readLens,
+  readToolMixLens,
   type SeorakAgent,
   validateOutcome,
   validateSession,
@@ -54,8 +59,11 @@ export interface EvaluateOptions {
   readonly signal?: AbortSignal;
 }
 
-/** An evaluation makes at most three requests: the resolve, the outcome and the verification lens. */
-const REQUESTS_PER_EVALUATION = 3;
+/**
+ * An evaluation makes at most five requests: the resolve, the outcome, and the verification,
+ * tool-mix and cadence lenses.
+ */
+const REQUESTS_PER_EVALUATION = 5;
 
 type Availability = EvaluationFailure['availability'];
 type Failure<A extends Availability = Availability> = Extract<
@@ -267,7 +275,7 @@ function retryTime(header: string | null, now: number): number {
 /**
  * Reads what Seorak measured about the session behind one execution, through the read-only
  * integration API v1 of Seorak's local plane: it resolves the runtime's own session id to Seorak's
- * session, then reads the session's outcome and verification lens.
+ * session, then reads the session's outcome and its verification, tool-mix and cadence lenses.
  *
  * One instance keeps the credential's request budget, so a process shares one client. The
  * credential is passed on every call instead, because the owner may issue, replace or revoke it
@@ -415,9 +423,30 @@ export class SeorakClient {
         return incoherent('verification lens names a different session than the one resolved');
       if ((result === null) !== (lens.value.availability.state === 'unavailable'))
         return incoherent('verification lens has a result exactly when it says it is unavailable');
+      // The tool mix and the cadence add to the evaluation; a failed read of either leaves only
+      // that part unknown, never the measurements already read.
+      const extra = async <Row>(
+        name: LensName,
+        reader: (value: unknown) => Validated<ReadLens<Row>>,
+      ): Promise<ReadLens<Row> | undefined> => {
+        const reply = await read(`${name} lens`, `${path}/replay/${name}`, REPLAY);
+        if (isFailure(reply)) return undefined;
+        const extraLens = reader(reply.value);
+        if (!extraLens.ok) return undefined;
+        const extraResult = extraLens.value.result;
+        if (extraResult !== null && extraResult.sessionRef !== ref) return undefined;
+        if ((extraResult === null) !== (extraLens.value.availability.state === 'unavailable'))
+          return undefined;
+        return extraLens.value;
+      };
+      const toolMix = await extra('tool-mix', readToolMixLens);
+      const cadence = await extra('cadence', readCadenceLens);
       return {
         availability: 'available',
-        evaluation: toEvaluation(resolved.value, session, outcome.value, lens.value),
+        evaluation: toEvaluation(resolved.value, session, outcome.value, lens.value, {
+          toolMix,
+          cadence,
+        }),
       };
     } finally {
       this.#budget.release(unused);

@@ -12,9 +12,11 @@ id, date and amount in them is made up, and they hold no credential.
   `freshness` as "as above", so they are copied from the outcome example. Their values are the
   ADR's; whitespace follows this repository's formatter.
 
-The other documents the tests serve (a resolve miss, and outcomes and lenses of other sessions)
-are built in `src/testing/fake-seorak.ts` from the published `@seorak/types` 0.2.0 declarations
-and the ADR's text. They are Halcyonic's construction, not recordings of Seorak.
+The other documents the tests serve (a resolve miss, outcomes and lenses of other sessions, and
+every session's tool-mix and cadence lenses) are built in `src/testing/fake-seorak.ts` from the
+published `@seorak/types` 0.2.0 declarations and the ADR's text, and the two later lenses from
+Seorak's reducer (`packages/collector/src/local-integration-replay-lenses.ts` at `35446e32`), which
+the ADR does not describe. They are Halcyonic's construction, not recordings of Seorak.
 
 The ADR is used under the Apache License, Version 2.0, the license of those commits. Its notice:
 
