@@ -1,7 +1,7 @@
 # Meta Horizon Store release build
 
 - **Question:** What does the Meta Horizon Store require of a Quest 3 build uploaded to a release
-  channel (the competition entry goes to one named "Competition"), and does the release APK meet
+  channel, and does the release APK meet
   it without the development tools that Meta's SDK puts in a development build?
 - **Date:** 2026-09-29.
 - **Environment:** Unity 6000.3.25f1 on macOS 26.7 (Apple M5 Max) with its own Android SDK:
@@ -17,14 +17,14 @@
   hooks of an assembly left out of a build. Nothing was uploaded and nothing was installed on the
   headset.
 - **Status:** Requirements verified in Meta's documentation. The release APK meets every packaging
-  requirement checked here except signing, which needs the owner's release key; whether the store
+  requirement checked here except signing, which needs the release key; whether the store
   accepts the Meta VR Glasses identifier is open. Not verified: the upload validator's verdict, and
   either APK on the headset.
 
 ## Store requirements
 
 Meta's release channel page says that every upload, even an alpha build, must meet the release
-packaging requirements, so they apply to a "Competition" channel as they do to production.
+packaging requirements, so they apply to every release channel as they do to production.
 
 | Requirement | Source | Release APK |
 | --- | --- | --- |
@@ -189,16 +189,16 @@ a release build and a development build in batch mode, `aapt2 dump badging`, the
 
 - Upload only APKs from `QuestBuild.BuildReleaseApk`
   ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md)). The development APK carries this Mac's LAN
-  address and a token, and serves agents from inside the app; it stays on the owner's headset.
-- Before an upload, the owner signs the release APK with a release key kept outside the
-  repository, and raises the version code above every earlier upload.
-- Before the submission, on the headset: the release APK starts with no errors from the missing
+  address and a token, and serves agents from inside the app; it stays on the developer's headset.
+- Before an upload, sign the release APK with a release key kept outside the
+  repository, and raise the version code above every earlier upload.
+- Before the first upload, on the headset: the release APK starts with no errors from the missing
   startup hooks, connects, renders and passes the milestone 2 checks; the development APK still
   does all of that at API level 34. Both are signed with the same debug key today, so either
-  installs over the other. Once the release APK carries the owner's key, installing it needs an
+  installs over the other. Once the release APK carries the release key, installing it needs an
   uninstall first, which deletes the pushed access token. The release APK shows no debugger
   interface although the debugger's runtime is in it.
-- Decided on 2026-10-02 (coordinator, for the owner): the store build does not declare Meta VR
+- Decided on 2026-10-02: the store build does not declare Meta VR
   Glasses, since it never claims a device nobody has run it on. `OculusProjectConfig` targets Quest
   2, Quest Pro, Quest 3 and Quest 3S only, the committed manifest matches, and `BuildReleaseApk`
   deletes and fails an APK whose manifest still names `stanley`.

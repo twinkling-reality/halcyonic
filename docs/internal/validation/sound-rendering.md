@@ -1,6 +1,6 @@
 # Sound rendering
 
-- **Question:** Does the C# port of the Glaze direction render what the owner heard on the
+- **Question:** Does the C# port of the Glaze direction render what was heard on the
   soundbook page, and what do rendering every cue at startup and keeping the clips cost?
 - **Date:** 2026-09-29.
 - **Environment:** an Apple M5 Max (18 cores) with macOS 26.7; .NET SDK 10.0.401; Unity

@@ -1,6 +1,6 @@
 # ADR 0020: A project works in one folder the host approves, and clients never name a path
 
-- Status: Accepted on 2026-09-30 by the owner.
+- Status: Accepted on 2026-09-30.
 - Date: 2026-09-30
 
 ## Context

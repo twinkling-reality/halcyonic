@@ -6,7 +6,7 @@
 
 ## Context
 
-The owner requires open-ended requests carried through to an outcome in VR. Field dictation and
+The product requires open-ended requests carried through to an outcome in VR. Field dictation and
 the creation companion do not provide that capability: the companion sends no tools and proposes
 only a first task. A phrase router or a model choosing one predefined screen would still require
 the person to coordinate the work. Panels should make the work and its decisions inspectable.
@@ -74,11 +74,11 @@ Acceptance requires real model tool/result continuation and an actual control-pl
 with negative cases for malformed calls, changed context, revocation, response loss, duplicates and
 restart. Independent review must examine authority and persistence. Headset speech, interruption,
 correction, contextual views and other-app return require device evidence. A passing protocol probe
-or a new request screen alone is not acceptance of the owner's end-to-end agent requirement.
+or a new request screen alone is not acceptance of the end-to-end agent requirement.
 
 ## Amendment, 2026-11-10: a request about a whole project, and the evidence of what a task did
 
-The owner asked for understanding of all kinds, for anyone (2026-11-10). Two gaps stood: a request
+Understanding of all kinds, for anyone, was asked for (2026-11-10). Two gaps stood: a request
 had to name one task and its current execution, and its tools could not see what the Mac observed a
 task change, nor the project's check, so "what did it change and is it working" had no evidence to
 answer from.
@@ -109,7 +109,7 @@ answer from.
   read: "does it work" is answered from the Mac's check, never ahead of it. The first real run answered
   five seconds before its check ended.
 - A tool call is refused unless the request was offered that tool at that moment, whatever tools exist
-  (AUDIT2, 2026-11-10). The wait for the Mac's reading of a turn's files ends a minute after the task's
+  (found in review, 2026-11-10). The wait for the Mac's reading of a turn's files ends a minute after the task's
   last activity, with a wake-up then, so an observer that is off or failing never holds a request.
 
 ## Amendment, 2026-11-10 (later): a request about all work, the model it runs on, and quoted data
@@ -124,13 +124,13 @@ answer from.
   Only Halcyonic's own projects, from the host's own lists; the model never names one. Answers
   name projects and tasks by the names the host gave. Admission refuses any other mix of null fields.
 - The model: a request runs on the person's chosen local model, the one `pnpm mac-setup local-model` named,
-  where one is set, else on the companion's model; never a hosted model (the lead, 2026-11-10). SYSTEM.md
+  where one is set, else on the companion's model; never a hosted model (2026-11-10). SYSTEM.md
   says which setting decides.
 - A request that asks for a change calls `continue_task` first: the Mac's evidence is already in its context,
   so it reads only what that lacks. The 30B local model spent all eight turns on reads before this rule.
 - Text an agent wrote, or that was read from the project (file paths, page errors, the agent's own messages),
   reaches the model in a user-role block that says it is quoted data, neither the person's words nor
-  instructions; the host's own receipts stay in a system message (AUDIT2 S3).
+  instructions; the host's own receipts stay in a system message (review finding S3).
 - Once the work a request sent has its outcome (its turn ended, nothing waits, the Mac's check of it in),
   the next model turn is offered no tool, so the model answers from the evidence already in its
   context. This changes the earlier rule that a wake never forces a final answer: the 30B local model
@@ -139,7 +139,7 @@ answer from.
   call not offered.
 - On that turn the host also says, in a system message, to answer in plain words; and a reply that is a tool call
   written as text (a reply that starts with function-call or invoke markup, or bare JSON naming one of the assistant's
-  own tools; an answer holding JSON or quoting markup stays an answer, AUDIT2 S1) is never kept as the reply: the request is
+  own tools; an answer holding JSON or quoting markup stays an answer, review finding S1) is never kept as the reply: the request is
   interrupted with a step saying so, and Resume asks again (the 30B model wrote one, 2026-11-11).
 - The planning budget's last two turns are offered no tool either, with a system message to answer from what was
   read and say what was not, so a request that reads on to its bound still ends in an answer rather than the budget
@@ -156,12 +156,12 @@ answer from.
   in words on that turn; every read comes from the second turn on. The 30B model read six times and never sent the
   change; offered `observe_task` as well, it chose to look and again never sent it (2026-11-11).
 - A request about all work is not offered `ask_person`: it changes nothing, so it is answered with a summary from what
-  the host lists, never a question back (the lead, 2026-11-11). The answering turn's instructions say so too: how many
+  the host lists, never a question back (2026-11-11). The answering turn's instructions say so too: how many
   projects, which tasks run, which wait on the person, which checks failed, never a list of the fields read.
-- A request never ends with nothing (the lead, 2026-11-11). When it ends (interrupted, failed or stopped) holding no reply at
+- A request never ends with nothing (2026-11-11). When it ends (interrupted, failed or stopped) holding no reply at
   all, the change that ends it carries `observed`, what the computer itself saw, as facts: for a task, its run's
   state, its turns, the files the Mac saw its turns change, the check of this task's own folder (its own copy's, or the
-  project folder's where it works there, never another task's; AUDIT2 2026-11-11) and whether the person's words
+  project folder's where it works there, never another task's; found in review 2026-11-11) and whether the person's words
   reached the agent; for a project, its tasks by where they stand; for all work, the projects and the tasks across
   them. No model text, no path, no agent words; journaled as every control-plane fact is, observed. It stands on the
   view apart from `reply`, and any later change takes it away, so it is never beside a reply. The clients choose its
@@ -171,11 +171,11 @@ answer from.
   and `more_projects` or `more_tasks` counts them, so the totals stay whole (the 30B model saw 13 projects as a partial
   excerpt and could not summarize them, 2026-11-11). The 4 KiB shrinks to the room the next turn's body leaves beside
   the instructions, the person's words, the host context, the current batch and every tool the request may be offered,
-  measured as the transport measures it, so long words never make a body it refuses (AUDIT2, 2026-11-11).
-- No request the contract accepts fails for its length (the lead, 2026-11-11; 9,600 characters of words made a first
+  measured as the transport measures it, so long words never make a body it refuses (found in review, 2026-11-11).
+- No request the contract accepts fails for its length (2026-11-11; 9,600 characters of words made a first
   turn of 13,742 bytes, past the transport's 12,288, while the contract allows 32,000):
   - All the person's words share one budget, 3,584 bytes as the body escapes them, however many continuations a
-    request takes (AUDIT2, 2026-11-12: a bound per message let five continuations of 900 characters pass the
+    request takes (found in review, 2026-11-12: a bound per message let five continuations of 900 characters pass the
     transport's bound). The request itself takes at most 2,560 and each continuation at most 1,024. The newest
     continuation is placed first, then each older one in the room left, always keeping room for the request. Each is
     whole where it fits; otherwise the first two thirds and the last third of its room, cut between characters,
@@ -189,7 +189,7 @@ answer from.
   - A reply written from a shortened view ends with the host's own sentence: how many of how many characters the
     answer read, the beginning and the end. It says that all of them went to the agent only when a `continue_task`
     step was confirmed after the person's last words, and only while every step of the request is still in its view;
-    an instruction sent before a continuation never held it (AUDIT2, 2026-11-12). The host writes it, since the host
+    an instruction sent before a continuation never held it (found in review, 2026-11-12). The host writes it, since the host
     knows what it cut; the reply stays `reported`.
   - Every answer is asked for in a few short sentences of the model's own, as to a person: never the computer's field
     names, ids, timestamps, headings or markup (the 30B window of 2026-11-12: both answers were right and read like a
@@ -218,10 +218,10 @@ answer from.
 
 ## Amendment, 2026-11-12: a hosted provider, when the person stored its key
 
-This changes "never a hosted model" (the lead, 2026-11-10) on the owner's offer of their own key (the lead, 2026-11-12).
+This changes "never a hosted model" (2026-11-10) for a person who offers their own key (2026-11-12).
 What was read and seen is in [hosted-assistant.md](../validation/hosted-assistant.md).
 
-- **Which model: the person's own choice (the lead's D1, 2026-11-12).**
+- **Which model: the person's own choice (decision D1, 2026-11-12).**
   - A stored key makes its provider's models *offered*. It never moves the assistant. The key is its private file in
     the data folder, the product's own entry, refused when other users can read it. The environment is never read for
     the assistant.
@@ -240,7 +240,7 @@ What was read and seen is in [hosted-assistant.md](../validation/hosted-assistan
     the provider sets each request's price and it is not shown here; to stop paying, choose this computer's model,
     which is free. No price,
     estimate, size or limit is ever said. The whole
-    review stays under fifty-five words, so it reads at a glance at the larger text size (the owner's report of
+    review stays under fifty-five words, so it reads at a glance at the larger text size (a tester's report of
     2026-11-13: it was tall and said the cost in one long paragraph).
 - **A provider is one declaration file,** `providers/<id>/provider.json`, read into the host's one list
   (`HostProviders`, [ADR 0061](0061-a-hosted-provider-is-one-declaration-file-the-host-reads.md)). It gives the wire

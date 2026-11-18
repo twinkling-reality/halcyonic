@@ -1,12 +1,12 @@
 # ADR 0028: OpenCode runs inside a macOS sandbox of Halcyonic's own
 
-- Status: Accepted (delegated by the owner, 2026-10-08); amended 2026-10-08: Ollama only through
+- Status: Accepted (2026-10-08); amended 2026-10-08: Ollama only through
   a gate of Halcyonic's own (decision 5)
 - Date: 2026-10-08
 
 ## Context
 
-- Every OpenCode session Halcyonic opens asks before shell commands (the owner's decision of
+- Every OpenCode session Halcyonic opens asks before shell commands (a decision of
   2026-10-08), but OpenCode 2.0.18 raises the ask only for the commands its parse of the command
   line finds: some shell constructs, in zsh and in bash, run a command or write a file with no ask,
   inside the project and outside it ([opencode-permissions.md](../validation/opencode-permissions.md)).
@@ -49,7 +49,7 @@
      Cargo's and the login keychains.
 4. The shell ask stays, as the person's say over what runs; the sandbox bounds what anything run
    can reach.
-5. **Ollama only through a gate** (amended 2026-10-08, the coordinator's decision): a loopback
+5. **Ollama only through a gate** (amended 2026-10-08): a loopback
    server in the control plane's own process, outside the sandbox, which the adapter opens on a free
    port before it launches the server and closes once the server has exited
    (`packages/integrations/opencode/src/ollama-gate.ts`). It passes on exactly the three requests
@@ -90,7 +90,7 @@
   "always" or a Console login of theirs applying; but a command could write packages and binaries
   their own OpenCode runs outside the sandbox, or change its saved rules and credentials. Refused.
 - **Named hosts for package managers:** refused for now.
-- **Deny shell:** loses builds, tests and git, which the owner decided against.
+- **Deny shell:** loses builds, tests and git, which was decided against.
 - **A container or virtual machine:** stronger, but heavy on a Mac, and the project folders and
   Ollama would have to be shared into it.
 
@@ -144,10 +144,10 @@
   a person-chosen list of extra local ports is wanted; or to give
   Codex's and Claude Code's runs the same bounds.
 
-## Amendment, 2026-11-10: one server per folder (BOX-3)
+## Amendment, 2026-11-10: one server per folder
 
-AUDIT showed on 2026-11-10 that one server for every project let a command change another project under the same
-root: the project roots were writable. Since BOX-3 the adapter runs one OpenCode server per execution folder, each
+A review showed on 2026-11-10 that one server for every project let a command change another project under the same
+root: the project roots were writable. Since this amendment the adapter runs one OpenCode server per execution folder, each
 inside its own profile:
 - **What each folder's server writes:** that folder, and its own data, state, cache and temporary folders
   (`<data dir>/opencode-sandbox-<key>`, `<key>` the folder's hash). Never the project roots, never another folder.
@@ -160,16 +160,16 @@ inside its own profile:
 - **The cost:** one server process per folder a task ran in, kept until the control plane stops, since OpenCode
   resumes no session after a restart.
 - **Reads are unchanged:** allowed but for Halcyonic's data and the person's listed credentials. Closing them is the
-  next step (BOX-3b).
+  next step (see the amendment of 2026-11-11 below).
 - **Tests:** the unit tests and the whole OpenCode end to end suite pass with one server per folder.
 
-## Amendment, 2026-11-11: another project inside a folder (AUDIT BOX-3 F1)
+## Amendment, 2026-11-11: another project inside a folder
 
 Each folder's server also denies reads and writes of every other bound project's folder inside its own. A project
 bound there after the server started replaces the server at the next start, as [ADR 0043](0043-a-person-may-let-a-tasks-agent-work-without-asking-where-its-runtime-keeps-it-in-bounds.md)'s
 note of 2026-11-11 says.
 
-## Amendment, 2026-11-11: reads closed, one profile with Codex (BOX-3b)
+## Amendment, 2026-11-11: reads closed, one profile with Codex
 
 Each folder's server now runs inside the closed profile Codex's confined servers use, from `packages/seatbelt`
 ([ADR 0048](0048-every-agent-runs-inside-one-closed-sandbox-of-halcyonics.md)), instead of the profile above that
@@ -179,7 +179,7 @@ allowed by default.
   secret-shaped files, as for Codex), a worktree's back-linked git data, and system paths. Nothing else: never the
   person's home, another project, `/private/tmp` or Halcyonic's data folder, which is hidden.
 - **A home of its own:** `HOME` is `home` in the server's own folder. Without one OpenCode needs a listing of the
-  person's home and every folder above it, where it looks for instructions (VRIFY's experiment, 2026-11-11). Its shell
+  person's home and every folder above it, where it looks for instructions (an experiment of 2026-11-11). Its shell
   commands get the same home, with XDG folders under it, git's system configuration off, a `TMPPREFIX` in its own
   temporary folder, and the product's Node first on the `PATH`, as Codex's confined commands do.
 - **Its own port:** the profile lets the server listen and be reached on its own port alone, on loopback.
@@ -190,7 +190,7 @@ allowed by default.
 - **Recorded:** a start inside the profile records `confined: true` on `runtime.execution.started`, so a project's
   preview reads `reads_confined` where every run in it was Codex's or OpenCode's on macOS.
   A re-attach after a restart ([ADR 0046](0046-a-restart-re-attaches-each-tasks-session-where-the-runtime-keeps-it.md))
-  goes on only with the confinement it was recorded with: a session from before BOX-3b, recorded unconfined, is not
+  goes on only with the confinement it was recorded with: a session from before this amendment, recorded unconfined, is not
   moved into the closed sandbox.
 - **The list of the person's credentials is gone:** nothing of the home is open, so none needs naming.
 - **Tests:** the profile's in `packages/seatbelt/src/profile.test.ts` (a bind on its own port works, on any other is

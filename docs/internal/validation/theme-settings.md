@@ -60,7 +60,7 @@ this palette candidate does not approve the current material composition.
   catches changes the unrelated general render tolerance would ignore. State/practice colours
   remain identical by design; their seeded pixel invariance passes but is not neutral-refresh
   mutation proof.
-- Fresh renders and SHA-256 manifests are retained only in the ignored coordinator scratch area.
+- Fresh renders and SHA-256 manifests are retained only in the ignored scratch area.
   Representative Standard/Larger category, appearance preview/applied/cancel, instruction
   compact/resumed/review, and complete Usage parts were visually inspected for full stage,
   surfaces, words and controls. These images and geometry checks do not establish wearer comfort,
@@ -89,7 +89,7 @@ warnings. The same response with the original director source reproduces the exa
 failure. Player metadata contains none of the guarded director helper names or fields. The
 aggregate all-Editor compile also passes with its four existing nullable warnings, preserving
 the render entrypoints. These checks isolate the source boundary; the actual Android APK build
-is a separate coordinator check.
+is a separate check.
 
 The actual development APK build from `a6db5702` subsequently succeeded with Unity exit 0 on
 October 12, producing 114517436 bytes. It was installed over the existing development app on a

@@ -247,7 +247,7 @@ The assistant's requests (`Ask`, [ADR 0030](../decisions/0030-workspace-requests
 
 Optional files and directories in `<data dir>` besides the journal and `access-token` (regular files mode `0600`, directories mode `0700`):
 
-- `salidium-credential`, `omnorium-credential`, `seorak-credential`: consumer and integration credentials issued by the owner for Halora.
+- `salidium-credential`, `omnorium-credential`, `seorak-credential`: consumer and integration credentials issued for Halora.
 - `anthropic-api-key` and `meta-api-key` (or any key file declared in `providers/<id>/provider.json`): hosted provider API keys written by `Add Key` on the setup page.
 - `agent-apps-on.json`: ACP agent apps enabled on the setup page, with `runtimes/` holding pinned OpenCode, Codex and ACP agent-app installs and `tools/` holding pinned support tools (`cloudflared-2026.10.7/`).
 - `checkpoints/`: per-project Git stores for undo ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)).

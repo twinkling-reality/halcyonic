@@ -37,16 +37,16 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    runtime is held to the folder it is given on this computer, so that in a copy it writes only that
    copy. Runtime by runtime, as built on 2026-11-11:
    - **Codex** is held where its confinement covers the folder: every execution's folder on macOS
-     since BOX-2 (ADR 0041), and so its copy; elsewhere it is not confined, and gets no copy.
-   - **OpenCode** is held on macOS since BOX-3: every execution's folder has a sandboxed server of
+     since ADR 0041, and so its copy; elsewhere it is not confined, and gets no copy.
+   - **OpenCode** is held on macOS: every execution's folder has a sandboxed server of
      its own that writes that folder alone, so in a copy it writes only that copy. Elsewhere it has
      no sandbox, and gets no copy.
-   - **Claude Code** is held where it runs inside Halcyonic's closed profile (ADR 0048, BOX-4): a
+   - **Claude Code** is held where it runs inside Halcyonic's closed profile (ADR 0048): a
      new app's project, made from a starter, and so its copies, on macOS with no cloud provider
-     switched on (since VRIFY's unit 4c, 2026-11-12). Its record there still says not confined, for
+     switched on (since 2026-11-12). Its record there still says not confined, for
      what its commands can read (the sign-in key is in their environment); what they write is the
      copy and its own place alone. Any other folder runs as before, with no sandbox, and gets no copy.
-     - **Amended 2026-11-16 (CORE's proposal, AUDIT3's SHAPE YES with S1 to S5): a copy of a folder the person
+     - **Amended 2026-11-16: a copy of a folder the person
        connected is held by the copy profile.** It is the light profile with exactly this task's copy opened, on macOS
        wherever the host names its folders, a cloud provider included (`copyProfile`, `@halcyonic/seatbelt`). In order,
        the last rule that matches a path deciding it: everything the person's own process may do; never the host's own
@@ -92,19 +92,19 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    `.url`, `.pushurl` or `.proxy` (remotes, submodules, LFS, a proxy) loses its user part
    (`scheme://user[:password]@host`); every `http.extraheader` and `http.<url>.extraheader`, every
    cookie file, client key and certificate (`http[.<url>].cookieFile`, `sslKey`, `sslCert`) and
-   `core.askPass` (amended 2026-11-17, AUDIT3 M3c), every `credential` and `credential.<url>` key,
+   `core.askPass` (amended 2026-11-17), every `credential` and `credential.<url>` key,
    every `include` and `includeIf` key, and every `url.<base>` rewrite whose base or value carries a
    user part are removed; `user@host:path` names an ssh login and stays. What a copy can still hold
    that carries one, as the project's folder does: its working files, ignored ones included (a
    `.env`, a key file), the scripts in `.git/hooks`, any other file under `.git` a tool of the
    person's wrote, a key of the person's own tool that is not an address (a token stored under
    another name), and a program `core.sshCommand` names.
-   - **Amended 2026-11-17 (AUDIT3 M3, M3b): one list.** What the copy takes out is one classification
+   - **Amended 2026-11-17: one list.** What the copy takes out is one classification
      (`scrubPlan`), each key marked a sign-in or a way to push. A task that works in the folder
      itself, not a copy, does not start where the folder's git settings hold a key that list marks
      a sign-in, since Claude Code reads a folder's own `.git/config` unasked; its remotes, hooks and
      an ssh login's name refuse nothing (claude-code-unasked.md).
-   - **Amended 2026-11-16 (AUDIT3 S3 and S4): a copy names nowhere to push and runs none of the person's hooks.**
+   - **Amended 2026-11-16: a copy names nowhere to push and runs none of the person's hooks.**
      Every `remote.<name>` key goes, with each branch's `remote` and `pushRemote`, so a push from the copy has no
      address, and one the agent sets back finds no credential under the copy profile (1). `core.hooksPath` goes, and
      every entry of the copy's `.git/hooks` but git's own `.sample` files is removed (a link as a link), so no hook of
@@ -114,19 +114,18 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    why (`workstream.copy_refused`): its `.git` is a file, another repository sits inside it, it is
    larger than a checkpoint keeps, its volume cannot clone, it is missing, or it holds Halcyonic's
    data, or its runtime is not held to the folder (1).
-   - **Amended 2026-11-16 (AUDIT3 W6): only a runtime that cannot be held still works in the folder.** Each refusal
+   - **Amended 2026-11-16: only a runtime that cannot be held still works in the folder.** Each refusal
      for what the folder is (`linked_repository`, `nested_repository`, `too_large`, `cannot_clone`, `location_missing`,
      `holds_host_data`) now fails the start in its words, with effect `none`, and nothing is held against the task, so
      a start once the folder can be copied gets its copy. Only `runtime_unconfined` is still recorded
      (`workstream.copy_refused`) and works in the folder, one task at a time; with every agent held on macOS, no task
-     there reaches the person's folder before they add it. The owner's way to the folder stays
+     there reaches the person's folder before they add it. The person's way to the folder stays
      `HALCYONIC_TASK_COPIES=0`.
-   - **A copy that fails unexpectedly is a refusal** (amended 2026-11-16, CORE's finding, AUDIT3's ruling): when making
+   - **A copy that fails unexpectedly is a refusal** (amended 2026-11-16): when making
      the copy fails for no reason above (`copy_failed`, as a step that ran out of time under load), the start fails in
      words, `copy_failed` with effect `none`, and the task never runs in the project's folder instead; nothing is held
      against the copy, so a later start tries again.
-   - **A world's tasks get no copy** (amended 2026-11-11, AUDIT2's finding on copies by default; the
-     lead's choice). A world is the one starter whose tasks change the project in place: the person
+   - **A world's tasks get no copy** (amended 2026-11-11). A world is the one starter whose tasks change the project in place: the person
      speaks to it, and the world the headset shows follows each turn (ADR 0049), which reads the
      project's own folder. In a copy, no turn would change the world shown, and only an add would.
      So a world project's tasks work in its folder, one at a time, with nothing recorded as refused:
@@ -159,8 +158,7 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
    per project, and a failed check goes back only to the agents that worked in the folder checked
    (ADR 0044). Make VR Version reads the
    project's own folder, without work not yet added.
-8. **A second line of work from an older version** (amended 2026-11-11, the lead's yes to TASKS's
-   ASK). `workstream.create` takes an optional `from_checkpoint`, one of the project's own versions
+8. **A second line of work from an older version** (amended 2026-11-11). `workstream.create` takes an optional `from_checkpoint`, one of the project's own versions
    (its checkpoints). It is recorded on `workstream.created` and shown on the task's view.
    - At the task's first start its copy is made as any other, a clone of the project's folder with
      its `.git` and ignored files, and then made into that version's tracked files
@@ -172,21 +170,20 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
      meets as a conflict.
    - A version of another task's own copy (History lists them) is refused while that task's work
      has not been added to the project since: a task started on it would carry work the project
-     never took, which its own add would then not bring either (AUDIT3 S2). Once that work is
+     never took, which its own add would then not bring either. Once that work is
      added, the version is one of the project's like any other.
    - The line telling the agent which version it works on goes with the task's first run that has
-     a turn, so a start that failed first does not lose it (AUDIT3 S3).
+     a turn, so a start that failed first does not lose it.
    - The version a task starts from is kept by the pruning rule (ADR 0036's amendment) until the
      task's copy is made into it. One the host let go before a task named it is refused at the
-     task's creation as "That version is no longer kept. Choose another one." (`checkpoint_not_found`,
-     AUDIT3 S1).
+     task's creation as "That version is no longer kept. Choose another one." (`checkpoint_not_found`).
    - Refused, in words: another project's version or a missing one (`checkpoint_not_found`); a version
      of a world, which changes in place with no copy to make into it (`invalid_state`);
      creating one with copies or undo off, or starting it where no copy can be made, as for an
      agent this computer cannot keep to one folder (`capability_unsupported`). It never falls back
      to the project's folder, which holds another version.
    - A new project from a version is not part of it.
-- **Amended 2026-11-12 (AUDIT3's finding in 4c): a link out never comes in.** A task's command can make a
+- **Amended 2026-11-12: a link out never comes in.** A task's command can make a
   link in its copy whose target leaves the project's folder (one to the person's home, one to the project's
   own folder by its absolute path). An add whose work holds a new or changed link like that is refused, in
   words naming the first (`link_outside`), and nothing is written; a link inside the folder is added as a link.
@@ -216,7 +213,7 @@ Facts that decide the shape ([task-copies.md](../validation/task-copies.md), 202
 - Disk: a clone shares blocks until changed, but a project with very many files takes longer to
   copy per new task. A copy is kept while its task exists (Halcyonic has no command that removes a
   task). At every start the host counts what the copies' folder holds that its journal does not, and
-  removes none of it (amended 2026-11-12, AUDIT3's finding: a sweep that removed each copy its own
+  removes none of it (amended 2026-11-12: a sweep that removed each copy its own
   journal did not hold would delete another control plane's copies on the same Mac, or a task's
   unadded work after a person restores an older journal). A folder no journal here holds is not known
   to be anyone's leftover; it stays, and the start says how many in the log. The journal records no

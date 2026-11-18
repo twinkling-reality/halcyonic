@@ -6,7 +6,7 @@
   every agent runs in (ADR 0048)? And do its ways out stay shut? This is for
   [ADR 0055](../decisions/0055-a-projects-own-check-is-chosen-by-the-person-and-confined-as-an-agent.md).
 - **Environment:** macOS 26 on Apple silicon, Homebrew's Node 24.15.0, npm from it, pnpm 10.7.1 (Homebrew).
-  yarn is not installed. Scratch projects of LOOP's own in its scratch folder, never one of the owner's.
+  yarn is not installed. Scratch projects in a scratch folder, never a real user's project.
 - **Method:**
   - The profile is `confinedProfile` with the project as its folder, a home and a temporary folder of its own,
     `toolFoldersFor(node)` (Homebrew's `Cellar`, `opt`, `lib`, `bin`, `libexec`, `share` and OpenSSL's
@@ -43,11 +43,11 @@
   - Tests that open a port fail inside the profile, as agents' do (OPEN_QUESTIONS, chosen ports).
   - Other ecosystems are not covered.
 
-## 2026-11-11 (later): what runs, under AUDIT3's probes
+## 2026-11-11 (later): what runs, under review probes
 
 - **Question:** do a project's own `pretest`, `posttest` and `.npmrc` `script-shell` decide what an own check
   runs?
-- **Method:** scratch projects of LOOP's, the same profile; npm 11 and pnpm 11.27.1 from Homebrew. A
+- **Method:** scratch projects, the same profile; npm 11 and pnpm 11.27.1 from Homebrew. A
   `pretest` and `posttest` each write a mark; `test` writes a mark and exits 1. A project `.npmrc` holds
   `script-shell=/usr/bin/true` and `enable-pre-post-scripts=true`.
 - **Results:**
@@ -63,7 +63,7 @@
   - yarn is still not probed.
   - A child started in a new session is not stopped. It is seen only by a folder change within 2 s.
 
-## 2026-11-11 (AUDIT3's reread): node-options, and the keys that change what runs
+## 2026-11-11 (review reread): node-options, and the keys that change what runs
 
 - **Probe:** npm 11 and pnpm 11.27.1, scratch projects, the same profile. A project `.npmrc` with
   `node-options=--require=<folder>/pre.cjs`, where `pre.cjs` is `process.exit(0)`, and a `test` that writes a mark

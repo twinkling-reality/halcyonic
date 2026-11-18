@@ -11,14 +11,14 @@ Test values only (`test-value-not-real-…`); no real key was set, given or prin
 | OpenCode 2.0.18 | The session's own command environment, `PUT /api/session/:id/environment`, under the folder server's command variables | `opencode-runtime.e2e.test.ts`, 2026-11-11: through the adapter on the pinned binary and the fake provider, a shell command printed the first 16 hex digits of the secret's SHA-256, the next task's command on the same folder printed those of an empty value, and a secret named `HOME` did not replace the commands' own. The route was first verified on 2026-10-07 ([opencode-permissions.md](opencode-permissions.md)) | runtime |
 | Codex 0.157.0 | `shell_environment_policy.set.<NAME>` in `thread/start` and `thread/resume` `config` | `codex-runtime.e2e.test.ts`, 2026-11-11: through the adapter on the pinned binary and the fake provider, a command printed the digest of `PROJECT_TEST_KEY`, so a name holding `KEY` survives Codex's default excludes when it is `set`, and another thread on the same server printed that of an empty value. Before it, CORE's probe on the same binary: per-thread, the dotted form, and a value never printed found nowhere in Codex's home. `codex-runtime.test.ts`: the adapter puts it in the thread's `config` alone | runtime |
 
-The two end to end tests ran on CORE's fresh pinned copies in the lead's folder, each binary's SHA-256
-checked against `pins.ts` first, never a copy from the owner's data folder. Each fails when its adapter's
+The two end to end tests ran on fresh pinned copies in a scratch folder, each binary's SHA-256
+checked against `pins.ts` first, never a copy from a real data folder. Each fails when its adapter's
 change is taken out ("the command did not read the secret"), checked by changing the code, then restored.
 Commands print a digest of the value, never the value.
 
 After both end to end runs, a search of the runtime's own sandbox folder (its store, its home, its logs)
 finds no file holding the value, while the same search finds the variable's name in the command each kept,
-the control (AUDIT3 S2).
+the control (review finding S2).
 
 Not proven:
 - Codex inside Halcyonic's confined server, and a resumed thread after a restart (the adapter passes the
@@ -42,7 +42,7 @@ Not proven:
 6. **Refusals in words, nothing left staged**: a reserved name (`PATH`, `OPENCODE_PASSWORD`), a name not in
    capitals, a value under 8 characters, a project not on this Mac, a value over 8 KiB.
 7. **A restart** keeps only the values the journal lists, and deletes what a press left staged.
-10. **A task still running with a value** (AUDIT3's probe, kept as a test): a message repeating it is
+10. **A task still running with a value** (a review probe, kept as a test): a message repeating it is
     redacted while it is set, after the secret is set to another value, and after Remove. Without the retired
     values the test fails (checked by changing the code, then restored).
 11. **The page** names, from the runtimes' own names, the agents that start without the secrets (`without`)

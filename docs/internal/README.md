@@ -26,7 +26,7 @@ for understanding. Do not create four new directories.
 | Understand why | [product/PRODUCT.md](product/PRODUCT.md) and [docs/internal/decisions/](decisions/) | The thesis, or one hard-to-reverse decision |
 | See what was true on a date | [docs/internal/validation/](validation/) | Question, environment, method, result, and the limit of the check |
 | See what is unresolved | [product/OPEN_QUESTIONS.md](product/OPEN_QUESTIONS.md) | The question and what would resolve it |
-| See current priorities | `docs/private/ROADMAP.md` (owner's machine only, git-ignored) | Private. Never copied into a tracked file |
+| See current priorities | `docs/private/ROADMAP.md` (local only, git-ignored) | Private. Never copied into a tracked file |
 
 One fact has one home. Other documents link to it.
 
@@ -142,7 +142,7 @@ change, so a validation record states when it was true; re-verify before relying
 | [realtime-journey.md](validation/realtime-journey.md) | End-to-end creation, check, preview, catalog linking and concurrent intelligence journey over the realtime protocol |
 | [sending-to-github.md](validation/sending-to-github.md) | Send to GitHub, Send One Change and Publish to GitHub Pages verified against scratch git remotes and `gh` stand-ins |
 | [sharing-a-link.md](validation/sharing-a-link.md) | Temporary public preview links through pinned `cloudflared` quick tunnels on macOS |
-| [showcase-finals.md](validation/showcase-finals.md) | Three VR games built end to end on the owner's Mac from one instruction each |
+| [showcase-finals.md](validation/showcase-finals.md) | Three VR games built end to end on a Mac from one instruction each |
 | [starter-music-and-light.md](validation/starter-music-and-light.md) | Procedural WebAudio instruments, score playback, lighting and photo-derived scenes in the VR starter |
 | [task-copies.md](validation/task-copies.md) | Per-task isolated working copies, conflict checks and adding changes back to the project folder |
 | [vrify-real-projects.md](validation/vrify-real-projects.md) | `project.make_vr_version` tested on larger non-game web applications |
@@ -152,7 +152,7 @@ change, so a validation record states when it was true; re-verify before relying
 | Record | Subject |
 | --- | --- |
 | [boundary-visibility.md](validation/boundary-visibility.md) | Hiding the Quest boundary while passthrough shows in development builds, and restoring it on every exit |
-| [demonstration-build.md](validation/demonstration-build.md) | The judge build against competition rules: demonstration timeline, visible names, field of view, frame rate, pause and release APK |
+| [demonstration-build.md](validation/demonstration-build.md) | The labeled demonstration build: demonstration timeline, visible names, field of view, frame rate, pause and release APK |
 | [horizon-os-multitasking.md](validation/horizon-os-multitasking.md) | Windows over immersive apps, Virtual Display, hybrid 2D activities, the development glance and background limits |
 | [horizon-store-release.md](validation/horizon-store-release.md) | Meta Horizon Store requirements for a Quest build and release APK verification |
 | [interaction-sdk-editor-shutdown.md](validation/interaction-sdk-editor-shutdown.md) | macOS batch Unity Editor Interaction SDK telemetry shutdown workaround and limits |
@@ -215,12 +215,11 @@ change, so a validation record states when it was true; re-verify before relying
 
 ## Private documents
 
-`docs/private/` is ignored by git: it exists only on the owner's machine, is never pushed, and has
+`docs/private/` is ignored by git: it exists only on a local machine, is never pushed, and has
 no git history or backup. It holds:
 
 - `ROADMAP.md`: the plan of record. Milestones with evidence-based exit criteria, work in flight
   and who owns it, decision gates and risks. Updated in place when work lands.
-- Competition strategy.
 - Records about private repositories, such as the Seorak audit.
 
 Tracked documents may say that a private record exists but must never quote it.

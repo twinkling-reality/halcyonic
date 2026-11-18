@@ -24,7 +24,7 @@ Facts that shaped the decision:
   refused when other users can read them ([SECURITY.md](../architecture/SECURITY.md)).
 - OpenCode's own defaults do not keep work on the Mac or ask before commands: without a configured
   model it uses a free model of its own remote service, and it runs every tool without asking
-  ([local-models.md](../validation/local-models.md)). The owner's working setup therefore gives the
+  ([local-models.md](../validation/local-models.md)). The working setup therefore gives the
   whole control plane `XDG_CONFIG_HOME` pointing at a Halcyonic-only OpenCode configuration.
 - A start on a runtime that lists its models must name one (`model_required`,
   [ADR 0016](0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)), and the headset lists
@@ -127,15 +127,15 @@ Facts that shaped the decision:
 
 ### Not decided here: how Halcyonic reaches a person's Mac
 
-Packaging and launching are the owner's decisions. Today a person clones the repository and runs it
+Packaging and launching are not yet decided. Today a person clones the repository and runs it
 with Node and pnpm. The options, with what each brings:
 
 | Option | What the person does | Consequences |
 | --- | --- | --- |
 | Repository checkout (today) | Install Node 24 and pnpm, clone, `pnpm install`, `pnpm mac-setup`, `pnpm start` | Developers only; updates by `git pull`; nothing to sign; the person sees every command |
 | npm package | `npm install -g` a published package, then the same commands | Needs Node; publishing needs the name, which is not cleared ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md), Legal); an install script would run in the person's environment, so it should have none; unsigned |
-| Homebrew formula in the owner's tap | `brew install`, then `brew services start` for launch at login | Needs Homebrew; the tap is the owner's to maintain; Homebrew can also install Ollama and ripgrep; unsigned |
-| Signed, notarized app (a menu bar app in a disk image) | Drag to Applications; the app walks the same steps with a folder picker | Needs an Apple Developer Program membership (a fee and its terms, both the owner's); bundles a Node runtime; macOS asks for folder access through its own prompt; the setup's words move into the app; most work |
+| Homebrew formula in the project's tap | `brew install`, then `brew services start` for launch at login | Needs Homebrew; the tap is the project's to maintain; Homebrew can also install Ollama and ripgrep; unsigned |
+| Signed, notarized app (a menu bar app in a disk image) | Drag to Applications; the app walks the same steps with a folder picker | Needs an Apple Developer Program membership (a fee and its terms); bundles a Node runtime; macOS asks for folder access through its own prompt; the setup's words move into the app; most work |
 | Signed installer package | Run the installer | Same membership; an installer that writes outside the home folder needs an administrator password; uninstalling is manual |
 | Launch at login (with any of the above) | A user LaunchAgent, or the app's login item | Halcyonic runs whenever the Mac is awake, so a paired headset can start agents without the person opening anything; it starts with a minimal PATH (ripgrep and Ollama by absolute path); macOS shows a background item notice; logs go to a file instead of a window |
 
@@ -157,4 +157,4 @@ Halora.command` (named `Start Halcyonic.command` until 2026-11-16), which stops 
 seconds for a stop before launchd kills; its log is in the data folder. On refuses while launchd has
 the agent already or a Halcyonic answers on the port, and removes the file if launchd refuses it. A
 first start with no Terminal at all still needs a packaged app (the signed app row). The other
-rows stay the owner's decisions.
+rows stay undecided.

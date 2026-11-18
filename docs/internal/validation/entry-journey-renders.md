@@ -6,7 +6,7 @@
   automatic first question, mandatory character arc and raised stage banner?
 - Method: Source comparison of `MenuDirector`, its production `MenuNavigator` construction,
   `WorkspacePresentationState`, the two Editor journeys and ADR 0029. No runtime, microphone,
-  model, device or Unity job was run by this source-edit lane.
+  model, device or Unity job was run for this source edit.
 - Status: Source migration prepared; actual Unity render and full integration results are separate
   gates and are not claimed by this record.
 

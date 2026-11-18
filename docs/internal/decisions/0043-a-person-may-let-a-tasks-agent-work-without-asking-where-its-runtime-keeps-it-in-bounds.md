@@ -6,7 +6,7 @@
 
 ## Context
 
-On 2026-11-10 the owner asked for a way to let an agent work without asking, as desktop agent tools offer: in a
+On 2026-11-10 a way was requested to let an agent work without asking, as desktop agent tools offer: in a
 headset, pressing Approve again and again tires a person, and many people who direct agents run them that way.
 
 Until now every start asked as its runtime asks by default, and SECURITY.md refused every mode that takes decisions
@@ -57,14 +57,14 @@ but fatigue; where nothing bounds it, a press is the only check.
      folder does not reach the thread.
    - OpenCode: not offered yet, and refused in words at the check and at the start. Its one server's sandbox (ADR
      0028) writes every project under the host's project roots, so a command run without asking could change another
-     project (AUDIT, 2026-11-10). The session rules that would make it ask nothing were verified on 2.0.18
+     project (audit, 2026-11-10). The session rules that would make it ask nothing were verified on 2.0.18
      ([approval-levels.md](../validation/approval-levels.md)) and wait for a sandbox that writes only the task's
      project.
    - Claude Code: not offered, and refused in words at the check and again at the start, never ignored. Halcyonic
      gives it no sandbox, so never asking would give the agent the person's own access
      ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
    - The mock offers it only when made to, synthetic like the rest of it; the recorded demonstration's runtimes offer
-     none, so the judges' build shows no choice.
+     none, so the demonstration build shows no choice.
 6. **What each runtime may write, under either level.**
    - Codex on an open project: the project folder (the thread's folder), its `$TMPDIR` and `/tmp` (Codex 0.157.0
      reports `excludeTmpdirEnvVar` and `excludeSlashTmp` false), nothing else, and no network for commands. Reads
@@ -89,11 +89,11 @@ but fatigue; where nothing bounds it, a press is the only check.
      uncommitted work in the project with no press.
    Either is the person's explicit choice, bounded to the task's own project. When tasks get a space of their own,
    a never-ask run's changes stay in that space until the person brings them back, which is the undo. The argument
-   against, for AUDIT: without undo and without that space, nothing brings a deleted file back.
+   against, raised in the audit: without undo and without that space, nothing brings a deleted file back.
 
 ## Alternatives considered
 
-- **Keep asking always.** Safest, but it fails the owner's request and the headset's use: a person tires of pressing.
+- **Keep asking always.** Safest, but it fails the request and the headset's use: a person tires of pressing.
 - **A middle level** (edits without asking, commands asking): today's `ask` already is one for Codex and OpenCode,
   whose edits inside the project need no press.
 - **A per-project setting in the journal.** One more command and event for a choice the headset can remember itself.
@@ -113,8 +113,8 @@ but fatigue; where nothing bounds it, a press is the only check.
 ## Amendment 2026-11-10: the headset's default
 
 On the headset a task's next start is never ask by default wherever the runtime that start uses offers it AND the
-level is shown before the start goes, and ask anywhere else: the owner asked for no constant pressing of Approve in VR, and inside the sandbox an asking Codex
-run asks before every command (37 of 37 in VRIFY's survey, `ls` and `cat` among them). The person chooses Ask First
+level is shown before the start goes, and ask anywhere else: a person should not have to keep pressing Approve in VR, and inside the sandbox an asking Codex
+run asks before every command (37 of 37 in a verification survey, `ls` and `cat` among them). The person chooses Ask First
 for a project with one press, and goes back with the same press.
 
 - The choice is the person's, per project: the agent app, the model, and the level where they chose one. The
@@ -124,7 +124,7 @@ for a project with one press, and goes back with the same press.
 - Decision 7 holds: the level shown before a start is the level sent. An instruction armed for its confirmation goes
   only on the agent, model and level it was armed with; a new project's review is made at its level, and a build
   confirms only that level.
-- Shown before the start means on the screen that sends it (AUDIT, 2026-11-11): the redesign's row names the agent and
+- Shown before the start means on the screen that sends it (audit, 2026-11-11): the redesign's row names the agent and
   its level at rest, so a task's next start there takes the default; the older kit names no level, so it asks unless
   the person chose never ask; new work takes the default only where its review names the level; Make VR Version's
   copy takes only the level the person chose for its source project.
@@ -146,14 +146,14 @@ not offering it is gone. Inside Halcyonic's sandbox it declares `offers_never_as
 [approval-levels.md](../validation/approval-levels.md). A start that never asks is refused without the sandbox, at the
 check and again at the start.
 
-The end to end test now holds AUDIT's case, another project under the same root as the task's, which a never-asking
+The end to end test now holds the audit's case, another project under the same root as the task's, which a never-asking
 shell call could neither overwrite nor add to. It fails when the server's writable folder is widened to that root.
 Decision 6's line for OpenCode now reads: its folder and its own folders. Reads stay open until BOX-3b.
 
-## Note, 2026-11-11: a folder that holds another project (AUDIT BOX-3 F1)
+## Note, 2026-11-11: a folder that holds another project (audit finding BOX-3 F1)
 
 The control plane binds a root as a project and each folder inside it as another, so a task's folder can hold
-another bound project's folder. A sandbox that writes its folder would write that project too: AUDIT showed a
+another bound project's folder. A sandbox that writes its folder would write that project too: the audit showed a
 never-asking OpenCode run rewriting it, and a confined Codex run had the same exposure.
 
 - **Codex and OpenCode alike:** a run's profile now denies reads and writes of every other bound project's folder
@@ -164,15 +164,15 @@ never-asking OpenCode run rewriting it, and a confined Codex run had the same ex
   on another server. While a turn runs, the start is refused in words.
 - **Where a sandbox cannot do it** (Codex on the open server, off macOS): a start that never asks is refused for a
   folder that holds another project.
-- **A task already at rest** (AUDIT BOX-3 fix F1): its server keeps the profile it was made with, so each instruction
+- **A task already at rest** (audit fix BOX-3 F1): its server keeps the profile it was made with, so each instruction
   looks again. Where a project was bound inside the folder since the server started, the instruction is refused in
   words, on both runtimes ("Start a new task here to go on"). The next start then gets the bounded profile.
 - **Tests:** on this Mac and on both pinned binaries, with a project inside the task's folder and one beside it,
   neither was read or written by a never-asking run. Each test fails with the deny taken out.
 
-## Amendment, 2026-11-11: a start may be a plan, where the runtime gives one (PLAN)
+## Amendment, 2026-11-11: a start may be a plan, where the runtime gives one
 
-The lead's decision of 2026-11-11, on VRIFY's question. A plan is talking a change through before any file changes.
+Decided on 2026-11-11. A plan is talking a change through before any file changes.
 It is the runtime's own mode, declared only once verified, never one Halcyonic makes of its own bounds.
 
 - **The contract:**
@@ -184,16 +184,16 @@ It is the runtime's own mode, declared only once verified, never one Halcyonic m
 - **OpenCode** offers it: its built-in `plan` agent refuses the edit tools without asking, and its shell commands
   still ask ([agent-plan-modes.md](../validation/agent-plan-modes.md), run on the pinned 2.0.18).
 - **Codex** does not: its plan mode is on its experimental surface only, and ADR 0011 stands.
-- **Claude Code** offers it since PLAN 4b: its own `plan` permission mode, recorded from the mode `system/init`
+- **Claude Code** offers it since plan step 4b: its own `plan` permission mode, recorded from the mode `system/init`
   reports (corrected 2026-11-11; an earlier probe misread it). Its plan bounds a write no differently from a default
   start, every write asking; carrying it out is confirmed by `system/status`.
-- **Carrying a plan out (PLAN 4a, the lead's yes of 2026-11-11):** an instruction with `leave_plan` makes the same
+- **Carrying a plan out (plan step 4a, 2026-11-11):** an instruction with `leave_plan` makes the same
   task, and the same session, carry the plan out once the runtime confirms it left its plan mode
-  (`runtime.plan.left`). Built for OpenCode, and for Claude Code since PLAN 4b. `ExecutionView` carries `plan`,
+  (`runtime.plan.left`). Built for OpenCode, and for Claude Code since plan step 4b. `ExecutionView` carries `plan`,
   `plan_left` and `unconfined_reason`. Carrying a plan out is admitted only at rest. A headset built before these
   bindings meets an unknown event type, `runtime.plan.left`: it is rebuilt with the regenerated bindings before a host
-  that sends it (AUDIT3 4a S4).
-- **Before PLAN 4a**, a later instruction could not leave a plan. On OpenCode the same session can go ahead by switching its agent,
-  and on Claude Code by `setPermissionMode`, both seen on the fake hosts. Choosing that from the headset is FIELD's
-  and XR's next step.
+  that sends it (review finding 4a S4).
+- **Before plan step 4a**, a later instruction could not leave a plan. On OpenCode the same session can go ahead by switching its agent,
+  and on Claude Code by `setPermissionMode`, both seen on the fake hosts. Choosing that from the headset is
+  the next step.
 

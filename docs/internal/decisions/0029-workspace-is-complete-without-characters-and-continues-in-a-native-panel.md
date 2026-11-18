@@ -102,7 +102,7 @@ separate checks; see [native-project-output.md](../validation/native-project-out
 ## Amendment: the panel may be captured for filming, 2026-11-16
 
 The native panel's secure window blacks out the headset's whole capture (checked on a Quest 3,
-22:50Z). So the competition film could not show the real panel beside another app, which is the
+22:50Z). So a film could not show the real panel beside another app, which is the
 product's work-while-you-watch promise.
 
 Decision: the real panel stays secure in every build except one case. A panel created after the

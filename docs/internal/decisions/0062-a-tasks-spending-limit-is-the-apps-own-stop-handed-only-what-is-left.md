@@ -16,7 +16,7 @@ OpenCode 2.0.18 and Codex 0.157.0 show no such stop. What each turn spent is rec
 1. The agent app does every stop. A runtime declares `offers_spending_cap` only once a run of its pinned version shows
    the stop; where none is declared, a limit is not offered, and a command carrying one is refused in words
    (`capability_unsupported`). The host never stops a running task on its own sums.
-2. The limit is the task's whole spend since the person set or raised it (the lead's ruling, 2026-11-13). At every
+2. The limit is the task's whole spend since the person set or raised it (ruled 2026-11-13). At every
    launch the host hands the app the limit less the sum of the app's own recorded estimates since then, never more than
    the limit. A start hands the whole limit; a re-attach hands what is left; Carry On hands the raise.
 3. That sum counts only while known: every turn in the span reported an estimate, by one kind of prices. Where it is
@@ -24,13 +24,13 @@ OpenCode 2.0.18 and Codex 0.157.0 show no such stop. What each turn spent is rec
    flight that had not reported) waits (`spending_cap.state` `waiting`) for the person to give a limit that counts
    from now, and every sender, the host's own included, goes through the same
    admission, so nothing launches it before. A process that survived is not relaunched and changes nothing.
-   Amended 2026-11-16 (VRIFY): a session is re-attached when an instruction for it arrives, after its admission, so
+   Amended 2026-11-16: a session is re-attached when an instruction for it arrives, after its admission, so
    the wait a re-attach records is read again once it is done, and the instruction is refused there in the host's
    words, before the app is asked: what the task spent before the restart is not fully known, so its limit cannot
    be checked, and a limit that counts from now carries it on. Never that it is at its limit, which is not known.
    A Claude Agent session's first turn after a re-attach reports no cost (agent-usage.md), so a limited task followed
    up across two restarts waits for a new limit at the second; reading that turn's cost back is not built.
-   Amended 2026-11-16 (AUDIT3 M-A): a limit is the person's money decision, set or raised only from their own
+   Amended 2026-11-16: a limit is the person's money decision, set or raised only from their own
    client. The assistant never fills one: `spending_cap_usd` is never proposed for a start or an instruction, and
    admission refuses it from the assistant ("Nothing was sent: only you can set a spending limit."), since its
    confirm would not show the amount. Until the headset offered its own press, the refusals said that a new limit

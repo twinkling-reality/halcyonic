@@ -2,7 +2,7 @@
 
 - **Question:** Can the stage's cues go through a head-related (HRTF) spatializer, Meta XR Audio's,
   under terms the project already carries, without a permission, manifest entry or network call the
-  release build would not otherwise have, and at what cost in size? (Lane V's brief of 2026-10-08:
+  release build would not otherwise have, and at what cost in size? (The brief of 2026-10-08:
   keep it only if it is clearly better by ear than Unity's panning and under 1 ms of CPU a frame.)
 - **Date:** 2026-10-08.
 - **Environment:** `main` at 95602300 on an Apple M5 Max with macOS 26.7; Unity 6000.3.25f1 in batch
@@ -32,7 +32,7 @@
   conservatively, in `apps/xr/Licenses/MetaXRAudio-THIRD_PARTY_NOTICES.txt`, named in `NOTICE`.
   libjpeg's notice, whose condition is a sentence crediting the Independent JPEG Group when its
   binary ships, is left out, since it does not ship in the Android library; so is VST's trademark
-  line. The coordinator accepted the notices on 2026-10-08.
+  line. The notices were accepted on 2026-10-08.
 
 ## What it adds to the release build
 
@@ -56,8 +56,8 @@
   connection itself: no URL or network call appears in the library or the scripts. The release build
   already reports through two Meta paths, the Core SDK's `OVRPlugin.SendUnifiedEvent` (MRUK's scene
   events) and the Interaction SDK's `libISDKEngineTelemetry.so`; this is a third
-  ([demonstration-build.md](demonstration-build.md), "What the release build reports"). The
-  coordinator accepted it on 2026-10-08, with the owner's leave.
+  ([demonstration-build.md](demonstration-build.md), "What the release build reports"). It
+  was accepted on 2026-10-08.
 
 ## In the project
 

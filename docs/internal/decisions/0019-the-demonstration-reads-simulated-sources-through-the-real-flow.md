@@ -1,7 +1,7 @@
 # ADR 0019: The demonstration reads simulated sources through the real flow, and says so
 
-- Status: Accepted on 2026-09-29, a decision the owner delegated within their direction for the
-  demonstration: the same data types and flow, invented data, labeled simulated and recorded.
+- Status: Accepted on 2026-09-29, within the direction set for the demonstration: the same data
+  types and flow, invented data, labeled simulated and recorded.
 - Date: 2026-09-29
 
 ## Context
@@ -13,11 +13,11 @@ reads both through on request and never journals them
 Seorak's integration API v1, mapped field by field onto Halcyonic's `UnderstandingResult` and
 `EvaluationResult` and validated before they are served.
 
-Judges run a recorded demonstration on the headset, with no control plane, no network and neither
-product ([ADR 0012](0012-a-labeled-demonstration-runs-on-the-headset.md)). The owner decided
-on 2026-09-29 that the main experience calls the two capabilities Understanding and Evaluation, and
-names the products only in provenance lines and an about line; and that the demonstration shows
-"the same data type and flow and everything, just with fake data", clearly labeled as simulated
+First-time users run a recorded demonstration on the headset, with no control plane, no network
+and neither product ([ADR 0012](0012-a-labeled-demonstration-runs-on-the-headset.md)). It was
+decided on 2026-09-29 that the main experience calls the two capabilities Understanding and
+Evaluation, and names the products only in provenance lines and an about line; and that the
+demonstration shows the same data types and flow with invented data, clearly labeled as simulated
 and recorded.
 
 Facts that bound the options:
@@ -81,7 +81,7 @@ Facts that bound the options:
 - **Hand-written answers in the recording**, without routes or clients: the same shape, but not the
   same flow. The recording could hold answers the real mapping and validation would never produce,
   and a change to either would not reach the demonstration.
-- **One answer per execution, at the end of its path**: much smaller, but a judge who opens a
+- **One answer per execution, at the end of its path**: much smaller, but a first-time user who opens a
   character while it works would read conclusions about work that has not happened yet.
 - **Labeling from context alone** (a fixture journal, a synthetic runtime), with no contract field:
   the source fields would still name a Salidium version and instance, claiming a real daemon
@@ -93,12 +93,12 @@ Facts that bound the options:
   stand-in follows too.
 - **Recording real Salidium and Seorak answers about real sessions**: model spend, real work, and a
   person's sessions in a public APK.
-- **No sections in the demonstration**, as ADR 0010 expected of a replay: judges would never see the
+- **No sections in the demonstration**, as ADR 0010 expected of a replay: first-time users would never see the
   milestone.
 
 ## Consequences
 
-- Judges see both sections through the same contracts, routes, clients and client code as a person
+- First-time users see both sections through the same contracts, routes, clients and client code as a person
   with a control plane; only the stand-ins' content is invented, and every surface says so.
 - The recording grows from about 490 to about 720 KiB and reads in about 0.1 s on the development
   Mac, on a background thread on the headset.
@@ -110,6 +110,6 @@ Facts that bound the options:
 - The stand-ins are test code that the recorder uses: the integrations export them as
   `@halcyonic/integration-salidium/testing` and `@halcyonic/integration-seorak/testing`, never used by
   the running control plane.
-- Revisit once a real execution has been read end to end (with Codex on a local model), if a judge
-  could still take a section for a real product's answer, or if the recording's size matters on a
+- Revisit once a real execution has been read end to end (with Codex on a local model), if a first-time
+  user could still take a section for a real product's answer, or if the recording's size matters on a
   headset.

@@ -396,7 +396,7 @@ freshly launched app before task history is cached:
    `TaskCanceledException` or `OperationCanceledException` (any other exception indicates a Mono fault).
 4. Resume with `kill -CONT $(lsof -tiTCP:47800 -sTCP:LISTEN)` and confirm live reconnection.
 
-### 10. The judge's path, on the release build ([demonstration-build.md](../validation/demonstration-build.md))
+### 10. The first-time user's path, on the release build ([demonstration-build.md](../validation/demonstration-build.md))
 
 1. **Release APK over development data:** set the private token aside, stop the control plane, write
    a dummy token-shaped string to shared storage, and install `Halcyonic-release.apk`:

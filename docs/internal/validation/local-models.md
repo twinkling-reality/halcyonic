@@ -405,7 +405,7 @@ home's `config.toml`. A thread runs only on a provider served on this Mac.
   "nothing leaves loopback through startup, idle and a full run on a local model"
   (`packages/integrations/codex/src/codex-runtime.e2e.test.ts`). Its runs are recorded here as
   they are made.
-  - **2026-10-07, at `ae9df92c`**, on `qwen3:4b-instruct` (2.5 GB, the coordinator's choice for a
+  - **2026-10-07, at `ae9df92c`**, on `qwen3:4b-instruct` (2.5 GB, chosen for a
     shared Mac; the sockets watched don't depend on the model), Ollama the macOS app as it ran,
     1-minute load about 17, swap 12.7 of 13.3 GB in use from other work: passed in 84 s. The
     probe watched every process below the test from before the launch, every 200 ms: 201 samples
@@ -419,7 +419,7 @@ home's `config.toml`. A thread runs only on a provider served on this Mac.
   - The same gate ran the fake-provider suite at that commit, 22 tests, all passing: the switches
     and the local-only check hold against the real binary, which reported every setting in
     `config/read` and `{"requirements": null}`.
-  - **2026-10-07, at `160477a7`** (before Codex is registered on the owner's Mac), on
+  - **2026-10-07, at `160477a7`** (before Codex is registered on the development Mac), on
     `qwen3:4b-instruct` again, in a project that is a git repository whose own
     `.codex/config.toml` starts an MCP server that leaves a mark: passed in 76 s. 184 samples,
     148 through startup and idle, nothing beyond loopback, one connection to Ollama during the
@@ -539,9 +539,9 @@ tokens a second; the cause was not found.
 
 ### A VR build beside other work (2026-11-13)
 
-On the owner's 64 GB Mac, with other work running (a virtual machine that is not Halcyonic's among it), Make VR Version
+On a 64 GB Mac, with other work running (a virtual machine that is not Halcyonic's among it), Make VR Version
 of a small web app on `muse-glimmer:30b-mlx` started at 73% free, held 19 GB once loaded (41% free), and took the Mac
-under 30% free twice within three minutes of the agent's first turn, before it had written a file; the lane's rule
+under 30% free twice within three minutes of the agent's first turn, before it had written a file; the memory rule
 stopped it there. The same night the local 30B held the assistant's request handling with room to spare (38% free at
 load). So on such a Mac the local model can hold the assistant but not a VR build beside other work; a hosted model
 built the same app in five minutes. The 30B side of that comparison is not seen; it waits for a night without the
@@ -551,7 +551,7 @@ virtual machine.
 
 - **Changed:** `pnpm mac-setup` lists `muse-glimmer:30b-mlx` as a checked model after `qwen3.6:35b-a3b-nvfp4`, which
   stays first and stays the model it suggests to download; `qwen3.8:27b-nvfp4` follows. A checked model the Mac
-  already has still wins over one to download. Whether Muse Glimmer becomes the default is the owner's decision,
+  already has still wins over one to download. Whether Muse Glimmer becomes the default is an open decision,
   because of its card's age statement below.
 - **Muse Glimmer's licence:** Apache 2.0, from a model card under the `meta-models` organisation, shown as Meta Inc.,
   its verification not seen: <https://huggingface.co/meta-models/Muse-Glimmer-30B> (read 2026-10-31 in a browser,
@@ -563,13 +563,13 @@ virtual machine.
   included) or that the Apache 2.0 terms prohibit; audio is not supported. The card also says the model is not meant
   to be downloaded or used by anyone under 18, and that whoever deploys it in a system people under 18 may use is
   responsible for assessing and reducing the risks of that use and for complying with the law. Halcyonic is made for
-  kids' games, so that limit is the owner's decision, not settled by this record. The card links a usage policy
+  kids' games, so that limit is an open decision, not settled by this record. The card links a usage policy
   file (`USAGE_POLICY.md`), which was not read.
 - **qwen3.6's card, read the same way:** <https://huggingface.co/Qwen/Qwen3.6-35B-A3B>, under the `Qwen`
   organisation, its verification not seen, tags its licence `apache-2.0`. Its text, searched for an age, minors,
   prohibited or out-of-scope use and restrictions, states none. Ollama's `qwen3.6:35b-a3b-nvfp4` is a quantised
   build of that model.
-- **Runs of a kid's game through the control plane** (MAKE's showcase trial SH, 2026-10-29, and its rehearsal K1,
+- **Runs of a kid's game through the control plane** (showcase trial SH, 2026-10-29, and its rehearsal K1,
   2026-10-31; the same sentence, Codex 0.157.0 on the starter, the host's check): Muse Glimmer clean in 3 of 3 (each
   in one turn of 401 to 503 s; K1's check passed and ready, its press seen against the no-input twins, VR offered);
   `qwen3.6:35b-a3b-nvfp4` clean in 1 of 4 (in K1 its code did not parse, and its fix-up turn reached the 15-minute
@@ -599,9 +599,9 @@ virtual machine.
 - Codex truncates a command's output before the model sees it, so an agent that reads a large file
   in large pieces answers from part of it without saying so.
 
-## Codex registered on the owner's Mac (2026-10-08)
+## Codex registered on the development Mac (2026-10-08)
 
-Run from the main checkout at `782256b4`, one step at a time, at the coordinator's go; no
+Run from the main checkout at `782256b4`, one step at a time; no
 setting or secret was printed, only field names and the checks' results.
 
 - **Before:** no `~/.halcyonic/settings.json` and no `HALCYONIC_` variable in any shell profile,
@@ -620,7 +620,7 @@ setting or secret was printed, only field names and the checks' results.
   `HALCYONIC_OPENCODE_CONFIG_HOME` to the settings. The earlier OpenCode settings file was kept
   aside first, privately.
 - **A start** of the control plane, stopped at once: runtimes `mock`, `opencode`, `codex`; both
-  agent binaries `matches`; the three settings in use; no project root yet (the owner's to
+  agent binaries `matches`; the three settings in use; no project root yet (the person's to
   choose). It rebuilt 205 events, marked 2 executions from earlier sessions unknown, and migrated
   the journal to schema version 5 without a log line (one is logged since): all 4 stored approval
   requests read `complete: true`.
@@ -630,7 +630,7 @@ setting or secret was printed, only field names and the checks' results.
   connection to Ollama seen (`127.0.0.1:11434`) as the positive control. The model was unloaded
   after (`keep_alive` 0), and Ollama listed none loaded.
 - **After:** Codex and OpenCode are registered on Halcyonic's own settings, local-only, and ready
-  for the headset session once a folder is allowed; the owner's own `~/.codex` and
+  for the headset session once a folder is allowed; the person's own `~/.codex` and
   `~/.config/opencode` were not touched. Ollama's own settings (`OLLAMA_CONTEXT_LENGTH=65536` and
   the rest) are applied when it is restarted for the headset session.
 

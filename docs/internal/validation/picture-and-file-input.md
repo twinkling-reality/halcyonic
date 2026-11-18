@@ -75,7 +75,7 @@ generation; it was not run.
 ## Runtime probes
 Run on 2026-11-11, after the reads above.
 
-**The pinned binaries.** Downloaded fresh from the public npm registry with `--ignore-scripts`, outside the owner's
+**The pinned binaries.** Downloaded fresh from the public npm registry with `--ignore-scripts`, outside the real
 data folder. Each binary's SHA-256 equals the repository's own pin (`apps/control-plane/src/pins.ts`):
 - `@opencode/cli@2.0.18`, about 176 MB on disk: `6759c7f86f807d63d3984ca1970f9fa663ee303a35bb344eb223c71e200a96bf`;
 - `@openai/codex@0.157.0`, about 325 MB on disk: `ad0be20d04e2ba6146ecdb51d7f8b7b0fe15420a15dc9b0057518d858f1f3714`.

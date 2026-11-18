@@ -92,7 +92,7 @@ A Quest 3 on build `UP1A.231005.007.A1`, a development APK from main `ee1acdb9`,
 - **The closing check:** removing the tokens left `pnpm quest:check -- --closed` passing.
 
 Still not seen on a Quest:
-- the runbooks' write since then (2026-10-04, lane C), three commands: `adb shell` removes a `.tmp`
+- the runbooks' write since then (2026-10-04), three commands: `adb shell` removes a `.tmp`
   an earlier write left; `adb exec-in` writes `files/access-token.tmp`; one quoted `adb shell` waits
   up to 10 seconds for its 44 bytes, then sets mode 600 and moves it into place, printing `written`,
   or removes it and prints `not written`. Only simulated on the Mac, with stand-ins for adb (its

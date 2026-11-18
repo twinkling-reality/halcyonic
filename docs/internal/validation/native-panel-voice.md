@@ -77,7 +77,7 @@ both production and development source sets against Android API 36. The five new
 passed, including canonical maximum audio through the real host route and the 4.2-second response
 that distinguishes transcription from the ordinary command idle deadline. No skipped result is
 treated as a pass. Full repository and C# validation belong to the integration gate; they were
-not run by this focused lane.
+not run by this focused check.
 
 ## Remaining device checks
 

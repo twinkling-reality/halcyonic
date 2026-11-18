@@ -7,7 +7,7 @@
   Outside means an agent's or runtime's text (titles, questions, options, approval requests, tool and
   test names, messages), the control plane's, Salidium's and Seorak's data, file system names, model
   and runtime names, the companion's words, what speech heard, and the recorded demonstration.
-  Failure reasons and refusals were audited before, in lane W's batches, and are said by code
+  Failure reasons and refusals were audited before, in earlier batches, and are said by code
   (`WorkspaceText.WhyFailed`, `WhyRefused`, `EntryText`, `ConnectionText`, `PairingClient`,
   `IntelligenceText.Why` and `WhyUnread`); they are left out here unless a message still shows.
 - **Date:** 2026-10-07.
@@ -19,8 +19,8 @@
   is put into a visible string, to the label that draws it. The paths flagged below were then read
   again at their lines; the crashes were confirmed against the contract (a field that allows "" or
   only white space) and `PageLine`'s check. Nothing was changed and nothing ran on a headset.
-- **Status:** Verified by reading the code. The gaps are proposals until the coordinator settles
-  their fixes; each fix comes with a test that fails without it.
+- **Status:** Verified by reading the code. The gaps are proposals until their fixes are
+  settled; each fix comes with a test that fails without it.
 
 ## How a line reaches the glass
 
@@ -133,7 +133,7 @@
     companion's line; "Simulated explanation" over What changed and Why; one file's `by` applied to all;
     a group's heading dropped on Changes; the review's plain values; the editor-only `WorkspaceScreens`.
 
-Each gap's fix lands in a batch for independent review, with its words settled by the coordinator and
+Each gap's fix lands in a batch for independent review, with its words settled in review and
 a test that fails without it; this record says which have landed.
 
 **Landed (batch A, 2026-10-08):**
@@ -149,7 +149,7 @@ a test that fails without it; this record says which have landed.
 - **Gap 13:** one cut (`WorkspaceText.Truncate`, `Prefix`) never splits a code point `Plain` shows; a branch is cut at 40; a changed file reads by its name before its counts, its path beneath; "Still open" is made plain before it is cut.
 - **With them:** every statement and every item said to be the agent's is reported; a source's sentence that shows as nothing where no check was seen or nothing was measured says "Nothing measured."; a task stopped as runtime_tampered says so.
 
-**Landed (batch B, 2026-10-08):** lane V's treatment, the owner's pick: Halcyonic's words upright,
+**Landed (batch B, 2026-10-08):** the chosen treatment: Halcyonic's words upright,
 everything else leaning, on a ground only Halcyonic draws where it meets our words, Halcyonic's quote
 mark (format_quote) beside a row or block all of it, no quotes or leads of ours, and outside text cut
 first (`LineWords`, `GlazeRuns`; XR_CLIENT.md's `LineWords` and Words paragraphs).
@@ -159,10 +159,10 @@ first (`LineWords`, `GlazeRuns`; XR_CLIENT.md's `LineWords` and Words paragraphs
 - **Gap 9:** titles lean in the file's subject, Tasks' rows, "Still open: {title}" on the banner and "New task in {name}"; the system keyboard's prompt holds Halcyonic's words alone ("What to tell it") and whatever it is given to hold is shown by `LabelText.Plain` first.
 - **Gap 11:** New project's folders lean beside Halcyonic's folder icon, places on a ground in Halcyonic's options, and a name that reads like another option carries "Look-alike name".
 - **Gap 14:** the measurement's lines are led by "Checks:", "Cost:" and "Outcome:"; the usage reading's side panel names its agent app; the companion's inner quote is gone with the quotes.
-- **With them:** the person's own typed and heard words lean too, never quoted (lane V's ruling); the review before Start building leans every value from outside and keeps Halcyonic's fallbacks upright, so a model named "chosen by the agent app" can't pass for one; Connect's reasons name no folder, since a prompt's reason holds Halcyonic's words alone.
-- **After its review (2026-10-08):** a part of a long request never starts between a doubled backslash's two; a question or answer that shows as nothing is spelled by code point rather than emptying its page; Settings leans only the paired address; reopening the keyboard keeps the person's own words; an approval that names no tool reads in Halcyonic's words; the review's "none" stays Halcyonic's; the demonstration's words name no recorded label. Lane V's second look: grounds dimmed to 2 percent in linear space, a word's room each side, block grounds hugging their words, and separators leaving outside text whole.
-- **Lane V's pass (2026-10-08):** Halcyonic's punctuation follows a ground as it follows a letter, a narrow no-break space from it, the ground stopping halfway; the render now measures a word space from the font's space advance, which its earlier measure read as nothing, so the word-space rule ran on no letter until then.
-- **Left:** the editor-only old panel (`WorkspaceScreens`, `ConnectScreens`) still quotes; the glance (Java) and the stage's plate apply the lean when lane U rewrites them.
+- **With them:** the person's own typed and heard words lean too, never quoted; the review before Start building leans every value from outside and keeps Halcyonic's fallbacks upright, so a model named "chosen by the agent app" can't pass for one; Connect's reasons name no folder, since a prompt's reason holds Halcyonic's words alone.
+- **After its review (2026-10-08):** a part of a long request never starts between a doubled backslash's two; a question or answer that shows as nothing is spelled by code point rather than emptying its page; Settings leans only the paired address; reopening the keyboard keeps the person's own words; an approval that names no tool reads in Halcyonic's words; the review's "none" stays Halcyonic's; the demonstration's words name no recorded label. A second look: grounds dimmed to 2 percent in linear space, a word's room each side, block grounds hugging their words, and separators leaving outside text whole.
+- **A further pass (2026-10-08):** Halcyonic's punctuation follows a ground as it follows a letter, a narrow no-break space from it, the ground stopping halfway; the render now measures a word space from the font's space advance, which its earlier measure read as nothing, so the word-space rule ran on no letter until then.
+- **Left:** the editor-only old panel (`WorkspaceScreens`, `ConnectScreens`) still quotes; the glance (Java) and the stage's plate apply the lean when they are rewritten.
 
 ## Not verified
 
@@ -184,7 +184,7 @@ all four cases; restoring the original measurement made each require two rows wh
 with the trailing word absent and Yes already offered. Restoring the fix passed again in the
 workspace render. The file-render comparison passed all eight combinations at both text sizes. The
 complete TypeScript suite passed 1,033 tests and the C# suite 1,435. These checks establish layout
-and reading behavior off the headset; the owner's headset reading remains the comfort check.
+and reading behavior off the headset; a reading on the headset remains the comfort check.
 
 **Recorded output and patches (2026-10-13):** The Unity Results consumer uses the generated bounded
 result contract, names the agent app, and treats recorded output/patches as outside words. This

@@ -6,8 +6,8 @@
 ## Context
 
 The control plane serves loopback only. A Quest reaches it over USB: `adb reverse` makes the
-headset's loopback reach the Mac, and the owner pushes the access token with `adb`
-([quest-3-device.md](../validation/quest-3-device.md)). The owner wants the headset to reach the
+headset's loopback reach the Mac, and the user pushes the access token with `adb`
+([quest-3-device.md](../validation/quest-3-device.md)). The goal is for the headset to reach the
 control plane on the Mac over Wi-Fi, without a cable, securely, with loopback only remaining the
 default. [SECURITY.md](../architecture/SECURITY.md) lists what must exist before Halcyonic serves
 beyond one machine: device pairing, encrypted transport, per-device authorization and token
@@ -118,7 +118,7 @@ P-256 certificate kept in the data directory. The pin is the SHA-256 of the cert
 Summarized in [SECURITY.md](../architecture/SECURITY.md): a hostile device learns that a TLS
 service listens, cannot pair outside a window, gets at most three guesses at an eight-digit code
 inside one, cannot read or alter traffic to a paired device, and can deny service. A stolen
-headset can do what its owner could over that network until the owner revokes it.
+headset can do what its owner could over that network until it is revoked.
 
 ## Decision
 
@@ -142,7 +142,7 @@ headset can do what its owner could over that network until the owner revokes it
   address, six per address a minute, 30 seconds each. The window derives the salt and the SRP
   verifier from the code when it opens, so an exchange's work depends only on its own secret `b`
   and tells a timing observer nothing about the code. `pnpm pair` prints each connection the
-  window turned away or cut short without checking a code, with its address, so the owner sees a
+  window turned away or cut short without checking a code, with its address, so the user sees a
   device holding the slots.
 - **Pairing protocol** over the `/pair` WebSocket, one exchange per connection: the headset sends
   its label; the control plane answers with the window's salt and a fresh `B`; the headset sends
@@ -159,7 +159,7 @@ headset can do what its owner could over that network until the owner revokes it
   from a request or connection authenticated before the revocation is rejected with
   `device_revoked`, and any answer to such a request is replaced by 401. What the device started
   before the revocation, such as an execution, keeps running: revocation stops the device, not the
-  work, which the owner can interrupt from loopback.
+  work, which the user can interrupt from loopback.
 - **Journal.** `device.paired` (device id, self-declared label, SHA-256 of the credential and of
   the certificate) and `device.revoked` (device id, who revoked it) are journaled through
   `Recorder`; the device registry is part of the projection. `command.accepted` and
@@ -181,10 +181,10 @@ security.
 
 ## Consequences
 
-- The owner's headset can reach the Mac over Wi-Fi without `adb`, and a headset can be told apart
-  from the owner's local token in the journal.
-- A second listener and its certificate are new attack surface, off unless the owner turns them
-  on. The owner's Mac firewall may ask whether `node` may accept incoming connections.
+- The user's headset can reach the Mac over Wi-Fi without `adb`, and a headset can be told apart
+  from the user's local token in the journal.
+- A second listener and its certificate are new attack surface, off unless the user turns them
+  on. The Mac's firewall may ask whether `node` may accept incoming connections.
 - Halcyonic now carries a WebSocket upgrade, an HTTP/1.1 client and an SRP implementation of its
   own, each tested against a real control plane and SRP's published vectors.
 - Every command event gained `principal`, so the traces and the recorded demonstration were
@@ -222,7 +222,7 @@ adds a one-shot query instead.
 Release builds pair too. A release build is not debuggable, so no access token can be put on it,
 and with pairing in development builds only it could show nothing but the demonstration: nobody
 without a developer's cable could direct real work. The pairing panel and Settings' Your computer
-are now in every build, the judges' build included, where the row reads Not paired and the
+are now in every build, the demonstration build included, where the row reads Not paired and the
 demonstration is as it was. The credential stays in app-internal storage, which on a release build
 not even `run-as` reaches.
 

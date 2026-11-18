@@ -10,7 +10,7 @@ A new app (ADR 0037) is made by an agent from one sentence and then opened in th
 own sandbox, `workspace-write`, limits writes to the project but reads the whole disk: an agent asked to build a game
 could read the person's keys, Halcyonic's journal or another project and write them into the page. (Amended
 2026-11-04: `workspace-write` also writes `/tmp`. See the amendment of that date.) The headset side
-cannot close the page's way out (RUNTIME's M1.6 plan), so the reading has to be stopped on the Mac.
+cannot close the page's way out (the M1.6 plan), so the reading has to be stopped on the Mac.
 
 Seatbelt profiles do not nest: Codex's own sandbox cannot start inside another one (`sandbox_apply: Operation not
 permitted`, exit 71, validation/codex-capabilities.md). Codex offers a sandbox policy for exactly this case,
@@ -112,7 +112,7 @@ none of them. Under that folder its profile refuses, after the allow, every `.gi
 `.pypirc` and file named credentials or secrets, in any case. A folder name the profile's rules cannot quote is
 refused rather than left open. A secret kept under another name is readable; the rule is for the common shapes,
 not a guarantee that the original holds nothing private, so the person chooses which game to make a VR version of.
-The original must be one game's own folder (AUDIT M18C1-M1): never a project root or a folder holding one, the home folder or a folder
+The original must be one game's own folder (review finding M18C1-M1): never a project root or a folder holding one, the home folder or a folder
 above it, a folder holding or inside Halcyonic's data, or a folder holding another project's folder. The host refuses
 such an original when `project.make_vr_version` is admitted, and again each time it builds the agent's confinement,
 which then reads no original; it also reads none when two starter projects share one folder (M18C1-S2). Every confined
@@ -144,7 +144,7 @@ folders exist and read their metadata (size, mode, owner and times); it still ca
 them, or find any other file or folder in the data folder, and nothing else is widened. Tested on this Mac with the
 real profile and the pinned Codex 0.157.0 ([codex-capabilities.md](../validation/codex-capabilities.md)).
 
-## Amendment, 2026-11-03: the check reads no more than the agent (AUDIT P1)
+## Amendment, 2026-11-03: the check reads no more than the agent (review finding P1)
 
 The check of a starter project (ADR 0037) runs the agent's project through the starter's TypeScript and Vite, and
 its profile read everything outside the home folder, so it reached what the confined agent may not: `/private/tmp`,
@@ -187,7 +187,7 @@ Tested with the pinned binary and the fake provider (`codex-runtime.e2e.test.ts`
 (`codex-runtime.test.ts`) and the real profile on folders of our own (`confined-temp.test.ts`)
 ([codex-capabilities.md](../validation/codex-capabilities.md)).
 
-## Amendment, 2026-11-04: the open server writes `/tmp` too (AUDIT DEMO-TMP-WRITE)
+## Amendment, 2026-11-04: the open server writes `/tmp` too (review finding DEMO-TMP-WRITE)
 
 The Context's "limits writes to the project" holds only for this decision's confined server. A project not made from a
 starter, such as an existing 2D game, has its agent on the open server. That server runs Codex's own `workspace-write`,
@@ -219,7 +219,7 @@ profile and the pinned Codex 0.157.0, no model:
   repository (`codex-runtime.e2e.test.ts`, with a `.gitconfig` planted in the test's home: 128 before, 0 after).
 - **A worktree or submodule has its git data outside its folder:** its `.git` is a file naming
   `<repository>/.git/worktrees/<name>` or `<repository>/.git/modules/...`. The agent can write that file, so it is
-  never enough (AUDIT BOX-1 F1: a crafted one opened another repository's data). The profile reads, never writes,
+  never enough (review finding BOX-1 F1: a crafted one opened another repository's data). The profile reads, never writes,
   that folder and the repository's `.git` it lives in only when the repository names this folder back, in a file
   only its own git writes, and the named folder exists:
   - a worktree: `<repository>/.git/worktrees/<name>/gitdir` resolves to this folder's `.git`;
@@ -247,19 +247,19 @@ given, not only a project made from a starter (`codexConfinement` in `apps/contr
   - A starter's project also reads the starter's shared dependencies, and a VR version also reads its original, as
     above.
   - Any other folder reads only itself, the tool folders and the git data of the amendment above.
-- **Asking, which the lead decided on 2026-11-10:** a confined thread's turns run under `externalSandbox`, where
+- **Asking, decided on 2026-11-10:** a confined thread's turns run under `externalSandbox`, where
   Codex's `on-request` policy asks nothing (seen on 0.157.0: a `touch` ran unasked).
   - A starter's project keeps this decision: it asks nothing, whatever the start chose, and records `never_ask`.
   - Any other confined folder asks when its start asks. With no policy of its own, it gets `untrusted`, which asks
     before every command Codex does not know is safe (seen: the same `touch` raised an approval request). A start
     that never asks gets `never` (ADR 0043).
   - The record follows the policy.
-  - A start that names `on-request` itself gets `untrusted` there too (AUDIT BOX-2 F1). Under `externalSandbox`
+  - A start that names `on-request` itself gets `untrusted` there too (review finding BOX-2 F1). Under `externalSandbox`
     that policy asks nothing, so keeping it would let a start that asks never ask.
   - A thread re-attached after a restart (ADR 0046) resumes with the same policy and level.
 - **The tools a command gets:**
   - The product's own Node comes first on its `PATH`, the one the profile's tool folders are for. On this Mac the
-    inherited `PATH` found a Node 20 from another installer, which the profile half reads (TASKS's run: npm warned of
+    inherited `PATH` found a Node 20 from another installer, which the profile half reads (in one run npm warned of
     v20.10.0).
   - The profile reads one more system file, `/System/Library/OpenSSL/openssl.cnf`, which a Node build may read to
     start. It reads that file alone, never the folder's `private` or `certs`.
@@ -275,7 +275,7 @@ given, not only a project made from a starter (`codexConfinement` in `apps/contr
 - **Elsewhere than macOS:** nothing changes. There is no profile, and the open server's `workspace-write` applies.
 - **Still not confined:** listing models uses the open server, which runs no command.
 
-## Amendment, 2026-11-11: another project inside a confined folder (AUDIT BOX-3 F1)
+## Amendment, 2026-11-11: another project inside a confined folder (review finding BOX-3 F1)
 
 A confined folder's profile denies reads, writes and links of every other bound project's folder inside it, after
 every allowance (`Confinement.inner`). See [ADR 0043](0043-a-person-may-let-a-tasks-agent-work-without-asking-where-its-runtime-keeps-it-in-bounds.md),
@@ -284,7 +284,7 @@ note of 2026-11-11.
 ## Amendment, 2026-11-11: the profile lives in a package of its own (BOX-3b)
 
 The confined profile, its base policy (Codex 0.157.0's own, Apache-2.0, as above), the git data rule and the tool
-folders moved from the Codex adapter to `packages/seatbelt` (`@halcyonic/seatbelt`), the owner's choice of
+folders moved from the Codex adapter to `packages/seatbelt` (`@halcyonic/seatbelt`) on
 2026-11-11, so that OpenCode and Claude Code can be confined by the same profile
 ([ADR 0048](0048-every-agent-runs-inside-one-closed-sandbox-of-halcyonics.md)). The scope's `codexHome` is now `home`,
 the server's own home folder. Nothing about what a confined Codex server may reach changed.

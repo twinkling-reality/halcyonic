@@ -166,7 +166,7 @@ The column "Codex app-server (experimental)" is the vendor's label for that comm
   their write endpoints.
 - They are optional. When one is absent, paused or incompatible, the relevant surface says
   unavailable.
-- Omnorium, the owner's GitHub portfolio app,
+- Omnorium, a GitHub portfolio app,
   supplies the projects gallery's catalog the same way: a versioned, read-only, loopback contract
   (`omnorium.catalog` v1, with dual support for `phat-porcupine.catalog` v1) with a credential the
   person creates, read through and never journaled, everything in it `reported` by the catalog

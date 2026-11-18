@@ -14,8 +14,8 @@ decisions 4 and 5). The one hosted path is the Claude Agent runtime, turned on i
 purpose (`HALCYONIC_CLAUDE_AGENT=1`), with the Anthropic key from the environment or
 `<data dir>/anthropic-api-key`, refused when other users can read it.
 
-On 2026-10-29 the owner asked for Halcyonic to show Meta's models, and offered their own Meta developer
-account and its credits for use and testing. What Meta's pages say, read that day and recorded with
+On 2026-10-29 Halcyonic was asked to show Meta's models, with a Meta developer
+account and its credits offered for use and testing. What Meta's pages say, read that day and recorded with
 nothing run, is in [meta-models.md](../validation/meta-models.md):
 
 - Meta's Model API serves `muse-wonder-1.0` (preview) and `muse-spark-1.3` at
@@ -113,7 +113,7 @@ any hosted provider other than Meta.
 
 ## Alternatives considered
 
-- **Keep everything local.** Simplest and safest, but the owner asked for Meta's models, and the
+- **Keep everything local.** Simplest and safest, but Meta's models were asked for, and the
   person already chooses each task's model with a second press for a remote one; the gap is a key and
   the rules for it, not the choice.
 - **Turn it on in the settings file.** One place for a person's setup, but it would undo ADR 0024's

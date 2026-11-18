@@ -9,11 +9,11 @@
 - **Method:** read the core (`packages/{contracts,domain,runtime-core}`, `apps/control-plane/src/{core,journal,
   network,checkpoints,observer}`, the check and preview host, the client core's `ClientProjection` and
   `ActivityLog`), ranked twelve suspected defects, and took them most severe first; a thirteenth turned up while
-  fixing one. Each defect found was proved by a test that failed before its fix; security fixes were read by AUDIT
+  fixing one. Each defect found was proved by a test that failed before its fix; security fixes were reviewed
   before they landed. Scale was measured, not guessed
   ([control-plane-scale-2026-11-03.md](control-plane-scale-2026-11-03.md)).
-- **Status:** fixed as listed, each on main by the commit named; those named by their subject were at AUDIT or
-  waiting for their batch when this was written. What remains is below, each with why it is not fixed.
+- **Status:** fixed as listed, each on main by the commit named; those named by their subject were in review or
+  waiting to land when this was written. What remains is below, each with why it is not fixed.
 
 ## Found and fixed
 
@@ -29,8 +29,8 @@
 | The observer and undo's compare could read through a folder swapped for a link | Verified | Opened with `O_NOFOLLOW_ANY`, which refuses a link anywhere in the path (de207b0c) |
 | A task unknown before a restart kept its project busy for good | Verified | Marked unknown because of the restart, so its project frees (ee108021) |
 | A turn a restart cut short counted as running for good, so every later check of its project read unknown, and its preview and Play were refused for good with words asking for a check that could not help | Verified (a test) | A check recorded after the restart starts current; one recorded before it stays unknown ("Stop a turn a restart cut short from holding every later check unknown", #13) |
-| A start was admitted while the task's execution ran, so two agents worked in one folder | Verified (INTEGRATION's journey) | One execution at a time in a task (b263b05d, words 93de0913, ADR 0020 amendment) |
-| An instruction to a resting execution was admitted while a newer one of its task ran, so a second Send during a switch set the old agent going too | Verified (AUDIT's switch verdict, then a test) | Refused the same way ("Refuse instructing a resting execution while another of its task is active or about to be", ADMIT-2) |
+| A start was admitted while the task's execution ran, so two agents worked in one folder | Verified (an integration journey) | One execution at a time in a task (b263b05d, words 93de0913, ADR 0020 amendment) |
+| An instruction to a resting execution was admitted while a newer one of its task ran, so a second Send during a switch set the old agent going too | Verified (a security review's verdict on the switch, then a test) | Refused the same way ("Refuse instructing a resting execution while another of its task is active or about to be", ADMIT-2) |
 | The Mac kept every task's folder reading for good | Measured | Bounded across tasks (fa2a577f, ADR 0038 amendment) |
 | The headset's client kept every task's activity, every command and every tool name for a whole connection | Measured | Bounded (e6458aaa); the snapshot and the client keep the same 50 finished commands (9702766c) |
 | Every turn's start and end, and every file reading, visited all of its project's checks, none ever dropped, so a check after each changing round, as the automatic check makes, cost the square of the rounds, in every restart's fold too | Measured (a count test: 59,700 visits over 200 rounds) | Only checks whose files can still change are visited, 597 over the same rounds ("Visit only the checks whose files can still change", #8a) |
@@ -65,14 +65,14 @@ longest instruction (cccd0a4b).
 
 ## What remains, and why
 
-Each was found by this audit, or by AUDIT's read of the check and preview host where marked, and is not fixed by
+Each was found by this audit, or by a security review of the check and preview host where marked, and is not fixed by
 it. Work on the audit stopped on 2026-11-04; those marked "next" were the ones it would have taken next.
 
 - **A long history is folded at every restart.** Risk. A restart replays the whole journal before the control plane
   serves anyone: 7 to 19 µs an event here, so a million events would take 7 to 19 s and about 1.3 GB on disk
   (inference, extrapolated linearly). A checkpoint of the projections would change how the journal is read at a
   restart, an architecture decision, so it is an open question
-  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Fixed on 2026-11-10 (CORE): a start restores a checkpoint
+  ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Fixed on 2026-11-10: a start restores a checkpoint
   of the projection kept beside the journal, taken only when it matches the journal, and folds only the events after
   it ([ADR 0050](../decisions/0050-a-start-restores-the-projection-from-a-checkpoint-and-folds-only-the-journal-after-it.md));
   measured, a million events start in 0.3 s from a checkpoint against 3.5 to 4 s whole
@@ -88,36 +88,36 @@ it. Work on the audit stopped on 2026-11-04; those marked "next" were the ones i
   execution; the busy rule scans both at admission and at each automatic check. Commands grow with rounds, so a check
   after each round still costs every restart's fold a little more each round (inference: a few times less than the
   walk did before #8a). An index of the commands still waiting would make each as cheap as what is pending. Next.
-  Fixed on 2026-11-10 (CORE): the busy rule, the restore check, pending commands and check recording read each
+  Fixed on 2026-11-10: the busy rule, the restore check, pending commands and check recording read each
   project's own executions and the commands still waiting only (17.3 to 2.2 µs a project at 50,000 events).
 - **Each event is serialized once per realtime connection.** Verified in the code; measured with up to 8
   subscribers, with no trend in the cost. Usually two clients are connected. Serializing once per event was next.
-  Fixed on 2026-11-10 (CORE): an event's message is serialized once and the same text sent on every connection.
+  Fixed on 2026-11-10: an event's message is serialized once and the same text sent on every connection.
 - **A summary of every tool result is kept per execution.** Verified in the code, not measured: the scale bench
-  sends no tool results. Fixed on 2026-11-11 (CORE): about 0.4 KB a result, which was never trimmed and rode in
+  sends no tool results. Fixed on 2026-11-11: about 0.4 KB a result, which was never trimmed and rode in
   every checkpoint of the projection; now only the last 256 results of each execution stay readable by id, the
   oldest dropped, an older id read as not found (REALTIME.md).
 - **Not attacked in this audit:** `folder-safety.ts` against case and hard-link games, and error text and URLs in
   journal fields other than those above. No defect is suspected in them. `reads_confined` is recorded by each check
   and Play on the Mac refuses without it (tested); a Mac preview may serve an unconfined copy, its record saying so
   (ADR 0041); the headset's Quest Browser gate refuses one too, but no test pins that refusal.
-- **The check reads its source and input layer by path after looking at them (AUDIT S3).** The source scan and the
+- **The check reads its source and input layer by path after looking at them (review S3).** The source scan and the
   comparison of the input layer with the template's (`scan.ts`, `laptop-probe.ts`) `lstat` a file, then read it by
   path, so a file or a folder above it swapped for a link in between is read through; only line numbers and whether
-  the layer matches leave them. Fixed on 2026-11-10 (JUDGE): each is opened once refusing a link anywhere in its
+  the layer matches leave them. Fixed on 2026-11-10: each is opened once refusing a link anywhere in its
   path and judged and read through that handle (`readNoLink`, `scan.ts`), as the catalog's read of a folder's origin does.
-- **A cookie another port's page plants keeps the person out of a play's viewer (AUDIT S2).** The viewer reads
+- **A cookie another port's page plants keeps the person out of a play's viewer (review S2).** The viewer reads
   only the first cookie of its name, and a page on another 127.0.0.1 port can set one of that name for a longer path,
   which the browser sends first; the viewer then refused its own stream. Denial only, nothing leaks. Fixed on
-  2026-11-10 (JUDGE): the viewer accepts when any cookie of its name is its session.
-- **The viewer's one-time link travels in `/usr/bin/open`'s arguments (AUDIT S4).** Every account on the Mac can
+  2026-11-10: the viewer accepts when any cookie of its name is its session.
+- **The viewer's one-time link travels in `/usr/bin/open`'s arguments (review S4).** Every account on the Mac can
   read another's process arguments, so one that catches the link in that moment can trade its code first and watch
   the play; the person then sees that the link was used. Next: hand the link to LaunchServices without a command
   line, such as on `osascript`'s input.
 - **Smaller:** the control plane's close does not wait for a checkpoint being written; the check's build profile
   lets the build write to `/dev/tty`; a tool call that never completes keeps its name in the headset's activity
   until the journal changes (about 200 bytes); the busy rule's refusals name raw statuses
-  ("waiting_for_human"). Fixed on 2026-11-11 (CORE): the close waits for undo checkpoints and restores under way
+  ("waiting_for_human"). Fixed on 2026-11-11: the close waits for undo checkpoints and restores under way
   (up to 10 s) before the journal closes, and an event arriving after that is refused quietly; the busy rule says
   a task's status in words ("waiting for you"). The build profile's `/dev/tty` and the headset's lingering tool
   name remain.

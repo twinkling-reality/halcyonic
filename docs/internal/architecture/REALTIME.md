@@ -91,7 +91,7 @@ client                                   server
 - **Device events stay home.** `device.paired` and `device.revoked` are journaled like every
   event, but no client receives them over this stream, and a paired device does not read them from
   `GET /api/events` either, where `limit` counts only the events returned: which devices are
-  paired is the owner's to know, on loopback. The gap they leave in positions is harmless, as any
+  paired is for the local user to know, on loopback. The gap they leave in positions is harmless, as any
   gap is.
 - **Events carry their effects.** Each `event` message includes `changes`: the current state of
   every project, workstream, execution and command the event changed. Clients replace their copies
@@ -435,7 +435,7 @@ at most 4 realtime connections; another is refused with the fatal error `too_man
 ## Pairing: `GET /pair`
 
 JSON text messages on the network listener, pairing protocol version 1, one exchange per
-connection, which the control plane closes after its answer. Only while the owner has a window
+connection, which the control plane closes after its answer. Only while the user has a window
 open (`pnpm pair`); otherwise the upgrade is refused with 403 `pairing_closed`, and a flood from one
 address with 429. The window derives the salt and the SRP verifier from the code once, when it
 opens; each exchange draws only its own secret `b`, so its work does not depend on the code.
@@ -462,7 +462,7 @@ device                                            control plane
   `too_many_requests`, `timeout` (30 seconds per exchange), `unsupported_protocol`,
   `invalid_message`. None of them spends an attempt; the window counts them by address and reason,
   with exchanges that closed before a proof (`abandoned`), in `refusals` of `GET /api/pairing`, and
-  `pnpm pair` prints each, so the owner sees something holding pairing up.
+  `pnpm pair` prints each, so the user sees something holding pairing up.
 - The device keeps the credential as `hlcd_` and its base64url, and presents it as a bearer token.
 - `fixtures/pairing/vectors.json` holds a complete exchange for fixed inputs, which both
   implementations reproduce.

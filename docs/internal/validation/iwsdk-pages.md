@@ -2,7 +2,7 @@
 
 - **Question:** what can the starter's stack (`@iwsdk/core` 1.0.1, `@pmndrs/uikit` 1.0.78, `three` as `super-three`
   0.181.0) show for an app whose subject is its pages (a lesson, cards, steps, slides), and what is the smallest way
-  to bring such an app into VR honestly (VRIFY unit 2)?
+  to bring such an app into VR honestly?
 - **Date:** 2026-11-11.
 - **Method:**
   - The SDK's own current documentation (iwsdk.dev, its "Spatial UI" pages, labelled v1.1.0-rc.1, one minor version
@@ -53,5 +53,5 @@
 ## Not verified
 
 - The pages on the headset: legibility at 1.6 m, Quest Browser's own fonts on the canvas.
-- A real run of Make VR Version on a pages app with the new piece: VRIFY's next step, with a local model.
+- A real run of Make VR Version on a pages app with the new piece, with a local model.
 - Scrolling a long uikit text with a controller or hand.

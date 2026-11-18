@@ -5,7 +5,7 @@ candidate until actual renderer, device and wearer validation.
 
 ## Context
 
-The owner rejected the installed fixed-anchor behavior: the workspace stayed behind and left
+Headset testing rejected the installed fixed-anchor behavior: the workspace stayed behind and left
 view during head movement. Earlier tests deliberately preserved its yaw under head turns. Those
 remain a comparison for an explicitly pinned setup, not the production acceptance criterion.
 The first-pose tracked/worn/focused readiness correction is retained.

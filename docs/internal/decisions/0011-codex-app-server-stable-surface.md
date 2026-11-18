@@ -70,7 +70,7 @@ and resumes its threads, settling a turn that was running from Codex's own recor
 
 ## Note, 2026-10-07
 
-A decision the owner delegated to the coordinator on 2026-10-07 replaces "with the developer's
+A decision of 2026-10-07 replaces "with the developer's
 default `CODEX_HOME`" and the context's "Halcyonic's Codex threads must use it too": **Codex is
 offered for local models only, from a home of its own.**
 
@@ -107,7 +107,7 @@ it as installed (each reads one Codex location, the person's,
 [understanding-and-evaluation.md](../validation/understanding-and-evaluation.md)), so the control
 plane answers Understand and Checks as `runtime_not_observed`, without asking either, for a Codex
 execution whose rollout it finds in Halcyonic's home; one run in `~/.codex` before this change is
-asked about as before. Whether they should also read Halcyonic's home is their owners' question
+asked about as before. Whether they should also read Halcyonic's home is a question for those projects
 ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). The person's own `~/.codex` settings, sign-in and plugins no
 longer apply to Halcyonic's threads, and neither does a project's own `.codex/config.toml`:
 every thread marks its folder and every folder above it untrusted in its own overrides, which

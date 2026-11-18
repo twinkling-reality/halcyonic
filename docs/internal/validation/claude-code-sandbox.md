@@ -40,10 +40,10 @@
 - So a confined start cannot sign in only where the person has no API key and no cloud provider, which the adapter
   already refuses at its construction, for every start.
 
-## The sign-in key, held by the gate (AUDIT BOX-4 F1, closed 2026-11-12)
+## The sign-in key, held by the gate (audit finding BOX-4 F1, closed 2026-11-12)
 
 Until 2026-11-12 the key was in the confined process's environment and its Bash tool inherited it, so a run inside
-was recorded `confined: false`. Since then the gate holds it and the agent holds its run's credential from the gate; AUDIT's line
+was recorded `confined: false`. Since then the gate holds it and the agent holds its run's credential from the gate; the audit's line
 `echo "key=${ANTHROPIC_API_KEY:-none}"` inside the e2e's command prints that credential, and the test asserts that,
 and that the fake API received the test's fake key in `x-api-key` on every request
 ([claude-code-key-gate.md](claude-code-key-gate.md)).
@@ -57,7 +57,7 @@ the trap.
 
 ## The places a request names (2026-11-13, for ADR 0064)
 
-Read from the pinned SDK's own tool schemas, `sdk-tools.d.ts` in `@anthropic-ai/claude-agent-sdk` 0.3.283 (AUDIT3
+Read from the pinned SDK's own tool schemas, `sdk-tools.d.ts` in `@anthropic-ai/claude-agent-sdk` 0.3.283 (review finding
 C3): `FileWriteInput`, `FileEditInput` and `FileReadInput` name `file_path`; `NotebookEditInput` names
 `notebook_path`, not `file_path`; `GlobInput` has `pattern` and an optional `path`; `GrepInput` has `pattern` (the
 text searched for, not a place), an optional `path` and an optional `glob`. There is no `MultiEdit` or `LS` tool in
@@ -81,8 +81,8 @@ adapter re-attached the session from it and the next instruction resumed it with
   (`packages/seatbelt/src/leftovers.ts`), run after the close, ended each, and nothing else.
 - **Change:** a session ends its folder's leftovers once it has ended for good, counting what started after its first
   launch; never between the processes of a relaunch, whose next process's own background commands run orphaned
-  already. Confined or not (the lead, 02:25Z): under a connected folder's lighter profile the agent's commands read as
-  sandboxed too (AUDIT3, 02:06Z), and a person's own process there does not.
+  already. Confined or not: under a connected folder's lighter profile the agent's commands read as
+  sandboxed too, and a person's own process there does not.
   `confined.e2e.test.ts` pins both halves (the command outlives the turn; it ends with the session).
 
 ## Not verified

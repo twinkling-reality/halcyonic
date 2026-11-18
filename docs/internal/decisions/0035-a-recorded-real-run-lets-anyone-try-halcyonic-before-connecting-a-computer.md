@@ -1,8 +1,8 @@
 # ADR 0035: A recorded real run lets anyone try Halcyonic before connecting a computer
 
-- Status: Accepted by the owner on 2026-10-29 ("Yes, real work"), for a recording of real agent work
-  on Halcyonic's own repository; amended 2026-11-04 (the lead, on JUDGE's ask) for a run in a project
-  the owner created for it; no recorded run is bundled yet
+- Status: Accepted on 2026-10-29 ("Yes, real work"), for a recording of real agent work
+  on Halcyonic's own repository; amended 2026-11-04 for a run in a project
+  created for it; no recorded run is bundled yet
 - Date: 2026-10-29
 - Amends [ADR 0012](0012-a-labeled-demonstration-runs-on-the-headset.md): its demonstration
   stays, and a recorded real run now plays before it
@@ -15,9 +15,9 @@ looks like. ADR 0012 gave the headset an on-device demonstration for that moment
 mock runtime: it shows the interface and lets a person answer, but none of its work happened, and
 every task in it says so.
 
-The first person in that position is a competition judge, who runs the release APK on their own
-headset with no computer behind it. The owner's plan for the entry is a build that replays real
-recorded work, clearly marked as recorded, and on 2026-10-29 the owner agreed that it may be real
+The first person in that position is a first-time user who runs the release APK on their own
+headset with no computer behind it. The plan is a build that replays real
+recorded work, clearly marked as recorded, and on 2026-10-29 it was agreed that it may be real
 agent work on Halcyonic's own repository.
 
 What was true when this was decided:
@@ -25,20 +25,20 @@ What was true when this was decided:
 - A real run's journal is private as it stands. The one complete run kept from earlier rehearsals
   names products and home folders inside its instructions, approval requests and agent messages,
   and rewriting those words would misreport what the person and the agent said.
-- The competition's rules forbid brand names with no exception for an entrant's own products, and
-  ask for an honest entry that works without another device
+- Brand names must not appear, with no exception for the project's own products, and the
+  build must work honestly without another device
   ([demonstration-build.md](../validation/demonstration-build.md)).
 - The client refused any recording whose runtime is not synthetic.
 - Release builds offer no pairing (an open question in
-  [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Installed fresh, as on a judge's headset, a
+  [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Installed fresh, as on a first-time user's headset, a
   release build has no pairing and no token, so it always plays the on-device recordings; one
   installed over a development build without clearing its data keeps both.
 
 ## Decision
 
-A recorded real run is a product capability, not a judges-only mode: the way a person tries
-Halcyonic before connecting a computer, by watching real work they know is recorded. The judge
-build is its first user.
+A recorded real run is a product capability, not a reviewers-only mode: the way a person tries
+Halcyonic before connecting a computer, by watching real work they know is recorded. The unconnected
+release build is its first user.
 
 1. A real run is recorded to be shown. Its instruction is written for a reader, and its journal is
    kept, privately, outside the repository.
@@ -48,11 +48,11 @@ build is its first user.
    command output out, and, where a command's tool title opens a here-document, cuts its body up to its
    terminator and says so (amended 2026-11-04): the body is the content the command writes, such as a
    starter's licence header, not what the agent said. The starter a project began from gets a neutral
-   id, since a starter's id can name the kit it is built on (amended 2026-11-04, on AUDIT's read). The project folder's path is rewritten wherever it appears, in what the
+   id, since a starter's id can name the kit it is built on (amended 2026-11-04, after review). The project folder's path is rewritten wherever it appears, in what the
    person and the agent said too; nothing else in their words is edited. Its rules refuse what they
    find: if a string names a product, a home or private folder, an address, a credential shape or a
    word from the private deny file, it writes nothing, and the run is recorded again. The rules find
-   only what they list, so a person (AUDIT, then the owner) reads the whole recording before it
+   only what they list, so two reviewers, one after the other, read the whole recording before it
    ships or is shared.
 3. The headset plays it as format version 3, kind `recorded_run`
    ([XR_CLIENT.md](../architecture/XR_CLIENT.md)), labeled Recorded, never Practice or Demo. It
@@ -62,8 +62,8 @@ build is its first user.
    first and, once its end has held, the demonstration of ADR 0012, where a person answers a
    question, denies and sees a correction round.
 5. Which run is bundled is a choice for each build, not part of this decision. Each one passes the
-   recorder's rules and a reading of the whole recording, by AUDIT and then the owner, before it
-   ships. The run may be work Halcyonic did on the owner's computer in a project the owner created for it,
+   recorder's rules and a reading of the whole recording, by two reviewers, before it
+   ships. The run may be work Halcyonic did on a person's own computer in a project created for it,
    not only on Halcyonic's own repository (amended 2026-11-04; the first is the showcase finals' Star
    Catcher, [showcase-finals.md](../validation/showcase-finals.md)).
 
@@ -74,7 +74,7 @@ build is its first user.
 - **Mix real and simulated work in one recording.** The labels would stop saying what a task is.
 - **Recorded branches for a real run, so a person can answer it.** A real agent cannot be asked the
   same thing twice from the same state; a second branch would be another run.
-- **A recorded run only in the judge build.** The same moment, a person with nothing connected yet,
+- **A recorded run only in a separate reviewer build.** The same moment, a person with nothing connected yet,
   comes for everyone who installs Halcyonic, and a mode built for one audience would drift.
 
 ## Consequences

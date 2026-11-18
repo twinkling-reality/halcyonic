@@ -58,6 +58,6 @@
   still highlight in its place; today it shows the words in their own (secondary) colour. Apple also
   advises against motion on interactions that happen often: the pulse runs only while Hold to talk
   records and the shimmer only while something waits, neither on a press. Both are in
-  [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md) for lane V on the headset.
+  [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md), to settle on the headset.
 - The footer's prompts sit at the bottom of the plane, inside the field of view; whether the pulse and
   the shimmer read as peripheral motion on a Quest 3 is a headset question.

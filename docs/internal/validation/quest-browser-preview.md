@@ -72,7 +72,7 @@ forget it only once a `reverse --list` that was read shows it gone. A record fro
 id (a USB reconnect dropped the rule) is forgotten and removes nothing. They force-stop Quest Browser
 only if this tool started it; a browser that was running before keeps the preview's tab. Rules this
 tool did not record are left alone. A frame of what the headset shows is `shot`, as for any app.
-No browser log and no DevTools forward: either would show the owner's other pages.
+No browser log and no DevTools forward: either would show the user's other pages.
 
 ## What the gate does not hold
 
@@ -96,6 +96,6 @@ No browser log and no DevTools forward: either would show the owner's other page
 - `adb reverse` reaches the Mac's loopback on the host side; that it reaches 127.0.0.1 rather than
   `::1` is assumed until the run shows the page. Whether adb accepts `tcp:127.0.0.1:<port>` as the
   host side, which would pin it, is not verified.
-- What an opened preview leaves in the owner's Quest Browser profile for `http://127.0.0.1:<port>`
+- What an opened preview leaves in the user's Quest Browser profile for `http://127.0.0.1:<port>`
   besides a service worker (storage, cookies, cache, permission grants) stays there, shared by every
   project that later gets the same port. Not prevented.

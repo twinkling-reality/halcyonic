@@ -237,7 +237,7 @@ only loopback ports (source).
 
 ## Shell commands ask (2026-10-08)
 
-The owner decided on 2026-10-08: every OpenCode session Halcyonic opens asks before shell
+It was decided on 2026-10-08: every OpenCode session Halcyonic opens asks before shell
 commands; edits do not ask; subagents stay denied.
 
 - **Built:** the session's rules add `{action: "shell", resource: "*", effect: "ask"}`. A session's
@@ -296,7 +296,7 @@ commands; edits do not ask; subagents stay denied.
   ran a command or wrote a file without any ask, inside the project and outside it. So the ask is
   a safeguard against an ordinary model, not a boundary: a model working to get around it can run
   commands, write files and reach the network unasked. The details stay out of this repository
-  until the owner decides on reporting them to OpenCode
+  until a decision on reporting them to OpenCode
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). Since 2026-10-08 the server runs on macOS
   inside a sandbox of Halcyonic's own, which contains those commands: no write outside the project
   roots and its own folders, no connection but to the server's own port and the gate in front of

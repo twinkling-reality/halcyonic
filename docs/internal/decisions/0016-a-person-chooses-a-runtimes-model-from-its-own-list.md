@@ -1,6 +1,6 @@
 # ADR 0016: A person chooses a runtime's model from the runtime's own list
 
-- Status: Accepted on 2026-09-30, a decision the owner delegated.
+- Status: Accepted on 2026-09-30.
 - Date: 2026-09-29
 
 ## Context

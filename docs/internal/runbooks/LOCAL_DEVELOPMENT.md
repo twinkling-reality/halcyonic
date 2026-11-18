@@ -823,7 +823,7 @@ curl -s -H "Authorization: Bearer $(cat ~/.halcyonic/access-token)" http://127.0
 
 The demonstration plays one exchange recorded from the companion. Record it again after changing
 the prompt or the model, review the diff, and commit it; `--check` holds the committed file to its
-rules (no brand a judge may not read, answers that were offered, a proposal at the end):
+rules (no brand name shown, answers that were offered, a proposal at the end):
 
 ```bash
 HALCYONIC_COMPANION_MODEL=qwen3.5:9b pnpm companion:record

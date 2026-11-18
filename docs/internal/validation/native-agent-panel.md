@@ -170,7 +170,7 @@ physical-camera capture is prevented.
 
 Checked on a Quest 3 (Horizon OS 209, development APK of 8d6e0944e, 2026-11-16 22:50Z): with the
 native panel open beside the immersive app, the headset's own capture records the whole frame
-black, not only the panel. So the film cannot show the real panel while it is secure.
+black, not only the panel. So a film cannot show the real panel while it is secure.
 
 The capture extra's exception (ADR 0029 amendment, 2026-11-16). A panel created after the
 immersive app allowed capture in this process stays capturable: it sets no `FLAG_SECURE` at any
@@ -333,21 +333,21 @@ agent-question counts, and when the authenticated snapshot was last checked. Bot
 execution's status, not certified software completion. Missing or foreign project/task bindings refuse the summary.
 The Expand/Compact action remains outside the content scroll, including for long task titles.
 
-Superseded for what compact shows (2026-11-16, the film's take 10; SCREENS' brief, AUDIT2's words of 23:49Z, held against
+Superseded for what compact shows (2026-11-16, held against
 Titanfall 2's pilot HUD speaker card for feel). Compact beside the person's show is now four things and nothing else: the
 task's name; its state as one of the headset's own words (Working, Checking, Needs You, Turn Finished, Stopped, Failed,
 Not Started, Can't Tell), never Ready, which needs the computer's own check the panel cannot read; what it needs in words
 while it needs them (Run Command? before Agent's Question), never a count; and Open Task (the one orange, only then, to
 the expanded task where the answer lives) and Open Workspace (quiet). The name, the navigation, the Expand action, the
 provenance and the monitor line are hidden in compact, save the offline line and the synthetic preview's own line. At rest (no approval or question waiting) compact is only the state line naming
-the task and the quiet Open Workspace under it; the card arrives when the task needs the person (the lead, 2026-11-17). The
-expanded view takes the same words since 2026-11-17 (AUDIT2, 00:09Z): the project's and task's names alone as headings,
+the task and the quiet Open Workspace under it; the card arrives when the task needs the person (2026-11-17). The
+expanded view takes the same words since 2026-11-17: the project's and task's names alone as headings,
 the state word and the agent's name (Coding Agent under the capture switch), an approval named as the headset's moment
 names it (Run Command? only for a command tool, otherwise Use and the tool's name, Approval Requested where none is named),
 Approve and Decline, Agent's Question, Ask, Activity, What It Did, Other Apps, Compact and Expand, The Agent Says over
 reported text, and no dot-joined row anywhere. The
-offline line is "Your computer is not available.", since the panel cannot know whether pairing is offered (AUDIT2, 22:59Z).
-Since 2026-11-17 (the lead's one design language, FIELD's sheet tile f7) the window is the glass: the owner's Ask tint,
+offline line is "Your computer is not available.", since the panel cannot know whether pairing is offered.
+Since 2026-11-17 (one design language) the window is the glass: the Ask panel's tint,
 thickened to 90% since a panel cannot blur, visionOS's corners and sheen, one hairline; the state in wide spaced capitals,
 the task's name, and while it waits the need as a label over the agent's own words for it (the command in mono, or the
 question); Open Task as a thin plate whose one accent is a lit rim and glow, only while something waits, and Open

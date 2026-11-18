@@ -1,12 +1,12 @@
 # ADR 0021: Speech becomes a draft, transcribed on the Mac, that the person confirms like typed text
 
-- Status: Accepted on 2026-10-01 by the owner, with whisper.cpp as the engine.
+- Status: Accepted on 2026-10-01, with whisper.cpp as the engine.
 - Date: 2026-09-30
-- Amended on 2026-10-31 by the owner: what was heard is tidied before it becomes the draft (below).
+- Amended on 2026-10-31: what was heard is tidied before it becomes the draft (below).
 
 ## Context
 
-The owner asked for voice input in the headset: hold to talk instead of typing an idea, a task, a
+Voice input was asked for in the headset: hold to talk instead of typing an idea, a task, a
 folder's name or an instruction on the Quest keyboard. Typing on the system keyboard works today,
 and that keyboard already has a microphone button whose recognition is Meta's: online dictation is
 processed by Meta and offered only in the United States, and an on-device dictation is opt-in
@@ -48,7 +48,7 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
   measurement, is whisper.cpp's `whisper-cli` with the pinned large-v3-turbo q5_0 model, launched
   once per clip from a configured binary and model, in English, prompted with Halcyonic's own
   words (the product's, the runtimes' and the local models' names). It listens on no port and
-  downloads nothing because someone spoke; the models are fetched only in a setup step the owner
+  downloads nothing because someone spoke; the models are fetched only in a setup step the person
   runs, and the control plane warms the engine once at startup so the first person to speak does
   not wait. A clip with no speech is answered as nothing heard, never with invented text:
   whisper.cpp's voice activity detection, with the pinned Silero model and half a second kept
@@ -67,7 +67,7 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
   been held for 0.3 s, shows that it is listening, stops on release or at 30 s, and is discarded if
   the app loses input focus or the hand leaves the button. The microphone permission is asked on
   the first hold, never at launch (amended 2026-11-11: asked at the first open, below), and typing always remains. Release and demonstration builds
-  carry no voice and no `RECORD_AUDIO` unless the owner decides otherwise.
+  carry no voice and no `RECORD_AUDIO` unless a later decision says otherwise.
 
 ## Alternatives considered
 
@@ -93,12 +93,12 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
 - A person can speak where they typed, with the same confirmation, and nothing they say leaves
   the Mac or is kept.
 - The control plane gains a non-JSON route with its own parser and limits, an engine process to
-  launch, pin and stop, and a setup step that downloads speech assets or a model, which the owner
+  launch, pin and stop, and a setup step that downloads speech assets or a model, which the person
   approves.
 - The Unity client gains a microphone permission flow, a hold gesture on `PanelButton`, a capture
   and resampling path in the client core, and a build-time guard that keeps `RECORD_AUDIO` out of
   release builds.
-- Lane F's focus rules decide when capture may run; this decision only stops capture when focus
+- The focus rules decide when capture may run; this decision only stops capture when focus
   is lost.
 - Revisit when real clips from the headset are measured, if whisper.cpp still invents text in a
   real room despite voice activity detection, if
@@ -107,7 +107,7 @@ bodies only, at most 1 MiB, and logs no instruction or agent text ([SECURITY.md]
 
 ## Amendment of 2026-10-31: the draft is tidied
 
-The owner, asked whether Halcyonic should tidy spoken words before showing them: "Yes, tidy it".
+Halcyonic tidies spoken words before showing them.
 Between the engine's text and the draft, the control plane (`apps/control-plane/src/speech/tidy.ts`)
 drops hesitation sounds (um, umm, uhm, uh, uhh, erm, hmm, whole words only; not "mm", which is
 also a unit) with the pauses around them, says a stuttered short word once ("the the", from a
@@ -120,7 +120,7 @@ sounds-alike matching, and words that may be meant twice ("very very", "that tha
 "no, no") or only look like hesitation ("uh-oh", "er", "ah") stay.
 
 A one-word project name is applied too, even a common word: a project called "Garden" spells every
-heard "garden" as "Garden". The person chose the name, the owner asked for project names spelled
+heard "garden" as "Garden". The person chose the name, project names should be spelled
 right, and the draft is shown and editable before anything is sent.
 
 The draft stays the person's words, marked as heard, through the same confirmation as before. If
@@ -129,13 +129,13 @@ heard. Nothing of the words is logged, kept or journaled, as before.
 
 ## Amendment of 2026-11-11: voice in every build
 
-The owner decided on 2026-11-11, asked whether a release build may use voice: "Yes, with voice". A
+It was decided on 2026-11-11 that a release build may use voice. A
 release build carries voice, so a person whose headset is paired with their computer can talk to it
 without a development build. The microphone code compiles for every player
 and a release APK asks for `RECORD_AUDIO`; `QuestBuild.BuildReleaseApk` now fails an APK that does not
 ask for it. Nothing else changes: voice is offered only while a computer is connected and no
 recording plays, the permission is asked on the first hold and never at launch, and a clip is still
-transcribed on the Mac. A headset with no computer, as a judge's, is never asked for the microphone.
+transcribed on the Mac. A headset with no computer, as a first-time user's, is never asked for the microphone.
 Without voice set up on the Mac the headset reads "Voice Not Set Up · Type Instead". Meta's store
 reviews `RECORD_AUDIO`; whether a release channel then needs a privacy policy that names the
 microphone is not yet checked.
@@ -143,21 +143,21 @@ microphone is not yet checked.
 ## Amendment of 2026-11-11: the microphone is asked at the first open
 
 Asking on the first hold meant the first hold recorded nothing ("Allow Microphone · Hold Again"), and a person who
-refused had to find Settings alone (JUDGE's beginner's journey; the lead's decision). This replaces the amendment
+refused had to find Settings alone (found in a beginner's journey). This replaces the amendment
 above on when it is asked: once, at the first open with a computer connected, after one line that says why, so the
 first hold records. The answer is kept on the headset and no later open asks. A hold asks only where no answer was
 given (the question was dismissed or never shown) or where the person refused once and the system would ask once
 more; where the system no longer asks, the hold records nothing and its line says how to allow it. A launch with
 the setting `halcyonic.noask=true` skips the open's question, since nothing may press a system dialog in a driven
-run. As for voice, it holds in every build (the owner, 2026-11-11: "Yes, with voice"), and a headset with no
-computer, as a judge's, is still never asked: the open asks only where voice is offered (a computer connected and
+run. As for voice, it holds in every build (decided 2026-11-11), and a headset with no
+computer, as a first-time user's, is still never asked: the open asks only where voice is offered (a computer connected and
 no demonstration of any kind, recorded or for a computer that cannot be reached). The rules are `MicrophoneAsk` in the client core; the open's question
-is `MicrophoneAtOpen` in the Unity layer. The line's words and the Settings path are FIELD's, and the flow is proven
+is `MicrophoneAtOpen` in the Unity layer. The flow is proven
 on the headset when it is next connected.
 
 ## Amendment of 2026-11-12: a heard draft read whole is sent by its one Send
 
-The lead's decision of 2026-11-12 (R1: a confirm exists only where the command's policy says so) replaces "a spoken
+The decision of 2026-11-12 (R1: a confirm exists only where the command's policy says so) replaces "a spoken
 instruction to a running agent always asks 'Send this instruction?' first". The draft, marked as heard, is shown in the
 field it was spoken for, part by part where it is long, and Send stands only once every part has been shown at the
 current text size (`FileInstruction.Read`); that reading is the review, and Send is the one press. A heard instruction is

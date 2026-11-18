@@ -79,7 +79,7 @@ rules live in `packages/domain`.
   ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)).
 - **Principal**: who sent a command, as the control plane authenticated it: `local`, whoever holds
   the access token on the control plane's machine, or a paired **device**, such as a headset on
-  the same network. Devices belong to no project; the owner pairs them with a code and revokes
+  the same network. Devices belong to no project; the person pairs them with a code and revokes
   them ([SECURITY.md](SECURITY.md)).
 
 A **model provider** (Anthropic, OpenAI, Ollama and so on) sits below the runtime and is not a

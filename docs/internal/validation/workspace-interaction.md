@@ -158,7 +158,7 @@
   panel is open resolved. The workspace render then showed the four questions whole in two lines
   with Refresh 0.022 of the panel's width clear of them. No font asset changed. None of this is
   checked on a Quest.
-- On 2026-09-30, with lane A's location contract merged, the same render passed with Where its
+- On 2026-09-30, with the location contract merged, the same render passed with Where its
   files live (a listing cut short with a place no longer on the Mac, and no places), a recap and a
   review moving a project to a new folder, and a start refused over a taken folder name offering Use
   that folder; hostile folder and place names showed by the one rule. The first render found the
@@ -204,7 +204,7 @@ the approval workstream was still `waiting_for_human` with one pending approval.
 
 ## After the second headset session (2026-09-29, evening)
 
-The owner opened, read and approved on a Quest 3 ([quest-3-device.md](quest-3-device.md)), and
+A tester opened, read and approved on a Quest 3 ([quest-3-device.md](quest-3-device.md)), and
 found four problems: the gaze peeked every character the head swept past, the hand ray appeared
 only at one raised hand angle, the panel let labels behind it show through, and it covered the
 rest of the arc. The hands looked like grey outlines.
@@ -327,7 +327,7 @@ rest of the arc. The hands looked like grey outlines.
 
 ## Changes after the third Quest 3 session (2026-09-30)
 
-The owner could open and approve by touching a character on the desk, but could not reliably look
+A tester could open and approve by touching a character on the desk, but could not reliably look
 and pinch; the seated ray appeared only at some hand angles; and a peek could go behind a neighbor
 ([quest-3-device.md](quest-3-device.md)). These changes are design trials pending another device
 session, not findings already verified on the headset.

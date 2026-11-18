@@ -31,7 +31,7 @@ input tokens, which the CLI priced at $0.401 by its own list prices for its defa
   stopped it once its estimate passed that. It estimates the task spent $2.40 since then and $7.80 in all, an
   estimate and not your provider's bill." Where a sum is not known, the second sentence says so, because the app did
   not report the cost of some of its work.
-- The limit counts the task's whole spend since the person set or raised it (the lead's ruling): a re-attach hands the
+- The limit counts the task's whole spend since the person set or raised it: a re-attach hands the
   limit less the app's known estimates since then, never the whole limit again; where that sum is not known (a turn
   reported none, a turn a restart cut while it ran) the task waits for a limit that counts from now. Carry On closes the spent
   query and resumes the session under the raise.

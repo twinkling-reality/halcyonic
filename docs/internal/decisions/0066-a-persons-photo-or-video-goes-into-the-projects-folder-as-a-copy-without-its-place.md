@@ -14,11 +14,11 @@ a picture. Phone and glasses media carry where they were taken (EXIF GPS, a Quic
 tracks) and the device's name, and a project's files reach checkpoints, task copies, GitHub and, through a built
 piece, a public link.
 
-Verified on 2026-11-16, metadata only: the owner's clips are HEVC in MOV or MP4, 6.6 to 21 s and 12.5 to 69.4 MB.
+Verified on 2026-11-16, metadata only: the sample clips are HEVC in MOV or MP4, 6.6 to 21 s and 12.5 to 69.4 MB.
 Read in the code: a turn's observed changes read at most 256 MiB (`file-observer.ts`), Send refuses more than 512 MB
 of history not yet on the remote (`github.ts`), the checkpoint store refuses a folder over 2 GiB (`store.ts`), and
-GitHub refuses a file over 100 MiB. The shape went to AUDIT3 and CORE before code (five versions, AUDIT3's conditions
-M1 to M9, C1 to C8, D1 to D4, E1 and E2, K1 and K2, and a fresh critic's read); CORE wrote the contract.
+GitHub refuses a file over 100 MiB. The shape went to review before code (five versions, the review's conditions
+M1 to M9, C1 to C8, D1 to D4, E1 and E2, K1 and K2, and a fresh critic's read), and then the contract was written.
 
 ## Decision
 
@@ -90,6 +90,6 @@ M1 to M9, C1 to C8, D1 to D4, E1 and E2, K1 and K2, and a fresh critic's read); 
 
 After the host's line about each photo or video it gives a task, it adds one line, once: "From Halora: the photos and videos
 above are the person's reference for what to make. Build what they show in the app itself, and show a photo or video as a picture only
-where the person's words ask for that." (`MEDIA_IS_REFERENCE` in `command-service.ts`.) A VR version of the owner's
+where the person's words ask for that." (`MEDIA_IS_REFERENCE` in `command-service.ts`.) A VR version of a
 camel ride had hung the video on a board instead of making the ride a place; the starter's own notes had asked for that
 window and now no longer do (ADR 0037's amendment of the same day). Like the lines before it, it is never journaled.

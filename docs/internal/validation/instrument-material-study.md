@@ -1,7 +1,7 @@
 # Instrument material comparison
 
 2026-10-15. Isolated source candidate; no actual Unity/device acceptance is claimed here.
-The owner rejected the installed floating flat form, including its arbitrary blue color and lack
+Review rejected the installed floating flat form, including its arbitrary blue color and lack
 of glass/material presence. The retained Titanfall and running-HUD images were actually viewed:
 neutral information and selective subject/state color are useful, but copying their world lighting
 or transparent promotional text is not a Quest readability rule. The private color study records

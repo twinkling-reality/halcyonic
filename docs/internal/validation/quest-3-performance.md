@@ -6,7 +6,7 @@
   measured off the device, and what only the headset tells?
 - **Date:** 2026-10-01.
 - **Environment:** Unity 6000.3.25f1 on an Apple M5 Max with macOS 26.7, the editor in batch mode
-  on Metal, the Android build target, the project at the lane U head after ADR 0023's fifth step;
+  on Metal, the Android build target, the project after ADR 0023's fifth step;
   the client core on .NET 10; the control plane on Node 24.15. No headset.
 - **Method:** `MeasureRender` (**Halcyonic > Measure the Interface**, in batch mode as the runbook
   says) builds each surface as the person meets it, with the stage's own lineup, presenter and
@@ -59,8 +59,8 @@ details beside What is it doing?, the short titles beside a window, and Settings
 - Words from outside (the outside-text audit's batch B, 2026-10-08), measured in one run on a task's
   file, its checks page, first with every word upright and then with its outside text leaning on its
   grounds: the column's own draws go from 18 to 26 and everything showing from 58 to 66, for two of
-  Halcyonic's quote marks and six grounds under six runs of outside text, about 1.3 draws a run (lane V
-  estimated about 2). The lean itself costs nothing to draw: it moves a label's vertices. `MenuDirector` lays
+  Halcyonic's quote marks and six grounds under six runs of outside text, about 1.3 draws a run (estimated
+  beforehand at about 2). The lean itself costs nothing to draw: it moves a label's vertices. `MenuDirector` lays
   the plane again only when something marks it changed (the navigator, the voice, focus), never on a
   timer, so the old panels' half-second check of an unchanged screen is not asked of it (MeasureRender
   reports these two scenes' draws only); showing it again builds its small facts' meshes again even with every word

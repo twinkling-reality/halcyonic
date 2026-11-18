@@ -23,7 +23,7 @@ Facts, verified on this Mac on 2026-11-11:
 - WebXR needs a secure context: an `https://` link can enter VR on another headset; a plain
   `http://` address on the Wi-Fi cannot.
 
-The owner approved Share on This Wi-Fi and Share a Link, and the download of the tunnel program, on
+Share on This Wi-Fi and Share a Link, and the download of the tunnel program, were approved on
 2026-11-11.
 
 ## Decision

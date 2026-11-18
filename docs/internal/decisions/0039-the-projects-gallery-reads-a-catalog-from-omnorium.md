@@ -7,7 +7,7 @@
 
 ## Context
 
-The owner, 2026-10-29: Halcyonic should be agentic development made enjoyable and easy for anyone with a
+As set on 2026-10-29, Halcyonic should be agentic development made enjoyable and easy for anyone with a
 headset, children and people with no technical experience included, with everything organised. A person
 with many projects across several GitHub accounts and organisations should see all of them in one place,
 the ones being worked on and the ones that need them first; a newcomer with no GitHub starts from what
@@ -17,7 +17,7 @@ Halcyonic knows only the Projects created in it, each bound to one folder the ho
 ([ADR 0020](0020-a-project-works-in-one-host-approved-folder.md)). It holds no GitHub credential and
 makes no request to GitHub.
 
-Omnorium is the owner's separate GitHub portfolio app. From its source, read on 2026-10-29 without
+Omnorium is a separate GitHub portfolio app. From its source, read on 2026-10-29 without
 running it: an instance registers its own GitHub App asking for read-only Metadata, Pull requests, Checks
 and Commit statuses, never Contents, installable on every account and organisation; it syncs every
 installation's repositories; a project holds several repositories with one primary, and projects sit in
@@ -59,9 +59,8 @@ listens on 127.0.0.1 with a Host header guard. It has no API for a program other
 
 ## Amendment, 2026-11-11: Send to GitHub
 
-The owner's bar ("to its fullest potential like bolt/cursor/lovable etc but for VR") asks for what a
-person gets from those: their work on their own GitHub, as a branch and a pull request. The lead
-decided it (lead 11-11b, from TASKS's ASK). This amends only what is said above about `gh`: that
+The bar of tools like Bolt, Cursor and Lovable, but in VR, asks for what a
+person gets from those: their work on their own GitHub, as a branch and a pull request. This amends only what is said above about `gh`: that
 alternative was turned down for a read-only gallery, whose need is far below the person's write
 access. Here the person uses that access on purpose, each time, after reading what will go.
 
@@ -83,7 +82,7 @@ access. Here the person uses that access on purpose, each time, after reading wh
   fetch. The commit is built in a bare repository of Halcyonic's own, `<data dir>/sending/<project
   id>.git`, from the folder's files as the person's git sees them, and pushed from there with no
   hooks. The person's folder, index, branches and refs are not changed. "As their git sees them"
-  (AUDIT3, 2026-11-11):
+  (2026-11-11):
   - the scratch index starts from the branch's last commit, so a file git tracks stays tracked
     whatever the ignore rules say, and only what the person changed differs;
   - the folder's `.git/info/exclude` is read as a small regular file, never through a link, and the
@@ -105,12 +104,12 @@ access. Here the person uses that access on purpose, each time, after reading wh
   origin on GitHub, no branch, no commit, nothing changed, a stale review, no name and email in git,
   filters it would need, an exclude rule it cannot read, work already sent, a push GitHub refused.
 - **What has met github.com: nothing.** Every test uses a local bare repository as `origin` and a
-  stand-in `gh` ([record](../validation/sending-to-github.md)). The first real send is the owner's own.
+  stand-in `gh` ([record](../validation/sending-to-github.md)). No real send has been made yet.
 
 ## Amendment, 2026-11-11: Publish to GitHub Pages
 
 A lasting address for a checked game, which stays up when the Mac is off (Share a Link, ADR 0054, lives
-only while the Mac runs). It is built on Send to GitHub's pieces, and the lead decided it with Send.
+only while the Mac runs). It is built on Send to GitHub's pieces and was decided with Send.
 
 - **Only a checked build, never the source.** `project.publish {project_id, review}`, review required,
   is admitted only for the project's latest check that passed, is current and found every agent run
@@ -129,7 +128,7 @@ only while the Mac runs). It is built on Send to GitHub's pieces, and the lead d
   does not say it, the address is recorded as unknown, never guessed.
 - **Taking it down.** `project.unpublish {project_id, commit}`, review required. `commit` is the
   published commit the person was shown (`published.commit`), sent by every client as its review, and a
-  publish since makes it `review_stale`. The branch is deleted with the person's git (AUDIT3, 2026-11-11):
+  publish since makes it `review_stale`. The branch is deleted with the person's git (2026-11-11):
   - only in the repository the game was published to (`published.repository`), never whatever the
     folder's origin names now; an origin that names another is refused (`origin_changed`);
   - only while the branch still holds that commit (`--force-with-lease`). A branch someone else moved
@@ -145,8 +144,8 @@ only while the Mac runs). It is built on Send to GitHub's pieces, and the lead d
 
 ## Amendment, 2026-11-12: the first Send makes the repository, and nothing asks more than the desk
 
-From the owner's bar of 2026-11-11 (no more steps than an ordinary agent session at a desk, nothing for one
-case) and the lead's decision of 2026-11-12 (one list, one review card, a confirm only where the policy says).
+From the bar set on 2026-11-11 (no more steps than an ordinary agent session at a desk, nothing for one
+case) and the decision of 2026-11-12 (one list, one review card, a confirm only where the policy says).
 
 - **A game made in the headset has no repository, and its first Send makes one.** A project folder with no
   `.git`, inside no other repository (the person's home folder kept as a repository of settings files does
@@ -167,8 +166,8 @@ case) and the lead's decision of 2026-11-12 (one list, one review card, a confir
   record names this Mac's paths), `origin` the repository and the index as that commit, and is made `.git`
   in one rename, which fails where a `.git` appeared meanwhile; the files are not touched. The paths the send
   kept out (secret-shaped files, other projects' folders, links leaving the folder) are written, anchored, into
-  the clone's `.git/info/exclude`, so the person's own `git add -A` at a desk keeps them out too (AUDIT3 S2).
-  A name the person gives starts with a letter or digit, and gh is given it after `--` (AUDIT3 S3). So every later Send
+  the clone's `.git/info/exclude`, so the person's own `git add -A` at a desk keeps them out too.
+  A name the person gives starts with a letter or digit, and gh is given it after `--`. So every later Send
   is the ordinary branch and pull request, Publish and Take Down read the same origin, and the person's own
   git at a desk sees an ordinary repository. `project.sent_to_github` records a null `base_commit` for it.
 - **The title is never required.** `title` is optional; absent, the host's own is used: the project's latest
@@ -185,7 +184,7 @@ case) and the lead's decision of 2026-11-12 (one list, one review card, a confir
   nothing) and `project.publish {make_public}` first makes it public with the person's gh (`gh repo edit
   --visibility public`), shown in the review and covered by its digest: one press, as anything that
   becomes public. Only a repository this project's own first Send made private is ever made public so; one
-  the person had before keeps who can see it, whatever a client asks (AUDIT3 S1). It is recorded the moment GitHub made it public, `project.repository_made_public
+  the person had before keeps who can see it, whatever a client asks. It is recorded the moment GitHub made it public, `project.repository_made_public
   {repository}`, whatever the publish after it does, and a refusal after it says the repository is public
   now, with the way back, and has effect `unknown`, never `none` (run 2, 2026-11-12: a push refused after
   Make Public was reported with effect none while the repository was public).
@@ -209,7 +208,7 @@ case) and the lead's decision of 2026-11-12 (one list, one review card, a confir
 
 ## Amendment, 2026-11-12: Send goes to the folder's own remote, on any host
 
-The lead's choice of 06:17Z (R2: the tool for a review request or a public page is a declaration per host).
+Decided on 2026-11-12: the tool for a review request or a public page is a declaration per host.
 - **The names say what they do.** The command is `project.send` (it was `project.send_to_github`), its review
   `SendReview` at `POST /api/projects/:id/send-review`, its result `sent` with `review_request_url`, its event
   `project.sent`. Publish's types lose "GitHub" too (`PublishReview`). A journal's earlier
@@ -224,9 +223,6 @@ The lead's choice of 06:17Z (R2: the tool for a review request or a public page 
   that table and its tool.
 
 ## Amendment, 2026-11-13: Send One Change
-
-The lead's choice of 16:46Z, on TASKS's shape: AUDIT2 passed its words at 16:42Z, and AUDIT3 found it sound at
-16:44Z with conditions D1 to D5.
 
 **When it is offered.** Send refuses a press whose push would carry a held secret in an earlier version that the
 remote does not have (the history check). Where a true base exists, that refusal is `holds_secret_in_history`, and
@@ -257,7 +253,7 @@ with no offer.
   - The base must still be in the person's own history, so the change holds only their own work: nothing of
     anyone else's is undone.
 - **The press.** It fetches the branch again. If the base is no longer reached by it, nothing is sent
-  (`review_stale`), and the base found now is recorded for the next look (AUDIT3 D1).
+  (`review_stale`), and the base found now is recorded for the next look.
 
 **The card.**
 - Its confirm is "Send One Change". It says the files go as one change and that none of the files sent holds the
@@ -271,7 +267,7 @@ Halcyonic never rewrites the person's history. After the change is merged, `git 
 `git reset origin/<branch>` moves their branch to the remote's and keeps every file on disk; never `--hard`. A
 pull with no pull setting stops on the diverged branches; one that rebases brings the earlier versions back.
 
-**Not verified.** Against a real GitHub (the third run is the owner's yes).
+**Not verified.** Against a real GitHub (the third run needs a person's yes).
 
 ## Alternatives considered
 
@@ -298,8 +294,8 @@ pull with no pull setting stops on the diverged branches; one that rebases bring
 - Suggesting a folder from a repository's git remote would be a new read of one file inside each listed
   folder; the listing reads no file's contents today ([SECURITY.md](../architecture/SECURITY.md)). It
   needs its own security review before it is built.
-- The competition video and the judge build show a labelled, invented catalog stand-in, never a real
-  person's project names unless the owner picks them, and never the names GitHub or Omnorium.
+- Videos and the demonstration build show a labelled, invented catalog stand-in, never a real
+  person's project names unless that person picks them, and never the names GitHub or Omnorium.
 - Getting a project that is not on the Mac onto it (a clone) is not part of this decision: it uses the
   network and the person's own git credentials and needs a decision of its own.
 - Revisit if Omnorium's real collection moves to a hosted instance: reading it would make the

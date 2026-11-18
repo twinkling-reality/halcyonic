@@ -28,7 +28,7 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
   - That PATH is read once, when the host starts. A host started without its folder (by launchd, say)
     offers every such project `manager_missing`, so the setup page's "Projects' own checks" step says
     whether npm and pnpm are there, and where a usual folder (`/opt/homebrew/bin`, `/usr/local/bin`) has
-    one that PATH does not name (AUDIT3's S4). Yarn is not checked there.
+    one that PATH does not name. Yarn is not checked there.
   - Never a command the model or an agent wrote.
 - **Shown before the first run:** `GET /api/projects/:project_id/own-check` gives the offered scripts with
   their commands, the project's own words.
@@ -98,12 +98,12 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
   refused; the dependencies must already be installed.
 - Other ecosystems (pytest, Cargo, Go, a Makefile's test target) are each a unit of their own, each after a
   probe inside the profile.
-- The headset needs Choose a Check and steps named by their script names as the project's words (XR, FIELD).
+- The headset needs Choose a Check and steps named by their script names as the project's words.
   A generated C# client older than these bindings fails on the two new event types, so the headset is rebuilt
   with the regenerated bindings before a host that sends them.
 - Revisit if a chosen-ports answer lands, or if a script needs a variable the person sets.
 
-## Amendment, 2026-11-11 (AUDIT3's six findings)
+## Amendment, 2026-11-11 (six review findings)
 
 - **What runs is the chosen script alone.**
   - The manager gets, in its environment, the settings that outrank a project's `.npmrc`:
@@ -133,10 +133,9 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
   `command_sha256` as `GET .../own-check` gave it, and a mismatch fails with `command_changed`, recording no
   choice.
 - **`refused` is read from the failed script's last 20 lines only.**
-- **Format.** PROJECTION_STATE_FORMAT is taken at this unit's rebase, by hand, past the base's (9 as the lead
-  names it).
+- **Format.** PROJECTION_STATE_FORMAT is taken at this unit's rebase, by hand, past the base's (9).
 
-## Amendment, 2026-11-11 (AUDIT3's reread)
+## Amendment, 2026-11-11 (a second review)
 
 - **`node-options` is overridden too.** A project's `node-options` would become `NODE_OPTIONS` for the script. An
   empty `npm_config_node_options` does not clear it on npm 11 or pnpm 11 (probed), so the environment gives Node's
@@ -162,27 +161,27 @@ Facts, read and probed on 2026-11-11 ([own-checks.md](../validation/own-checks.m
   - A module whose dependencies are not vendored fails here: the profile refuses the network anyway.
 - **Probed inside the profile** (Go 1.26.5): `go test ./...` passes with exit 0, and a failing test exits 1 with
   its FAIL line, which the agent is given.
-- **`GOWORK=off`**, so the check judges the module, never a workspace file in its folder or above (AUDIT3 S2).
-- **A cgo module is slow inside the profile** (AUDIT3 S1): a one-line C function took 88 s to pass, against
+- **`GOWORK=off`**, so the check judges the module, never a workspace file in its folder or above.
+- **A cgo module is slow inside the profile**: a one-line C function took 88 s to pass, against
   about 2 s for a pure Go package. `xcrun` keeps its cache in the per-user temporary folder macOS names, which the
   profile refuses, so the compiler's tools start again and again. A real cgo module may meet the 10-minute limit
   and read as timed out.
-- **A module with dependencies** (AUDIT3 S3) fails on `module lookup disabled by GOPROXY=off`. Its first run fails,
-  so auto-fix never sends it (`never_passed`). The card shows a plain failure, and words of its own are FIELD's,
+- **A module with dependencies** fails on `module lookup disabled by GOPROXY=off`. Its first run fails,
+  so auto-fix never sends it (`never_passed`). The card shows a plain failure, and words of its own come
   later.
 
 
 ## Amendment, 2026-11-16: a socket the sandbox refused is read anywhere in the log
 
-A real repository's own check (go-chi/chi v5.5.0, on LINK's scratch plane) failed on the untouched repository because its
+A real repository's own check (go-chi/chi v5.5.0, on a scratch plane) failed on the untouched repository because its
 tests start `httptest` servers and the profile refuses a listen on any port, loopback included, as this ADR intends. That run
 read `refused: false`: Go prints a panic's cause ("bind: operation not permitted") above its stack trace, about 40 lines above
 the end, and only the last 20 lines were read. So a refusal of the sandbox read as the project's own failure, and could have
-gone to the agent as its fault. A refused socket is now read anywhere in a failed script's log (AUDIT3, 15:01Z): a bind,
+gone to the agent as its fault. A refused socket is now read anywhere in a failed script's log: a bind,
 listen, connect or dial with "operation not permitted", or Node's "listen EPERM" and "connect EPERM". A bare "permission
 denied" or a file's EACCES is never read this way, since it may be the project's own test; other refusals are still read
 from the last 20 lines. A project's own test that prints such a socket line for its own reasons reads Refused rather than
-failed: never a pass, since refused is not passed; it only shifts who is told the fault (AUDIT3, 15:07Z). Whether a check may open a port on loopback stays open (OPEN_QUESTIONS.md): the loopback on a
+failed: never a pass, since refused is not passed; it only shifts who is told the fault. Whether a check may open a port on loopback stays open (OPEN_QUESTIONS.md): the loopback on a
 developer's Mac holds unauthenticated listeners, so a design needs bind and listen on loopback only, connect only to ports
 the same run bound, and a fail-first test that the check cannot reach a listener outside the run.
 
@@ -190,15 +189,15 @@ the same run bound, and a fail-first test that the check cannot reach a listener
 
 The open question above is answered for the check, not for the agent. A person may let their project's own check open ports
 (`open_ports` on `project.own_check.choose`, journaled on `project.own_check.chosen`, shown on the project's own check), so a web
-project's own tests, which start a server on a local port, can pass. Never by default, never chosen by an agent or a lane,
+project's own tests, which start a server on a local port, can pass. Never by default, never chosen by an agent,
 and never for the agent's own run, whose profile is unchanged.
 - The check's profile then allows a listen on loopback and a connect to loopback, over TCP alone, so UDP and Unix sockets stay
-  refused (`ownLoopback` in `confinedProfile`; AUDIT3 L1, L2), and after
+  refused (`ownLoopback` in `confinedProfile`), and after
   them, since Seatbelt's later rules win, refuses a connect to every port listening when that run starts and to a fixed set
   (`OWN_LOOPBACK_ALWAYS_DENIED`: adb 5037 to 5039, a browser's remote debugging 9222, Seorak's 4317, Ollama 11434, and Halora's
   own 47800 to 47999). The listeners are read fresh for every run from `netstat -anp tcp`, which lists every owner's; where they
   cannot be read, that run opens no port. The outside network stays refused.
-- What Seatbelt cannot hold, probed on this Mac (LINK, 2026-11-16, its own listeners only), and said to the person before they
+- What Seatbelt cannot hold, probed on this Mac (2026-11-16, its own listeners only), and said to the person before they
   choose it: a listen on every interface is allowed, so a test server listening on all of them is reachable from the network
   for as long as the check runs; and a service that starts listening on this Mac after the run starts is reachable on loopback.
 - Tests, fail-first: the profile's text (no port without the choice; each refused port after the allow); on this Mac, a run's
@@ -208,16 +207,16 @@ and never for the agent's own run, whose profile is unchanged.
   not chosen, or with the listeners unreadable, gets no port and reads refused.
 - It is the person's own yes, started from their own screen: the command service refuses `open_ports` true on any command the host
   submits itself (`received_via` internal, which the transport records and no client declares: a proposal the person confirmed, an
-  automated step, a replay; AUDIT3 A1), the domain's admission also refuses it from the assistant's client (`ASSISTANT_CLIENT`), the assistant's list never offers it and a value for it is refused before anything is prepared
-  (`NEVER_PROPOSED`; AUDIT3 and CORE, 16:22Z), since a repository's own text could talk an assistant into proposing it and one
-  press is too easy a yes. Its words are AUDIT2's (`ALLOW_TEST_SERVERS`): the label "Allow Test Servers" and, beside the yes on the
+  automated step, a replay), the domain's admission also refuses it from the assistant's client (`ASSISTANT_CLIENT`), the assistant's list never offers it and a value for it is refused before anything is prepared
+  (`NEVER_PROPOSED`), since a repository's own text could talk an assistant into proposing it and one
+  press is too easy a yes. Its words (`ALLOW_TEST_SERVERS`) are the label "Allow Test Servers" and, beside the yes on the
   review card as a warning and in its digest, "Its tests may start servers. While they run, devices on your network can reach
   them, and the tests can reach any service that starts on this computer meanwhile." A test pins the line to the profile's rules.
-- Residual (AUDIT3, 16:37Z): anything holding the paired token can send the yes over HTTP or the realtime connection: the
-  person's own clients, and a proving-plane lane script the lead allows hash by hash. No agent holds the token, since the data folder
+- Residual: anything holding the paired token can send the yes over HTTP or the realtime connection: the
+  person's own clients, and a proving-plane script allowed hash by hash. No agent holds the token, since the data folder
   is hidden from every agent process. Anything else sending it is refused: "Nothing was sent: only you can turn on Allow Test
-  Servers. Turn it on when you choose the project's check." (AUDIT2, 16:36Z).
-- Where the person says it (amended 2026-11-16, late; the lead's A and AUDIT3's O1 to O5): on the assistant's own proposal of
+  Servers. Turn it on when you choose the project's check.".
+- Where the person says it (amended 2026-11-16, late): on the assistant's own proposal of
   `project.own_check.choose`, one press inside the approval they already answer, never a separate flow that takes more steps than
   the desk. The host's own table (`PERSON_OPTIONS`, never the model) offers it on that step alone, as `options` on the proposal:
   the label, the line, and the digest of the host's review with the yes on, which differs from the plain one. The press

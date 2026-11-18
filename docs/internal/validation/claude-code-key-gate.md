@@ -1,9 +1,9 @@
-# Claude Code's key, held by the gate (VRIFY, 2026-11-12)
+# Claude Code's key, held by the gate (2026-11-12)
 
 A confined Claude Code (a new app's project, ADR 0048) holds no key of the person's. Its gate on loopback, the one
 place the closed profile lets it reach, adds the person's key to each request on its way to the API. What the agent
 holds instead is a credential the gate made for that one run: random, checked on every request, worthless anywhere
-else and revoked when the run's process ends (AUDIT3's finding, 2026-11-12: a gate that added the key for any
+else and revoked when the run's process ends (an audit finding, 2026-11-12: a gate that added the key for any
 caller would let any process on the Mac, or a web page through a rebound address, spend it). So a run inside
 is recorded confined, and what it makes can be checked, played, published and shared like any other run's.
 
@@ -48,9 +48,9 @@ a run credential of its own: [claude-code-connected-folders.md](claude-code-conn
 - The gate opens only on an upstream the one rule a provider's declaration is read by allows (`upstreamProblem` in
   runtime-core, ADR 0061): https, or http to this Mac for proofs, and no address carrying a name, password, query or
   fragment. A plane's `ANTHROPIC_BASE_URL` in clear text off the Mac opens no gate, so no key is sent unencrypted
-  (AUDIT2's note N2, 2026-11-12; `confinement.test.ts`, failed first: the old gate opened on `http://` anywhere).
+  (audit note N2, 2026-11-12; `confinement.test.ts`, failed first: the old gate opened on `http://` anywhere).
 - The header an app presents its run credential in never goes upstream, whatever its name, beside the fixed list of
-  credential headers (AUDIT3's S1; `confinement.test.ts`, failed first: a credential presented in a header of its own
+  credential headers (audit finding S1; `confinement.test.ts`, failed first: a credential presented in a header of its own
   reached the upstream).
 - The adapter records a run inside the profile as confined. Without a key there is no gate and no confined start.
 
@@ -72,13 +72,13 @@ key. The gate's own tests (`confinement.test.ts`) cover the forwarded headers, a
 refusals: for both declarations, no credential, the person's key itself, a wrong credential, another gate's, an
 ended run's, a foreign Host and `localhost` as Host each get 403 with nothing reaching the upstream. Before the run
 credential, a probe of the gate answered 200 to a request with no credential and to one with a foreign Host, and
-sent the key on with both (`.private` evidence, the AUDIT3 finding reproduced).
+sent the key on with both (`.private` evidence, the audit finding reproduced).
 
 ## Not verified
 
 - An `https` upstream: no test reaches one (no network, no certificate here), so `api.anthropic.com` itself is not
   seen through the gate.
-- A real key and a hosted model: none was used. The owner enters theirs into the product when the path is read safe.
+- A real key and a hosted model: none was used. A person enters theirs into the product when the path is read safe.
 - A session recorded not confined before this change (inside the profile with the key) is not re-attached after it:
   the adapter refuses to move a run into the sandbox.
 - Claude Code's own other traffic (telemetry, the WebFetch preflight to `api.anthropic.com`): it goes to the gate as

@@ -24,7 +24,7 @@ evidence of documented behavior, not independent usability or reliability measur
 - [OpenClaw agent loop](https://docs.openclaw.ai/agent-loop) documents context assembly, model
   inference, tool execution, streaming and persistence across a run. Its
   [runtime architecture](https://docs.openclaw.ai/agent-runtime-architecture) separates tool
-  schemas and policy from the loop and model transport. This supports the owner's clarified
+  schemas and policy from the loop and model transport. This supports the clarified
   requirement for open-ended requests executed through tools, rather than a voice phrase catalogue.
   It does not establish a Halcyonic integration or permission to install, configure or run OpenClaw.
 

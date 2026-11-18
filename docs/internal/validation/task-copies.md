@@ -72,7 +72,7 @@ approved once each:
 - each command ran in its own copy (`pwd`), wrote `where.txt` there, and was refused writing the project's folder
   (exit 1) and listing the projects folder (exit 1); the project's folder got neither file;
 - each copy's change to add was `where.txt` alone;
-- each run was recorded not confined, with the reason that the sign-in key was inside with it (AUDIT BOX-4 F1; since
+- each run was recorded not confined, with the reason that the sign-in key was inside with it (audit finding BOX-4 F1; since
   the gate holds the key, 2026-11-12, such a run is recorded confined).
 Found on the way and fixed in its own commit: listing Claude Code's models failed on the real CLI every time
 ("ps never showed process ... with its session id"): the listing's process carried no session id for the process
@@ -94,12 +94,12 @@ in; the settings homes; no `git-credential-*` helper, no SSH agent socket. Probe
   `link_outside`, "The task's work holds a link to a place outside the project (home-link and 1 more), so nothing
   was added", nothing written (none of the three in the project's folder). With the two removed, the add goes
   through and `inside` arrives as a link to `a.txt`.
-- AUDIT3 saw the fault on a scratch plane (VRIFY 4c's run): an add wrote a copy's `plink` and `home-link` into the
+- An audit saw the fault on a scratch plane (run 4c): an add wrote a copy's `plink` and `home-link` into the
   project's folder with their absolute targets, listed as plain added files.
 
 ## Not verified
 
-- Claude Code in a copy against the real Messages API (no lane may use a hosted model); only the fake one below.
+- Claude Code in a copy against the real Messages API (no hosted model may be used for these checks); only the fake one below.
 - Claude Code in a copy of a project made from a version, or of a project that is not a new app's (it gets no copy there).
 - Whether Salidium and Seorak follow an execution whose folder is a copy.
 - Clone time for a folder with a real `node_modules` of 100,000 files (extrapolated, not measured).

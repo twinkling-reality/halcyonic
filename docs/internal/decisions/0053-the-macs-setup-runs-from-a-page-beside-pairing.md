@@ -74,15 +74,14 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
    game shared now: its name, its way (Link or This Wi-Fi), the Wi-Fi address as text, Copy and
    Stop. A link's address is never shown, only copied: it is in the page's state for Copy alone. Stop is `POST /setup/shares/stop`, behind the page's session and origin like every
    press, and submits `project.share.stop` as what it is, the local person's press over HTTP
-   (`pageStopShare`), never a host-made stop. Written by TASKS, read by CORE.
+   (`pageStopShare`), never a host-made stop.
 7. **Link sharing's tunnel** (ADR 0054). A step, Share a Link, with Get Link Sharing and Turn Link
    Sharing Off. The download is the checked release's archive from its GitHub release
    (`/usr/bin/curl -q`, so none of the person's own curl settings apply, https only, and stopped
    past 30 MB), checked by its SHA-256 with `/usr/bin/shasum` before
    `/usr/bin/tar` unpacks the program alone. `pnpm mac-setup tunnel` then records
    `HALCYONIC_TUNNEL_BIN` only when the program's bytes match the pin, and the job says Done only
-   then. It applies through Restart to Apply. The owner's yes to this download is on record. Written
-   by TASKS, read by CORE.
+   then. It applies through Restart to Apply.
 
 ## Alternatives considered
 
@@ -103,8 +102,8 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
   itself (Node, pnpm, the repository) still needs one, as packaging is not decided.
 - `SECURITY.md`'s "It downloads nothing" is now true of `pnpm mac-setup` only: the page downloads on
   the person's second press, with the same pinned commands.
-- In tests nothing is downloaded: the runner is faked and the Mac is a scratch folder. On the
-  owner's Mac it has not been pressed for real; the first real download is the owner's.
+- In tests nothing is downloaded: the runner is faked and the Mac is a scratch folder. On a
+  real Mac it has not been pressed yet.
 - A new setup step gets a button only by adding it to the view's fixed list; a download gets one only
   by adding its pinned command, size and source to `setupDownloads`.
 - Worth revisiting when Halcyonic is packaged: the launcher loop then belongs to the package.
@@ -125,8 +124,8 @@ by `pnpm mac-setup agent-apps` in a browser on a scratch page.
 
 ## Amendment, 2026-11-12: an agent app's own key, added on the page
 
-This replaces decision 3's "the page says Claude Agent is set up by hand". The owner asked for one place to give a
-key, and for it to serve any agent app, not one vendor's.
+This replaces decision 3's "the page says Claude Agent is set up by hand". One place to give a
+key was wanted, serving any agent app, not one vendor's.
 
 - **The declarations say what takes a key** (as built after ADR 0061, in 1111-b110). The page draws one card for
   each declared provider whose key something here reads: the provider's `name`, its key's `field` as the caption,
@@ -159,7 +158,7 @@ key, and for it to serve any agent app, not one vendor's.
   refuse (other users can read it, or it is empty) counts as no key: it turns nothing on, so on its own it never stops
   a start. With `HALCYONIC_CLAUDE_AGENT=1` and no `ANTHROPIC_API_KEY` in the environment, the start still stops on
   such a file, as before, and on no key and no cloud provider at all; the steps say so before that start. The app's
-  card says its file isn't used, and Add Key replaces it. The owner had given no key when this was decided.
+  card says its file isn't used, and Add Key replaces it. No real key had been given when this was decided.
 - **When a key takes effect follows its readers.** A reader that reads a key at its start (Claude Agent) makes a
   kept, replaced or removed key wait for Restart to Apply; one that reads it at each use (the assistant) takes it at
   once and asks for no restart. Remove Key's question says each reader's part by its timing.
@@ -170,7 +169,7 @@ key, and for it to serve any agent app, not one vendor's.
   declares a personal set-up says, in one line read from that declaration (Claude Agent's `personalSetupUsed()`),
   what a task outside the sandbox uses of it ("the CLAUDE.md in your own Claude Code settings folder and Salidium's
   and Seorak's hooks there, as their current installers write them, and nothing else of your own settings"), on a connected folder and, for Claude Agent,
-  anywhere while a cloud provider is switched on. For Claude Agent the same line goes on (2026-11-13, VRIFY's proof of
+  anywhere while a cloud provider is switched on. For Claude Agent the same line goes on (2026-11-13, a proof of
   what reaches the model at start): "It doesn't start with the CLAUDE.md of the task's own folder or any folder above
   it, but once it's working it can read any file you can except Halcyonic's own folders, and what it reads goes to the
   service its models run on." The first half is the adapter's declaration (`folderInstructionsSent: false`, from

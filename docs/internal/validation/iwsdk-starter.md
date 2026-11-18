@@ -6,7 +6,7 @@
 - **Date:** 2026-10-29.
 - **Environment:** an Apple M5 Max, macOS 26.7; Node.js 24.15.0, npm 11.12.1; `@iwsdk/core` 1.0.1 and
   `@iwsdk/create` 1.0.1 (both 2026-10-01; npm's `latest` was the release candidate 1.1.0-rc.2 and was not used).
-- **Method:** one download on the owner's yes (2026-10-29, private use), into a scratch folder, with npm given an
+- **Method:** one approved download (2026-10-29, private use), into a scratch folder, with npm given an
   empty user and global configuration, a cache of its own, `--ignore-scripts`, no audit or fund calls, and HTTP
   logging; `npm pack` for the create package's tarball, unpacked as data and never run. Then a test project from the
   template, type checked, built and served inside a Seatbelt profile that denies every outbound connection and
@@ -65,7 +65,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   (`dist/gamepad/input-profiles.js`), with no option to change it. A controller's model is
   `<profile>/<left|right>.glb` of its first matching profile; a tracked hand's is `generic-hand/<left|right>.glb`
   (`dist/visual/adapter/base-visual-adapter.js`, `AnimatedHand.assetProfileId`).
-- **Fetched, on the owner's yes (2026-10-29):** `@webxr-input-profiles/assets` 1.0.20 (MIT), the Quest 3's
+- **Fetched, with approval (2026-10-29):** `@webxr-input-profiles/assets` 1.0.20 (MIT), the Quest 3's
   `meta-quest-touch-plus` and `meta-quest-touch-plus-v2` models, left and right (2,042,788 bytes in all), and its
   `LICENSE.md`, from jsDelivr; each size and SHA-256 equal to jsDelivr's published listing, recorded in
   `starters/iwsdk-vr/host/input-profiles.json`. On a second yes the same day, the `generic-hand` models, left and
@@ -175,14 +175,14 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   twin's by more than 0.05% (about 420 pixels of 1,280 by 657: under a third of the smallest hit seen), and only when
   the press run and its twin match within 0.01% at the frame before input; otherwise the page has a source of time or
   chance the clock does not hold, and the response is unknown. Up to five targets, each in a load of its own.
-- **Two controls (AUDIT M18G-M1, 2026-10-30):** matching before input does not show the twin holds at the frame
+- **Two controls (review finding M18G-M1, 2026-10-30):** matching before input does not show the twin holds at the frame
   compared. A page that starts something late on a time the clock does not hold (a CSS animation at frame 330, a
   worker's clock used only later, an asset that finishes loading late) differs between loads with no input at all,
   which a single twin would read as a response. The step now loads the page twice with no input, the second after the
-  presses (AUDIT M18G-S1); the two must match within 0.01% at frame 300 and at frame 360, or the response is unknown. A press seen is loaded once more, and must end
+  presses (review finding M18G-S1); the two must match within 0.01% at frame 300 and at frame 360, or the response is unknown. A press seen is loaded once more, and must end
   within 0.01% of its first run. A second control samples load-to-load change; it does not prove there is none: a
   page whose late change lands alike in two loads and otherwise in a third could still pass, and is unknown to us.
-- **Time (AUDIT M18G-M2, M18G-S2):** a step to a frame counted 50 ms waits rather than time, and on a throttled Mac one
+- **Time (review findings M18G-M2, M18G-S2):** a step to a frame counted 50 ms waits rather than time, and on a throttled Mac one
   step ran about 906 s. The whole twin step now has three minutes by the wall clock, of which the last 25 s are kept
   for a load told to stop to end (a DevTools answer's 20 s, Chrome's 3 s); past it the step reads unknown and its Chrome
   is stopped before the check goes on. A fixed 30 s per step (first amend) also cut off pages whose frames had slowed on
@@ -209,7 +209,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   or request object before its earlier download ends, a trusted event of the earlier download can end the later
   hold; and downloads outside these functions are not held at all (a stream reader on a body, another frame's `fetch`
   or body methods, a worker's, fonts, media). A page that keeps a hold pending forever stalls and reads
-  `out_of_time`. AUDIT's read (M18GD-M1, M18GD-M2) found two ways in, both reaching only unknown: the clock ran
+  `out_of_time`. A review (M18GD-M1, M18GD-M2) found two ways in, both reaching only unknown: the clock ran
   sloppy, so a page function the clock called could reach the clock's key handler through `.caller` and step it with a
   forged event; and the holds sat in a `Set` whose replaced methods the page could use to empty it. The clock now runs
   in strict mode, calls an event's methods and reads its `code` through copies taken first, takes which key event it
@@ -227,7 +227,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   process left within 5 s, on 4 of 4 runs (an earlier run that looked at once found one process of it still exiting).
 - **Not tried:** agent-built games through the whole check with the twin; a game with late-loading assets.
 
-## No service worker on a preview's origin (AUDIT M16A-C1)
+## No service worker on a preview's origin (review finding M16A-C1)
 
 - **Question:** can a game register a service worker on a preview's origin, which later projects on the same port share?
 - **Date:** 2026-10-30.
@@ -241,7 +241,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   fetch fails, the same algorithm removes the registration only if it has no worker yet. Clearing storage on a reused
   port, which would remove it, is the next unit.
 
-## A preview's origin starts fresh: no-store and Clear-Site-Data (AUDIT M16A-C2)
+## A preview's origin starts fresh: no-store and Clear-Site-Data (review finding M16A-C2)
 
 - **Question:** does a browser honour `Clear-Site-Data` from a preview over plain http://127.0.0.1, and do the preview's
   answers say `no-store`?
@@ -274,7 +274,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 - **Sound:** an `AudioContext` started without a gesture, ran (`currentTime` advanced 0.66 s) and macOS showed the
   browser's "Playing audio" assertion. The microphone, asked for with `getUserMedia`, gave no answer in 3 s and was
   never granted.
-- **LaunchServices:** macOS had registered the lane's copy when it was cloned, before any probe; it was removed with
+- **LaunchServices:** macOS had registered the test copy when it was cloned, before any probe; it was removed with
   `lsregister -u` and counted at zero after.
 - **End to end (P-B, opt-in `play-browser.test.ts`, 2026-10-31):** the host's play with this browser copied into a
   data folder, a game page on a scratch server, and a second contained headless copy standing for the person's
@@ -331,12 +331,12 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   start (AppKit's `NSApplication` init registers with LaunchServices), and a copy that failed once kept failing; folders
   named `browser`, `current`, `chs` and others ran. Contents, modes, flags and extended attributes were the same. The
   host's copy lives at `<data dir>/browser/current`.
-- **The pin covers the whole folder (AUDIT M1, 2026-10-31):** the browser loads code from more than its binary
+- **The pin covers the whole folder (review finding M1, 2026-10-31):** the browser loads code from more than its binary
   (`libEGL`, `libGLESv2`, `libvk_swiftshader`, `libvulkan`, `v8_context_snapshot.arm64.bin`, `resources/`), so the pin
   is the digest of a manifest of the whole folder: one line per entry, sorted by relative path, with its kind, its mode
   and, for a file, its SHA-256 (`preview/browser-manifest.txt`, 19 entries, no link). For `chromium_headless_shell-1248`
   the digest is 0966bb448b30d115b303849668c4ebf1f00cf739bc728e4b747c1a502ee00ef2, the same for Playwright's cache, the
-  lane's copy and the host's copy after `pnpm mac-setup browser` (modes kept). Checking it takes about 78 ms on this Mac,
+  test copy and the host's copy after `pnpm mac-setup browser` (modes kept). Checking it takes about 78 ms on this Mac,
   at every check and play start. A refusal names the first entry that differs, is extra or is missing; any link refuses
   the folder. Tests: a changed library, a changed mode, an extra file, a missing file and a link.
 - **The check and the play end to end on the shell:** the check's opt-in suite passed 19 of 19 against today's browser
@@ -416,8 +416,8 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 
 - **Question:** can every new game open on the decorated island without costing a headset most of its frame?
 - **Date:** 2026-11-03.
-- **Method:** draw calls counted per animation frame in the lane's own contained browser (a counter of the WebGL draw
-  calls added before the page's scripts, the lane's lab only, never the check), the median of the last 120 frames after
+- **Method:** draw calls counted per animation frame in a separate contained browser (a counter of the WebGL draw
+  calls added before the page's scripts, in that lab setup only, never the check), the median of the last 120 frames after
   6 s, at 1,280 by 800, outside VR.
 - **Before:** the island alone drew 38 calls a frame; with `decorate()` 284, every part of every prop a draw of its own
   and another for its shadow.
@@ -498,7 +498,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   laptop camera; up close, a first critter's belly met its body in a jagged seam, now set further forward.
 - **Not tried:** the headset; whether a model reaches for the kit (the finals run on this starter).
 
-## No cross-origin reads of a preview (AUDIT H1)
+## No cross-origin reads of a preview (review finding H1)
 
 - **Question:** does a preview's server let a page of another origin on this Mac read its files?
 - **Date:** 2026-11-03, Vite 7.3.7 from the vetted set.
@@ -514,7 +514,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 ## Files written in the confined sandbox (U9)
 
 - **Question:** why did the third showcase rehearsal, a VR version of a 2D game, end with no game at all?
-- **Date:** 2026-11-03, `muse-glimmer:30b-mlx` through confined Codex 0.157.0 on the lane's scratch control plane.
+- **Date:** 2026-11-03, `muse-glimmer:30b-mlx` through confined Codex 0.157.0 on a scratch control plane.
 - **Found:**
   - The confinement (ADR 0041) lets the agent write its project's folder only, with no temporary folder. zsh puts
     every here-document in a temporary file under `/tmp`, so each of the agent's seven heredoc writes
@@ -529,7 +529,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   named by `TMPDIR` and zsh's `TMPPREFIX`, so a here-document now works; writes to `/tmp` stay refused.
 - **Now:** AGENTS.md asks, with what the agent cannot do there, for every file to be written and changed with the
   file-editing tool, never through the shell. Its first words named the two errors and said the shell had no
-  temporary folder; AUDIT stopped them before they landed, since CONFINED-TMP made them false.
+  temporary folder; review stopped them before they landed, since CONFINED-TMP made them false.
 - **Not tried:** a rehearsal on these words (one S3 re-run follows CONFINED-TMP).
 
 ## A VR version names its game on its card
@@ -554,7 +554,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   applied with `HostStarters.apply` and checked with `reference: making`), on copies in a scratch folder. For each
   case: the share of the pixels outside the card's 360 by 240 corner whose channels differ from the starter's by
   more than 40, at frame 360 with no input under the stepped clock, beside the edges, `drawn`, `passed` and `ready`.
-  S1 and S2 are the showcase rehearsals' games as their agent left them (S1 with the lane's 4-line time fix), compared
+  S1 and S2 are the showcase rehearsals' games as their agent left them (S1 with a 4-line time fix), compared
   with a picture made from fb3dd073's template, which they began from.
 
 | Case | Own share | Edges at 3 s / 10 s | Drawn | Passed | Ready | Seconds |
@@ -563,7 +563,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
 | The starter's picture, fb3dd073's template | (made) | 56,253 / 56,977 | | | | 50 |
 | The empty starter | 0 | 56,291 / 57,175 | no | no | no | 49 |
 | Only its card names a game | 0 | 56,367 / 57,321 | no | no | no | 47 |
-| AUDIT M18B-M1's fake page | 0 | 56,337 / 57,310 | no | no | no | 48 |
+| Review finding M18B-M1's fake page | 0 | 56,337 / 57,310 | no | no | no | 48 |
 | A 60 cm box 4 m away (the opt-in test's) | 0.897% | 57,541 / 58,274 | yes | yes | no | 49 |
 | A one-box game, its box made bigger on a press | 6.99% | 60,277 / 60,827 | yes | yes | yes | 86 |
 | The toy kit laid out on the island | 2.76% | 71,870 / 72,900 | yes | yes | no | 48 |
@@ -608,7 +608,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   notes, it is never a pass or a fail. The headset client reads no check notes, so it shows nothing for it.
   - It shares the scan's five notes with the input notes.
   - It is a hint, not proof that the game kept the meadow. It misses, for example, `setupLook(world, worlds.meadow)`, a
-    cast, `setupLook(this.world)`, or a call split over lines (AUDIT W1B).
+    cast, `setupLook(this.world)`, or a call split over lines (review finding W1B).
   - It never fires on the starter's own `look.ts`, whose error text names the call in a string.
 - **Found:** the check's own picture of the pristine starter is the same bytes as main's (SHA-256 `a095f586`), so the
   meadow, and DRAWN's reference, are unchanged. Frames of each world from the check's browser read as four different
@@ -673,7 +673,7 @@ profile that keeps the dependencies read only refuses; `--configLoader native` l
   own code only runs in the browser.
 - Open: whether Quest Browser treats `http://127.0.0.1` (never `localhost`) through `adb reverse` as a secure context
   for WebXR ([quest-browser-preview.md](quest-browser-preview.md)), and
-  the uikitml licence, which the owner decides before anything containing it is published.
+  the uikitml licence, which is to be decided before anything containing it is published.
 
 ## The welcome card's region moved (2026-11-16)
 

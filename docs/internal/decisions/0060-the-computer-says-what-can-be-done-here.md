@@ -1,6 +1,6 @@
 # ADR 0060: The computer says what can be done here, and buttons, saying it and one review read that one list
 
-- Status: Accepted (read by CORE, SCREENS and AUDIT2). Built and tested with a synthetic model: `propose_command`, `read_choices`, `go_to`, the waiting proposal and the rule of origin, the person's press through `act` (secrets refused), the confirm through resume, read from the host's own list, preparation and review (section 6). No model run yet; headset pending
+- Status: Accepted (reviewed). Built and tested with a synthetic model: `propose_command`, `read_choices`, `go_to`, the waiting proposal and the rule of origin, the person's press through `act` (secrets refused), the confirm through resume, read from the host's own list, preparation and review (section 6). No model run yet; headset pending
 - Date: 2026-11-12
 
 ## Context
@@ -10,13 +10,13 @@ assistant has thirteen tools (`WORKSPACE_TOOL_ARGUMENTS`, `packages/contracts/sr
 them acts: `continue_task`, which sends `execution.send_instruction`. The host has about thirty commands, each with a
 policy in `COMMAND_POLICY` (`packages/domain/src/policy.ts`). Landed commands such as Send to GitHub, Publish, Take
 Down and choosing a project's own check can be reached by no client, and none can be said. ADR 0051 already makes a
-review a digest that the command carries back, for restore, move and add. The lead's decision of 2026-11-12 (one way
+review a digest that the command carries back, for restore, move and add. The decision of 2026-11-12 (one way
 to reach everything, rules R1 to R6) asks for one mechanism.
 
 Two facts shape it. First, admission (`admitCommand`, `packages/domain/src/admission.ts`) judges a whole envelope, so
-"could this be done here" needs its checks split so that one needs no payload (CORE). Second, the model reads
+"could this be done here" needs its checks split so that one needs no payload. Second, the model reads
 untrusted text in the same context as the person's words (runtime reports, titles, tool output), so its choice of a
-command is never the person's press (AUDIT2).
+command is never the person's press.
 
 ## Decision
 
@@ -68,7 +68,7 @@ A command reached through the list is never built by its proposer.
 - **`text` values are cleaned like a typed one (addition D).** A `text` value that leaves the Mac (a title, a pull
   request's words, a commit line) is clipped and cleaned by the host, exactly as a typed one is, including one that
   defaulted from `reported` text (a task's summary). The review shows it exactly as it will be sent.
-  - **A task's title is short and true (the lead's D, 2026-11-17).** A title made from the person's words (a start's
+  - **A task's title is short and true (decision D, 2026-11-17).** A title made from the person's words (a start's
     idea, the headset's objective) follows one rule, in `apps/control-plane/src/core/task-title.ts` and the headset's
     `NewWorkDraft.TitleOf`, held to one table of cases both suites read (`fixtures/titles/cases.json`): the first
     sentence when it is 60 characters or fewer, else its first words to 60 with no ellipsis, the whole idea still
@@ -78,15 +78,15 @@ A command reached through the list is never built by its proposer.
   values }` in place of words. The host records the prepared command as the request's one step and goes by
   section 3. The same journal trail, the same review and the same Confirm serve buttons and saying it alike, and a
   screen never builds a payload by knowing the command.
-- **A secret never rides in `act` (AUDIT2's C3).** `workspace.request.submit` is journaled whole, so an entry with a
+- **A secret never rides in `act` (review finding C3).** `workspace.request.submit` is journaled whole, so an entry with a
   `secret` need is never reached through `act`, and the host refuses an `act` that names one. Such an entry is drawn
-  as its own field and keeps TASKS's write-only request: the value is staged, and the command carries the name only.
-- **An instruction is the person's own words (AUDIT2's N4).** Where a proposed `execution.start` or
+  as its own field and keeps the tasks' write-only request: the value is staged, and the command carries the name only.
+- **An instruction is the person's own words (review finding N4).** Where a proposed `execution.start` or
   `execution.send_instruction` carries an instruction, the host fills it with the person's own words, whole, as
   `continue_task` does. It is never a `text` value the model wrote, so the card shows the heard words, not the
   model's version of them.
 
-### 3. Who may act at once (AUDIT2's change 1; R1 and R6)
+### 3. Who may act at once (review change 1; R1 and R6)
 
 - **The person's own press** goes by the command's `confirm`:
   - `none`: done at once.
@@ -104,7 +104,7 @@ A command reached through the list is never built by its proposer.
     never start another agent.
 - **The confirm:** `workspace.request.resume { request_id, text: null, confirm: { step_id, review } }`. A request
   waits for the person, and the person resumes it. This saves a new command type, which would have changed every
-  welcome's policy list and the recorded demonstrations (the lead and AUDIT2, 2026-11-12).
+  welcome's policy list and the recorded demonstrations (2026-11-12).
   - It is admitted only from the request's own owner: the command service's owner check for resume (N1).
   - The host re-checks the digest (`review_stale` otherwise), then submits the prepared command, with that digest,
     under that principal.
@@ -120,8 +120,8 @@ request may propose. They are never sayable:
 - pairing and a device's rights;
 - turning pairing or a share on;
 - deleting a project (taking one off the list is not deleting: it deletes nothing, adding its folder again undoes it,
-  and it is sayable, ADR 0063, the lead's decision of 2026-11-13);
-- `execution.respond_to_approval` and `execution.answer_question` (AUDIT2's change 2);
+  and it is sayable, ADR 0063, decided 2026-11-13);
+- `execution.respond_to_approval` and `execution.answer_question` (review change 2);
 - every `workspace.request.*` command;
 - any entry with a `secret` need, whose value is typed in a field, never spoken or passed through a model.
 
@@ -142,7 +142,7 @@ The list enforces this with `sayable` false. The request loop drops the same ent
 
 ### 6. The list is the host's own
 
-The request loop reads what can be done here from the host itself, CORE's `CommandService.here(scope)`, at every
+The request loop reads what can be done here from the host itself, `CommandService.here(scope)`, at every
 turn, and its rows from `CommandService.choices(scope, list)`. A proposal and a press are prepared by
 `CommandService.prepare`, and a reviewed command's review comes from `buildReview`, so the assistant, the buttons
 and the one card read one list and one review. On the assistant's side:
@@ -152,10 +152,10 @@ and the one card read one list and one review. On the assistant's side:
   `execution.send_instruction` is not offered to the model there.
 - The list reaches the model compactly, one line of needs per entry, and the person's words take the room the rest
   of the first turn leaves, so a request with the list beside it never makes a body the transport refuses.
-- Not done: AUDIT2's N4, an instruction filled with the person's own words by the host. The host's declarations
+- Not done: review finding N4, an instruction filled with the person's own words by the host. The host's declarations
   mark an instruction as `text`, so the model writes it. The one card shows those words whole and as the
   assistant's (`said`), before the press. A declaration that a field takes the person's own words would let the host
-  fill it; that is CORE's.
+  fill it; that is the host's to add.
 
 ### 7. What stays as it is until the general thing replaces it (R5)
 
@@ -165,7 +165,7 @@ and the one card read one list and one review. On the assistant's side:
 - Every landed button keeps working until its screen reads the list, and the digests that buttons send today stay
   valid: the generic review uses `reviewDigest(command_type, args, facts)` exactly as ADR 0051 does.
 
-## The review's shape (CORE builds it; SCREENS draws it)
+## The review's shape (the host builds it; the headset draws it)
 
 The host builds one review for any command: `{ command_type, digest, confirm_words, what_happens, facts, items,
 items_total, warnings }`, with one reader per command type for its facts.
@@ -182,7 +182,7 @@ items_total, warnings }`, with one reader per command type for its facts.
 
 New Project, and New Task in a project, start an agent working with one press on one host review, never a card the
 client builds (R6). The press is `workspace.request.submit` with `act` `{ command_type: execution.start, values,
-lists }` where no task is bound. CORE's `prepareStart` (`apps/control-plane/src/core/start.ts`) prepares the whole
+lists }` where no task is bound. `prepareStart` (`apps/control-plane/src/core/start.ts`) prepares the whole
 start before anything is made:
 - **Values by the commands' own fields:** `name` and `location` for a new project, `instruction`, `runtime_id`,
   `model_ref`, `approval_level`, `plan` and `spending_cap_usd` for the run. No id is ever a value. The task's title
@@ -221,7 +221,7 @@ start before anything is made:
   connected folder whose tasks work in copies under the closed profile, `answersInConnectedCopy` and
   `ControlPlane.answersConnectedCopyIn`, ADR 0064 amended), and "Asks Only Outside
   Task Folder and Original" where that project has an original whose reads it answers too (a VR version's,
-  `ControlPlane.ownWorkReadsAnOriginal`; AUDIT2's S1, 2026-11-14); "Asks First" for any
+  `ControlPlane.ownWorkReadsAnOriginal`; review finding S1, 2026-11-14); "Asks First" for any
   other run that asks; "Works Without Asking" where it never asks. Whether it asks at all is the adapter's to say where
   its runtime can run at another level than the one asked for (`RuntimeAdapter.levelAt`, the same confinement choice
   and policy its start makes): Codex on a starter's confined project asks nothing (ADR 0041), so its card says "Works
@@ -232,7 +232,7 @@ start before anything is made:
 - **One assistant tool per command:** a contract change per feature, a third copy of each feature, and a model
   choosing among thirty tools in an 8K context. Rejected by R5.
 - **A model's `none` proposal done at once:** fewer presses, but untrusted text in the model's context could start
-  work with the person's authority. Rejected (AUDIT2). At a desk the person types each new task.
+  work with the person's authority. Rejected in review. At a desk the person types each new task.
 - **The client resends the command at the Confirm:** the client would have to know every command, and what runs
   might differ from what was reviewed. Rejected: the host submits what it holds.
 - **The model names a whole payload:** ids and folders would be the model's to supply. Rejected (ADR 0030).
@@ -241,13 +241,13 @@ start before anything is made:
 
 - **A new command** is its schema, its policy line, a title, a description, `confirm`, `sayable` and `needs`. On the
   day it lands it is reachable by button, by saying it and by the one card, with no client code and no new tool.
-- **Contract changes, made once, each in the rule 27 queue:**
-  - LOOP: `workspace-tools.ts` gains `propose_command`, `read_choices` and `go_to`. `WorkspaceRequestStep` gains
+- **Contract changes, made once:**
+  - The request loop: `workspace-tools.ts` gains `propose_command`, `read_choices` and `go_to`. `WorkspaceRequestStep` gains
     `proposal` and `place`. `step_recorded` gains `proposed_command`. `workspace.request.submit` gains `act` and
     `places`. The view gains `places`. `workspace.request.resume` gains `confirm`. The projection keeps a proposal's
     command in the same map as an instruction, so its saved state keeps its shape and format.
-  - CORE: the list's view and route, the declarations, and the review.
-  - CORE (2026-11-13, a start is one review): `ReviewKind` gains `agent`, `place` and `level`;
+  - The host: the list's view and route, the declarations, and the review.
+  - The host (2026-11-13, a start is one review): `ReviewKind` gains `agent`, `place` and `level`;
     `WorkspaceRequestStep` gains `made` and `needs_choice`; `step_recorded` gains `proposed_before`;
     `ChoicesResponse` gains `default`; `ChoicesQuery` gains `runtime` and `runtimes`. The projection keeps a start's
     earlier commands beside its run's (state format 23).

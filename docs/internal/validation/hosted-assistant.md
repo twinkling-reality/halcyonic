@@ -80,7 +80,7 @@ Four changes followed, each with a test that fails without it:
 ## A second, different declaration
 
 `hosted-model.test.ts` runs the same tests through the one `HostedWorkspaceModel` for each declaration: the real ones
-for the owner's keys (Anthropic's, and Meta's below) and a test provider with its own variable and file, against
+for the person's keys (Anthropic's, and Meta's below) and a test provider with its own variable and file, against
 stand-ins. The test provider needs nothing but its declaration. As amended for D1 and D2 (below), for each:
 
 - a stored key alone moves nothing; the person's choice runs a tool round on it;
@@ -136,7 +136,7 @@ Unknown until a real call to Meta:
 
 Meta adds steering text of its own, unpublished, to every prompt.
 
-## The person's choice and a refused key (the lead's D1 and D2, 2026-11-12)
+## The person's choice and a refused key (decisions D1 and D2, 2026-11-12)
 
 `assistant-choice.test.ts` runs both in one plane with a test provider and an in-process protocol:
 
@@ -176,6 +176,6 @@ cache writes cost more than plain input on Messages, and a cached read less.
 
 ## Not verified
 
-- No run with a real key. That run is the owner's, once the key is stored through the product's own Add Key.
+- No run with a real key. That run is the person's, once the key is stored through the product's own Add Key.
 - Whether a real model proposes as the stand-in did, and how long a real turn takes.
 - What a request costs. Estimated from the bounds at $0.10 to $0.50 on Opus 5.5, not measured.

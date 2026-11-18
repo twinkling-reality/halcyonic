@@ -1,4 +1,4 @@
-# Agent apps on a hosted provider, through the key gate (VRIFY, 2026-11-12)
+# Agent apps on a hosted provider, through the key gate (2026-11-12)
 
 An agent app inside Halcyonic's closed sandbox reaches a hosted provider only through a key gate of its own
 (`packages/seatbelt/src/key-gate.ts`): the gate holds the person's key, the app holds only its server's run
@@ -24,7 +24,7 @@ file for the assistant and the agent apps alike, with no code of its own.
   (code.claude.com/docs/en/llm-gateway).
 - Meta's hosted models, by Meta's own documentation (dev.meta.ai): `muse-wonder-1.0` among them, OpenAI-compatible
   Chat Completions and Responses at `https://api.meta.ai/v1`, the key as `Authorization: Bearer`, tool calling and
-  streaming stated. LOOP's declaration of it is the one the route reads.
+  streaming stated. The provider's declaration of it is the one the route reads.
 
 ## What is built
 
@@ -55,13 +55,13 @@ nothing, since Anthropic serves Messages only.
 
 ## Not verified
 
-- Meta's API itself, with a real key: none is used. The owner enters theirs in the product.
+- Meta's API itself, with a real key: none is used. The user enters theirs in the product.
 - Tool calls on a hosted provider through OpenCode (the turn above is text); Meta states tool calling.
 - Codex against a real non-OpenAI Responses host: what its requests need of one (stored responses,
   `previous_response_id`, encrypted reasoning, its websocket transport, which the gate refuses) is known only for
   the fake provider.
 
-## Meta's address refuses a wrong key (2026-11-13, CORE)
+## Meta's address refuses a wrong key (2026-11-13)
 
 A scratch control plane with the pinned OpenCode 2.0.18 and a FAKE Meta key, stored 0600 in its scratch data
 folder. It read the agents' model list once. Through the host's key check (`KeyChecks`, the assistant's
@@ -75,7 +75,7 @@ https://api.meta.ai/v1/models/muse-wonder-1.0`, the first model of `providers/me
 Not verified: what it answers a valid key, and what it answers a revoked one.
 
 
-## Codex (VRIFY, 2026-11-13; AUDIT3 read the shape first, with additions A, B and C)
+## Codex (2026-11-13; the shape was reviewed first, with additions A, B and C)
 
 - `CODEX_KEY_READER` (every provider serving Responses, read at start, never turning Codex on) is in main.ts's one
   list; `gatedProviders` hands the Codex adapter the providers it reaches with a stored key.

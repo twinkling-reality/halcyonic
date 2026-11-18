@@ -1,11 +1,11 @@
 # ADR 0067: Agent apps that speak the Agent Client Protocol are directed through one adapter
 
-- Status: Accepted (the AGENTS lane, 2026-11-17, on the owner's ask that Halora direct Kiro and Antigravity)
+- Status: Accepted (2026-11-17, so that Halora directs Kiro and Antigravity)
 - Date: 2026-11-17
 
 ## Context
 
-- The owner asked for Kiro (AWS) and Google's Antigravity beside Claude Code, Codex and OpenCode: Halora's point is
+- Kiro (AWS) and Google's Antigravity were asked for beside Claude Code, Codex and OpenCode: Halora's point is
   directing the agents people use, natively, not mirroring a laptop's screen.
 - Verified on this Mac with the pinned binaries ([acp-agents.md](../validation/acp-agents.md)): both serve the Agent
   Client Protocol version 1 over stdio (`agy acp`, `kiro-cli acp --agent-engine v3`). Over it a call that needs the
@@ -31,9 +31,9 @@
 4. The app signs in its own way on the Mac; Halora never holds or passes its key. It is launched with a settings
    home of Halora's own (Antigravity's `--gemini-dir`, Kiro's `KIRO_HOME`), so the person's own settings for it (an
    allow-everything mode, hooks, tool servers) never apply to a task, fresh for each launch and removed at its end,
-   every other launch's home refused to it (AUDIT3 AC3). On macOS it runs under the agent-app profile:
+   every other launch's home refused to it. On macOS it runs under the agent-app profile:
    the light profile, with the person's push and cloud credentials and the project's own settings for the app
-   refused, read and write (AUDIT3 AC1 and AC2, 2026-11-17). Reads outside the folder ask the person, as a run
+   refused, read and write (2026-11-17). Reads outside the folder ask the person, as a run
    shows; the credentials are refused even to an approved one. Recorded not confined.
 5. Each app is registered by its own environment variable (`HALCYONIC_ANTIGRAVITY_BIN`, `HALCYONIC_KIRO_BIN`), or,
    since 2026-11-17, by the person's own press on the Mac's setup page: Install fetches the vendor's archive and

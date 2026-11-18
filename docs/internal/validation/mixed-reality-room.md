@@ -5,8 +5,8 @@
   person's real desk and are there again next session, and what happens in rooms nobody tested?
 - **Date:** 2026-09-29.
 - **Environment:** Unity 6000.3.25f1 on macOS 26.7 (Apple M5 Max); OpenXR 1.18.0; the Meta XR
-  Core and Interaction SDKs 207.0.0; MRUK (`com.meta.xr.mrutilitykit`) 207.0.0, added with the
-  owner's approval of 2026-09-29.
+  Core and Interaction SDKs 207.0.0; MRUK (`com.meta.xr.mrutilitykit`) 207.0.0, approved on
+  2026-09-29.
 - **Method:** Meta's developer documentation, read on the date above, with each page's own
   last-updated date; the SDKs' source in the package cache; batch development and release builds
   with `QuestBuild`, inspected with `aapt2`; and NUnit tests of the engine-free decisions on

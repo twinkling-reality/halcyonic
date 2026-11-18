@@ -9,10 +9,10 @@ Pairing a headset over Wi-Fi ([ADR 0017](0017-pair-a-headset-over-the-local-netw
 terminal three times: `pnpm mac-setup pairing on`, stopping and starting the control plane (the
 network listener was read only at start, and a restart stops every agent at work), and `pnpm pair`,
 which printed the address and the code in that terminal. Someone who never opens a terminal could
-not pair, and the owner's direction (2026-11-10) is that anyone, at any level, can enjoy developing in
+not pair, and the product's direction (2026-11-10) is that anyone, at any level, can enjoy developing in
 VR. The facts, read in the code on 2026-11-10: the control plane refuses every browser request (any
 `Origin`, a cross-site fetch, a Host other than its loopback address), so no page can talk to it; the
-play viewer (P-A, P-B, reviewed by AUDIT) is the one precedent for a page on the Mac, a small server of
+play viewer (P-A, P-B, reviewed) is the one precedent for a page on the Mac, a small server of
 its own on 127.0.0.1 opened in the default browser with a one-time link; opening a pairing window is
 one call on `Pairing` in the same process.
 
@@ -25,7 +25,7 @@ one call on `Pairing` in the same process.
   47800's; a control plane on port 0 gets a free port for its page as well. The same holds for the whole
   family, `portFamily` in config.ts: the network listener's default is the plane's port plus 1; previews,
   play viewers and shares on this Wi-Fi keep 47800's layout (plus 130, 140 and 170) moved to the plane's
-  port and 1000 higher, so they never fall in 47800's family, which spans the lanes' and tests' ports,
+  port and 1000 higher, so they never fall in 47800's family, which spans the development and test ports,
   and stay below the system's own (49152 up); a plane on port 0 lays them out from 47800's, 1000 higher.) Like the play viewer's: it holds no access token and no device credential;
   a link carries a one-time code (60 seconds) that becomes an HttpOnly, SameSite=Strict cookie for its
   port; every request must name `127.0.0.1:<its port>` as Host and come from no page or its own origin;
@@ -38,7 +38,7 @@ one call on `Pairing` in the same process.
   press that says paired headsets disconnect (the one way to end pairing, a window included), open a
   pairing window, and forget a headset after a second press. It reaches nothing else: no project,
   command or journal read. Its words follow the product's voice and never name a tool, the Mac or
-  the product; its look follows the headset's panels (FIELD, 2026-11-10), in Inter, served with its
+  the product; its look follows the headset's panels (2026-11-10), in Inter, served with its
   licence from the page's own folder.
 - **Nothing opens on its own.** Loading the page, opening its link and starting the control plane
   turn on no listener, open no window and show no code: each waits for the person's press.
@@ -53,13 +53,13 @@ one call on `Pairing` in the same process.
   --here` pairs in the terminal as before, and so does `pnpm pair` against a control plane with no
   page (409 `page_off`). `pnpm start --open-pairing-page` opens a link once the control plane is ready.
 - **The link never travels in a process's arguments,** where any process on the Mac could read it for
-  a moment (AUDIT S4 on the play viewer): `openLinkPrivately` writes it into a small page, mode 600,
+  a moment (review finding S4 on the play viewer): `openLinkPrivately` writes it into a small page, mode 600,
   in `<data dir>/open-links` (mode 700), opens that file by its path, which tells nothing, and removes
   it after a minute, when the code has run out. The browser goes on from the file to the link, a
   navigation from another origin, so the trade of a code alone is taken from any site as a top-level
   navigation, and answered with the cookie and a page that goes on to the page itself, never a
   redirect, which would keep that navigation's other origin. Every cookie of the page's name is read,
-  so one another 127.0.0.1 port planted ahead of the person's own keeps nobody out (AUDIT S2).
+  so one another 127.0.0.1 port planted ahead of the person's own keeps nobody out (review finding S2).
 - **`Start Halora.command` (named `Start Halcyonic.command` until 2026-11-16)** at the repository root starts the control plane from Finder with a
   double-click, in a login shell, with `--open-pairing-page`.
 
@@ -81,7 +81,7 @@ one call on `Pairing` in the same process.
 
 - Pairing needs no terminal once the control plane runs; the first install still does (Node, pnpm,
   the clone, the agent apps), which is ADR 0024's packaging.
-- A second loopback server on the Mac, with its own checks, for AUDIT to read with every change.
+- A second loopback server on the Mac, with its own checks, for review with every change.
 - The listener can now start after the control plane: its startup order changed, and stopping it at
   run time is new. A connection whose TLS handshake completes while it stops waits for the idle
   timeout (60 seconds) before the stop finishes, as at shutdown.

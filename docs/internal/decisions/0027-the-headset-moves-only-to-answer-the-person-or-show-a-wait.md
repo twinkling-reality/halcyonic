@@ -1,13 +1,13 @@
 # ADR 0027: The headset moves only to answer the person or to show a wait
 
-- Status: Accepted on 2026-10-07 by the owner; amended by the owner's picks on 2026-10-08.
+- Status: Accepted on 2026-10-07; amended on 2026-10-08.
 - Date: 2026-10-04, amended 2026-10-07 (Hold to talk drawn from the voice in every column; a wait's words in the secondary tone) and 2026-10-08 (a file assembling out of its character, the characters' own movement, seven more tokens, and Keep things still with its still highlight; then the characters' looks and working poses)
 
 ## Context
 
-In the sixth headset session (2026-10-04, main ee1acdb9) the owner said "nothing moves". Holding Hold to
+In the sixth headset session (2026-10-04, main ee1acdb9) the tester said "nothing moves". Holding Hold to
 talk changed neither its colour nor its icon. A wait, such as the voice writing down what was said,
-showed only its words, with no sign that anything was under way. The owner asked for "centralized sleek
+showed only its words, with no sign that anything was under way. The tester asked for "centralized sleek
 motions/animations everywhere where possible", rich and seamless.
 
 The interface already moves in a few places, each with its own timing:
@@ -37,14 +37,14 @@ References, checked against the current pages on 2026-10-07
 What this ADR adds of its own, beyond those pages: nothing overshoots or bounces, a press answers at
 once, and the token values.
 
-On 2026-10-08 the owner picked lane V's proposal "One kit, four forms" (outside the repository). Under
+On 2026-10-08 the proposal "One kit, four forms" was chosen (outside the repository). Under
 this ADR's rule it fills in how a file opens out of its character, gives the characters motion of
 their own ([ADR 0013](0013-characters-are-bots-with-a-living-surface.md)), and settles the
 reduced-motion setting's name and what a wait shows under it. Its references, for qualities only
 ([headset-redesign-research.md](../validation/headset-redesign-research.md)): Iron Man 3's helmet
 display, light with real depth; Star Citizen's card interface, which builds up around the player; and
 a reel of characters that fly with soft trails. The order of an opening, its timings, the travel
-speed and the turn on confirmation are lane V's own.
+speed and the turn on confirmation are the proposal's own.
 
 ## Decision
 
@@ -84,12 +84,12 @@ speed and the turn on confirmation are lane V's own.
    - Closing fades everything together over Leave, easing in, and the line draws back over
      UndrawShare × Leave. What comes back in its place, as the closed bar, starts its Appear only
      once the closing has ended, so words never stand over words: 0.35 s from the press to the
-     whole bar (lane V, after lane U's first renders showed the bar over a fading file).
+     whole bar (after the first renders showed the bar over a fading file).
    - The menu coming back from stepping aside fades in over Appear as it slides.
    - A place, a section or a page changing, or a side panel showing another row, does not animate;
      its buttons keep their settle before they take a press.
 
-   The opening also guards what it shows (lane U, 2026-10-08). A column keeps one value of its
+   The opening also guards what it shows (2026-10-08). A column keeps one value of its
    opening, counted on the plane's clock, which counts nothing for the frame the column opened in
    and at most a twentieth of a second for any frame. Its parts' fade, its light line, the plane's
    refusal of a press, a hold or a subject press, and every button on it and its subject plate all
@@ -140,9 +140,9 @@ speed and the turn on confirmation are lane V's own.
    voice's own lines ("Listening. Let go when you're done.") add no line to any page.
 5. **A wait's words in the secondary tone.** The shimmer lifts the words toward white, which would not
    show on near-white words such as Hold to talk's. A prompt that waits draws its words in the
-   secondary tone, so the lift reads the same on "Writing down" as on "Sent…" (decided by the
-   coordinator, 2026-10-05).
-6. **Reduced motion.** "Keep things still", renamed from Keep badges still (the owner, 2026-10-08), is
+   secondary tone, so the lift reads the same on "Writing down" as on "Sent…" (decided on
+   2026-10-05).
+6. **Reduced motion.** "Keep things still", renamed from Keep badges still (2026-10-08), is
    the one reduced-motion setting. It stops every loop (the breath, the turning, the pulse, the
    shimmer, a character's float and blinks), turns travel into a fade out and in, and drops turns and
    trails, the looks between characters and the two working poses; a character looking back keeps its
@@ -198,7 +198,7 @@ Added with the 2026-10-08 amendment, each with the view that brings it:
 
 ## Alternatives considered
 
-- **Per-component timings, as before.** Each view kept its own numbers, and the owner saw too little
+- **Per-component timings, as before.** Each view kept its own numbers, and testers saw too little
   motion, and none of it shared. A central set keeps one rhythm and one off switch.
 - **A spinner or a progress bar for waits.** A spinner draws the eye to the periphery and adds a draw
   call; a bar claims a length of time nothing here can know. The shimmer stays on the words of the wait
@@ -214,14 +214,14 @@ Added with the 2026-10-08 amendment, each with the view that brings it:
 
 ## Consequences
 
-- New motion must use these tokens and say which of the moving kinds it is; lane V refines the values
+- New motion must use these tokens and say which of the moving kinds it is; the values are refined
   against the headset.
 - Columns mark their waits (`PageLine.Waits`) rather than animating them, so a new wait needs no view
   code.
 - "Keep badges still" stopped more than badges, so on 2026-10-08 it was renamed Keep things still, and
   Decision 6 answers the open question on a still highlight.
 - As amended on 2026-10-08, the opening, the characters' movement and the still highlight are being
-  built by lane U, one step at a time; none has been on a headset.
+  built one step at a time; none has been on a headset.
 - To revisit if, on the headset, the shimmer reads as noise beside the agent's own words, the pulse
   draws the eye away from the page, opening in 0.36 s feels slow, travel at 0.5 m/s toward a seated
   person startles, or blinking in the corner of the eye distracts.

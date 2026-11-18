@@ -1,6 +1,6 @@
 # Spatial title type
 
-Date: 2026-10-15. Candidate visual correction after the owner rejected the installed stacked menu.
+Date: 2026-10-15. Candidate visual correction after headset testing rejected the installed stacked menu.
 
 Rajdhani Medium was fetched from the official Google Fonts repository's `ofl/rajdhani` directory,
 whose Contents API identified the font and license. Source:

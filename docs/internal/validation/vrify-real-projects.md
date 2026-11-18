@@ -1,10 +1,10 @@
-# Make VR Version on larger web apps that are not games (VRIFY, 2026-11-09)
+# Make VR Version on larger web apps that are not games (2026-11-09)
 
 ## Question
 
 Make VR Version turned a small 2D canvas game into a VR game in one instruction ([showcase-finals.md](showcase-finals.md)).
 Does it work on larger web apps that are not games: a 3D astronomy app, a site analysis map app with a terrain model,
-and a classroom lesson app? The three are the owner's own projects; this record describes them only by what they are.
+and a classroom lesson app? The three are real projects; this record describes them only by what they are.
 
 ## Environment
 
@@ -29,7 +29,7 @@ and a classroom lesson app? The three are the owner's own projects; this record 
 | A classroom lesson app | A web app whose lessons are web pages (cards and steps); three.js draws only a small figure | One lesson, step by step | Yes |
 
 Each frame showed the project's own name or logo, and one credits its image sources in a corner: a frame for the
-video would need those out of view (competition content rules).
+video would need those out of view (brand content rules).
 
 ## Results
 
@@ -42,7 +42,7 @@ how you score or win", then build "its main play and its score" from the starter
   20:14Z to 21:29Z. The agent wrote no file, so the host ran no check.
 - **What it did:** 584 commands, all reading. 177 of them searched the original for the starter's game words: `game`,
   `score`, `critter`, `bonk`, `welcome`, `press one`, `win`. None opened the folder where the app draws its scenes.
-- **The owner's folders:** nothing in `~/.halcyonic` or `~/.codex` changed (names, sizes and times, three levels deep).
+- **The user's folders:** nothing in `~/.halcyonic` or `~/.codex` changed (names, sizes and times, three levels deep).
 
 A local model told to find a game's score in an app that has none keeps looking for one.
 
@@ -142,7 +142,7 @@ is no atmosphere on the Earth, and no overlays or rivers on the ground.
 
 ## What the video would need
 
-- **Names on screen:** the welcome card shows the original's own name for its first seconds, and the competition's
+- **Names on screen:** the welcome card shows the original's own name for its first seconds, and video
   content rules count a project's own name as a brand name. A shot must start after the card goes, or the card must
   be renamed (a hand edit to the agent's output, to be disclosed as one).
 - **Credits:** the astronomy app's sky is ESO's eso0932a (credited "ESO/S. Brunier"), and its Earth is NASA's Blue
@@ -161,7 +161,7 @@ is no atmosphere on the Earth, and no overlays or rivers on the ground.
 A hosted run of Make VR Version on an app that is not a game built its landing page well, because the instruction
 asked for its one most striking view.
 
-The instruction now asks, for an app that is not a game (the lead's decision, 2026-11-13T06:05Z), that the agent first
+The instruction now asks, for an app that is not a game (decided 2026-11-13), that the agent first
 find from the app's own code the one thing people open it to DO and say it before building; build that use, working,
 with the app's own content, never its landing page unless the app is nothing else; carry what cannot come (a server,
 other people, an account) with the app's own sample content and say so; let the app's look dress the use, not
@@ -185,7 +185,7 @@ showed only its first six pages and asked for "the ones that matter most".
 The same app on the local 30B model did not run to the end: it took the Mac under 30% free within three minutes and
 was stopped (local-models.md, "A VR build beside other work"), so there is no local result beside the hosted one.
 
-So the words now ask (the lead, 2026-11-13T08:20Z) that nothing of the use be dropped without a word: each way the
+So the words now ask that nothing of the use be dropped without a word: each way the
 app finds things and each field of its forms gets a way that works with a hand (a row of the app's own choices,
 minus and plus, steps of day and hour, a keyboard of letter buttons for free words), or is named among what is left
 out; that every list be read to its end, and the kit's pages turn six at a time (`turn(1)`, `turn(-1)`); that words
@@ -195,7 +195,7 @@ critic read these words for an imagined recipe box (search, tags, a form with lo
 small arcade game: the game path is unharmed; it found that the pages could not show what a filter leaves, that long
 text and files had no rule, that a sign-in form would be rebuilt and faked, and that the welcome card's words leave at
 once in VR. So the pages take `set(list)` and centre a last, partial six, a page's words that do not fit go on to pages of the
-same title after it (AUDIT2 found the pages still cut them with an ellipsis while the words promised otherwise), short free words get a keyboard while long
+same title after it (a review found the pages still cut them with an ellipsis while the words promised otherwise), short free words get a keyboard while long
 text and files are named as left out, an account or a sign-in is never rebuilt, and the line stands in the scene.
 The starter's check measures none of
 these: its words are drawn into canvas textures, not the page, and a cut list has no one shape to find, so the
@@ -294,12 +294,12 @@ a real headless render.
 
 ## Words behind something (2026-11-14)
 
-LOOP's proving sweep (run 01-catch-meta) found the reading said "readable" for a score sign that stood behind a tree:
+A proving sweep (run 01-catch-meta) found the reading said "readable" for a score sign that stood behind a tree:
 the kit projected the words' height through the laptop camera and never asked what stood in front of them. The kit's
 sealed check hook now also casts a ray from the laptop camera to five points on each kit text's face (its centre and
 four corners set in to 60%), and a point is behind something when a shown mesh other than the text's own is hit more
 than 5 mm nearer. A text with more than half its points behind something (3 of 5) fails the reading. Checked in a real
-headless render on 2026-11-14 (the check's opt-in Chrome tests, this lane's pinned chrome-headless-shell): a 1 m box
+headless render on 2026-11-14 (the check's opt-in Chrome tests, a pinned chrome-headless-shell): a 1 m box
 between the game's camera and the score sign read `hidden` 1, kind `sign`, not ready, the check still passed; a
 view's three pages, with the starter's controls card over the top left of the screen, read nothing behind anything
 (the card stands under the camera in screen space and is never a cover); a game's pages from its camera still read
@@ -310,7 +310,7 @@ a cover under the camera that is the app's own, and the app's own text, which is
 
 Run (d) of 2026-11-14 built two pianos from "I just stand inside it and listen": both passed the check and read not
 ready on a laptop, since the input layer reported nothing to press (`no_target`), so Play on Laptop was refused for
-exactly what was asked. The lead ruled on 2026-11-16 that such a piece is ready on a laptop when it draws and sounds.
+exactly what was asked. It was decided on 2026-11-16 that such a piece is ready on a laptop when it draws and sounds.
 Checked before building, in the check's own browser (the pinned chrome-headless-shell folder, launched by
 `launchChrome` with the check's Seatbelt profile and switches, which hold no audio services), with the key press the
 laptop step sends (`Input.dispatchKeyEvent` keyDown and keyUp, Space): the DevTools `WebAudio` domain answers

@@ -1,6 +1,6 @@
 # Agent apps over the Agent Client Protocol: Antigravity and Kiro
 
-Verified 2026-11-17 on this Mac (Apple silicon, macOS 26), by the AGENTS lane. Each binary was taken from its
+Verified 2026-11-17 on this Mac (Apple silicon, macOS 26). Each binary was taken from its
 vendor's own download host and checked against the vendor's own manifest. Every run here used an isolated home,
 no sign-in and no key: Antigravity's turns were served by a stand-in Gemini API on loopback, and Kiro was run
 signed out. What a signed-in run of either would show beyond this is marked unverified.
@@ -72,7 +72,7 @@ Both apps serve the Agent Client Protocol, version 1, JSON-RPC 2.0 over stdio: `
 - The app exits when its input ends, at rest. Whether it does in the middle of a turn was not tried.
 - Its own home folders: `~/.gemini/antigravity-cli/` (settings, conversations, logs, brain) and `~/.gemini/config/`.
 
-## Reads, the person's own settings and a project's (AUDIT3 AC1 and AC2, 2026-11-17)
+## Reads, the person's own settings and a project's (audit findings AC1 and AC2, 2026-11-17)
 
 Run on the stand-in model, each denying first, with a control beside it:
 
@@ -101,7 +101,7 @@ read and write. End to end: an approved `read_file` of `~/.ssh/id_marker` fails 
 while the same read of a file beside it does; an approved command that writes `.agents/hooks.json` fails while the
 same command's write beside it lands.
 
-## One settings home per launch (AUDIT3 AC3, 2026-11-17)
+## One settings home per launch (audit finding AC3, 2026-11-17)
 
 A settings home made once and reused is the person's-settings hole again, in Halora's own folder: one approved
 write there (an allow-everything mode, a hook, a tool server, an agent) would reach every later session. So each
@@ -115,9 +115,9 @@ home and the folder itself are refused while the launch's own is written.
 
 A home's name is the control plane's process id, then the launch's id. Each launch first removes the homes whose
 control plane no longer runs (one killed hard never ran their removal), and leaves the others, a live control
-plane's and any entry not named as a home (AUDIT3 AC5).
+plane's and any entry not named as a home (audit finding AC5).
 
-A session's mode is watched for its whole life, not only at its start (AUDIT3 AC4): when the app says it is in
+A session's mode is watched for its whole life, not only at its start (audit finding AC4): when the app says it is in
 another mode than the asking one (`current_mode_update`, or the `mode` option in `config_option_update`), the
 running turn is cancelled, every open request withdrawn, and the turn ends failed with `mode_left` ("... switched
 to a mode where it does not ask you first, so Halora stopped the turn."); before the next instruction the mode is
@@ -132,7 +132,7 @@ Where each app keeps its sign-in, outside every folder the profile refuses, so a
 - Antigravity: the system keychain, by its docs; a fresh `--gemini-dir` opened a signed-in session. Its own
   `~/.gemini/antigravity-cli/` is not needed for it.
 
-## No app outlives the control plane (AUDIT3 AS1, 2026-11-17)
+## No app outlives the control plane (audit finding AS1, 2026-11-17)
 
 Measured on the pinned Antigravity on the stand-in model: with a command (`sleep 45; ...`) running after an
 approval, the process that launched `agy acp` was killed with SIGKILL; within four seconds `agy` and its command had
@@ -156,7 +156,7 @@ Signed in, Kiro's `session/new` reports `configOptions` with `autopilot` on, des
 confirmation" (Off: "Supervised"), and a `model` option (current `auto`). The signed-in runs above ran with it on
 and still asked before every write, `ls -la` and `true`; only `pwd` ran unasked. Halora does not rely on that: Kiro's
 profile names `autopilot: off` as an asking option. Every session sets it with `session/set_config_option` before
-anything else, whether or not `session/new` reported it (AUDIT3 AK1), and starts only once Kiro reads it back off, in
+anything else, whether or not `session/new` reported it (audit finding AK1), and starts only once Kiro reads it back off, in
 the set's answer or its report since (AK2); Kiro answers with its options, autopilot off, and reports the same in a `config_option_update` (seen,
 no prompt sent). A start where Kiro does not take it is refused. A later report of autopilot on, like a mode other
 than the asking one, cancels the turn, which ends `mode_left`, and the option is set again before the next
@@ -181,7 +181,7 @@ call's change as it was carried on that call's own approval, complete only where
 held write's call shows nothing until the review. Tested on the recorded edit trace with the review as Kiro asked
 it; an approved review of a whole Supervised turn is not yet seen live.
 
-## Nothing in a refused folder runs (AUDIT3, 2026-11-17)
+## Nothing in a refused folder runs (2026-11-17)
 
 The kernel runs a binary it may not read: both apps started from a folder the agent-app profile refused to read. So
 the profile also refuses `process-exec` in the host's folders, every `.halcyonic*` home, the credential folders, the
@@ -197,20 +197,20 @@ archives matched, and the programs unpacked at the pinned paths with the pinned 
 65902eb1..., `antigravity` 780ee763...). Turn Kiro On or Turn Antigravity On (two presses, as every press) checks that
 copy again and writes `<data>/agent-apps-on.json`; Turn Off removes it; the change waits for a restart, which the page
 says. Installing turns nothing on. Each press is drawn only where the app's state allows it: Install before it is installed
-(or when its copy no longer matches), then Turn On while off or Turn Off while on, never both (AUDIT's look).
+(or when its copy no longer matches), then Turn On while off or Turn Off while on, never both (checked by an audit).
 
 The copy sits in the data folder, which the agent-app profile refuses read and write. That stops neither app: the
 kernel runs a program from a folder the profile refuses to read (Kiro and Antigravity both started from one, signed
 out, with and without the folder opened), and a whole Antigravity turn ran from a copy there, end to end on the
 stand-in model. So the profile opens nothing for it.
 
-Cursor (the lead's ruling, 2026-11-17: verified on three bounded runs, offered as Kiro and Antigravity are): Install
+Cursor (2026-11-17: verified on three bounded runs, offered as Kiro and Antigravity are): Install
 Cursor fetches Cursor's own archive (above), checked by the SHA-256 recorded from its download, which matched the
 `.sha256` Cursor serves beside it (its docs give none), into `<data>/runtimes/cursor-2026.11.13`. The archive is a
 bash launcher, `cursor-agent`, beside its own Node and its code, so the pin is the whole unpacked `dist-package`
 folder, as the browser's is: the digest of its manifest, 435 entries, each one's kind, mode, path and SHA-256
-(`8f6e33e4...`, the same over two unpackings), checked again at every Turn On, so no file of it changes unseen (AUDIT3
-SU1, for Cursor). Its program is the launcher in that folder. Run there under the agent-app profile, bash could not read the launcher
+(`8f6e33e4...`, the same over two unpackings), checked again at every Turn On, so no file of it changes unseen (audit
+finding SU1, for Cursor). Its program is the launcher in that folder. Run there under the agent-app profile, bash could not read the launcher
 (exit 126), then its `realpath` could not look at the folders above it: so the profile opens the program folder to
 be read as well as run, never written, and each folder above it inside the host's own only to be looked at (stat),
 never listed (seatbelt test with controls). So a Cursor copy in a refused folder answered `initialize` and opened a
@@ -245,7 +245,7 @@ signed-out handshake and end to end on the real binary, signed out. Not seen: an
 the profile expects to hold `agent`; its permission options' kinds; its blocking `cursor/ask_question` and
 `cursor/create_plan` requests, which the adapter answers as unknown methods).
 
-## An ask that changes, and an app's own commands (AUDIT3 KW1, SW-g, 2026-11-17)
+## An ask that changes, and an app's own commands (audit findings KW1, SW-g, 2026-11-17)
 
 An app that reports another input for a call after the person was asked about it and before they answered has the
 ask refused by Halora at once (its once-only refusal), recorded as denied with `withdrawn.input_changed` as the
@@ -270,16 +270,16 @@ no recorded copy, and false off macOS or with copies off. In a copy the agent-ap
   person's folder, and was refused writing the person's folder, writing or reading the other task's copy and making
   `.agents/hooks.json` in the copy; `SSH_AUTH_SOCK`, given in its environment, did not reach the command. With the
   drop removed the address reached it; with the adapter's copy support removed the start failed in the copy.
-- Two tasks of one project at once on the real `agy` (AUDIT3 C6b): one adapter, two copies, the second task started
+- Two tasks of one project at once on the real `agy` (audit finding C6b): one adapter, two copies, the second task started
   while the first waited on its ask, both approved; each command ran in its own copy (`pwd -P`), and was refused
   writing and reading the other's. With the copy's opening widened to the copies' folder, the test fails.
-- The app's settings folders in the person's folder are refused in a copy too (AUDIT3 SC1): `.Agents` under a
+- The app's settings folders in the person's folder are refused in a copy too (audit finding SC1): `.Agents` under a
   subfolder of the person's folder is unreadable from the copy's profile, and readable without the rule.
 - `runtimes.test.ts`: the three apps, registered as the control plane registers them, are held to a connected folder
   and its copy and to a starter's project and its copy on macOS, never to an unrecorded folder in the copies' folder or
   the data folder, and to nothing without task copies.
 
-## A command ask in its parts (AUDIT3 CP1 to CP5, 2026-11-17)
+## A command ask in its parts (audit findings CP1 to CP5, 2026-11-17)
 
 On the real `agy` 1.5.10 (stand-in model), two approved `run_command` calls in one turn: `mkdir -p sub && cd sub &&
 pwd -P > first.txt`, then `pwd -P > where.txt`; `where.txt` named the task's folder, so a `cd` carries over to no
@@ -289,8 +289,8 @@ tool.
 
 ## Cursor signed in (2026-11-17, three bounded runs, the cheapest model)
 
-The owner signed in to Cursor (19:13Z). Each run: a scratch folder, the agent-app profile, a fresh
-`CURSOR_CONFIG_DIR` seeded with `cli-config.json` (allowlist, nothing allowed), `NO_OPEN_BROWSER=1` (AUDIT3 CU2),
+Cursor was signed in with a real account (19:13Z). Each run: a scratch folder, the agent-app profile, a fresh
+`CURSOR_CONFIG_DIR` seeded with `cli-config.json` (allowlist, nothing allowed), `NO_OPEN_BROWSER=1` (audit finding CU2),
 `gpt-5.4-nano[reasoning=medium]` (the cheapest by name of its 48), one turn, under ten minutes.
 - No prompt (20:11Z, CU1): `initialize` names no `agentInfo`, auth `cursor_login`; `session/new` answered without
   `authenticate` (the sign-in applies under Halora's config folder), modes `agent` (current), `plan` ("Read-only"),
@@ -316,7 +316,7 @@ The owner signed in to Cursor (19:13Z). Each run: a scratch folder, the agent-ap
   stand-in, two, `gemini-4-carbon` and `gemini-4-hydrogen`, while `models.availableModels` lists their effort
   variants), and `session/set_config_option` `model` `gemini-4-carbon` was answered with it current. The adapter lists
   that option's choices, the one current first, and a start with a model sets it and goes on only once the app reads
-  it back. The model is set first, before the asking mode and the held options (AUDIT3 MC1): Kiro's answer to a model
+  it back. The model is set first, before the asking mode and the held options (audit finding MC1): Kiro's answer to a model
   set lists every option again (and adds `effortLevel` and `thinking`), so a model change could reset one; each held
   option is then set and read back last, and the asking mode is taken from the app's latest report. End to end on the pinned binary: the listing asks the model nothing, and a turn started on a listed model
   asked the stand-in for that model.
@@ -341,7 +341,7 @@ to end, one call reported input 60, cache_read 40, cache_write 0, output 15, rea
 (`turn_completion`, `session_usage`), which the contract does not carry, and Cursor reports nothing, so neither
 declares `reports_usage`.
 
-## Kiro's content collection held off (the lead's ruling, 2026-11-17)
+## Kiro's content collection held off (2026-11-17)
 
 In Halora's fresh settings home Kiro's `session/new` reports `contentCollection` `enabled`, "Allow content to be used
 for service improvement": Kiro's default, not the person's choice (their own `~/.kiro/settings/cli.json` names no
@@ -351,9 +351,9 @@ on sharing your work to improve its service, so Halora stopped the turn."), set 
 recorded Kiro traces have Kiro's real answer to that set spliced in after the autopilot one, with the later reports
 disabled, as Kiro makes them.
 
-## Real runs, signed in (2026-11-17, the owner's sign-ins, bounded by the lead)
+## Real runs, signed in (2026-11-17, real sign-ins, bounded runs)
 
-The owner signed in to Kiro ("Logged in with Google") and to Antigravity on this Mac. Each run: a scratch folder,
+Kiro ("Logged in with Google") and Antigravity were signed in on this Mac. Each run: a scratch folder,
 the agent-app profile, the app's settings home of Halora's own, the cheapest listed model, at most ten minutes.
 
 - Kiro's sign-in applies under `KIRO_HOME=~/.kiro/halora` (its store stays in Application Support):
@@ -424,10 +424,10 @@ again right before `session/new`; the app's version must be the profile's, or th
   counted taken when the call next reports `in_progress` or `completed` (approved) or `failed` (denied), else it
   fails after 15 s with effect unknown.
 - A request that is no command is shown in words and then each input on a line of its own ("Use fetch", "url:
-  ..."), never as JSON (AUDIT2), a name or text holding a line break, a control character or a space at either end
-  quoted, so no input forges a line read as another (AUDIT3 IS1), and each input is also carried literally in the
+  ..."), never as JSON, a name or text holding a line break, a control character or a space at either end
+  quoted, so no input forges a line read as another (audit finding IS1), and each input is also carried literally in the
   subject's `inputs` for a card's well (2026-11-17); a profile's shell tool (Antigravity's `run_command`, Kiro's and Cursor's `execute`
-  call) as its command in its parts (`ApprovalCommand`, AUDIT3 CP1 to CP5), taken from the command field of the
+  call) as its command in its parts (`ApprovalCommand`, audit findings CP1 to CP5), taken from the command field of the
   call's own input, never its title, uncut, its summary built from the parts alone: Antigravity's said to run in the
   task's folder (seen: each command starts there, a `cd` in one reaching no later one), or in the folder its own `Cwd`
   names (the field its own prompt's example of `run_command` uses), quoted and resolved against the task's folder;
@@ -471,7 +471,7 @@ again right before `session/new`; the app's version must be the profile's, or th
 - What Kiro's `fs_write` `{path, text}` does to a file that is already there, so such a write is carried, and can be
   approved, only where nothing is at its path yet; elsewhere it can only be denied.
 - Stopping a Cursor turn (`session/cancel`), and what Cursor does after Halora refuses its `cursor/ask_question` or
-  `cursor/create_plan` (AUDIT3 CU4): no run showed either, so a Cursor task is kept short.
+  `cursor/create_plan` (audit finding CU4): no run showed either, so a Cursor task is kept short.
 - Kiro and Cursor working in a task's copy (the same profile code as Antigravity's, which was run in one).
 - Which of Antigravity's other tools ask.
 - Which settings key, if any, is the person's own choice behind Kiro's `contentCollection` (its binary names

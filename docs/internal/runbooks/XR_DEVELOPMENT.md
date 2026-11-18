@@ -431,7 +431,7 @@ app secrets out of repository files, chat transcripts, and shell history.
 
    Confirm the signer certificate is the release key, not `CN=Android Debug`.
 6. **Verify on a headset:** uninstall any debug-signed build first (which clears app-private storage),
-   install the signed release APK, and walk [The demonstration judges see](#the-demonstration-judges-see)
+   install the signed release APK, and walk [The demonstration first-time users see](#the-demonstration-first-time-users-see)
    with no token and no pairing.
 7. **Upload** to that channel with Meta Quest Developer Hub or `ovr-platform-util`
    (`ovr-platform-util upload-quest-build --age-group <group> --app-id <id> --app-secret <secret> --apk <apk> --channel <channel>`).
@@ -688,7 +688,7 @@ connected Quest (USB on a development APK, or Wi-Fi paired on either APK):
 5. **Unconfigured host:** restart the control plane without `HALCYONIC_WHISPER_*` and verify holding
    reports `"Voice isn't set up. Type instead."`
 
-### The demonstration judges see
+### The demonstration first-time users see
 
 With neither Wi-Fi pairing nor a USB access token, Halora plays the bundled sanitized real run
 (`HalcyonicRecordedRun.json`, [ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md))

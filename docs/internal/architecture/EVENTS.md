@@ -383,7 +383,7 @@ content.
 ### Recorded runs
 
 A recorded run is one real run's journal prepared to be shown: how a person tries Halora without a
-connected computer, including in the judge build
+connected computer, including in the build for first-time users
 ([ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md),
 [ADR 0012](../decisions/0012-a-labeled-demonstration-runs-on-the-headset.md)).
 `pnpm judge:record <trace.jsonl> --root <project folder> --home <home folder> --deny <file>`
@@ -414,7 +414,7 @@ still names a product, company or platform (the same list as the headset's `Judg
 runtime, model and product names in any case), a home or user folder, a private folder, the local
 host, an address, a URL, an email, a credential shape or a word from the deny file, nothing is
 written: the tool lists each event and field, never the text or the key, and the run is recorded
-again. The deny file is required and lists at least the owner's names, matched as whole words in any
+again. The deny file is required and lists at least the names of the person whose run it is, matched as whole words in any
 case, since an agent quoting a commit's author carries them. Names that must not be published even in
 the recorder's own list, such as other projects not yet public, stay out of the repository: the recorder
 reads them from `.private/recorded-run-names` (one a line, `#` starting a comment), which git ignores, and

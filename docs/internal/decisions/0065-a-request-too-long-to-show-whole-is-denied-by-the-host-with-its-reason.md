@@ -8,25 +8,25 @@
 The control plane cut an approval's summary at 2000 characters and marked a cut request not approvable, so that nobody
 approves what nobody could read whole. Run (b3) on the proving plane (Meta's model through OpenCode) met the cost: the
 agent asked to run an inline script of more than 2000 characters, the card could only be denied, nothing told the
-agent why, and the run stood still until a person denied it by hand. The lead ruled on 2026-11-13 (17:07Z) that a
-person is never left with a card whose only button is Deny, and AUDIT3 passed the shape (18:17Z) with conditions.
+agent why, and the run stood still until a person denied it by hand. It was decided on 2026-11-13 that a
+person is never left with a card whose only button is Deny, and an audit passed the shape with conditions.
 
 ## Decision
 
 1. **Two bounds.** The request's summary is kept whole for the record up to 32000 characters
    (`ApprovalSubject.summary`, the bound an agent's message has; cut beyond it). It is approvable only up to the
    longest request the headset's card shows whole and holds Approve to its last part: `APPROVABLE_LIMIT`, 2000 today.
-   The headset already pages a request and holds Yes to its last part (XR, 19:36Z), but that is not yet tried at
-   length, so raising the approvable bound is one constant once a client test pages a long request whole and the
-   lead says how long a request a person should be asked to read.
+   The headset already pages a request and holds Yes to its last part, but that is not yet tried at
+   length, so raising the approvable bound is one constant once a client test pages a long request whole and it
+   is decided how long a request a person should be asked to read.
 2. **Beyond the approvable bound the host denies the step at once where it would reach a person**, confined or not
    (`HostDenials`, `apps/control-plane/src/core/host-denials.ts`): the request carries `too_long: { length }`, the
    host records `execution.approval.denied_by_host` with the reason and length, then sends the same denial a press
    sends, with words that say why and name the bound, and suggest nothing more: while a file write's approval shows
-   only its path, "write it as a file" would be a way round the rule (AUDIT2, AUDIT3; the lead, 2026-11-13 19:46Z).
+   only its path, "write it as a file" would be a way round the rule (audit findings, 2026-11-13).
    The advice comes back with the second half of this decision, ordered the same evening: an approval shows whole
    what it approves, a write's content and an edit's old and new text too.
-   **A confined app's own work is not denied for length** (AUDIT3 M1, the lead 19:53Z): the bound is a person's
+   **A confined app's own work is not denied for length** (audit finding M1): the bound is a person's
    reading bound, and in a confined copy no person approves (ADR 0064). One decision (`requestOutcome`) says, for
    each request, whether the host answers it (the no-ask rule holds and the agent app reported it complete:
    `too_long.reported_complete`), denies it for length, or leaves it to the person; the host's answer approves it
@@ -36,21 +36,21 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    Agent declares it (the SDK's deny carries `message` as the tool result the model reads). OpenCode 2.0.18 delivers a
    denial's message nowhere (its e2e) and Codex 0.157.0's approval reply has no field for one (its own schema,
    [approval-levels.md](../validation/approval-levels.md)): the event records `delivered: false` there.
-4. **What is shown is what runs** (AUDIT3 L1). Characters a card does not draw (C0 and C1 controls but tab and
+4. **What is shown is what runs** (audit finding L1). Characters a card does not draw (C0 and C1 controls but tab and
    newline, carriage return, the bidirectional overrides and isolates, the zero-width characters and the byte order
    mark) are written in the summary as their escape (`\u{202E}`), for every request, before it is fitted.
-   - **Amended 2026-11-17 (the lead's ruling, AUDIT2's marks, AUDIT3 HM1 to HM5): the host writes its own marks.**
+   - **Amended 2026-11-17 (audit findings HM1 to HM5): the host writes its own marks.**
      Each such character is `‹U+XXXX›`, a tab `⇥`, and in a well (a command's text, an input's value) `↵` before
      each line break and a space at either end `‹U+0020›`; the host's own mark characters, held literally, are
      written as their codes, so every mark is the host's and a text that only reads like an escape is plain text.
      It marks before it fits, never cuts inside a mark, and decides by the text unmarked. Older events keep the
      escapes they were recorded with; a card draws every text as given. A request the host cut to the record's bound
-     says so apart (`cut`), and the host never judges it by a part it cut (AUDIT3 HM6): a command's folder read
+     says so apart (`cut`), and the host never judges it by a part it cut (audit finding HM6): a command's folder read
      from its parts is then the person's to approve, while the closed profile's own shell, held whatever it runs, is
-     still answered as before (AUDIT3 M1).
+     still answered as before (audit finding M1).
 
 5. **The second half: an approval shows whole what it approves, a file's change too, once the headset's card draws
-   `changes`** (the lead, 2026-11-13 19:46Z; AUDIT3's shape read with W1 to W4). Until then the request carries the
+   `changes`** (2026-11-13; the audit's shape read with W1 to W4). Until then the request carries the
    change and the card still shows its path only (SECURITY.md). A file tool's request carries its change as `ApprovalSubject.changes`
    (`ApprovalChange`: path, the host's `real_path` where a link takes the write elsewhere, a move's `to_path`, kind,
    shape, `before` and `after`, `every`, a notebook `cell`), and each agent app declares `shows_changes`:
@@ -66,9 +66,9 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    escaped and counted together against the approvable bound (W3); the host resolves each path against the task's
    folder and shows the real one where a link leads elsewhere (W1). A confined app's own write is answered by the host
    whatever its length (point 2). The denial's advice to send a long command in parts may now return, in its own
-   words change (AUDIT2).
+   words change.
 
-6. **No agent waits on a request nobody can see** (the lead, 2026-11-13, after a real run's Edit with empty change text
+6. **No agent waits on a request nobody can see** (2026-11-13, after a real run's Edit with empty change text
    was refused by the journal and the agent waited an hour). When the journal cannot record an approval request an
    agent app waits on, whatever the cause, the observation sink tells the host (`createObservationSink`'s
    `unrecorded`), and the host (`unrecordedRequests`, `host-denials.ts`) records `execution.approval.denied_by_host`
@@ -76,14 +76,14 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
    through the command a press sends, which admission would refuse for a request it never saw. The agent's words are
    only "This request could not be shown to a person, so it was not done." `delivered` follows
    `delivers_denial_message`. The record keeps the refused request's `tool_name` beside it only where the contract's own
-   check of that field passes (AUDIT3 F2): the app's own report, as given, for display only, which nothing decides by
+   check of that field passes (audit finding F2): the app's own report, as given, for display only, which nothing decides by
    (`tooling/denied-tool-name.test.ts`), never the tool's input, summary, paths or changes; whatever shows it as words
    escapes it with `visible`, and nothing does yet. A request the projection holds pending after all is left to the person. The denial is
    sent even where its own record fails. Logs carry ids, codes, counts and where the contract refused the request
    (each pointer step that is not a contract field name or an index written `*`), never its text. A question the
    journal refuses is never answered or dismissed: an agent app has no declared way to decline one (`answerQuestion`
    carries answers only), and none is emulated.
-   **A refused question ends its turn instead** (AUDIT3 F1): where the agent app declares `interrupt`, the host asks
+   **A refused question ends its turn instead** (audit finding F1): where the agent app declares `interrupt`, the host asks
    it, at most once in a turn and never again after a refusal, to interrupt the execution the question was routed to,
    and records `execution.question.ended_by_host` once the ask settles, `interrupt_requested` true only where the call
    was taken (false where none is declared or the call failed), never claiming the turn ended, which only the
@@ -94,7 +94,7 @@ person is never left with a card whose only button is Deny, and AUDIT3 passed th
 ## Alternatives considered
 
 - **Raise the approvable bound to 32000 now.** The card's gate exists but no test has paged 30000 characters (about
-  a hundred parts); approval must rest on what the card shows to the end (AUDIT3).
+  a hundred parts); approval must rest on what the card shows to the end.
 - **Keep the Deny-only card and add its reason.** It still leaves the run waiting on a person for a step nobody may
   approve.
 - **Deny without words.** The agent would retry the same command.

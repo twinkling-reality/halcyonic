@@ -1,6 +1,6 @@
 # The input that opens the app's own menu on Quest
 
-Verified on 2026-11-12 against Meta's own developer pages, for the lead's decision that the menu opens from anywhere.
+Verified on 2026-11-12 against Meta's own developer pages, for the decision that the menu opens from anywhere.
 
 ## Verified fact
 - **Touch controllers.** The Meta (Oculus) button is reserved for the system and is not available to an app; the Menu

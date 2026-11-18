@@ -1,6 +1,6 @@
 # Responsive workspace candidate
 
-2026-10-15. The owner confirmed that the installed workspace stayed behind and left view. This
+2026-10-15. A tester confirmed that the installed workspace stayed behind and left view. This
 reverses the former production fixed-anchor policy; it does not reverse tracked first-pose gating.
 
 ## External grounding

@@ -47,7 +47,7 @@ What was true on 2026-11-11, before this decision:
    page), nor one that changes where a program
    connects or what it trusts (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, `SSL_CERT_FILE`,
    `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`), since Claude Code gets the secrets in its whole
-   process environment (AUDIT3). A project keeps at most 32. Removing one is low consequence, from any
+   process environment. A project keeps at most 32. Removing one is low consequence, from any
    client, a paired device too: it gives later tasks nothing and leaks nothing, so it needs no review.
 3. **A value travels only in its own request, write-only.** Two ways, one path inside: the Mac's setup page
    (ADR 0053), as the person's local press, and `POST /api/projects/:id/secrets` (`ProjectSecretSetRequest`:
@@ -63,7 +63,7 @@ What was true on 2026-11-11, before this decision:
 4. **Redaction knows a value from the moment it is staged.** Every value kept or staged is among the held
    secrets each runtime's text is cleaned of, shown as `[redacted: NAME]`. So is every value replaced or
    removed while the control plane runs, in memory only, never on disk: a task started before still holds
-   it and can print it (AUDIT3). After a restart only the values kept are held; a re-attached task is given
+   it and can print it. After a restart only the values kept are held; a re-attached task is given
    those, though an old one may remain in its runtime's own history. A value shorter than 8
    characters is refused, since redaction leaves values that short alone.
 5. **Given at a start, declared per runtime, never emulated.** `RuntimeDescriptor.secret_environment`, true
@@ -83,8 +83,8 @@ What was true on 2026-11-11, before this decision:
    what it started with, until a restart re-attaches it. The page says so, and says plainly that an agent
    given a key can use it, print it and send it wherever its commands reach. It names the agents that start
    without the secrets, and in a row with the alert mark the ones that run outside the sandbox on a folder
-   the person connected. A refusal is said in that project's card, and Remove takes a second press (LINK's
-   critic, decided by the lead on 2026-11-11).
+   the person connected. A refusal is said in that project's card, and Remove takes a second press (a review
+   finding, decided on 2026-11-11).
 7. **The store follows the journal.** At a start, after the journal is folded, a value whose name the
    journal does not list, and anything a press left staged, is deleted.
 
@@ -98,7 +98,7 @@ What was true on 2026-11-11, before this decision:
   session already has an environment of its own. A restart would end every session at rest there.
 - **Setting a changed secret at the next turn of a running task.** Codex takes `config` only per thread,
   and a turn takes none, so the three runtimes would differ. One rule, at a start, is what the page says.
-- **Land Claude Code alone first.** Refused by the lead (2026-11-11): the agents people run here are
+- **Land Claude Code alone first.** Refused (2026-11-11): the agents people run here are
   OpenCode and Codex on a local model.
 
 ## Consequences
@@ -120,7 +120,7 @@ What was true on 2026-11-11, before this decision:
   unconfined run cannot simply read them (the Keychain) is the way to close it, and is not built.
 - **After a restart, an old value is no longer known.** A task re-attached then is given the current values,
   but its runtime's own history (OpenCode's session, Codex's rollout) may hold an old one it printed before,
-  and a repeat of that one would be journaled whole (AUDIT3's reread S2). Only the values kept are held
+  and a repeat of that one would be journaled whole (review finding S2). Only the values kept are held
   after a restart, since retired ones are never written to disk.
 - Neither OpenCode's nor Codex's own files hold a value given this way after the end to end runs (the
   runtimes' sandbox folders searched, with the variable's name as the control).

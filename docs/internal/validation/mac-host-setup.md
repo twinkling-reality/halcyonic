@@ -4,19 +4,19 @@
   plain words, without weakening a security control, and does a control plane started from the
   settings file it writes alone do real work on a local model?
 - **Date:** 2026-10-02.
-- **Versions:** Halcyonic `lane-g-host-setup` on main 8e9ba39; macOS 26.7 on an Apple M5 Max with
+- **Versions:** Halcyonic on main 8e9ba39; macOS 26.7 on an Apple M5 Max with
   64 GB; Node.js 24.15.0; Ollama 0.34.4 (already running, with seven models); OpenCode 2.0.18 and
   Codex 0.157.0 as installed in `~/.halcyonic/runtimes` on 2026-09-29; whisper.cpp 1.9.4 and its two
   models as installed in `~/.halcyonic/speech`.
-- **Method:** The check was run read-only against the owner's real data directory. Every action was
+- **Method:** The check was run read-only against a real, in-use data directory. Every action was
   run against a scratch data directory holding APFS clones of the pinned binaries and voice files, a
   real control plane was started from it on loopback ports of its own, and one real task was started
   through it. Nothing was written to `~/.halcyonic`, the running control plane was not restarted, and
   no remote model was called.
-- **Status:** Verified on the owner's Mac for the steps below. Not tried by a person new to
+- **Status:** Verified on a developer's Mac for the steps below. Not tried by a person new to
   Halcyonic, which is what the setup is for; it stays a prototype until then.
 
-## The check on the owner's Mac
+## The check on a developer's Mac
 
 `pnpm mac-setup --no-token` against `~/.halcyonic` (now the default), which reads no credential, no
 access token and no journal: it checks file modes and owners, hashes the pinned files, lists Ollama's models and asks
@@ -28,7 +28,7 @@ only the unauthenticated `GET /api/health`.
 - It reported what an environment-started control plane leaves invisible to it: no folder in the
   settings, the two agent apps installed and checked but not set up, voice ready to record, a Seorak
   credential saved (whether Seorak accepts it needs the token), and Halcyonic running, "checked without
-  its access token". The owner runs the control plane with environment variables, so the check is
+  its access token". That Mac runs the control plane with environment variables, so the check is
   right that the settings file allows nothing yet.
 - Ollama's seven models were listed with their sizes; `smollm2:135m` as unable to use tools, and the
   two aliases (`gpt-4o:latest`, `gpt-3.5-turbo:latest`, both `llama3.2:1b`) as running on this Mac.
@@ -49,13 +49,13 @@ environment so nothing listened on the network:
   file; the listener's address came from the environment, which won over the file's `0.0.0.0`.
 - `pnpm mac-setup`, with the scratch access token, then read "Halcyonic is running with these
   settings", every step ready but the headset ("no headset is paired yet", next `pnpm pair`), and
-  where work goes marked "Look at this": the owner's own Codex settings name no provider, so Codex's
+  where work goes marked "Look at this": that Mac's Codex settings name no provider, so Codex's
   models through Halcyonic run on OpenAI's remote service. The check read only the top-level
   `model_provider` line of `~/.codex/config.toml` for this.
 - `GET /api/runtimes/opencode/models` launched the pinned OpenCode, which listed every tool-capable
   Ollama model at 65,536 tokens of context, the limit Halcyonic's own OpenCode settings set, where
   OpenCode otherwise assumes the model's own (262,144 for `qwen3.6:35b-a3b-nvfp4`). So OpenCode read
-  the settings given to it alone as `XDG_CONFIG_HOME`, and the owner's `~/.config/opencode` was not
+  the settings given to it alone as `XDG_CONFIG_HOME`, and the user's `~/.config/opencode` was not
   involved. Its seven OpenCode Zen models were listed as remote, as before.
 - **A real start.** `project.create` with a new folder in the scratch root, `workstream.create`,
   then `execution.start` on `opencode` with `model_ref` `ollama/qwen3.6:35b-a3b-nvfp4` and the
@@ -106,7 +106,7 @@ the same scratch data directory:
 
 ## The companion's step
 
-On main 7c7d363 with lane C's companion, in a fresh scratch data directory, against the Mac's
+On main 7c7d363 with the companion, in a fresh scratch data directory, against the Mac's
 Ollama, which listed `qwen3.5:9b` among ten models:
 
 - `pnpm mac-setup` showed the Companion step as optional, quoting the headset's "The companion isn't
@@ -133,7 +133,7 @@ clang 21.0.0 on macOS 26.7; without Apple's command line tools the command says 
 
 `pnpm mac-setup browser` lists `~/Library/Caches/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-mac-arm64`
 as plain folders (a link is passed over) and compares the digest of each one's manifest, every entry's kind, mode and
-relative path and every file's SHA-256, with any link refusing it, against the browser pin in `pins.ts` before it copies or records anything (AUDIT M1). A match is copied into
+relative path and every file's SHA-256, with any link refusing it, against the browser pin in `pins.ts` before it copies or records anything. A match is copied into
 `<data dir>/browser/current` (checked again after the copy, a 0700 folder), its folder alone is written to the
 settings file as `HALCYONIC_BROWSER`, and the launcher and the sound helper are built. The settings file refuses
 `HALCYONIC_BROWSER_SHA256`; the start takes the hash from the pin, and refuses one in the environment that is not the pin.
@@ -158,9 +158,9 @@ lockfile's): `starter` recorded it, `undo` recorded `/usr/bin/git`, and the chec
 (recorded, then Ready), one package at another version (named, nothing recorded), undo on and off, and a missing
 path, a folder, a file that cannot run and a relative path refused.
 
-## The starter's set and undo's git, made strict (AUDIT SETUP, 2026-11-03)
+## The starter's set and undo's git, made strict (2026-11-03)
 
-AUDIT passed the steps above with six SHOULDs; all six are in.
+A review passed the steps above with six suggestions; all six are in.
 
 - **The record** (`installed.json`) is written as the settings file is: a new file of its own, mode 600, created
   exclusively and renamed over the old, so a link at its name is never followed.
@@ -178,7 +178,7 @@ AUDIT passed the steps above with six SHOULDs; all six are in.
 - **The printed commands** quote their paths: under the home folder as `"$HOME/..."`, otherwise bare when plain and
   in single quotes when not, so a data folder with a space in its name works.
 
-Run on the lane's scratch data directory with its real set (80 packages, 16,820 entries): `starter` recorded it
+Run on a scratch data directory with its real set (80 packages, 16,820 entries): `starter` recorded it
 (the walk 455 ms), the record a regular file with mode 600; `undo` recorded `/usr/bin/git`; the check read both
 Ready. Tested in `mac-setup.test.ts` and `starters.test.ts`: a link at the record's name (left alone, a new file
 written), a package the lockfile doesn't name, a package folder that is a link, a link inside a package out of the
@@ -213,8 +213,8 @@ spawned more than once every 10 seconds; the agent sets 30), `ExitTimeOut` (the 
 stop signal and a kill; the default is "system-defined", the agent sets 30), and `StandardOutPath`
 and `StandardErrorPath` (launchd creates the file if it is missing; On makes the folder first).
 
-Verified on the owner's Mac, 2026-11-12 04:58Z, with a scratch label
-(`com.halcyonic.control-plane.scratch`), its file in a lane's own git-ignored folder (never
+Verified on a developer's Mac, 2026-11-12 04:58Z, with a scratch label
+(`com.halcyonic.control-plane.scratch`), its file in a git-ignored folder (never
 `~/Library/LaunchAgents`), port 47841 and a scratch data folder, through the command's own `on` and
 `off` (`login-agent.ts on|off <folder> --label --port --data-dir`):
 - `~/Library/LaunchAgents` held no Halcyonic file before the run or after it.
@@ -231,7 +231,7 @@ Verified on the owner's Mac, 2026-11-12 04:58Z, with a scratch label
   was gone. The plane's log, written by launchd to the scratch data folder, held no error line.
 - The runs above (04:58Z) gave the plane no tasks folder of its own, so it used the account's usual one
   with a scratch journal; its log has no "task copies swept" line. Every run since has its own:
-- Again at 05:16Z with a scratch tasks folder (`--tasks-dir`, AUDIT3's finding that copies default to
+- Again at 05:16Z with a scratch tasks folder (`--tasks-dir`, since copies default to
   `~/.halcyonic-tasks` whatever the data folder is): the file carried it, every step above repeated
   (the restart seen within 32 seconds), and the log held no "task copies swept" line.
 - Again at 05:44Z on the final check, and a refused On at 05:49Z: a scratch data folder with the
@@ -249,7 +249,7 @@ Verified on the owner's Mac, 2026-11-12 04:58Z, with a scratch label
 
 Not verified:
 - The real label and `~/Library/LaunchAgents`, so also a start at an actual login and macOS's
-  background item notice: installing it on the owner's Mac is the owner's choice.
+  background item notice: installing it on a Mac is that user's choice.
 - Restart to Apply (exit 75) and a failed close under launchd; only a KILL's restart was seen.
 - On from an ssh session or any session with nobody logged in at the Mac (launchd should refuse
   `gui/<uid>` there; On then removes the file).

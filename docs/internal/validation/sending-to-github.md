@@ -5,14 +5,14 @@ this Mac with `/usr/bin/git` (Xcode's `git version 2.50.1 (Apple Git-155)`), in 
 
 ## Nothing here has met github.com
 
-No test, probe or lane pushed to GitHub, opened a pull request, or used anyone's GitHub sign-in. In every
+No test or probe pushed to GitHub, opened a pull request, or used anyone's GitHub sign-in. In every
 test:
 - `origin` is `https://github.com/owner/garden.git`, which the test's own git settings (a scratch `HOME`
   with an `insteadOf` rule) send to a local bare repository;
 - `gh` is a stand-in script that records each call and whether a token reached it, and answers with a
   pull request's address.
 
-The first real send to GitHub is the owner's own, with their press.
+The first real send to GitHub is the person's own, with their press.
 
 ## Proven on the stand-ins (`sending/github.test.ts`, `http/github-route.test.ts`)
 
@@ -46,7 +46,7 @@ The first real send to GitHub is the owner's own, with their press.
    - the journal holds no address and nothing of the person's git identity;
    - a computer without the sender answers `unavailable`.
 
-9. **The person's own repository as their git sees it** (AUDIT3's probes G1 to G4 and S4, kept as tests):
+9. **The person's own repository as their git sees it** (review probes G1 to G4 and S4, kept as tests):
    - a file tracked but ignored (`vendor/lib.js` under `vendor/` in `.gitignore`) and a tracked
      `.env.production` stay in the sent commit when the person changed only `app.txt`; the review lists only
      `app.txt`; a change to `.env.production` on this Mac is not sent, the commit keeps the base's;
@@ -56,7 +56,7 @@ The first real send to GitHub is the owner's own, with their press.
      `filter.mine`, or Git LFS's) is refused `uses_filters`, and neither filter ran; `uploadpack.packObjectsHook`
      in the repository never ran; attributes naming no filter send as files;
    - a `.git/info/exclude` that is a link, or over 64 KiB, and an excludes file that is not a readable file,
-     refuse the review `unreadable_excludes` (AUDIT3's reread G5; this test fails on 38b0e689's sender);
+     refuse the review `unreadable_excludes` (review reread G5; this test fails on 38b0e689's sender);
    - git's default `~/.config/git/ignore`, and an excludes file reached through a link from dotfiles, are
      honoured while the person's other settings are not (this pins behaviour git already had: it passes on
      38b0e689 too);
@@ -89,7 +89,7 @@ The first real send to GitHub is the owner's own, with their press.
 3. **A second publish** builds on the first: its parent is the first's commit. One that does not build
    on what the branch holds is refused (`push_refused`), and the branch keeps its commit: never a force.
 4. **Unpublishing** deletes the branch on the stand-in GitHub.
-5. **Take Down acts on what was published, and only on it** (AUDIT3's probes U1 and U2, kept as tests):
+5. **Take Down acts on what was published, and only on it** (review probes U1 and U2, kept as tests):
    - with the folder's origin pointed at another repository that has a Pages branch of its own, Take Down
      is refused `origin_changed`, and both branches stay; with the origin back, it comes down;
    - after the person pushed a commit of their own (a `CNAME`) onto the branch from another clone, Take
@@ -155,12 +155,12 @@ The first real send to GitHub is the owner's own, with their press.
 
 ## The first real run against github.com (2026-11-12, 07:17Z to 07:21Z)
 
-On the owner's yes of 03:40Z (one throwaway repository in their account, one branch and one pull request, a test
-page for a few minutes, the repository deleted after), read by AUDIT3 (PLAN INSIDE SCOPE). The code: `git archive
-8810cb41c` (the link rule, the general Send, AUDIT3's S1 to S3, Add's link rule), on a scratch control plane on
+On the account holder's yes of 03:40Z (one throwaway repository in their account, one branch and one pull request, a test
+page for a few minutes, the repository deleted after), with the plan reviewed first. The code: `git archive
+8810cb41c` (the link rule, the general Send, review findings S1 to S3, Add's link rule), on a scratch control plane on
 127.0.0.1:47910 with its own data and tasks folders, the game's folder outside every repository. The person's own
 git and gh did the work with the sign-in already on this Mac; no token was read, printed or copied. The commits
-were signed by a scratch identity set in Halcyonic's own repository for the project, so the owner's git name and
+were signed by a scratch identity set in Halcyonic's own repository for the project, so the account holder's git name and
 email reached nothing. The repository is `<owner>/halcyonic-proof-20261112-0717`.
 - 07:17:45 a game from the VR starter, a box of its own; its check passed, confined.
 - 07:19:28 Send's review, nothing given: a new private repository `halcyonic-proof-20261112-0717`, title "Proof
@@ -181,7 +181,7 @@ email reached nothing. The repository is `<owner>/halcyonic-proof-20261112-0717`
 - 07:20:42 the teardown: pages off (none were on), `gh repo delete` succeeded, and `gh repo view` answers not found.
   The repository is gone.
 - A slip in the record itself, also fixed: the run's own log masked the login case-sensitively, so its lower-case
-  spelling stayed in the run's private log and in the lane's chat once; the logs are scrubbed and the mask ignores
+  spelling stayed in the run's private log and in a session transcript once; the logs are scrubbed and the mask ignores
   case now. Nothing tracked holds it.
 
 ## GitHub's own rule for pages (read 2026-11-12, working rule 2)
@@ -199,7 +199,7 @@ email reached nothing. The repository is `<owner>/halcyonic-proof-20261112-0717`
 
 ## The second real run against github.com (2026-11-12, 14:01Z to 14:04Z)
 
-One run, inside the owner's yes ("Yes, run it once"), on main 08dbce62a, read by AUDIT3 before and after.
+One run, inside the account holder's yes ("Yes, run it once"), on main 08dbce62a, reviewed before and after.
 - Proven:
   - the first Send made a private repository and pushed `main`, signed by the scratch identity;
   - the second Send pushed a branch and opened pull request 1;
@@ -255,8 +255,8 @@ that never clears (each press is refused in git's words, effect none, since noth
 
 ## A repository's own git settings, and the history a push carries (2026-11-13, `sending/github.test.ts`)
 
-Same stand-ins, same git (`2.50.1 (Apple Git-155)`). Prompted by AUDIT3's 12:44Z ALERT (an agent can write a
-project's `.git/config`) and the lead's 12:52Z and 13:04Z answers.
+Same stand-ins, same git (`2.50.1 (Apple Git-155)`). Prompted by a review finding at 12:44Z (an agent can write a
+project's `.git/config`) and the decisions at 12:52Z and 13:04Z.
 
 1. **A repository's own settings run nothing in a send.** The origin is `git@standin.test:owner/garden.git`, reached
    over "ssh" through the person's own global `core.sshCommand`, a script that serves the stand-in repository. The

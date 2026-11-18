@@ -33,7 +33,7 @@ The intended experience is a VR working environment for several projects and rep
 
 ## Priorities
 
-The roadmap is `docs/private/ROADMAP.md`. It is git-ignored and exists only on the owner's
+The roadmap is `docs/private/ROADMAP.md`. It is git-ignored and exists only on the maintainer's
 machine; if it is present, read it for current priorities and update its status when your work
 lands. Never copy private content into tracked files.
 

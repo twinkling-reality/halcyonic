@@ -189,7 +189,7 @@ whisper.cpp invents text when nothing is said; Apple does not. Two ways to stop 
 - **Voice activity detection.** whisper.cpp 1.9.4 offers it (`--vad --vad-model`). It needs a
   Silero model, `ggml-silero-v6.2.0.bin` from `huggingface.co/ggml-org/whisper-vad` (MIT, 885,098
   bytes, SHA-256 `2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987`, at commit
-  `9ffd54a1e1ee413ddf265af9913beaf518d1639b`). The owner approved its download after the first
+  `9ffd54a1e1ee413ddf265af9913beaf518d1639b`). It was downloaded after the first
   measurement; the downloaded file matched that hash. Results are in
   [With voice activity detection](#with-voice-activity-detection).
 - **A loudness gate**, with no download. Each 30 ms frame's level is taken; the spread is the
@@ -293,16 +293,16 @@ before sending is the text that is sent, so a rewrite is never made after they r
 
 - **Question:** can the Mac transcribe two clips at once, so several people (or one person
   directing several tasks) are not refused while another clip is heard?
-- **Not measured.** The configured `whisper-cli` and its model sit only in the owner's data folder,
+- **Not measured.** The configured `whisper-cli` and its model sit only in the user's data folder,
   which development sessions never read, and building another copy needs the source and the
   574 MB model downloaded. So two at once has no measurement on this Mac.
-- **Decision (lead's ruling, 2026-11-17):** two at once only if each of two concurrent
+- **Decision (2026-11-17):** two at once only if each of two concurrent
   transcriptions takes at most 1.5 times a single one's time on this Mac. Without that
   measurement, the Mac keeps one transcription at a time, and the clips behind it wait their turn
   instead of being refused at once: up to three, each for at most 4 s (a clip takes 0.26 to 0.80 s
   above, and the headset gives a transcription 15 s). A fourth waiting clip, or one whose turn has
   not come in 4 s, is refused in words that say how many clips are ahead. Thirty clips a minute
   reach the engine for each principal (six before).
-- **Open:** the two-at-once measurement, run with the configured engine by the owner or with a
+- **Open:** the two-at-once measurement, run with the configured engine by the user or with a
   pinned copy outside the data folder.
 

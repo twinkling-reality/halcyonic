@@ -60,8 +60,8 @@ observation. It says the app type checks and builds; it does not say it works or
 - Meta's agent tools for the SDK (its MCP servers, screenshots, console capture) are not offered; nothing emulates
   them. The skills' text may be given to the agent as reading.
 - The headset leaves Halcyonic to try the app, as for any immersive app.
-- `@drawcall/uikitml`, required by the SDK, states no licence; nothing containing it is published until the owner
-  decides.
+- `@drawcall/uikitml`, required by the SDK, states no licence; nothing containing it is published until its licence
+  is settled.
 - Open: a trusted HTTPS route over Wi-Fi, opening Quest Browser straight into VR from an app, a one-button return,
   and whether Quest Browser treats `http://localhost` as a secure context for WebXR.
 - Revisit when the SDK moves to 1.1 (a deliberate new vetting), or if a runtime gains verified network isolation
@@ -69,7 +69,7 @@ observation. It says the app type checks and builds; it does not say it works or
 
 ## Amendment, 2026-10-29: every game plays with a mouse and keyboard and in VR
 
-The owner asked that every new game play both on a laptop and in the headset. The starter now carries one input
+Every new game must play both on a laptop and in the headset. The starter now carries one input
 layer, `src/play-input.ts`, that a game reads every input through: pointing and pressing (a click, or the trigger or
 a pinch), touching (a click on a laptop, a controller or hand within reach in VR), moving (W A S D or the arrows, or
 the left thumbstick), two buttons (Space and E, or A and B), and dragging on empty space to turn the view on a
@@ -107,7 +107,7 @@ check reports says more: no event, field, word on the headset or document may ca
 The preview's Content-Security-Policy allows `data:` in `connect-src`: the SDK's panels lay out with yoga-layout,
 whose WASM is inlined and fetched as a `data:` URL, which reaches no network and was blocked in every project.
 
-A port of the range is not proof of who answers on it: a confined agent may listen on loopback too (AUDIT
+A port of the range is not proof of who answers on it: a confined agent may listen on loopback too (audit finding
 M15B2-M1). The check opens the page, and a preview is recorded started, only once the server the host spawned
 still runs, every listener on 127.0.0.1 at that port is its own pid (by `lsof`), and `/index.html` answers with the
 built copy's bytes; otherwise the server is stopped and nothing is recorded. Ports are taken one per check or preview,
@@ -147,7 +147,7 @@ it accepts a still scene's observed change.
 The host steps the clock with a trusted key event the page never receives and cannot make, and the clock reports
 through a binding the page cannot reach. Numbers: [validation/iwsdk-starter.md](../validation/iwsdk-starter.md).
 
-Nothing the check concludes is computed in the page, which is the agent's code (AUDIT M18B-M1, M18B-M2): the
+Nothing the check concludes is computed in the page, which is the agent's code (audit findings M18B-M1, M18B-M2): the
 edges are counted in the host from the PNGs Chrome returns (`preview/png.ts` decodes 8-bit RGB and RGBA; any other
 picture is unknown), canvases are counted through the DevTools DOM domain, at most 100 exception texts are kept
 (each clipped; the rest only counted), and a message from Chrome over 16 MB ends the run as unknown.
@@ -158,7 +158,7 @@ Previews share a few ports on 127.0.0.1, so every project that lands on a port s
 one there. A service worker registered by one game would outlive its preview and could answer a later project's
 preview, on the headset too, with bytes the check never saw. The host's preview and dev servers therefore answer 404,
 with no body, to any request carrying the `Service-Worker` header, which a browser sends with every worker script
-fetch, so no registration succeeds (AUDIT M16A-C1). Storage a game leaves on the origin is not cleared by this; that
+fetch, so no registration succeeds (audit finding M16A-C1). Storage a game leaves on the origin is not cleared by this; that
 is a separate unit, once a browser is shown to honour clearing it over plain HTTP on 127.0.0.1.
 
 ## Amendment, 2026-10-30: a preview's origin starts fresh in every browser
@@ -167,7 +167,7 @@ A port's origin is shared with every earlier project served on it, and a browser
 storage between them. The preview and dev servers therefore send every response with `Cache-Control: no-store`, and
 every top-level page load with `Clear-Site-Data: "storage", "cache"`, so local storage, IndexedDB, the Cache API and
 any service worker an earlier game left are gone before the page runs, in whichever browser loads it, the headset's
-or the Mac's (AUDIT M16A-C2). The cost, accepted: a game's own saves do not survive a reload of its preview. Cookies
+or the Mac's (audit finding M16A-C2). The cost, accepted: a game's own saves do not survive a reload of its preview. Cookies
 are not cleared, because on 127.0.0.1 they span every port and clearing them would reset every other preview's; a
 game's cookies remain visible to later projects, a stated limit. Verified in Chrome on this Mac; the Quest Browser is
 checked when the headset is back.
@@ -240,7 +240,7 @@ lines a step, 300 characters a line and 4 KB a step, the project's folder writte
 and the home folder by name, and an end line. The build runs the project's own code, which writes its log, so every
 line the check printed is given behind a fixed `| `, terminal sequences, control characters but tab, and
 bidirectional, zero-width and other invisible characters are removed, and the Unicode line and paragraph separators
-become spaces: no printed line can stand as the block's header, its end, or the person's words (AUDIT FX1-M1, C1). MAKE's rehearsal (K1) had a kid's "It doesn't
+become spaces: no printed line can stand as the block's header, its end, or the person's words (audit findings FX1-M1, C1). A rehearsal (K1) had a kid's "It doesn't
 work yet, can you fix it so I can play?" reach the agent with nothing of what the check found, and the agent fixed
 blind. Each failed check is given once: `execution.check_output_given` records which check, which steps, and how many
 lines and bytes, never the text, and is recorded only once the runtime confirmed the start or the instruction. The
@@ -256,15 +256,15 @@ same frame: a press is still seen only when the game itself answers it, never be
 key does not hide the card, and `play-input.ts` is unchanged, so the check's layer comparison holds for every game
 made before. `src/motion.ts` gives `bob`, `wiggle`, `spin`, `pop` and `ease`, pure functions of the time a system is
 given, and AGENTS.md asks for motion from them, a pop on a hit, a big score, and no scratch files left in `src/`.
-The game's ground, light and colours come with ART's values (GQ1b).
+The game's ground, light and colours come with the art direction's values (GQ1b).
 
-## Amendment, 2026-10-31: the starter's look (GQ1b, ART7's values)
+## Amendment, 2026-10-31: the starter's look (GQ1b)
 
-A new project starts on ART7's look, every value as ART gave it: ten named kid colours and `toyMaterial()` (glossy
+A new project starts on the art direction's look, every value as given: ten named kid colours and `toyMaterial()` (glossy
 toys on a matte world) in `src/palette.ts`; in `src/look.ts`, no tone mapping, one warm shadowed sun at 2.45 with a
 1024 shadow map, a cool hemisphere fill at 0.55 and a rim light at 0.6, a sky from `sky` to `cloud` with a few toy
 clouds, and a lobed floating island to play on, top at y = 0, centred where the laptop camera looks and turned so its
-raised tier is at the back; `contactShadow()` for props; an optional `decorate()` in `src/decor.ts`; and ART's motion
+raised tier is at the back; `contactShadow()` for props; an optional `decorate()` in `src/decor.ts`; and the art direction's motion
 curves in `src/motion.ts` (pop, hide, bob, wiggle, bonk), still pure functions of the time a system is given, so the
 check's stepped clock holds them. AGENTS.md asks for the island, the palette and the curves. Unverified on a headset:
 whether no tone mapping clips the sun-lit tops (then the sun goes to 2.1), and whether the clear coat drops frames on
@@ -302,7 +302,7 @@ and the island was turned toward it. Rendered from the wearer's eye, a fresh pro
 clouds and the raised tier were behind the wearer, and whatever an agent turned toward the laptop camera faced away from
 the headset ([validation/iwsdk-starter.md](../validation/iwsdk-starter.md)). The laptop camera now stands just behind
 and above the wearer, at (0, 1.85, 2.2), looking at (0, 0.8, -1.8), within 5 degrees of the wearer's facing, and the
-island is left as ART7 framed it, its front toward +z: the tier and the clouds are in front of both. `src/look.ts`
+island is left as the art direction framed it, its front toward +z: the tier and the clouds are in front of both. `src/look.ts`
 exports `PLAYER`, the player's spot in the island's coordinates, (0, 0, 1.8), and AGENTS.md asks for the game from 1 to
 4 m in front of the player, with anything that has a front, a face or words turned toward +z. Projects made before keep
 their own copies of these files.
@@ -310,7 +310,7 @@ their own copies of these files.
 The world then moves by itself (U3): the clouds wander a few metres around their homes, a breeze crosses the island and
 sways `decorate()`'s flowers, grass and tree crowns, and two toy butterflies loop in front of the player. One system in
 `src/look.ts` runs it all from the time a system is given (`ambientMotion()`), never a clock of its own, so the check's
-stepped clock holds it; the curves are pure functions in `src/motion.ts`, beside ART7's, which are unchanged. The ground
+stepped clock holds it; the curves are pure functions in `src/motion.ts`, beside the art direction's, which are unchanged. The ground
 the player stands on never moves. The cost, accepted: a scene that moves leaves a single load's screen change unknown, so
 a still game's press is now seen through the twin replay (M1.8g); a one-box game's check took 28 s still and 80 s moving
 at a load of 6 to 8, and both read ready.
@@ -325,14 +325,14 @@ A new game starts decorated (U4): `src/index.ts` calls `decorate(gameIsland())`,
 island; the decor keeps to the island's sides and back, the middle 1 to 3 m in front of the player left for the game,
 and AGENTS.md says how to change its counts. Each prop is now one mesh of merged, vertex-coloured parts, the grass one
 instanced mesh and each cloud one mesh: the decorated island draws 64 calls a frame on the Mac where its parts drew 284
-(38 for the island alone before), counted in the lane's browser.
+(38 for the island alone before), counted in a browser on the Mac.
 
 A hit can celebrate (U6): `celebrate(at, time)` in `src/decor.ts` bursts confetti from it, all bursts one instanced mesh,
 and `scoreSign(label)` stands a big score sign on the raised tier, facing the player, whose board jumps when
 `show(points, time)` changes it. Both run from the time the game's system is given, through the same system as the
 scenery, and their curves are pure functions in `src/motion.ts`; AGENTS.md asks for them on a hit.
 
-A game never opens on a blank page (U6b): `index.html` paints ART7's sky behind the canvas and keeps the canvas clear
+A game never opens on a blank page (U6b): `index.html` paints the look's sky behind the canvas and keeps the canvas clear
 until the look's first frame, which `src/look.ts` shows from its own system, in step with the check's clock. Before, the
 page was white until the SDK made its canvas and black until the island's first frame, 5 s on this Mac.
 
@@ -358,7 +358,7 @@ asks for every file to be written and changed with the file-editing tool, never 
 
 Since the starter's look (GQ1b) and its decor (U4), the empty starter draws an island, a sky, clouds, trees and
 flowers: about 56,000 sharp edges in each picture. So every project read drawn, with a game or without, and `passed`
-followed; the empty starter's own opt-in test and AUDIT M18B-M1's fake page failed for it. A page is now drawn when it
+followed; the empty starter's own opt-in test and audit finding M18B-M1's fake page failed for it. A page is now drawn when it
 has more than 200 edges, as before, and its own picture differs from the pristine starter's in more than 0.1%
 (`OWN_DRAWN`) of the pixels outside the welcome card's region (its corner until 2026-11-16, see below), which the edge count skips too: the card holds the
 game's name and how to play, which are no game. The picture is the page with no input at the last of the twin's frames
@@ -404,7 +404,7 @@ by game time 4.9 s (`FIRST_CARD_END`), before the check's twin loads take their 
 sees the card whenever its font arrives; a card whose words are ready too late to hold 1.5 s (`MIN_HOLD`) does not
 show at all. It is dropped only once faded. H's card on a laptop comes at once and ends 6 s after the press. It is
 drawn with a material class of its own (`CardGlass`, a plain colour), so it sits alone in its own group as the kit's
-Panel did. In the library's shared group, the check's fake-pixels page (AUDIT M18B-M1, which replaces `Math.abs`)
+Panel did. In the library's shared group, the check's fake-pixels page (audit finding M18B-M1, which replaces `Math.abs`)
 threw "offset is out of bounds" from a typed array's set, most likely in the library's shared buffer allocator, which
 uses `Math.abs` when it moves instances; in a group of its own it throws nothing. The region the own-picture comparison and the edge count leave out is now the
 host's own constant for that placement at the check's 1280 by 800 (`CARD_REGION`: x 0 to 320, y 460 to 800, in place
@@ -415,7 +415,7 @@ template change.
 
 ## Amendment, 2026-11-16: the untouched starter's check is Starter Only, never failed
 
-The bare starter checked before anything is made (Playroom on the owner's computer, 2026-11-16) builds, runs with no
+The bare starter checked before anything is made (Playroom, 2026-11-16) builds, runs with no
 exception and draws its island, and its own picture is the pristine starter's, so DRAWN's rule reads `drawn` false and
 the check did not pass. That stays: the starter alone is not an app yet. What changes is the name of the outcome. It
 was recorded as `failed`, the same verdict as a broken build, so a person who had just made a new app read it as
@@ -428,7 +428,7 @@ AutoFix sends nothing for it, as it already sent nothing for a page showing only
 thresholds moved from the host's check into the domain beside the verdict, one number for the measure and the verdict.
 It is recorded only for a check of the project's own folder. A task's own copy whose page still shows only the starter's
 picture after its agent's turn drew nothing of what was asked: that is a real miss and stays `failed`, so the task
-reads Checks Failed (AUDIT2, 2026-11-16). The words say what was measured and nothing about code written: AUDIT2's
+reads Checks Failed (2026-11-16). The words say what was measured and nothing about code written:
 Starter Only, "Nothing new is drawn yet. Say what you want to see." A New App
 is never checked by itself (the host checks on its own only after a task's turn changed files), so it reads "Nothing
 checked yet" until someone presses Check Project or a task makes something.
@@ -487,7 +487,7 @@ version side by side. Projects made before keep their own copies and have no `sr
 
 ## Amendment, 2026-11-17: a starter-looking page whose folder changed files is not known
 
-A real proving run (VRIFY, Critter Row, "Add soft music that starts gently.", OpenCode) type checked and built with exit
+A real proving run (Critter Row, "Add soft music that starts gently.", OpenCode) type checked and built with exit
 0, threw nothing and offered VR, and its task changed five files (`index.html`, `public/ui/welcome.uikitml`,
 `src/index.ts`, `src/kit.ts`, `src/score.ts`, its music composed in code), yet its page looked like the untouched
 starter, so the copy's check read `failed`. A picture cannot hear sound: calling that work failed claimed a certainty
@@ -500,10 +500,10 @@ from that template). Since the host names a new app after its project (the amend
 are exactly the template's as the host applied it (`namedFile` with the project's name) is no change of the project's,
 so a fresh project still reads Starter Only; any other byte in it still counts. The host reads the changes only where the page draws nothing of its own, and passes them to
 `checkVerdict` explicitly, with no default; a reading that fails or is not set up is null and keeps the verdicts above.
-Any measured failure still fails first. `unknown` then says what changed, in AUDIT2's words: "No visible change to the
+Any measured failure still fails first. `unknown` then says what changed, in these words: "No visible change to the
 page.", then the count ("This task changed 5 files, including the project's sound code.", "This project" for the
 project's own folder), then always "Look and listen to judge it.", since sound made in code can be invisible to a file
-rule (AUDIT2, 22:34Z). By path alone, never its contents: an audio extension (`.mp3`, `.ogg`, `.wav`, `.m4a`, `.aac`,
+rule. By path alone, never its contents: an audio extension (`.mp3`, `.ogg`, `.wav`, `.m4a`, `.aac`,
 `.flac`, `.opus`, `.webm`, in any case) is "a sound file" or "sound files"; one of the starter's own sound files
 (`src/score.ts`, `src/sound.ts`, `src/tone.ts`, `src/tone-worker.ts`, `src/instruments.ts`) is "the project's sound
 code", never a sound file; both read "sound files and the project's sound code". A removed file is neither. As for any `not_known`, the copy may be
@@ -526,8 +526,8 @@ project's folder with its template can name the template the same way first.
 `?seat` on a preview's address shows the laptop view from where the person stands in a headset: at the origin, 1.6 m
 up, facing -z (`SEAT`, `seatPose` in `src/legible.ts`). It is applied on the first frame after the app's own setup, so
 it wins over a laptop camera the app placed itself, and the laptop drift then stands down there. A drag still turns it,
-and in a headset nothing changes. The owner judged a piano from its app's own laptop camera, a step behind the bench,
-and it did not feel like VR; steering between steps now looks from the seat. The final judgement stays on frames from a
+and in a headset nothing changes. A piano seen from its app's own laptop camera, a step behind the bench,
+did not feel like VR; steering between steps now looks from the seat. The final judgement stays on frames from a
 real headset.
 
 The template's notes for a place made from the person's own photo or video said to float the photo or video on a
@@ -538,7 +538,7 @@ creatures in it, and show the photo or video as a picture only when the person a
 ## Amendment, 2026-11-18: each VR version is its own app, not a shared card layout
 
 Two VR versions of very different apps came out the same: three text cards in an arc, rows of pill buttons, an
-on-screen letter keyboard, and a "stand-in" line in view. The owner asked why they were the same and why they were
+on-screen letter keyboard, and a "stand-in" line in view. A tester asked why they were the same and why they were
 cards. The cause was ours: the instruction and the template's notes steered every app that is not a game to `pages()`,
 `rows()` and a keyboard of letters, and a rule about cards made cards the expected form. The instruction
 (`vr-version.txt`) and the notes now ask the agent first to work out what the app is for and the few things at its

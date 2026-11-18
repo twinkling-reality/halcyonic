@@ -1,8 +1,9 @@
-# The competition's judge build
+# The labeled demonstration build
 
-- **Question:** Does the build judges run, the release APK playing the recorded demonstration
+- **Question:** Does the build that first-time users run without a computer, the release APK
+  playing the recorded demonstration
   ([ADR 0012](../decisions/0012-a-labeled-demonstration-runs-on-the-headset.md)), meet the
-  competition's rules and show today's product: the interface of
+  requirements below and show today's product: the interface of
   [ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md),
   agent questions ([ADR 0022](../decisions/0022-agent-questions-reach-the-person.md)), Waiting for
   you, the three arrangements, Usage left and the sound cues, with a satisfying moment well within
@@ -10,14 +11,14 @@
 - **Date:** 2026-10-02.
 - **Environment:** `main` at a214dce on an Apple M5 Max with macOS 26.7; Unity 6000.3.25f1 in batch
   mode with the Android target; the client core on .NET 10. No headset.
-- **Method:** The competition's rules page and Meta's device comparison, read on 2026-10-02. The
-  bundled recording (`HalcyonicDemonstration.json`) read event by event. `JudgeWordsTests` walks
-  every point of every path of the recording and gathers every word the client core gives the
-  headset there (badges, marks, peeks, every workspace tab, the recorded sections, the line above the
-  stage, Connect projects, More tasks, Create, Usage left and Settings), then looks for names of
-  products, companies and platforms. The release APK built with `BuildReleaseApk` and read with
-  `aapt2` and `apksigner`. The stage, workspace, entry and Usage left renders and the interface
-  measure (`MeasureRender`), all passing. The layout's angles read from the code.
+- **Method:** Meta's device comparison, read on 2026-10-02. The bundled recording
+  (`HalcyonicDemonstration.json`) read event by event. `JudgeWordsTests` walks every point of every
+  path of the recording and gathers every word the client core gives the headset there (badges,
+  marks, peeks, every workspace tab, the recorded sections, the line above the stage, Connect
+  projects, More tasks, Create, Usage left and Settings), then looks for names of products,
+  companies and platforms. The release APK built with `BuildReleaseApk` and read with `aapt2` and
+  `apksigner`. The stage, workspace, entry and Usage left renders and the interface measure
+  (`MeasureRender`), all passing. The layout's angles read from the code.
 - **Status:** Off the device only. Every device claim below (frame rate, the field's real split,
   pause and resume, cold start) waits for the headset session; the tools for it are in
   [XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Device measures on a Quest".
@@ -27,29 +28,26 @@
   products and home folders in fields the recorder never edits, so it is refused, and a run recorded
   to be shown is planned. The release APK has still never run on a headset.
 
-## The rules that bind the judge build
+## The requirements the build is held to
 
-From [the rules](https://start-developer-competition-26.devpost.com/rules), read on 2026-10-02 (the
-page gives no update date):
+Set on 2026-10-02:
 
-- Content: no "commercial or corporate advertising (including, without limitation, corporate
-  logos, brand names, and slogans)", and no implied association with the sponsor. The clause has no
-  exception for an entrant's own products.
+- Content: no advertising, logos, brand names or slogans anywhere a user can read, including the
+  project's own products.
 - Hands first: the whole experience without ever pairing a controller.
-- Guidelines: seated, a fast cold start, a clean pause and resume, a satisfying moment within 10
-  minutes; essential UI and interactions "within a comfortable, narrower FoV and adapt across
-  devices"; at least 60 frames a second.
-- The APK goes into a release channel named "Competition" and cannot change after the deadline.
+- Comfort and pace: seated, a fast cold start, a clean pause and resume, a satisfying moment within
+  10 minutes; essential UI and interactions inside a comfortable, narrower field of view, adapting
+  across devices; at least 60 frames a second.
 
-## What a judge meets
+## What a first-time user meets
 
 The release APK has no access token and no pairing on a fresh install, so it always plays the
 demonstration. Since 2026-11-10 it offers pairing (Settings, Your computer, Pairing, which reads
 Not paired), as every build does, so a person with a Mac can direct real work from a release build
 ([ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md), amendment of 2026-11-10);
-a judge without one sees the row and the demonstration as before. Once a recorded run is bundled
-(`HalcyonicRecordedRun.json`, not yet), a judge meets it first, and the demonstration below follows
-when its end has held ([XR_CLIENT.md](../architecture/XR_CLIENT.md), "Recorded run, then
+a user without one sees the row and the demonstration as before. Once a recorded run is bundled
+(`HalcyonicRecordedRun.json`, not yet), it plays first, and the demonstration below follows when
+its end has held ([XR_CLIENT.md](../architecture/XR_CLIENT.md), "Recorded run, then
 demonstration"); this table and the testing instructions change with it. From the recording:
 
 | At | What happens |
@@ -58,21 +56,21 @@ demonstration"); this table and the testing instructions change with it. From th
 | 0.3 and 0.6 s | The two watch-only tasks start working |
 | 4.8 s | Their checks finish; at 5.3 s both read Finished this round |
 | 5.7 s | The directed task, "Add rate limiting to the sign-in endpoint", starts |
-| 6.6 s | It is Waiting for you with the agent's question, how long a locked address waits (15 minutes or 1 hour); the hint "Look, then pinch" stands over it until a workspace has been opened once; the recording holds until the judge answers |
+| 6.6 s | It is Waiting for you with the agent's question, how long a locked address waits (15 minutes or 1 hour); the hint "Look, then pinch" stands over it until a workspace has been opened once; the recording holds until the user answers |
 | answer + 2.7 s | Waiting for you again, for a request to run `make migrate`; it holds again |
 | approval + 3.4 s | After Approve: the migration, "Checks failed" (1 failed, 23 passed), the round ends; two recorded instructions are offered for 60 s, counted from when the plane folds to the bar if anything is open |
 | next round | Either instruction plays a second round whose checks pass; then the end holds 20 s, counted the same way, and the demonstration starts again |
 
 The first decision comes about 7 seconds after the stage appears, and the whole story, played
-without pauses, takes under a minute; it waits for the judge at the question and at the request. Within 10 minutes a
-seated judge with hands only has a decision, a confirmed-in-words answer, failing checks, a
-correction and passing checks. That is the satisfying moment, on paper; whether a first-time
-wearer finds it without coaching is the headset session's question.
+without pauses, takes under a minute; it waits for the user at the question and at the request.
+Within 10 minutes a seated user with hands only has a decision, a confirmed-in-words answer,
+failing checks, a correction and passing checks. That is the satisfying moment, on paper; whether a
+first-time wearer finds it without coaching is the headset session's question.
 
 ### The first 60 seconds, 2026-10-08
 
-Since lane C's first visit (2e3627d8) the demonstration opens closed: nothing opens by itself, and a
-judge with hands in their lap sees the stage, the lines above it and the closed bar.
+Since the first-visit change (2e3627d8) the demonstration opens closed: nothing opens by itself,
+and a user with hands in their lap sees the stage, the lines above it and the closed bar.
 `JudgeFirstMinuteTests` plays the recording's beginning instant by instant and holds what the
 testing instructions and the video storyboard say: the lines read as above; from 0 s three tasks,
 Not started, and the bar "Nothing is waiting for you."; the two watched tasks Working and Checking
@@ -86,8 +84,9 @@ instant from the eyes.
 ### The file on the recording (ADR 0026), 2026-10-02
 
 `JudgeFileWalkTests` plays the recording as the headset does and walks the directed task's file
-(`FileScreens`) at a page of four rows and of three for larger text. The bar and Tasks wait for
-lane U's screens, so the walk starts at the file a task opens. It found, off the device:
+(`FileScreens`) at a page of four rows and of three for larger text. The bar and Tasks were still
+waiting for their own screens, so the walk starts at the file a task opens. It found, off the
+device:
 
 - At the question the file opens on Waiting under its pill. At three rows the question reads first
   in three parts, then its two answers one a page; turning the page clears what was chosen on it, so
@@ -115,18 +114,18 @@ project's recorded companion, quoted as its own, to a recap marked as the AI's s
 Start building waits ("The demo can't start new work."), nothing sent; and finally the closed bar,
 "Nothing is waiting for you." It scans every frame and side panel it drew
 and finds no brand name. It found that a press on a request's confirmation was never taken: the
-file rebuilt on every draw, so the frame drawn never stood. Lane W fixed that in 1df3bb9.
-`WorkspaceRender`'s judge walk (`far-3s judge 1 bar` to `12 closed`) draws the same steps from the
+file rebuilt on every draw, so the frame drawn never stood. That was fixed in 1df3bb9.
+`WorkspaceRender`'s walk (`far-3s judge 1 bar` to `12 closed`) draws the same steps from the
 eyes on the far Quest 3S stage. Each step is held to the plane's checks at both text sizes.
 
-### The judge path with the kit (2026-11-04)
+### The demonstration path with the kit (2026-11-04)
 
 Kept as history: the walk below was removed on 2026-11-12, once release builds drew the redesign.
 
-Since KIT-ON (2026-11-03) the kit draws a task's file on the headset by default, and the release
-player runs a spatial workspace. `WorkspaceRender.JudgeKitWalkCheck` walks that path as the release
-player runs it: no token and no control plane, so the real `DemonstrationFallback` plays the bundled
-recording (the recorded run first, where one is bundled), fast; the director set up as the release
+Since 2026-11-03 the kit draws a task's file on the headset by default, and the release player runs
+a spatial workspace. `WorkspaceRender.JudgeKitWalkCheck` walks that path as the release player runs
+it: no token and no control plane, so the real `DemonstrationFallback` plays the bundled recording
+(the recorded run first, where one is bundled), fast; the director set up as the release
 `WorkspaceDirector` sets it up; every press on the kit's own control where the kit draws the file, and
 on the frame drawn otherwise; every shot held to the kit's checks or the spatial workspace's, inside a
 Quest 3S field at Standard and Larger text, and every label scanned for brand names. Its renders land
@@ -136,7 +135,7 @@ request with Yes only once read (the kit's Confirm arrives locked a moment), the
 it and the correction round, the passing checks, the end and the restart, New project's companion,
 Usage and Settings, each reached through the Workspace menu as a person reaches them.
 
-What it showed on main 5a2f699c (JUDGE, 2026-11-04):
+What it showed on main 5a2f699c (2026-11-04):
 
 - At Standard text the whole walk passes: 30 shots, 10 drawn by the kit (the question, the review,
   the approval and its confirm, Activity and the composer), the rest by the file's and the menu's
@@ -152,7 +151,7 @@ What it showed on main 5a2f699c (JUDGE, 2026-11-04):
 - Pages outside the task's file, and the file's Checks and Tell it pages, still draw in the older
   views beside the kit's.
 
-### The judge path in the redesign (2026-11-10)
+### The demonstration path in the redesign (2026-11-10)
 
 `WorkspaceRender.JudgeRoomWalkCheck` walks the same path with the redesign's switch on
 (`RoomDesign.Enabled`), as the release player will run it once the switch is on by default: the
@@ -163,90 +162,90 @@ must draw it and no older view may show; what the redesign draws is held to the 
 word whole, inside a Quest 3S field with the head level, at least 4.5:1, no brand names) at Standard
 and Larger text. A press goes through a drawn control; where none is drawn the walk says so and
 moves the recording on itself, so every later moment is still seen. Renders and the moment list
-(`moments.tsv`) land in `Builds/JudgeRoomRenders`. Since ON-1b a release build draws the redesign, so this
-is the judges' walk; `JudgeKitWalkCheck`, the walk of the older path above, was removed then (the judges' build is a
-release build, and none of them draws that path any more). The judges' build itself, not this walk, is the proof of
-what a judge gets.
+(`moments.tsv`) land in `Builds/JudgeRoomRenders`. Since 2026-11-12 a release build draws the
+redesign, so this is the walk of the build reviewers run; `JudgeKitWalkCheck`, the walk of the older
+path above, was removed then (the demonstration build is a release build, and no release build
+draws that path any more). The release build itself, not this walk, is the proof of what a reviewer
+gets.
 
-What it showed on main e95cf9bb (JUDGE, 2026-11-10), the same at both sizes: the redesign draws no
-judge moment yet. The recorded run's launch, result, Changes, Checks and end, and the
+What it showed on main e95cf9bb (2026-11-10), the same at both sizes: the redesign draws no
+demonstration moment yet. The recorded run's launch, result, Changes, Checks and end, and the
 demonstration's launch, Checks, the offered instruction and the restart draw only in the older
 views; at work, the question, the request and the result after the approval draw nothing at all.
-No press a judge makes has a drawn control in the redesign; the walk sent the answer, the approval
+No press a user makes has a drawn control in the redesign; the walk sent the answer, the approval
 and the instruction itself. Not checked: the shelf (the walk opens the task's file directly).
 
-On the XR lane's approval (878a68f6, not yet on main; JUDGE, 2026-11-10) the walk presses the
-redesign's own Approve, Cancel and Confirm: the request asks with Approve and Deny, Cancel brings it
-back with nothing sent, Confirm arrives behind its lock and takes no press there, and once the lock
-has passed one press sends the one approval. Those moments draw only the redesign, every word
-whole and inside the field at both sizes; the frame checks fail only on the actions' glyphs (the
-check reaches 3.1 to 4.4:1 and the cross 3.4:1 over the render's black ground, under 4.5:1).
+On the approval change (878a68f6, not yet on main; 2026-11-10) the walk presses the redesign's own
+Approve, Cancel and Confirm: the request asks with Approve and Deny, Cancel brings it back with
+nothing sent, Confirm arrives behind its lock and takes no press there, and once the lock has
+passed one press sends the one approval. Those moments draw only the redesign, every word whole and
+inside the field at both sizes; the frame checks fail only on the actions' glyphs (the check
+reaches 3.1 to 4.4:1 and the cross 3.4:1 over the render's black ground, under 4.5:1).
 
-On the XR lane's question (3b0c200b) the walk answers through the redesign too: the prompt on the
+On the question change (3b0c200b) the walk answers through the redesign too: the prompt on the
 words band, an answer chosen, Review Answers and Send Answer, and the one answer sent by the
 redesign's own press. Those frames pass every check but the glyphs' contrast again (Send Answer's
 and Back's glyphs reach 2.0 to 4.2:1).
 
-Since 2026-11-12 the walk reaches a task's pages as a judge would: a row of the redesign's card naming the task or its
+Since 2026-11-12 the walk reaches a task's pages as a user would: a row of the redesign's card naming the task or its
 project, then the drawn section control (the result's Checks for Checks), each press given the file's half-second
 refresh to land; where none gets there the walk opens the page itself. The moment list's "reached by" says which, at
 every moment, and a result is shot once the task's file has read it. What it showed on main 60a0d8830 with that change
-(JUDGE, 2026-11-12, run 19, the same at both sizes; every check passed, 24 moments): Projects offers the project's row,
+(2026-11-12, run 19, the same at both sizes; every check passed, 24 moments): Projects offers the project's row,
 and pressing it opens the project's tasks in the older views, with no row a press can take, so the walk opened the
 recorded task's file itself; the walk also opened the demonstration's waiting task, and the Changes and Checks pages
 after a result, because nothing drawn reached them (Checks from Changes was pressed, and the file did not stand on
-Checks after it). Inside a task's file every decision a judge makes is pressed through the redesign's own controls.
+Checks after it). Inside a task's file every decision a user makes is pressed through the redesign's own controls.
 The walk draws no shelf, so a character picked there, the other way to a task, is not checked here.
 
 Since 2026-11-12 the walk follows the recording's own decision points instead of one story's: whatever waits on the
 person (a question, an approval, a failed check the recording offers instructions for) is reached and answered through
 what is drawn, each turn's end is shot as its result and its Checks, and it goes on until the recording starts again.
 It names no task, title or count; it fails where a decision sends nothing or more than one command, and where the
-demonstration offers no decision. A decision's first shot waits for the file to read it. On b8de8ae6f (JUDGE,
-2026-11-12, run 20; every check passed, 24 moments at both sizes) it met the same moments as before, now named by
-kind (the results are "result failed" and "result passed"), and the request's first shot, which run 19 took while the
-answer was still sending, shows Approve and Deny.
+demonstration offers no decision. A decision's first shot waits for the file to read it. On b8de8ae6f (2026-11-12,
+run 20; every check passed, 24 moments at both sizes) it met the same moments as before, now named by kind (the
+results are "result failed" and "result passed"), and the request's first shot, which run 19 took while the answer
+was still sending, shows Approve and Deny.
 
 ## Gaps against today's product
 
-| Area | Today in the judge build | Evidence | Who closes it |
+| Area | Today in the demonstration build | Evidence | What remains |
 | --- | --- | --- | --- |
-| Welcome and onboarding | Closed 2026-10-08 (lane C), replacing 2026-10-07's: the demonstration opens closed (ADR 0026): the recorded characters, the line raised above the stage, the closed bar saying what waits ("1 task is waiting for you") and the pinch hint, with Projects and New project's recorded companion reached from the bar's Open. A computer with no task gets the first question, "What would you like to work on?", which a judge never sees | `WorkspaceDirector.OpenOnFirstVisit`, `JudgeMenuWalkTests`, `far-3s-demo-welcome-1-ambient` to `-3-projects` | None |
+| Welcome and onboarding | Closed 2026-10-08, replacing 2026-10-07's: the demonstration opens closed (ADR 0026): the recorded characters, the line raised above the stage, the closed bar saying what waits ("1 task is waiting for you") and the pinch hint, with Projects and New project's recorded companion reached from the bar's Open. A computer with no task gets the first question, "What would you like to work on?", which the demonstration never shows | `WorkspaceDirector.OpenOnFirstVisit`, `JudgeMenuWalkTests`, `far-3s-demo-welcome-1-ambient` to `-3-projects` | None |
 | Agent questions (ADR 0022) | Closed: the story's first decision is a question with two options, each with its own recorded continuation, asked in the file under Waiting; the simulated explanation now treats a waiting question as waiting | `sign_in_rate_limit.json`, `JudgeFileWalkTests`, `demonstration-sources.ts` | None |
-| New project | Closed 2026-10-03 (lane C): Projects' New project plays the companion's recording, its question quoted as its own, to a recap marked as its suggestions under the note that it is an AI; Start building waits with "The demo can't start new work. Real work runs on your computer." | `JudgeMenuWalkTests`, `far-3s-judge-12` and `-13` | None |
+| New project | Closed 2026-10-03: Projects' New project plays the companion's recording, its question quoted as its own, to a recap marked as its suggestions under the note that it is an AI; Start building waits with "The demo can't start new work. Real work runs on your computer." | `JudgeMenuWalkTests`, `far-3s-judge-12` and `-13` | None |
 | Changes and Checks | Closed: the file's Changes and Checks show the recorded simulated answers in words, as "Tests failed …: 1 failed, 23 passed" under "Simulated checks · recorded at …" | `JudgeMenuWalkTests`, `far-3s-judge-8-checks` | None |
 | Usage | Closed 2026-10-02, on the menu since 10-03: the menu's Usage shows recorded limits for one practice agent, under "Recorded for the demo, not from any account", with no Refresh; a limit's Account is "Part of the recording"; `JudgeWordsTests` scans them for brand names | `UsageColumn`, `DemonstrationRecording.UsageLimitsAt`, `far-3s-judge-10-usage` | None |
-| The line above the stage | Closed: the owner's words of 2026-10-02 | `DemonstrationFallback.Describe` | None |
+| The line above the stage | Closed: wording approved on 2026-10-02 | `DemonstrationFallback.Describe` | None |
 | Agent app names | Closed: "Practice agent" and "Practice agent, watch only" | `demonstration.ts` | None |
 | Sound on answering | Closed: sending an answer plays its own cue, live and in the demo | `WorkspaceAct.Answer`, `SoundCue.SendAnswer` in `SoundCues.cs` | None |
-| The pinch hint | Still on the old workspace visuals, not the ADR 0023 components; it shows until a task's file has been opened once | `OnboardingHint.cs` | Lane U |
+| The pinch hint | Still on the old workspace visuals, not the ADR 0023 components; it shows until a task's file has been opened once | `OnboardingHint.cs` | Move it to the ADR 0023 components |
 | Three arrangements | In Settings under Your space, "The characters", as live; nothing in the story shows why to use them | `SpaceSettings`, `JudgeWordsTests` | The video, not the build |
 | Sound cues | Play as live work does (`StageSound`) | `StageSound.cs` | Headset check |
 | Icons | On badges, marks and actions, as live | Stage and workspace renders | None |
 | Starting again | Closed 2026-10-02: after a pause it goes on where it stood; only after its end does it start again | `DemonstrationTransport.Resume` | None |
-| The holds | Closed 2026-10-08 (the coordinator's call), changed 2026-11-04 (the lead, on JUDGE's ask): the 60 s instruction hold and the 20 s end hold do not run while a task's file or New project is open, or (2026-11-16, JUDGE) a Settings page, and run whole once it closes, so a judge reading Changes or Checks, or a Settings page, is never cut off nor sent back to Settings' index by the hand-over; the workspace's lists, open from launch, hold nothing, so the recorded run gives way to the demonstration with the workspace open | `DemonstrationPlayer.Reading`, `MenuNavigator.Reading`, `JudgeHoldsTests`, `MenuNavigatorTests` | None |
+| The holds | Closed 2026-10-08, changed 2026-11-04: the 60 s instruction hold and the 20 s end hold do not run while a task's file or New project is open, or (2026-11-16) a Settings page, and run whole once it closes, so a user reading Changes or Checks, or a Settings page, is never cut off nor sent back to Settings' index by the hand-over; the workspace's lists, open from launch, hold nothing, so the recorded run gives way to the demonstration with the workspace open | `DemonstrationPlayer.Reading`, `MenuNavigator.Reading`, `JudgeHoldsTests`, `MenuNavigatorTests` | None |
 
-## Names a judge reads
+## Names a user reads
 
 On 2026-10-02 `JudgeWordsTests` found, along every path, no agent app, model, company or platform
 name but these three, all since replaced; it now allows no brand at all:
 
-| Name | Where | Approved by the owner on 2026-10-02 |
+| Name | Where | Replacement approved on 2026-10-02 |
 | --- | --- | --- |
 | Salidium | "Simulated, not from Salidium · recorded at 09:00:00" in Understand | "Simulated explanation · recorded at 09:00:00" |
 | Seorak | "Simulated, not from Seorak · recorded at 09:00:00" in Checked | "Simulated measurement · recorded at 09:00:00" |
-| Mac | "The demo can't start new work. Connect your Mac to start real work." (Create) | "The demo can't start new work. Real work runs on your computer." ("your computer" everywhere, lane G) |
+| Mac | "The demo can't start new work. Connect your Mac to start real work." (Create) | "The demo can't start new work. Real work runs on your computer." ("your computer" everywhere) |
 
-Salidium and Seorak are the owner's own products, but the clause names brand names without an
-exception, they predate the entry period, and the judge build does not use them, so naming them
-there invites both questions. "Mac" names another company's product. Live provenance keeps the
-products' names. Also approved: the agent apps "Practice agent" and "Practice agent, watch only",
-and the line above the stage (above). Lane W applied the provenance words ("Simulated
-explanation", "Simulated checks", "Simulated measurement") and lane G "your computer", and with
-both on main the test fails on any brand a judge could read.
+Salidium and Seorak are the project's own sibling products, but the build shows no brand names,
+and the demonstration does not use them. "Mac" names another company's product. Live provenance
+keeps the products' names. Also approved: the agent apps "Practice agent" and "Practice agent,
+watch only", and the line above the stage (above). The provenance words ("Simulated explanation",
+"Simulated checks", "Simulated measurement") and "your computer" were applied, and with both on
+main the test fails on any brand a user could read.
 
-No word names the sponsor or its products. The app's label is Halcyonic; the APK declares Meta's
-platform features, which judges do not read.
+No word names Meta or its products. The app's label is Halcyonic; the APK declares Meta's platform
+features, which a user does not read.
 
 ## Field of view
 
@@ -265,11 +264,11 @@ gives no split about the view's forward, which only the device tells.
 
 Until this change nothing in the app read the device's field: the layout was the same on both
 headsets. A seated person looks down at the rail as at a keyboard, so this was not a failure on a
-Quest 3, but the criterion asks for adapting across devices. Now `DeviceMeasures` reads each eye's
+Quest 3, but the requirements ask for adapting across devices. Now `DeviceMeasures` reads each eye's
 field once the headset renders in stereo and sets `ViewField.Current`; with it, the rail rises until
 its corners are 1.5 degrees inside the field with the head level (never above 29 degrees down,
 so a degree under the line above the stage at its tallest, beside a window; AmbientRender checks it), and a panel prefers the side that keeps it inside, never pushed
-into a label (agreed with lane U). The margin is a design decision: Meta gives no number, and on an
+into a label. The margin is a design decision: Meta gives no number, and on an
 evenly split Quest 3S a workspace under the far lineup's labels has its lower corners 1.65 degrees
 inside the field, so a larger margin would collide with the labels. The entry and workspace renders
 run a Quest 3S pass (96 by 90, split evenly): the rail stands 39.0 degrees down instead of 44.5, the
@@ -277,11 +276,11 @@ panels where they were, and every corner of the rail and the panels is inside. O
 rail stays about 53 degrees down, inside the field when the head looks down at the lineup. The real
 split comes from the device's `Halcyonic: device view field` line.
 
-Larger text (Settings, lane U, 2026-10-02) makes a panel taller than designed, which on an evenly
+Larger text (Settings, 2026-10-02) makes a panel taller than designed, which on an evenly
 split Quest 3S does not fit under the far lineup's labels with the head level. For such a panel the
 rule takes the head to be tipped down by 1.5 times the extra height, at most 8 degrees
 (`WorkspacePlacement.ReadingPitch`; about 5.6 for the next text size), so its fit depends on the
-person looking down a little. Judges at the standard size are unaffected: a designed panel keeps
+person looking down a little. Users at the standard size are unaffected: a designed panel keeps
 the head-level rule. The 4.4 and 5.6 degree figures assume the even split and are to be worked out
 again from the headset's logged field (OPEN_QUESTIONS.md).
 
@@ -290,7 +289,7 @@ again from the headset's logged field (OPEN_QUESTIONS.md).
 `MeasureRender` at this commit: at most 75 draw calls a scene and 35 a panel (budget 220 and 60),
 about 32,400 triangles, nothing allocated per frame
 ([quest-3-performance.md](quest-3-performance.md)). The Quest 3 ran at 72 frames a second in the
-first sessions ([quest-3-device.md](quest-3-device.md)). At least 60 is the rule; the headset
+first sessions ([quest-3-device.md](quest-3-device.md)). At least 60 is the requirement; the headset
 session confirms it with `Halcyonic: device frames` each minute, which counts frames slower than a
 60th of a second, and `pnpm quest:session` over an hour.
 
@@ -325,13 +324,14 @@ permissions with `aapt2 dump permissions` and deletes and fails one that asks fo
   `RECORD_AUDIO` ("Permitted uses include VOIP or other features that need microphone access") and
   `MODIFY_AUDIO_SETTINGS` (apps "should not change OS-level volume settings"); a submission that requests one is
   asked to explain its use to app review. It names only `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` and
-  `BLUETOOTH_ADVERTISE` (third-party devices only), not plain `BLUETOOTH`. It does not say whether a release
-  channel such as Competition is reviewed the same way.
+  `BLUETOOTH_ADVERTISE` (third-party devices only), not plain `BLUETOOTH`. It does not say whether a non-public
+  release channel is reviewed the same way.
 - Meta's "Remove permissions from your manifest" (last updated 2025-03-25) gives Unity's microphone as the example
   of a permission Unity adds, and removal by code or by `tools:node="remove"`; it names neither of the two.
 - Not verified: hold to talk on the headset without `MODIFY_AUDIO_SETTINGS` and `BLUETOOTH` (a Bluetooth headset's
-  microphone is then not offered; the headset's own is the only one used). It needs the headset on USB. A judge's headset, with no computer, is never asked
-for the microphone: voice is offered only while a computer is connected and no recording plays.
+  microphone is then not offered; the headset's own is the only one used). It needs the headset on USB. A headset
+  with no computer is never asked for the microphone: voice is offered only while a computer is connected and no
+  recording plays.
 
 Built at a214dce with `BuildReleaseApk`: 71,454,487 bytes, `com.halcyonic.xr`, version code 1,
 version 1.0, target and compile API 34, not debuggable; permissions `HAND_TRACKING`,
@@ -354,8 +354,8 @@ APK and said "Exiting batchmode successfully now!", then aborted in its own shut
 "terminate_handler unexpectedly returned"); the APK and the project were intact. A batch build's
 exit code alone is therefore not proof of failure; read the log's `Halcyonic: built` line.
 
-Built again on 2026-10-08 at b9346b83 (the demonstration's first visit on Projects, lane W's
-outside-text words, lane U's motion), without `HALCYONIC_VERSION_CODE`:
+Built again on 2026-10-08 at b9346b83 (the demonstration's first visit on Projects, the outside-text
+words, the motion work), without `HALCYONIC_VERSION_CODE`:
 
 | APK | Bytes | SHA-256 |
 | --- | --- | --- |
@@ -369,18 +369,14 @@ the dev agent, the agent bridge, `METAX_operator` or `DevAgentSettings`; signed 
 debug key, scheme v2 only. `Meta.XR.ImmersiveDebugger` and its interface are in it by design
 ([horizon-store-release.md](horizon-store-release.md)). The development build carries the glance
 (`GlanceActivity`, `POST_NOTIFICATIONS`), and its positive control found every marker the release
-check looks for. `WorkspaceRender` passed at both text sizes, the judge walk and the demonstration's
-first visit among its renders, and the client core's 64 judge and demonstration tests passed
+check looks for. `WorkspaceRender` passed at both text sizes, the walk and the demonstration's
+first visit among its renders, and the client core's 64 demonstration tests passed
 (`JudgeWordsTests`, `JudgeFileWalkTests`, `JudgeMenuWalkTests`, the demonstration's own). `ProjectSettings.asset` was unchanged after both
 builds.
 
-The rules were read again on 2026-10-08 with no change that binds the judge build. The video may show
-the project on a Quest or "via XR Simulator or another equivalent emulator", and the language clause
-names testing instructions among the entry materials.
-
 Built again on 2026-10-08 at 2e3627d8, the candidate for the trial upload: the demonstration opening
-closed (lane C), the file assembling from its character, Keep things still, the holds and Meta XR
-Audio's spatializer, without `HALCYONIC_VERSION_CODE`:
+closed, the file assembling from its character, Keep things still, the holds and Meta XR Audio's
+spatializer, without `HALCYONIC_VERSION_CODE`:
 
 | APK | Bytes | SHA-256 |
 | --- | --- | --- |
@@ -390,14 +386,14 @@ Audio's spatializer, without `HALCYONIC_VERSION_CODE`:
 The release build's checks passed and `aapt2` reads the same five permissions, the same four devices,
 no glance, microphone or development tools, and `libMetaXRAudioUnity.so`; the development build's
 glance control found every marker. `WorkspaceRender` passed at both text sizes, the demonstration's
-first visit among its renders (`far-3s-demo-welcome-1-ambient` to `-3-projects`), and the 74 judge,
-demonstration and first-visit tests passed, `JudgeHoldsTests` among them. The trial upload needs the
-owner's key and a version code (`HALCYONIC_VERSION_CODE`), so the uploaded APK is built again from
+first visit among its renders (`far-3s-demo-welcome-1-ambient` to `-3-projects`), and the 74
+demonstration and first-visit tests passed, `JudgeHoldsTests` among them. The trial upload needs a
+release key and a version code (`HALCYONIC_VERSION_CODE`), so the uploaded APK is built again from
 this commit and its own size and SHA-256 recorded then.
 
-Before an upload, still the owner's: a release key, a version code above every earlier upload
-(now set by `HALCYONIC_VERSION_CODE` at build time, YYMMDDNN, approved), and
-the upload itself ([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before an upload").
+Still needed before an upload: a release key, a version code above every earlier upload (now set by
+`HALCYONIC_VERSION_CODE` at build time, YYMMDDNN, approved), and the upload itself
+([XR_DEVELOPMENT.md](../runbooks/XR_DEVELOPMENT.md), "Before an upload").
 
 ## What the release build reports
 
@@ -411,17 +407,19 @@ Meta's SDKs in the release build hand events to the headset's own system service
 
 No URL or network call appears in Meta XR Audio's library or scripts; for the other two that was not
 checked. What the system services do with these events, and under which consent, is Meta's and was
-not verified. The coordinator accepted the third path on 2026-10-08, with the owner's leave, because
-it goes only to the system service that already receives the Interaction SDK's.
+not verified. The third path was accepted on 2026-10-08 because it goes only to the system service
+that already receives the Interaction SDK's.
 
-## Testing instructions for judges (for the submission form, 2026-11-13)
+## Testing instructions for reviewers (2026-11-13)
 
-Rewritten by JUDGE for the release build of main d295e3e28 (the judges' copy, version code 26111302) from what its Editor
-walk draws (`JudgeRoomWalkCheck`, both reading sizes, every moment reached by a drawn control), each screen transcribed
-word for word by a fresh reader, then read twice by fresh critics as a judge who had never seen the product; every label
-and line quoted below matches the screens. The recorded and demo line stands in a band of its own on every recorded and
-demo screen, readable whole at both sizes (a fresh reader, 40 of 40 frames). NOT YET walked on the headset: the release
-copy is with DEVICE for that, with no computer attached. The 2026-11-04 text described the older kit.
+Written for the release build of main d295e3e28 (version code 26111302) from what its Editor walk
+draws (`JudgeRoomWalkCheck`, both reading sizes, every moment reached by a drawn control), each
+screen transcribed word for word by a fresh reader, then read twice by fresh critics as a
+first-time user who had never seen the product; every label and line quoted below matches the
+screens. The recorded and demo line stands in a band of its own on every recorded and demo screen,
+readable whole at both sizes (a fresh reader, 40 of 40 frames). NOT YET walked on the headset: the
+release copy waits for a headset session with no computer attached. The 2026-11-04 text described
+the older kit.
 
 > This app is a workspace for directing AI coding agents from VR. This build needs no computer, account or network: it
 > plays a recorded run of a real agent at work, then a demo you take part in. A line at the top always says which of the
@@ -447,12 +445,11 @@ copy is with DEVICE for that, with no computer attached. The 2026-11-04 text des
 
 ## Consequences
 
-- The judge path works end to end off the device, through the menu of ADR 0026, and its words name
-  no brand: the three names above were replaced with the owner's words, and the scan allows none
-  (updated 2026-10-03).
+- The demonstration path works end to end off the device, through the menu of ADR 0026, and its
+  words name no brand: the three names above were replaced with approved wording, and the scan
+  allows none (updated 2026-10-03).
 - The demonstration's story has its agent question, New project's recorded companion and a first
-  visit that opens Projects; lane V's calmer first view will change that first visit before the
+  visit that opens Projects; a calmer first view is planned to change that first visit before the
   final recording.
-- The layout adapts to the device's field: every menu state the judge walk draws is checked inside
-  a Quest 3S's field at both text sizes. The real split waits for the headset session.
-- Re-read the rules before the submission; they can change.
+- The layout adapts to the device's field: every menu state the walk draws is checked inside a
+  Quest 3S's field at both text sizes. The real split waits for the headset session.

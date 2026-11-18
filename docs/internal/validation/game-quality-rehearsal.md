@@ -26,8 +26,8 @@ check-error feedback, starter scene and palette helpers, and automatic local-mod
   manifest SHA-256 `0966bb448b30d115b303849668c4ebf1f00cf739bc728e4b747c1a502ee00ef2`) launched
   through `halcyonic-disclaim` and Seatbelt.
 - **Confinement gates enforced on every run:**
-  - **G1 (owner state untouched):** directory listing (names, sizes, mtimes, three levels deep) of
-    the owner's `~/.halcyonic` and `~/.codex` taken before and after the run; `diff -u` exit `0`
+  - **G1 (user state untouched):** directory listing (names, sizes, mtimes, three levels deep) of
+    the user's `~/.halcyonic` and `~/.codex` taken before and after the run; `diff -u` exit `0`
     (`0` lines changed across `1,636` entries). The rehearsal control plane uses its own isolated
     data folder (`0700`) and project root.
   - **G2 (confined Codex proven at start):** before `execution.start`, verified `model_provider = "ollama"`,
@@ -40,7 +40,7 @@ check-error feedback, starter scene and palette helpers, and automatic local-mod
   - **Memory gate:** `execution.start` and `execution.send_instruction` wait until
     `/usr/bin/memory_pressure` reports at least 40% system-wide memory free.
   - **Play on my laptop evaluated read-only:** to avoid opening a browser window or playing audio on
-    the owner's desktop during automated verification, `project.open_on_mac` is not sent; its
+    the user's desktop during automated verification, `project.open_on_mac` is not sent; its
     admission conditions (`passed`, `laptop.ready`, `reads_confined`, `check.files === 'current'`,
     `preview.files === 'current'`) are read from the project view after `project.preview.start`.
 

@@ -1,6 +1,6 @@
 # ADR 0040: The headset is a room of projects: a gallery home, one screen per project, and moments from the task's character
 
-- Status: Accepted on 2026-10-29 by the owner from a storyboard of the wearer's view ("Yes, build it"). Built and
+- Status: Accepted on 2026-10-29 from a storyboard of the wearer's view. Built and
   checked in Editor renders: the kit's colours, type and motion, the moment model, a picked project's screen and its bar,
   and the moment card; the screen and its bar stand 2 m away in the room. Not built yet: the moment slot's placement, the gallery, the reading surface, the heads-up
   items, compact and the character's moods. Acceptance on the headset pending
@@ -14,12 +14,12 @@
 
 ## Context
 
-On 2026-10-29 the owner rejected the headset's live build view as designed without references: equal cards in one
+On 2026-10-29 the headset's live build view was rejected as designed without references: equal cards in one
 column, a pastel per step kind, a coloured stripe on every card. The bar is the clarity of the Cursor, Claude, OpenCode
-and Codex desktop apps, with the spatial layer of a film or game interface, and the experience should "almost feel
-magical". The owner then asked that the work not be fixed to the middle of the view, that the design be researched
-rather than guessed, that the home show every project the way the Wii showed its channels and YouTube's VR player shows
-one screen with its controls out of the way, and that it suit a newcomer as well as someone with hundreds of projects.
+and Codex desktop apps, with the spatial layer of a film or game interface, and the experience should almost feel
+magical. The work should not be fixed to the middle of the view, the design should be researched
+rather than guessed, the home should show every project the way the Wii showed its channels and YouTube's VR player shows
+one screen with its controls out of the way, and it should suit a newcomer as well as someone with hundreds of projects.
 
 A reference sheet was built from sources read on 2026-10-29: Apple's visionOS guidelines (a window about 2 m away;
 ornaments parallel to a window, slightly in front, never wider), Meta's Horizon guidelines (targets of 48 dp and 60 dp
@@ -29,7 +29,7 @@ Colors' step roles, the Claude desktop docs (tool calls collapsed to one line, a
 games and films for qualities only: the Wii Menu (equal live tiles; Start off until something playable is in), Destiny's
 Ghost, Dead Space, Mirror's Edge, Death Stranding, Star Citizen's mobiGlas, Her. No footage was timed; durations come
 from the platforms' stated tokens. The sheet and a 13-frame storyboard at the Quest 3's field (110 by 96 degrees,
-Meta's figure) are private evidence; the owner accepted the storyboard on 2026-10-29, and a truth read of it shaped
+Meta's figure) are private evidence; the storyboard was accepted on 2026-10-29, and a truth read of it shaped
 the rules below.
 
 ## Decision
@@ -62,7 +62,7 @@ words never on the room, state never by colour alone, Keep things still landing 
    degrees below eye level and upright, its buttons read 3.3 to 3.5 degrees; tilted, they keep the 3.75-degree floor.
    The wearer judges the tilt. [XR_CLIENT.md](../architecture/XR_CLIENT.md) has the measures.
 3. **The task's character is its home in the room** (a Workstream, never a vendor session or a catalog project, ADR
-   0039), and it is shown by default: the owner accepted the room with characters beside the projects that have a task
+   0039), and it is shown by default: the room was accepted with characters beside the projects that have a task
    going and moments coming from them. ADR 0029's lesson stays whole
    ([ADR 0029](0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md)): the room is
    complete without characters, no action ever needs one (every action lives in a moment or the bar, never in the
@@ -93,7 +93,7 @@ words never on the room, state never by colour alone, Keep things still landing 
     Body 18, Label 15, Mono 16 dp); motion only on events: a moment pops in 500 ms with a small overshoot, a surface
     unfolds in 500 ms and folds in 250 ms, a move takes 600 ms. [STYLE.md](../product/STYLE.md) holds the values;
     [WORDS.md](../product/WORDS.md) the words.
-    Amended 2026-10-30 (the owner's yes at 04:45Z to the art direction "Quiet glass, living light"): the accent is for
+    Amended 2026-10-30 (the art direction "Quiet glass, living light" accepted): the accent is for
     live work only; the one primary is filled with light, a neutral n7 capsule with its word in n0, pressed to n6. The
     room's type scale is the art direction's six roles: Display 48, Title 28, Body 18, Body Strong 18, Label 15 and
     Mono 16 dp, each with its own line pitch; Identity 30 and Heading 22 stay only on the instrument candidate.
@@ -104,7 +104,7 @@ side on one plane, and ADR 0034's continuous curve, as the main presentation.
 
 ## Alternatives considered
 
-- **Keep the continuous curve with a better look** (ADR 0034). Rejected by the owner's question: a permanent instrument
+- **Keep the continuous curve with a better look** (ADR 0034). Rejected: a permanent instrument
   in the middle is the laptop's screen carried into the room, and it is where the rejected live build view lived.
 - **A permanent middle panel with moments around it.** Two things compete for the centre; one thing at a time loses.
 - **Head-locked heads-up items.** Meta and Apple both advise against anchoring content to the head; reading surfaces

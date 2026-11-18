@@ -8,7 +8,7 @@
 The host checks a starter project on its own after a turn that changed its files (A1, ADR 0037),
 and a failed check's first lines go to the agent with the person's next instruction (FX1, the
 amendment of 2026-10-31 to ADR 0037). Until a person speaks again, nothing happens: a beginner
-who does not read a type error sees a broken game and does not know what to say. The owner asked
+who does not read a type error sees a broken game and does not know what to say. The need is
 for a harness that helps by itself and explains itself to anyone (2026-11-10).
 
 What the code had: the automatic check (`control-plane.ts`, `#attachAutoCheck`), the check's
@@ -34,7 +34,7 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   a game not made yet, not a fault, and is not sent: no one asked this agent to make it. The first
   real run (2026-11-10, Codex 0.157.0 on a local 30B model) found this case: the first try fixed a
   type error, and the check still failed on the starter's own look.
-- Never on a check whose verdict is `not_known` (the lead, 2026-11-13): everything it saw passed
+- Never on a check whose verdict is `not_known` (2026-11-13): everything it saw passed
   and the starter's own picture to compare the page with could not be made, a reference the
   product could not make, never the agent's fault. No try is sent or counted and no chain begins;
   a chain under way ends `nothing_to_send` with the tries it made. Any failure the check measured
@@ -58,7 +58,7 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
 - The person's words to a task, refused or not, count like their Stop for that task: refused (a try
   runs on a runtime that takes no instruction while running, or the try's own command has no outcome
   yet), they end its chain `person_instructed` and no try follows until the person's own instruction
-  is accepted (AUDIT2's finding, 2026-11-10).
+  is accepted (a review finding, 2026-11-10).
 - A try refused at once never reached the agent and is not counted in the end's `attempts`. A refused
   automatic check ends the chains it followed `check_unavailable`. A chain is ended `host_restarted`
   only on the person's own journal, never a fixture's.
@@ -73,8 +73,8 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   can say what failed without matching the project's latest check, which a newer check replaces. One
   rule decides both what a try is sent for and these steps (`fixSteps` in the domain): a type check or
   build that exited other than 0, and a page that threw or showed nothing at all, never the starter's
-  own look (AUDIT2, 2026-11-11).
-- What a starter's check refuses beyond building and drawing goes back too (VRIFY, 2026-11-12). A
+  own look (2026-11-11).
+- What a starter's check refuses beyond building and drawing goes back too (2026-11-12). A
   starter declares it in its own `starter.json` (`check_refuses`: each entry a kind the host knows how
   to find checkably, never a judgement of quality, and the starter's own words for the agent). The
   check records each one it finds as `refusals` in its findings, with the file, and does not pass. The
@@ -87,7 +87,7 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   scan cannot tell the starter's untouched scene from a chosen world (`setupLook(world)` and
   `setupLook(world, 'meadow')` read alike), so it would refuse a fitting choice. `failed_steps` names no
   step for a refusal; clients say a fixing try in their own general words.
-- A second trigger, under the same cap (VRIFY, 2026-11-13): a check whose laptop reading is a measured failure
+- A second trigger, under the same cap (2026-11-13): a check whose laptop reading is a measured failure
   (`CheckLaptop.reading`: the kit's words measured under 10 CSS pixels at 1280 by 800) goes back to its agent too,
   whether the check passed or not. A later check that cannot measure them (a kit file changed, no kit text in view)
   is not a fix: it carries the project's last measured reading while that was under the floor (`last_measured_px`),
@@ -101,7 +101,7 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   agent is known to have made it so. The real run of 2026-11-13 found the cause: the check said a VR
   version was ready on a laptop while its words stood about 6 pixels high
   ([vrify-real-projects.md](../validation/vrify-real-projects.md), "The reading floor").
-- The same trigger, widened (VRIFY, 2026-11-13): a check whose kit panels are a measured misfit at a laptop's 1280 by
+- The same trigger, widened (2026-11-13): a check whose kit panels are a measured misfit at a laptop's 1280 by
   800 view (`CheckLaptop.fit`: a page or a row of `rows()` more than 2 pixels past an edge, or two of them sharing more
   than 4 pixels across and down, measured at rest) goes back the same way, under the same two tries and the same
   `reading` step. A later check that cannot measure them is not a fix: it carries the last measured misfit
@@ -109,7 +109,7 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   not fit a laptop's screen (the reading's or the failed check's words when those apply too), then names the panel with
   the app's own label for it and asks for every row of buttons to go through `rows()`; a person's line never carries
   the app's label. A fit not known (a kit file changed, no panel shown, a report not of the strict shape) is not sent.
-- The reading's second kind (VRIFY, 2026-11-14, from LOOP's sweep: a score sign behind a tree read readable): a kit
+- The reading's second kind (2026-11-14, after a sweep where a score sign behind a tree read readable): a kit
   text with more than half of five points on its face (its centre and four corners set in) behind a shown mesh from
   the laptop camera is a measured failure of the same reading (`hidden`, `hidden_kind`), under the same trigger, two
   tries, `reading` step and held rule (`last_hidden_kind` until a measured reading with none behind). The kit casts
@@ -122,7 +122,7 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   is said first. A panel under the camera (the starter's controls
   card while it shows) never covers, and a ray sees meshes only, so a pass is where it could measure.
 - A piece with nothing to press counts as ready on a laptop when it draws and the browser shows its sound starting
-  after a key press (the lead's ruling, 2026-11-16: the mouse rule applies only where something is pressed); the check
+  after a key press (ruled 2026-11-16: the mouse rule applies only where something is pressed); the check
   hears nothing itself, and a sound that starts at no volume still counts. "Starting" is the browser's own WebAudio
   record over the check's DevTools pipe: a realtime context running with a node connected into its destination,
   read 2 s after the step's Space and E, at most 8 contexts and 256 nodes each, no id kept; a record that does not
@@ -140,7 +140,7 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
 - A new command to turn it off per project: the person's Stop already ends it, and their own words
   take over; a toggle can follow if the headset needs one.
 - Send it to the latest of several tasks that changed the project: a guess about whose change
-  failed the check (the lead's amendment, 2026-11-10).
+  failed the check (amended 2026-11-10).
 
 ## Consequences
 
@@ -152,8 +152,8 @@ cap of two tries per chain. `apps/control-plane/src/core/auto-fix.ts` does it.
   itself too, only after a run that passed.
 - An older generated C# client fails on the two new event types; the headset must be rebuilt with
   the regenerated bindings before a host that sends them (REALTIME.md's upgrade order).
-- The headset should show a try under way and how a chain ended. Draft words, for the FIELD lane to
-  settle in WORDS.md: Fixing · Try 1 of 2 while a try runs, with Stop; Fixed · Check Passed;
+- The headset should show a try under way and how a chain ended. Draft words, to be
+  settled in WORDS.md: Fixing · Try 1 of 2 while a try runs, with Stop; Fixed · Check Passed;
   Still Failing · Stopped After 2 Tries · See Failures.
-- Revisit when checks become per task (TASKS lane): the failed check will name its task, which
+- Revisit when checks become per task: the failed check will name its task, which
   replaces "the execution whose turn changed the files".

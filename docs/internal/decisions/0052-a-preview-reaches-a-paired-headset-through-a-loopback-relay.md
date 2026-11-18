@@ -11,8 +11,8 @@ A person in VR never saw the app they made: a project's preview is served on the
 instead is no answer: a page there is not a secure context (W3C Secure Contexts), so WebXR, which the
 VR starter's Enter VR needs, is not offered; a self-signed HTTPS address asks the person to click
 through a warning, and whether Quest Browser then offers WebXR is unknown. The headset's own
-`http://127.0.0.1:<port>/` is potentially trustworthy, so a page there can offer WebXR. The owner's
-direction (2026-11-11): the person sees the app they made in the headset, with no cable; the lead's
+`http://127.0.0.1:<port>/` is potentially trustworthy, so a page there can offer WebXR. The
+direction (2026-11-11): the person sees the app they made in the headset, with no cable, under these
 rules: only for a check whose agents' reads were confined (`reads_confined`, ADR 0041), reaching the
 preview's port and nothing else on the Mac.
 
@@ -38,7 +38,7 @@ preview's port and nothing else on the Mac.
   before anything is sent (`PreviewRelay.InsidePreview`): no `.` or `..` segment, no backslash, no
   escaped dot, slash or backslash, and, once built, a path at or below the preview's own. Without that a
   URI's collapsing of dot segments let another app on the headset reach every GET route of the computer
-  with the device's credential (AUDIT2, 2026-11-11). A refusal reaches the browser in the product's
+  with the device's credential (found in review, 2026-11-11). A refusal reaches the browser in the product's
   words, by its code (`PreviewRelay.WhyNot`), a 401 or 403 as "pair it again", never the computer's
   message.
 - **The process stays up while the browser is in front.** The relay runs on threads of Halcyonic's own
@@ -49,7 +49,7 @@ preview's port and nothing else on the Mac.
   service holds nothing but the process. Whether Horizon OS freezes the app without it is DEVICE's
   probe to tell; the service holds either way.
 - **The headset's action that opens it** (start the relay, hold the service, open the URL in Quest
-  Browser, release both when done) is DEVICE's through XR's plug; the call is agreed in LINK's notes.
+  Browser, release both when done) goes through XR's plug.
 
 ## Alternatives considered
 
@@ -75,11 +75,11 @@ preview's port and nothing else on the Mac.
 
 - With pairing on and a confined, passed check's preview running, the headset shows the app with no cable.
 - The network listener now reaches one more thing on the Mac, a preview's port, gated per request: a
-  surface for AUDIT2.
+  surface for review.
 - Anything on the headset that can reach its loopback address can read the open preview while it is
   open: the person's own app, from a check that confined its agents, and nothing else of the computer's.
   So the relay is closed as soon as the browser leaves the preview, and the foreground service is held
-  only that long (AUDIT2 S2).
+  only that long (review finding S2).
 - Not yet verified on a headset: Quest Browser offering WebXR on the relay's address, the foreground
   service under Horizon OS, the manifest entries XR adds.
 
@@ -102,11 +102,11 @@ What Meta's pages say:
   own press while in front.
 - `POST_NOTIFICATIONS` requires review. The relay does not ask for it, so the service's notice may not show.
 
-In development builds only (the lead's decision, 2026-11-11). `RelayInDevelopmentBuilds` writes the service and
+In development builds only (decided 2026-11-11). `RelayInDevelopmentBuilds` writes the service and
 both permissions into a development build's manifest (`RelayManifest`), and takes them out of any other build. A release
 build carries none of them, and its permission check does not name them. There, Play in Headset on a paired computer is
 refused as `NotInThisBuild` ("Not in This Build"), never by starting a service that is not there. Whether a release build
-carries the relay is the owner's to decide, as what is uploaded and reviewed; on a yes it is one switch:
+carries the relay is still to be decided, as what is uploaded and reviewed; on a yes it is one switch:
 `RelayInDevelopmentBuilds.Include` for release, and the two names in `ChosenPermissions.Named`.
 
 Not yet verified on a headset: the service keeping the relay serving while the browser is in front, and Quest Browser
@@ -115,7 +115,7 @@ offering WebXR on the relay's address.
 
 ## Amendment 2026-11-17: one relay per open project screen
 
-The limits audit's #9 (the lead's 2026-11-17 19:17Z): one relay at a time, stopped when another project's preview
+The limits audit's #9 (2026-11-17): one relay at a time, stopped when another project's preview
 opened and when Halcyonic came back to the front, meant two projects' previews could never stand live together. Now
 (`PreviewRelays`, `HeadsetRelay`) the headset keeps one relay per open project screen, at most the room's three
 (`WorkspacePresentationState.ScreensMost`), each on its own loopback port. A screen's relay lives until that screen
@@ -124,7 +124,6 @@ beside the room. A Play with no screen open keeps the one-relay rule as before: 
 it stops once Halcyonic is back in front after the browser. Every relay stops when the pairing changes and at quit. The
 foreground service is held while any relay runs.
 
-The exposure in AUDIT2's S2 grows with it: while a screen stays open, any app on the headset can read that project's
+The exposure in review finding S2 grows with it: while a screen stays open, any app on the headset can read that project's
 preview through its relay, up to three projects at once, and still nothing else of the computer's. Closing the screen
-ends it. Not yet verified on a headset: several Quest Browser windows open at once, each on its own relay (DEVICE's
-measure, LINK's route 1).
+ends it. Not yet verified on a headset: several Quest Browser windows open at once, each on its own relay.

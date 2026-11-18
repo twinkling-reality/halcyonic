@@ -12,7 +12,7 @@
 ## Findings
 
 - **Unity.** Unity 6.3 LTS is current: `6000.3.25f1` (2026-09-24), supported until December 2027.
-  Unity 6.0 LTS support ends in October 2026, during the competition. Meta XR SDK v207 requires
+  Unity 6.0 LTS support ends in October 2026. Meta XR SDK v207 requires
   Unity `6000.0.66f2` or later. Meta has said it is "standardizing on Unity 6.3+". Unity states that
   Meta VR Glasses support requires Unity 6.6 or later.
 - **OpenXR.** The Oculus XR Plugin is deprecated ("Use the Unity OpenXR Plugin instead").
@@ -41,7 +41,7 @@
 ## Consequences for the XR client
 
 - Pin Unity `6000.3.25f1`, `com.unity.xr.openxr` 1.18.0 and every `com.meta.xr.*` package at
-  207.0.0. Do not upgrade during the competition without reading release notes and re-validating
+  207.0.0. Do not upgrade without reading release notes and re-validating
   in the Simulator and on a device.
 - Build one focus service that stops rendering hands and ignores their input on focus loss, and
   keeps rendering the scene.

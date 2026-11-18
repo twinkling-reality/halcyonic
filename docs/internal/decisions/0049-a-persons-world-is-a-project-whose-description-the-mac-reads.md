@@ -1,6 +1,6 @@
 # ADR 0049: A person's world is a project whose description the Mac reads and the headset draws
 
-- Status: Proposed (decision 9 added 2026-11-12, on WORLDS's branch, not landed). Built and tested on this Mac: the description's contract, the Mac's own reading of it after
+- Status: Proposed (decision 9 added 2026-11-12, on a branch, not landed). Built and tested on this Mac: the description's contract, the Mac's own reading of it after
   a turn, the event and the project's view that carry it, and the world starter; the headset's own check of a
   description, its night and its places, and its sound composed in code; the headset's showing of a world rendered
   offline (decision 8), checked in Editor renders against the picture. Run once with a local model: a spoken
@@ -72,7 +72,7 @@ Read from the code and from current public documentation on 2026-11-10:
    contract change.
 
 9. **Every member moves something seen; each scene declares its own lights and places** (amended 2026-11-12,
-   from WORLDS's count: of format 1's 25 members the headset drew two, and the scene rendered had none of its
+   from a count: of format 1's 25 members the headset drew two, and the scene rendered had none of its
    sea). The offline render comes apart into linear light layers that sum exactly to the picture (each light
    alone, the air from the depth). A scene ships a manifest, `WorldScene` (`starters/world/scenes/<scene>.json`),
    naming each light (with one plain line and whether it shines by day, by night or at all times) and each
@@ -122,7 +122,7 @@ Read from the code and from current public documentation on 2026-11-10:
 The world starter's own `starter.json` declares what makes it a world: `"check": "none"` (no build to check),
 `"versions": "none"`, `"copies": "none"` and `"describes": "world.json"`, beside `"packages": "none"`. The host reads
 each starter's declarations once (`HostStarters.declares`) and the rules ask them, as they ask a runtime's descriptor,
-never a starter's id (the lead's decision of 2026-11-12, R2). Done for the check and the check after a turn
-(`admission.ts`, `control-plane.ts`); a task from a version, a world's copies and its reading follow in their owners'
+never a starter's id (decided 2026-11-12, R2). Done for the check and the check after a turn
+(`admission.ts`, `control-plane.ts`); a task from a version, a world's copies and its reading follow in later
 units. A starter that declares nothing has a build, versions and copies, as every starter before.
 

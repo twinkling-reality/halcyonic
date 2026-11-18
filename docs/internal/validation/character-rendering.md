@@ -79,8 +79,8 @@ Unity 6000.3.25f1 ran `WorkspaceRender.ShelfWorkspaceCheck` against revision `30
 with the Android target. Both Standard and Larger text passed the production one-agent shelf
 witness: all nine activity states and four source treatments, actual label bounds inside the
 placement envelope, the existing 14 dp type minimum, field and console clearance, and badge
-top attachment within 0.1 mm of the physical shelf front lip. The coordinator inspected the
-Waiting for you/live and Working/demo renders. The body remains grounded; growing the label
+top attachment within 0.1 mm of the physical shelf front lip. The
+Waiting for you/live and Working/demo renders were inspected. The body remains grounded; growing the label
 does not move the confirmed shelf or independent console. Task titles can still ellipsize after
 two lines; full identity is available in the task view. These scene checks do not establish
 headset comfort, hand interaction, performance or wearer acceptance.

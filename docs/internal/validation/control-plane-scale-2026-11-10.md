@@ -70,5 +70,5 @@ the journal; now it grows with the project's own tasks.
 
 ## Not measured
 
-A real long-lived journal (the owner's) and anything on a Quest. The periodic write's pause while
+A real long-lived journal and anything on a Quest. The periodic write's pause while
 work streams to a headset at a million events.

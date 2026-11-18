@@ -1,6 +1,6 @@
 # Pairing a headset over the local network
 
-- **Question:** Can the owner's Quest reach the control plane on the Mac over Wi-Fi, securely,
+- **Question:** Can a person's Quest reach the control plane on the Mac over Wi-Fi, securely,
   with what the headset's Unity player and the control plane's Node.js offer and no new
   dependency? In particular, do Unity 6000.3's `ClientWebSocket` and `HttpClient` under IL2CPP on
   Android honor a custom certificate validation callback, and if not, what does?
@@ -140,7 +140,7 @@ A security review of the implementation reproduced, on loopback ports:
   correlated with the Hamming weight of `x` (0.13 over 3,000 samples in-process, 4 microseconds per
   set bit), and cost two modular exponentiations for an unauthenticated request.
 - **`pnpm pair` showed only wrong codes (informational),** so four addresses could hold every
-  exchange slot for 30 seconds at a time, spending no guess, without the owner seeing it.
+  exchange slot for 30 seconds at a time, spending no guess, without the person seeing it.
 
 Changes, each with tests in `network/network.test.ts` unless named otherwise:
 

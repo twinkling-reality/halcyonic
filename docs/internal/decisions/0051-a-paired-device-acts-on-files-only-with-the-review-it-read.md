@@ -1,6 +1,6 @@
 # ADR 0051: A paired device changes a project's files or folder only with the digest of the review it read
 
-- Status: Accepted; amended 2026-11-11 for `workstream.add_to_project` (TASKS, AUDIT's F2 on XR's A13)
+- Status: Accepted; amended 2026-11-11 for `workstream.add_to_project`
 - Date: 2026-11-11
 
 ## Context
@@ -9,7 +9,7 @@ Every authenticated principal was admitted alike for every command (SECURITY.md,
 paired device could put a project's files back from a checkpoint (`project.restore`) or bind a project
 to another folder (`project.set_location`), and `review_required` was a client's duty the control
 plane could not see. A headset lost, borrowed or running a faulty build could change files or where
-later work runs with nothing showing that a person read what would happen. The owner's direction
+later work runs with nothing showing that a person read what would happen. The goal
 (2026-11-10): each device can do only what it should.
 
 Facts read in the code on 2026-11-10: `submit()` admits a command synchronously; a restore's preview
@@ -37,9 +37,9 @@ is in the projection.
   once the first one changed the facts.
 - **The owner on the Mac** (the access token) is admitted as before when it sends no digest.
 - `project.set_location` becomes `review_required` in policy, the honest statement to every client of
-  what the host now enforces (the check above does not read the category). The judges' recorded
+  what the host now enforces (the check above does not read the category). The recorded
   demonstration, whose welcome lists every category, is recorded again for it: one line of its
-  welcome changes (the lead's decision with AUDIT2, 2026-11-11).
+  welcome changes (2026-11-11).
 - The headset: restore stays unoffered there. `ControlPlaneApi.ReviewLocationAsync` reads a move's
   review, and `BuildSequence.MoveReview` carries its digest into the move it sends.
 - **Amended: adding a task's work** (`workstream.add_to_project`, ADR 0045) writes the task's files
@@ -72,9 +72,9 @@ is in the projection.
   once what it read has changed. **What the digest proves:** that what was read still holds when the
   command acts. It does not prove a person read it: the facts are ones a device can read for itself, so
   a device holding a credential can read and act on its own. That is as much as a host can know; that a
-  person looked stays the client's to show (AUDIT2 S1).
+  person looked stays the client's to show.
 - A restore's digest covers every path it would change back, remove or return, each set whole, though
-  the preview lists at most the first of each (AUDIT2 S2).
+  the preview lists at most the first of each.
 - The preview names the files a restore changes, not their contents: a file changed again in the same
   way since the read does not make the review stale. That is what the person read.
 - Every client that moves a project from a device reads the review first; XR's entry panel does it.

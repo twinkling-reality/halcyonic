@@ -1,4 +1,4 @@
-# The showcase finals on the owner's Mac (2026-11-04)
+# The showcase finals on a real Mac (2026-11-04)
 
 Three VR games, each made by Halcyonic from one instruction: a confined Codex on a local model wrote each, the host
 checked it, and frames from the check's own browser show what a person sees.
@@ -12,15 +12,15 @@ version of an existing 2D game.
 ## Environment
 
 - **The code:** main `ee0cabc0`.
-- **The control plane:** the owner's own, on 127.0.0.1:47800, with the owner's data folder. Before the runs, that
+- **The control plane:** a real one, on 127.0.0.1:47800, with its real data folder. Before the runs, that
   folder was set up:
-  - the starter's pinned set, an APFS clone of a set the lane had installed, recorded by `pnpm mac-setup starter`;
+  - the starter's pinned set, an APFS clone of a set installed earlier, recorded by `pnpm mac-setup starter`;
   - the controller and hand models;
   - the showcase root allowed;
   - undo with `/usr/bin/git`.
 - **The agent:** Codex 0.157.0, confined to each project (ADR 0041, with a temporary folder of its own), on
   `muse-glimmer:30b-mlx` through Ollama. Memory was 81% free at the first start, and never under 72% at a start.
-- **What happens after each turn:** the lane's driver denied every approval, and a question would have stopped the run.
+- **What happens after each turn:** the test driver denied every approval, and a question would have stopped the run.
   After each turn that changed files, the host's own check ran: type check, build, the page in the check's browser,
   drawn of its own (DRAWN), the laptop step with the twin replay, and VR offered. While the check failed, the driver sent
   "It doesn't work yet. Please fix it so the game plays.", to which the host adds the check's errors. It allowed at most

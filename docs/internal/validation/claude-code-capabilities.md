@@ -197,7 +197,7 @@ model.
 - No settings file loads (`settingSources: []`, since 2026-11-12); Salidium's and Seorak's hooks
   are passed explicitly and a project's own `CLAUDE.md`, `AGENTS.md`, `.claude` settings, hooks,
   skills and `.mcp.json` servers never load by themselves
-  ([claude-code-project-settings.md](claude-code-project-settings.md)). Since BOX-4 a new
+  ([claude-code-project-settings.md](claude-code-project-settings.md)). Since ADR 0048 a new
   app's project on macOS is the exception: there the launch runs inside Halcyonic's closed profile
   with a HOME and CLAUDE_CONFIG_DIR of its own, so the person's settings and hooks do not load
   ([claude-code-sandbox.md](claude-code-sandbox.md)). Elsewhere HOME and
@@ -244,7 +244,7 @@ approval is pending.
 
 ## Smoke test with a real model (2026-09-26)
 
-Method: `packages/integrations/claude-code/src/smoke.test.ts` with the owner's workspace-scoped API
+Method: `packages/integrations/claude-code/src/smoke.test.ts` with a workspace-scoped API
 key, model `claude-sonnet-5`, the bundled CLI 2.1.283, the developer's own HOME and Claude
 configuration (so the user's hooks ran), in a temporary working directory. Run from inside a Claude
 Code desktop session.

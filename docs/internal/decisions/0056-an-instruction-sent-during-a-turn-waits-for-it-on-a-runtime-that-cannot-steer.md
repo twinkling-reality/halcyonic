@@ -40,8 +40,8 @@ Until now admission refused an instruction to a running execution whose runtime 
    exactly as an instruction at rest is: the same reads of the folder before the turn, and completion once the
    runtime confirms. The next one waits for that turn.
    - `execution.instruction.dequeued` (`command_id`) is recorded when its send begins, so from then on it is
-     not waiting: it cannot be dropped or failed unsent, and it ends as any sent instruction does (AUDIT2,
-     2026-11-11).
+     not waiting: it cannot be dropped or failed unsent, and it ends as any sent instruction does
+     (2026-11-11).
    - A restart fails what is still waiting as `queued_stopped`, effect `none`, before the restart's own pass
      fails other pending commands with effect `unknown`. A send already begun still fails with `unknown`: it may
      have reached the runtime.
@@ -69,7 +69,7 @@ Until now admission refused an instruction to a running execution whose runtime 
   would live in the CLI process: a restart loses it with no trace in the journal, it would serve one runtime
   only, and the person could neither see nor drop what waits.
 - **Send what waits after any turn's end.** An instruction sent after an error would go to an agent in a state
-  the person has not seen. The lead's rule is to send after a completed turn only.
+  the person has not seen. The rule is to send after a completed turn only.
 - **No bound.** One person's words should not pile up unseen behind a long turn. Three is enough for "and also",
   and few enough to read.
 
@@ -79,5 +79,5 @@ Until now admission refused an instruction to a running execution whose runtime 
 - **OpenCode's held steer is still open.** A steered instruction still waiting when its turn is stopped reaches
   the model only with the next prompt, and its command already completed when OpenCode accepted it
   (OPEN_QUESTIONS.md).
-- The headset shows what waits and offers Drop (FIELD's words; a call note is in FIELD's folder).
+- The headset shows what waits and offers Drop.
 - **Revisit when** a runtime documents and verifies its own queue with an outcome the host can observe.

@@ -1,11 +1,11 @@
 # ADR 0023: The headset's interface is one system of tokens, components and render-checked rules
 
-- Status: Accepted on 2026-10-01 by the owner. Its foreground panels and the workspace superseded by [ADR 0026](0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md) on 2026-10-02.
+- Status: Accepted on 2026-10-01. Its foreground panels and the workspace superseded by [ADR 0026](0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md) on 2026-10-02.
 - Date: 2026-10-01
 
 ## Context
 
-After the fifth headset session (2026-09-30) the owner found the function better and the
+After the fifth headset session (2026-09-30) testing found the function better and the
 experience a headache: panels and labels over characters, over each other and under system
 windows; actions placed wherever each screen needed them; every button the same grey rectangle
 with text only, no icons and no colour meaning; confusing words; and character plates that mix the
@@ -14,7 +14,7 @@ title, the status and the reason in one shape ([quest-3-device.md](../validation
 An audit on 2026-10-01 rendered every screen with the four editor checks on main (2da2010) and every
 character state at 2.4 m and on a desk, and read the Unity layer. All four checks pass, because they
 test what they were written for: nothing is cut, nothing shows through a panel, no panel covers a
-body. The causes of what the owner saw are structural:
+body. The causes of what testing showed are structural:
 
 - Each surface lays itself out with its own constants (`WorkspacePanel`, `EntryPanel`,
   `ProjectRail`, `UsageLeftGlance`, `RoomControls`, `PairingPanel`, `CharacterView`), and three
@@ -64,8 +64,8 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   the header would have cut the panel's title. Neither Move nor Reset position moves a panel while
   a confirmation is armed. The same day the run line found its place: Show details beside What is
   it doing? turns it to How is it running?, the agent app, the model, the folder, when it started
-  and the round, its button running beside the heading's words rather than taking a row; and, as the
-  owner chose, a question screen offers one Hold to talk, the one beside the answers. Beside a
+  and the round, its button running beside the heading's words rather than taking a row; and a question
+  screen offers one Hold to talk, the one beside the answers. Beside a
   window, where titles had hidden, the title shows as one short line under the badge, cut to 10.5
   degrees, so the tasks can be told apart.)
 - **Words and decisions stay in the client core.** A state language maps every work state to a
@@ -77,14 +77,14 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
   a state badge on its top edge, and marks for practice, demonstration and recorded work on its
   bottom edge; the reason shows only in the peek. (On 2026-10-01 the marks moved from beside the
   badge to the plate's bottom edge: beside it, a badge and a mark reach 11 to 13.5 degrees, and
-  neighbours stand 12 apart. On 2026-10-02, as the coordinator and the owner approved, a label on
+  neighbours stand 12 apart. On 2026-10-02 a label on
   a desk leans back to face the eyes: upright, seen from above, its badge's words read at about two
   thirds of their size as the eyes see it, under Meta's 14 dp.)
 - **One word per state.** Not started, Starting, Working, Checking its work, Waiting for you,
   Finished this round, Checks failed, Couldn't finish, Stopped and Can't tell yet, kept once in the
   client core (`StateLanguage`). A badge says the short word; a sentence says the same state in
-  full, as a person would ("1 task is waiting for you"). On 2026-10-01 the owner changed "Needs
-  you" to "Waiting for you", after count lines such as "1 needs you" became sentences.
+  full, as a person would ("1 task is waiting for you"). On 2026-10-01 "Needs
+  you" changed to "Waiting for you", after count lines such as "1 needs you" became sentences.
 - **Zones from the eyes.** The virtual stage rises so bodies stand about 4° below eye level;
   foreground panels open below every plate there and above every body on a desk; the rail, peek,
   ambient strip and, in a window mode the person chooses, a lane for a 2D window each have a zone,
@@ -144,16 +144,16 @@ dark backgrounds no darker than #1A1A1A, a sound for every successful selection,
 
 - Every surface looks and behaves alike, a token change reaches all of them, a new screen is a new
   model, and the rules fail the build when broken.
-- About fifteen Unity files and their renders change, one surface at a time, coordinated with the
-  lanes working in the same files. `PointerTarget` moves assembly.
+- About fifteen Unity files and their renders change, one surface at a time, coordinated with
+  other work in the same files. `PointerTarget` moves assembly.
 - Larger targets and gaps mean fewer rows per page: lists show four a page.
 - Fonts (Liberation Sans Bold and Liberation Mono, SIL OFL) and the icon atlas (Apache-2.0) are
   committed with their licences, and NOTICE names them. (On 2026-10-02 NOTICE named the two fonts
   the app includes, Material Symbols Rounded and Liberation Sans. Neither Liberation Sans Bold nor
   Liberation Mono was added: strong text is drawn thicker by its material, and no text is set in a
   monospaced font yet.)
-- Two quiet Glaze cues are proposed for presses that register and presses refused; they need the
-  owner's approval. (Approved on 2026-10-01 and added as Touch and Not now, with every cue renamed
+- Two quiet Glaze cues are proposed for presses that register and presses refused; they need
+  approval. (Approved on 2026-10-01 and added as Touch and Not now, with every cue renamed
   to the words the person reads.)
 - To check on the headset: reading at 0.46 m, list density with 60 dp targets, the stage's new
   height, a desk with little room above the lineup, the window lane, and the new cues. (On

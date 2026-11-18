@@ -49,13 +49,10 @@
   ([review-required permissions](https://developers.meta.com/horizon/resources/permissions-review-required/),
   2025-11-26). Corrected on 2026-10-02: dashboard notifications do reach the headset, in its
   notification feed (below); the earlier "do not appear in VR" was wrong.
-- **The competition.** An entry is one APK in a release channel named Competition, and it must be a
-  VR or MR application ([rules](https://start-developer-competition-26.devpost.com/rules)); a
-  second app would not be judged.
 
 ## Reaching the person inside another app (2026-10-02)
 
-Read on 2026-10-02 by the coordinator's research and checked again in this lane; each page's own date
+Read on 2026-10-02 in earlier research and checked again here; each page's own date
 is given where it shows one.
 
 - **Dashboard notifications reach the headset's feed, not a toast.** Single-send and event-based
@@ -64,7 +61,7 @@ is given where it shows one.
   wording rules, and follower notifications are limited to "1 notification sent per day from your
   organization" ([user notifications](https://developers.meta.com/horizon/documentation/native/ps-user-notifications),
   2025-11-04). Sending one from an app's own events goes through Meta's servers with the app's
-  credentials (the coordinator's research; the page read here does not show the endpoints).
+  credentials (earlier research; the page read here does not show the endpoints).
 - **A device notification from the app itself.** The Kotlin VR Platform SDK's
   `Notifications.deviceNotification()` "Triggers a device notification to show the notification
   toast and feed the notification to notification feed"
@@ -91,7 +88,7 @@ is given where it shows one.
   (inference).
 - **From inside the game.** A hybrid app's 2D activity with `OVERLAY_LAUNCHER` is what opens when
   the app is launched from inside another immersive app (above). Going to Home ends the immersive
-  app that was running (the coordinator's research; unverified here).
+  app that was running (earlier research; unverified here).
 - **Prohibited**, rechecked: `SYSTEM_ALERT_WINDOW`, `STATUS_BAR`, `BIND_APPWIDGET`,
   `BIND_NOTIFICATION_LISTENER_SERVICE` and `START_FOREGROUND_SERVICES_FROM_BACKGROUND`
   ([prohibited permissions](https://developers.meta.com/horizon/resources/permissions-prohibited/),
@@ -103,7 +100,7 @@ What the session showed ([quest-3-device.md](quest-3-device.md)): with Virtual D
 open inside Halcyonic, input focus went to whichever the hand ray reached first, and the windows
 hung in front of the characters; the session flapped between focused and visible dozens of times,
 each flap with a reference space change (OVRPlugin's recenter count reached 99) that moved nothing;
-the stage re-placed itself about every two seconds; after the owner minimized the windows, Virtual
+the stage re-placed itself about every two seconds; after the windows were minimized, Virtual
 Display stayed the top resumed activity and Halcyonic stayed unfocused.
 
 - **How a person returns focus.** Meta's requirement for focus-aware apps says to "Return focus to
@@ -150,7 +147,7 @@ Display stayed the top resumed activity and Halcyonic stayed unfocused.
   a window in front (an inference to check on the headset). Moving a window above the characters,
   by its bar, is the person's.
 
-## The native panel on the owner's headset (2026-11-16)
+## The native panel on a real headset (2026-11-16)
 
 - **Setup:** Quest 3 on Horizon OS 209 (Android 14, build UP1A.231005.007.A1), on the cable. The
   development APK of main `8d6e0944e` was installed (SHA-256 `b05047a3…f0f4`). The control plane on
@@ -201,8 +198,8 @@ Display stayed the top resumed activity and Halcyonic stayed unfocused.
   AOSP's `NetworkSecurityPolicy.isCleartextTrafficPermitted` documentation says there is no
   expectation that the Socket API honors it (read 2026-10-02). Its development builds therefore add
   no cleartext exception.
-- Notifications are not a channel for the competition build. Dashboard notifications need Meta's
-  servers and the app's credentials, so they stay out unless the owner approves a hosted service.
+- Notifications are not a channel for the release build. Dashboard notifications need Meta's
+  servers and the app's credentials, so they stay out unless a hosted service is approved.
 - The stage ignores reference space changes that move nothing, and moves with a tracking space
   that does, so focus flapping under system windows no longer moves the characters.
 - Returning focus with hands is the person's gesture, documented in the milestone 3 checks of
@@ -213,7 +210,7 @@ Display stayed the top resumed activity and Halcyonic stayed unfocused.
 1. With Halcyonic live, open Virtual Display and connect the Mac: are the screens and the
    characters both visible, and does the client stay connected? (Second session: both visible,
    the screens in front of the arc.)
-2. Run `pnpm demo` while the owner types on the Mac: is "Needs you" noticed at the side?
+2. Run `pnpm demo` while someone types on the Mac: is "Needs you" noticed at the side?
 3. Launch another immersive app: what happens to Halcyonic's process and to open windows? Is
    Halcyonic suspended or ended?
 4. With the screens open, point between them and the characters: does the stage stay put, and does

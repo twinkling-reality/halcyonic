@@ -20,14 +20,14 @@
   whether the microphone is heard while nobody wears the headset; what a 5039 server does when 5038
   is not running. Added 2026-11-03 and run on the headset that day: `connect`, the forwarded `--`, the
   refusal to launch under a system dialog, reading a launch's hold with `logcat -e` from the
-  headset's clock (`-t <epoch>`), and `clip`. Added after AUDIT's review that day and run once on the
+  headset's clock (`-t <epoch>`), and `clip`. Added after a review that day and run once on the
   headset's server (19:56Z): adb on `tcp:127.0.0.1`, the server's version read before the first command
   (41, as its adb's), and `connect` recording the headset's transport id (2), which `connect stop`
   then removed. Added last that day, tested only against a stand-in adb then: `glance` and
   `glance-token`. Run on the headset that night (23:53Z): a development build's eight capture
   presets, one launch each. Run on the headset 2026-11-04: the final build's install and checks, the
   decision bar and its approval denied from the Mac, three previews in Quest Browser, and `glance`
-  and `glance-token` with the owner answering the prompt.
+  and `glance-token` with a person answering the prompt.
 
 ## Findings
 
@@ -113,7 +113,7 @@
   enabled: true`), a screenshot and a recording each reached `media_sync_succeed` within 3 s of
   being saved: they were uploaded to the headset's account, and removing them from the headset does
   not remove the uploaded copy. `screenrecord`'s file in /sdcard/Download showed no sync activity.
-  So the tool uses `screenrecord` unless the owner has turned media sync off.
+  So the tool uses `screenrecord` unless the person has turned media sync off.
 
 ### Logs
 
@@ -145,12 +145,12 @@
   `lib/arm64-v8a/libXrApiLayer_METAX_operator.so` nor
   `assets/openxr/1/api_layers/implicit.d/XrApiLayer_METAX_operator.json`; with
   `HALCYONIC_OPERATOR=1` it held both. `BuildDevelopmentApk` passed both builds.
-- On the headset (2026-10-29), with check builds installed beside the owner's app: a check build
+- On the headset (2026-10-29), with check builds installed beside the installed app: a check build
   without `HALCYONIC_OPERATOR` running showed no listener on port 8720 in `/proc/net/tcp` or
   `/proc/net/tcp6`; a journey check build running showed one in each, under the check package's
-  uid, gone once it stopped. The owner's app's bytes were unchanged throughout.
+  uid, gone once it stopped. The installed app's bytes were unchanged throughout.
 
-### A check build beside the owner's app (2026-10-28)
+### A check build beside the installed app (2026-10-28)
 
 - Three builds with Unity 6000.3.25f1 on its own adb server, read with `aapt2`: without
   `HALCYONIC_TEST_ID`, `BuildDevelopmentApk` wrote `Builds/Halcyonic.apk`, package `com.halcyonic.xr`,
@@ -161,23 +161,23 @@
   affinity `com.halcyonic.xr.check.panel`. The manifest merger filled `${applicationId}` in each.
 - The check builds left the development APK's bytes, and a file put at the release APK's path, as
   they were, and no build changed ProjectSettings.asset.
-- On the headset (2026-10-29) the check package installed beside the owner's app with an appId of
+- On the headset (2026-10-29) the check package installed beside the installed app with an appId of
   its own, started straight into its demonstration with no permission dialog in front 12 s later,
   so nothing was granted, and was uninstalled at the end; `pm path` then listed nothing for it.
 - `pnpm quest:device -- install` reads an APK's own package with `aapt2 dump badging` before anything
-  reaches the headset and refuses unless it is the package named, so an APK of the owner's package
-  given as the check build is refused; a check install also fails if the owner's app's bytes changed.
+  reaches the headset and refuses unless it is the package named, so an APK of the installed app's package
+  given as the check build is refused; a check install also fails if the installed app's bytes changed.
 - Granting the check build `android.permission.RECORD_AUDIO` lets its hold to talk record the room:
   development builds only, and what it hears stays private. An `adb reverse` on 47800 serves every
   app on the headset, not only the check build, so it exists only while a step needs it.
 
-### An agent build over the owner's app, data set aside (2026-10-29)
+### An agent build over the installed app, data set aside (2026-10-29)
 
 - Through `run-as` the app's private files can be listed, copied aside with `cp -p` and compared with
   `cmp -s`, and the copies put back with names, sizes, modes and times equal to before. Its folder
   on shared storage, `/sdcard/Android/data/com.halcyonic.xr`, could not be read through `run-as`, so
   it was not set aside: an agent build's first start there may leave Unity's extracted IL2CPP data
-  for its own build in `files/il2cpp`, which the owner's app extracts again at its next start.
+  for its own build in `files/il2cpp`, which the installed app extracts again at its next start.
 - With no control plane reachable a development build shows the recorded demonstration and logs
   that nothing answered at 127.0.0.1:47800 and its access code was not sent.
 
@@ -189,7 +189,7 @@
   back whole: 199.7 s, H.264 1920 by 1080 at about 30 fps, AAC 48 kHz stereo, 159 MB; the capture
   service's own check said `video: true, audio: true, duration Ms: 199724`. No length limit was met.
 - With nobody wearing the headset its sound was almost silent (mean -90 dB, peak -64 dB): whether
-  the microphone is heard while it is worn is still to see on the owner's first take.
+  the microphone is heard while it is worn is still to see on a first worn take.
 - `record start` and `record stop`, run as two commands with a recording in between, pulled the clip
   with its sha256 beside it and removed it from the headset; a `record stop` with nothing recording
   stopped nothing.
@@ -224,7 +224,7 @@ A Quest 3 on build `UP1A.231005.007.A1` (incremental 52641960031600520) on its o
 - **Without the app running**, `pnpm quest:check` passed the mapping, the private token at mode 600
   and 44 bytes, no glance token, no write's temporary file and nothing at the token's old place, and
   failed only its log line, the app not running.
-- **The cached launch did not start.** The menu's task closed at 17:42:07Z, when the owner closed
+- **The cached launch did not start.** The menu's task closed at 17:42:07Z, when a person closed
   it; the log has no start of Halcyonic after the force-stop at 17:23:38Z. Seen once: whether a
   force-stop always drops a cached launch is not known.
 - **Woken again at 18:16Z**, the headset showed Meta's tracking-lost dialog over black ("Continue
@@ -250,12 +250,12 @@ A Quest 3 on build `UP1A.231005.007.A1` (incremental 52641960031600520) on its o
   listened on 8720 while the app ran (both tables read). The compositor held 72 to 73 fps after a
   first second of 31 with 44 stale frames, and the app logged its device view field (108 by 99
   degrees for both eyes). A 5 s `clip` came back whole: 4128 by 2208, about 67 fps, 12.9 MB.
-- **Frames and clips moved off shared storage (AUDIT).** `/data/local/tmp` read `drwxrwx--x shell
+- **Frames and clips moved off shared storage.** `/data/local/tmp` read `drwxrwx--x shell
   shell`. Asleep, `screenrecord` into it exited 218 and left an empty file of mode 644; awake, a 6 s
   clip recorded under `umask 077` read `-rw------- shell shell` while it ran, and came back whole
   (5.98 s, 16.1 MB). The tool now records there with that umask, and removes by name at once what
   a failed `screenrecord` began.
-- **The glance needs a person once.** The owner's app did not hold `POST_NOTIFICATIONS` (read 19:29Z:
+- **The glance needs a person once.** The installed app did not hold `POST_NOTIFICATIONS` (read 19:29Z:
   `granted=false`, with no user flag, so never asked) and had no glance token. The glance asks for the
   permission when it opens and starts polling without waiting, so its first poll needs no hands, but
   the prompt it raises does. `glance` therefore refuses unless the app holds it, or `--owner-answers`
@@ -269,7 +269,7 @@ mapping with `connect`.
 ### The kit build's capture presets, and a shader the player left out (2026-11-03)
 
 The same headset, nobody wearing it, standing where its cameras saw a lit room; a development build
-of main `cccd0a4b`, which draws the kit by default, installed over the owner's app; the control
+of main `cccd0a4b`, which draws the kit by default, installed over the installed app; the control
 plane from main on 127.0.0.1:47800.
 
 - **Nothing held a launch.** Woken at 23:53:56Z, the headset had only Meta's shell in front. The
@@ -332,8 +332,8 @@ had used it.
   <project id>` then opened it in Quest Browser on 127.0.0.1:47930 over a reverse it made, and each
   game loaded with its scene and its score. `preview stop` and `project.preview.stop` ended each
   one. Quest Browser kept the three tabs in its restored session; closing them needs a person.
-- **The glance, with the owner.** With the owner wearing the headset, `glance-token write` wrote
-  the token at mode 600 and 44 bytes, and `glance --owner-answers` opened the glance. The owner
+- **The glance, with a person.** With a person wearing the headset, `glance-token write` wrote
+  the token at mode 600 and 44 bytes, and `glance --owner-answers` opened the glance. They
   granted the notification permission, and `pnpm quest:check` passed every line, with
   `glance: polled ok`. No `cat` was left running. Give-back removed the token copy and the mapping.
 - **The proximity override came back on.** The final session's give-back read it off twice at
@@ -356,7 +356,7 @@ the final build against a control plane of its own commit.
   only an Android package name for `--package`, saves an installed APK before installing over it and
   checks the bytes both ways, fails a launch a system dialog holds or `am start` does not confirm,
   removes only the captures it made after checking their pulled bytes, uses `screenrecord` unless the
-  owner has turned media sync off, records frames and clips of both eyes through `screenrecord` into
+  person has turned media sync off, records frames and clips of both eyes through `screenrecord` into
   the adb shell's own folder as the shell's alone (`clip`, up to 180 s), runs nothing on a recorded
   path or app name of a shape it never makes, and keeps only Halcyonic's own log lines.
 - Development builds leave Meta XR Operator out unless a journey build asks for it

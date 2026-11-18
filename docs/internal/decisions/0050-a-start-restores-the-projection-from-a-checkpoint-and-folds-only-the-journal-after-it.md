@@ -45,7 +45,7 @@ bound it; skipping what was already folded can. The projection's whole state at 
   checkpoint saves.
 - The control plane writes a checkpoint at a clean close and after every 50,000 events appended
   since the last one, between appends. Writing never fails an append: a failed write is logged.
-- Fixture journals (recorded traces, the judges' build) are never checkpointed and always folded
+- Fixture journals (recorded traces, the demonstration build) are never checkpointed and always folded
   whole.
 
 ## Alternatives considered

@@ -1,6 +1,6 @@
 # ADR 0013: Characters are bots whose eyes, motion and light carry state
 
-- Status: Accepted (by the owner, 2026-09-29); amended by the owner's picks on 2026-10-08
+- Status: Accepted (2026-09-29); amended on 2026-10-08
 - Date: 2026-09-29, amended 2026-10-08 (a feature on top, eyelids, a ring and rim in place of the
   halo, places that mean something, labels that grow when looked at, and a stage for what is
   current; then life: looking back, homes by project, thinking and doing, the agent's words, and
@@ -14,7 +14,7 @@ whether it is active, whether it needs its person, and whether it finished or fa
 run used placeholder spheres whose color and bobbing carried state
 ([quest-3-device.md](../validation/quest-3-device.md)).
 
-On 2026-09-29 the owner compared two directions in a lookbook, a single page that drew each
+On 2026-09-29 two directions were compared in a lookbook, a single page that drew each
 direction in all eight states and six at once in the headset's arc. It stays outside the
 repository. Both directions were drawn from scratch; public bot avatars and an agent orb study
 inspired them, and nothing was copied.
@@ -27,34 +27,32 @@ inspired them, and nothing was copied.
 
 The characters render on a Meta Quest 3 at 72 Hz, six at once, beside system windows that open
 within about 2 m of the person ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md)).
-The competition's rules, which the owner shared the same day, add four constraints: keep essential
+Four further constraints apply: keep essential
 interface and interactions within a comfortable, narrower field of view that adapts across devices,
 since a Quest 3S and Meta's glasses see less than a Quest 3; run at 60 frames a second or more;
 show no brand names, logos or recognizable branded products; and work for a seated person, within
 about 2 ft, without standing or reaching far.
 
-On 2026-10-07 the owner shared references for the feel of the whole app
-([headset-redesign-research.md](../validation/headset-redesign-research.md), "The owner's references
-for the feel of the whole app"), for qualities only, never features. Among them was a reel of small AI
-characters, each with its own design, that float, fly, go to places and change expression. Beside it,
-the owner said Halcyonic's characters have "a weird blank aura", which lane V read as the wide glow
-behind each. Old tasks also crowded the stage in the sixth headset session (2026-10-04,
+On 2026-10-07 references for the feel of the whole app were gathered
+([headset-redesign-research.md](../validation/headset-redesign-research.md)), for qualities only,
+never features. Among them was a reel of small AI characters, each with its own design, that float,
+fly, go to places and change expression. Beside it, Halcyonic's characters read as having a blank
+aura, traced to the wide glow behind each. Old tasks also crowded the stage in the sixth headset session (2026-10-04,
 [quest-3-device.md](../validation/quest-3-device.md)): 4 of the journal's 11 tasks were `unknown`
-from earlier sessions, and one, named like a new project, read as if that project had failed. Lane
-V's proposal "One kit, four forms" (2026-10-07, outside the repository) answered both, and on
-2026-10-08 the owner picked its recommended options. The amendments below are those picks. The
-proposal's own choices, such as the six features, the two ages and the 0.5 m/s, are lane V's, not
+from earlier sessions, and one, named like a new project, read as if that project had failed. The
+proposal "One kit, four forms" (2026-10-07, outside the repository) answered both, and on
+2026-10-08 its recommended options were picked. The amendments below are those picks. The
+proposal's own choices, such as the six features, the two ages and the 0.5 m/s, are its own, not
 taken from any reference.
 
-The same day the owner asked for more: in the reel, the characters "weren't just cool because of their
-looks (which I saw you improved here) but because they felt like i.e. they could move around, they
-could look at you and look away and talk to each other like real characters etc". Halcyonic's agents
-never talk to each other, so lane V proposed the closest true things as the proposal's item 6, and
-the owner agreed to its recommended set on 2026-10-08. Its choices are lane V's.
+The same day more life was asked for: the reel's characters stood out because they moved around,
+looked at you and away, and talked to each other like real characters. Halcyonic's agents never
+talk to each other, so the closest true things were proposed as the proposal's item 6, and its
+recommended set was accepted on 2026-10-08.
 
 ## Decision
 
-The owner chose bots.
+Bots were chosen.
 
 - A character is a glossy, rounded body with two eyes, no mouth, and at most one small feature on
   top: an antenna, two ears, a sprout, a crest or two horns.
@@ -97,7 +95,7 @@ The owner chose bots.
   middle, as the next bullet says. Beside a window the groups split either side.
 - Each slot is a character's home, marked by its ring. The ring lies on the desk at the label's foot,
   the label resting inside it, and without a desk where a desk would be, under the label, so it never
-  crosses a badge (lane U's placement, accepted by lane V on 2026-10-08). The rim carries the state's
+  crosses a badge (placement accepted on 2026-10-08). The rim carries the state's
   light on the body wherever the character goes, strong enough to read away from its ring. A
   character leaves home only for a place its state names: the front of the desk while something
   waits for the person, the side of its open file while the file is open, and the bar when it
@@ -139,7 +137,7 @@ The owner chose bots.
   recording's.
 - Until the person first opens a file from a character on a headset, a character's glance carries a
   prompt at its foot: a key cap holding the pinch icon, then Open. It replaces the first-time hint's
-  drawn fingers and "Look, then pinch" (lane V and the coordinator, 2026-10-08).
+  drawn fingers and "Look, then pinch" (2026-10-08).
 - Six characters are built to take little of a 72 Hz frame, above the rules' 60 frames a second:
   noise is baked into a texture instead of computed per pixel, each body is one pass, and nothing
   allocates per frame. The cost is estimated, not yet measured on a headset
@@ -160,7 +158,7 @@ The owner chose bots.
 - **Rigged or purchased character art.** Costs rigging work and licensing, and puts assets outside
   the project's license, for cues that procedural shapes and shaders already carry.
 - **The halo, as it was or at half its size** (2026-10-08). A glow 4.4 body radii wide behind each
-  character, which the owner called a blank aura; halving it keeps the aura.
+  character, which read as a blank aura; halving it keeps the aura.
 - **Stations** (2026-10-08). Every motion in place, with no travel: calm, but a character that needs
   the person could only rise where it stood, and nothing could arrive or leave.
 - **Today's 128 identities** (2026-10-08). In about a quarter of stages, two of six characters
@@ -173,7 +171,7 @@ The owner chose bots.
   turning to each other** (2026-10-08). The other options of item 6; each is calmer and says less.
 - **Only the state's mark at rest, or the full label** (2026-10-08). The mark alone drops the written
   status this ADR keeps. The full label, the state and a title on two rows, put three lines under
-  every character, 18 of the 48 pieces of text lane V counted in one view of a task opened on a
+  every character, 18 of the 48 pieces of text counted in one view of a task opened on a
   desk.
 
 ## Consequences
@@ -190,16 +188,16 @@ The owner chose bots.
   while they code, is open ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)).
 - The halo's wide transparent quad gives way to a ring and a rim. They should cover less of the
   frame than the halo did, but the rim is one more transparent pass a character, and features,
-  threads and trails add draw calls: about 20 more for six characters by lane V's estimate, not a
-  count. Lane U's measure renders count them, and the headset session measures the frame.
-- As amended on 2026-10-08, none of this is built yet. Lane U builds it in steps, each with its
+  threads and trails add draw calls: about 20 more for six characters by estimate, not a
+  count. Measure renders count them, and the headset session measures the frame.
+- As amended on 2026-10-08, none of this is built yet. It is built in steps, each with its
   renders. The speeds, the two ages and the ring's cost are judged on the headset, where they may
   change.
 - Characters with more life, moving around, looking at the person and looking away, and talking to
-  each other like real characters, were asked for by the owner on 2026-10-08, and the owner agreed to
-  lane V's recommended set the same day. Thinking and doing waits for the task's view to report a
+  each other like real characters, were asked for on 2026-10-08, and the recommended set was accepted
+  the same day. Thinking and doing waits for the task's view to report a
   running tool call, and the shared file for a capability each agent app declares; both are contract
-  changes with their own records, and the shared file may miss the competition build.
+  changes with their own records.
 - Looks between characters, the two working poses and the look back add motion at the edge of the
   person's view, which the open question on calm over a long session now covers too.
 - The arc does not adapt to a device's field of view at run time. Its default fits a Quest 3 and a

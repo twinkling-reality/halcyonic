@@ -8,14 +8,14 @@
   on 2026-10-29): `shared/contract/consumer.ts` (sha256 `40579eb9a77490cacc6b21a1c42ab649290c926d2cb91496b1c49326e92f472a`)
   and its four fixtures under `shared/consumer/fixtures/v1` (`catalog-empty.json` `1c6d6dc0…`,
   `catalog-sample-small.json` `cc917532…`, `error-not-ready-503.json` `c158f4ea…`,
-  `error-unauthorized-401.json` `f07e902c…`), read from the owner's local checkout. No git command
+  `error-unauthorized-401.json` `f07e902c…`), read from a local checkout. No git command
   was run in it, and nothing of it is copied into this repository.
 - **Method:** Halcyonic's client (`packages/integrations/omnorium`) was written from the
   contract's types with its own tolerant TypeBox readers, and tested against a stand-in it owns
   (`src/testing/fake-omnorium.ts`) and fixtures Halcyonic wrote by hand (`fixtures/v1`). Its
   reader was then run once over Omnorium's four published fixtures, in place.
 - **Status:** Source-verified and fixture-verified. Not read live: that needs a consumer credential,
-  which waits for the owner's yes. The control plane does not use the client yet.
+  which waits for the user's yes. The control plane does not use the client yet.
 
 ## Findings
 
@@ -87,7 +87,7 @@
 - **What was run:** Stand-in tests only (`packages/integrations/omnorium/src/connection.test.ts`,
   `src/client.test.ts`, `src/wire.test.ts`, `apps/control-plane/src/intelligence/catalog.test.ts`,
   `apps/control-plane/src/http/catalog-route.test.ts`). Not read live: a live read still waits for
-  the owner's yes to issue a consumer credential.
+  the user's yes to issue a consumer credential.
 
 ## On this Mac (2026-11-03)
 
@@ -96,7 +96,7 @@
   `GET /api/catalog` `unauthorized` (`credential_missing`), checked on a scratch control plane; with
   a credential saved but Omnorium stopped the client answers `unavailable` (`not_running`), tested
   against the stand-in only (`packages/integrations/omnorium/src/client.test.ts`).
-- **Upstream, read in place:** the owner's checkout at `5c6d983`; `shared/contract/consumer.ts`
+- **Upstream, read in place:** a local checkout at `5c6d983`; `shared/contract/consumer.ts`
   unchanged (sha256 `dc1389f7...`, as on 2026-10-31); of the four fixtures, `catalog-empty.json`,
   `catalog-sample-small.json` and `error-unauthorized-401.json` are unchanged, and
   `error-not-ready-503.json` (now `59c03d58...`) changed only in its message, which renames the
@@ -111,7 +111,7 @@
   catalog is never linked to your projects."; the empty collection answered `available` with no
   projects; the 503 `unavailable` (`not_ready`) and the 401 `unauthorized`, neither passing on
   Omnorium's message. Run on 2026-11-03, 3 of 3.
-- **To read it live**, the owner runs Omnorium in its checkout (`pnpm dev`, signed in to GitHub
+- **To read it live**, the user runs Omnorium in its checkout (`pnpm dev`, signed in to GitHub
   and synced; `pnpm dev:sample` serves a labelled sample, which Halcyonic shows as one and never
   links) and saves a consumer credential as the runbook says
   ([LOCAL_DEVELOPMENT.md](../runbooks/LOCAL_DEVELOPMENT.md#connect-omnorium)). Halcyonic creates none.

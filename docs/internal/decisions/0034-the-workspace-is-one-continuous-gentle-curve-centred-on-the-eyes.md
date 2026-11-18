@@ -12,8 +12,8 @@
 
 ADR 0026 put every composition on one flat plane, square to the line of sight at its centre, 0.46 m away. On
 that plane a word shrinks as it stands farther from the centre: across, by the square root of one plus the
-square of its offset, and at a slant. The owner rejected surfaces turned to face the eyes on their own, and
-allowed one gentle common curve (ADR 0026, alternatives considered).
+square of its offset, and at a slant. Surfaces turned to face the eyes on their own were rejected, and one
+gentle common curve was allowed (ADR 0026, alternatives considered).
 
 A spatial kit for the workspace (a context spine, a reading slate and an evidence rail as one instrument) was
 drawn in the editor's render fixture both ways from the same code, on synthetic work, and measured where the
@@ -27,10 +27,9 @@ eyes see each point, at the standard and the larger text size. These are Editor 
   tip 2.6 degrees at the larger size (the overview 6.2), inside the 8 degree limit.
 - Squeezed to the plane's spread, the curve's narrower slate could not hold a long report whole at the larger
   text size, so it keeps its full widths.
-- Gaps between the regions, on either form, read as separate cards, which the owner rejected.
+- Gaps between the regions, on either form, read as separate cards, which was rejected.
 
-The owner saw the curved render as a direction check and answered: "Yes, build every state on this curved
-direction."
+The curved render was reviewed as a direction check and accepted for every state.
 
 ## Decision
 
@@ -51,7 +50,7 @@ direction."
 
 - **One plane (ADR 0026's rule).** Kept as the fallback: simplest, and holds every floor within 64 degrees,
   but only at the floor once the regions are spaced, and its sides are read at a slant.
-- **Each region turned to face the eyes on its own.** Rejected by the owner (ADR 0026); measured again, it
+- **Each region turned to face the eyes on its own.** Rejected (ADR 0026); measured again, it
   spread 70 degrees and its sides swung and slanted against the slate at rest.
 - **The curve, or the plane, with gaps between regions.** Rejected: the regions read as separate cards.
 - **The curve squeezed to the plane's spread.** Rejected: the slate could not hold a long report whole at the

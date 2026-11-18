@@ -4,16 +4,16 @@
   person must see what an agent needs, answer it, understand what it did and start new work, and
   which of those patterns fit a seated, hands-first Quest app whose workspace today puts a title,
   tabs, a second row of controls, an answer, a pager and an action bar on one 44 by 26 degree panel?
-- **Date:** 2026-10-02; the owner's references for the feel of the whole app added 2026-10-07.
+- **Date:** 2026-10-02; references for the feel of the whole app added 2026-10-07.
 - **Method:** Apple's visionOS Human Interface Guidelines (read through their JSON data files),
   Apple's WWDC23 spatial design sessions and SwiftUI and RealityKit reference pages; Meta's Horizon
   OS design pages and a Meta blog post; Android XR's design guides and Jetpack XR reference; the
   official documentation of the Codex agent app and public issue reports about it; official guides
-  of three spatial productivity apps; the owner's own reference design for a request field with an
+  of three spatial productivity apps; a reference design for a request field with an
   attached shelf, in a private project, read only. Each page's own date is noted where it shows
-  one. Measurements of today's workspace come from lane W's `WorkspaceRender` on lane-w-understand
-  (fbdc5da). Prototype renders of three directions come from `DirectionsRender`, an editor-only
-  render on lane-v-redesign. No headset.
+  one. Measurements of today's workspace come from `WorkspaceRender` at
+  fbdc5da. Prototype renders of three directions come from `DirectionsRender`, an editor-only
+  render on a design branch. No headset.
 - **Status:** Documentation, public reports and editor renders. Nothing here is verified on a
   headset.
 
@@ -24,10 +24,10 @@
 - On the 44 by 26 degree panel the fixed rows take about 24 degrees: title and goal 3.9, gap 0.6,
   tabs 3.0, a 12 mm gap 1.4, a heading or pills row 3.0, gap 1.4, gap 1.4 under the body, pager
   band 3.0, gap 1.4, action bar 3.7, padding 1.2. With a row of pills and the pager band, about
-  2 degrees remain for the answer: its source line and at most one row. Measured by lane W in
+  2 degrees remain for the answer: its source line and at most one row. Measured in
   `WorkspaceRender`, far placement, 2026-10-02.
 - A panel 26 degrees tall fits under the labels of the characters 2.4 m away with about 0.2 degrees
-  to spare (lane U, `WorkspacePlacement`), so any taller surface, or larger text, needs the floor or
+  to spare (`WorkspacePlacement`), so any taller surface, or larger text, needs the floor or
   the characters moved.
 
 ### Apple visionOS
@@ -114,7 +114,7 @@ issue reports [#31157](https://github.com/openai/codex/issues/31157),
   Review action, which opens a separate review pane. Reported in issues, not in the official pages.
 - An approval shows as an actionable card on the desktop; whether it replaces the composer or sits
   in the thread is not documented.
-- The owner's reference design, read only: a single request field resting in a lighter shelf of the
+- The reference design, read only: a single request field resting in a lighter shelf of the
   same outline, which holds one-line rows of running work; a request that needs the person takes
   the field's place as one card with its figure, a title, one line and at most two actions, the rest
   behind a More control.
@@ -132,7 +132,7 @@ Sources: ShapesXR's [shape tool](https://learn.shapesxr.com/objects-creation/sha
 
 ### Game interfaces
 
-Added the same day, after the owner asked for the organisation of a game's menus and detective case
+Added the same day, after a request for the organisation of a game's menus and detective case
 files. Read through public articles, interviews and wikis (wikis labelled); no game image was copied.
 
 - **Dead Space.** The suit carries the interface: health on its spine, ammo on the weapon, and no
@@ -175,7 +175,7 @@ files. Read through public articles, interviews and wikis (wikis labelled); no g
 
 ### The chosen direction's style
 
-Added the same day, after the owner chose D with changes, naming Detroit: Become Human's interface
+Added the same day, after D was chosen with changes, naming Detroit: Become Human's interface
 as the reference for clean, intentional type and layout.
 
 - **Detroit: Become Human**, seen on Interface In Game's gallery
@@ -191,17 +191,17 @@ as the reference for clean, intentional type and layout.
   source file (SHA-256 `c2182b6337495e64cc9e2311c52522567ac277d25a842bd027f9c9e3a5cc6d86`, the file
   that record names); they were cut in the Glaze style (filled, weight 500, grade 0, optical size
   24) with fontTools 4.65.0 into a temporary font for the prototype renders only, never committed.
-  Language and brand logos were left out, since the competition rules forbid brands.
+  Language and brand logos were left out, to keep brands out.
 - **Measured in the styled renders** (`DirectionsRender.Styled.cs`, editor, Android target): a task's
   file 53 to 54 draw calls and its side panel 25 to 28, the menu with Tasks open 57, whole scenes with
-  six characters 93 to 123, against lane U's budgets of 60 a panel and 220 a scene, counted before
+  six characters 93 to 123, against the budgets of 60 a panel and 220 a scene, counted before
   batching as `MeasureRender` counts; the prototype draws a panel's glass as about eleven separate
   strokes, which the product's Surface shader would draw in one. Frame time on a Quest is not
   measured.
 
 ### Star Citizen's mobiGlas
 
-Added on 2026-10-02 at the owner's request, as a reference for how several panels relate. Read the
+Added on 2026-10-02 on request, as a reference for how several panels relate. Read the
 same day; no image was copied and the videos the article embeds could not be played here.
 
 - **The article** (Jono Yuen, *Star Citizen - UI Revisited (part 2)*, HUDS+GUIS, 2023-05-04,
@@ -232,7 +232,7 @@ same day; no image was copied and the videos the article embeds could not be pla
 
 ### A plane below the eyes, measured
 
-Added the same day, after the owner asked for every surface on one plane facing the person, upright.
+Added the same day, after a request for every surface on one plane facing the person, upright.
 `DirectionsRender.Refined.cs` (editor, Android target) lays the menu and a task's file on one plane
 two ways: upright, and tipped back as a whole to face the eyes at its centre. It renders each also
 from the eyes looking at it, square to that line, as the headset draws what a person looks at.
@@ -273,12 +273,12 @@ from the eyes looking at it, square to that line, as the headset draws what a pe
   allowed 18. So checked, the menu and a file reach 41.8 degrees below the view's middle, of the 43.5
   the field holds less its margin, and 39.0 to the side, of 46.5; a file alone 37.7 and 23.8.
 
-### The owner's references for the feel of the whole app
+### References for the feel of the whole app
 
-Added on 2026-10-07. The owner shared these for the feel of the whole app, then said they are for the
+Added on 2026-10-07. These were shared for the feel of the whole app, and they are for the
 aesthetic only, never for features: a contextual, diegetic interface, as if wearing an advanced one in
 the spirit of Iron Man's helmet, clean and organized, calm until needed. Read in a browser the same
-day. No image was copied, and the two images the owner shared stay outside the repository.
+day. No image was copied, and the two images shared stay outside the repository.
 
 - **Star Citizen** (Jono Yuen, *Star Citizen - UI Revisited (part 1)*, HUDS+GUIS, 2023-03-19,
   [hudsandguis.com](https://www.hudsandguis.com/home/star-citizen-revisited-part-1)). The text
@@ -297,11 +297,11 @@ day. No image was copied, and the two images the owner shared stay outside the r
   objectives and hit marks). While the player analyses, the world turns a cool, desaturated grey, a
   translucent card stands beside the evidence it describes, and objectives float as a short stack in
   the room; one accent colour, small numbers in thin type.
-- **Titanfall 2** (the owner's image of the Titan HUD; the pilot HUD on
+- **Titanfall 2** (a shared image of the Titan HUD; the pilot HUD on
   [Interface In Game](https://interfaceingame.com/games/titanfall-2/)). The HUD sits on the cockpit's
   frame and leaves the middle clear; abilities run along the bottom with their button glyphs; a
   card with a speaker's face appears only while someone speaks.
-- **An AR running HUD** (the owner's image, already in [heads-up-guidance.md](heads-up-guidance.md)):
+- **An AR running HUD** (a shared image, already in [heads-up-guidance.md](heads-up-guidance.md)):
   the road stays clear in the middle, with a few facts at the edges.
 - **A reel of an agentic mixed reality setup** (rndyrbrts,
   [Instagram](https://www.instagram.com/p/DeIVu3cOylp/), posted 2026-10-06). Watched without signing
@@ -339,20 +339,20 @@ day. No image was copied, and the two images the owner shared stay outside the r
 
 ## Consequences
 
-- The owner rejected the first round's three directions on 2026-10-02 (too many kinds of thing on
-  one surface, buttons in many places) and asked for a game menu's organisation. Lane V's second
+- The first round's three directions were rejected on 2026-10-02 (too many kinds of thing on
+  one surface, buttons in many places), with a request for a game menu's organisation. The second
   round proposes D, a game menu: a task's file with four plainly named sections across its top, one
   section at a time, and every button in a footer; and E, a case file the task's character projects,
   an index of the sections with a line each beside one page. Both are rendered by
   `DirectionsRender` beside the first round's A.
 - The first round's directions were a card and its shelf with answers beside it (patterns 1, 2
   and 4), a story ending in what the task needs with a composer under it (the agent tools' thread),
-  and one step at a time in a smaller panel (pattern 3). Whichever direction the owner chooses gets
+  and one step at a time in a smaller panel (pattern 3). Whichever direction is chosen gets
   an ADR superseding the parts of ADR 0023 it replaces.
 - Reading at 0.46 m sits under Apple's 1 m for sustained reading and Meta's 0.5 m for content
   looked at for long, while inside Meta's touch range. Whether long answers read comfortably there,
   or need a surface further away that the hand ray reaches, is a headset check.
-- The owner chose D, then asked for its surfaces on one upright plane, single-word places, sections
+- D was chosen, with a request for its surfaces on one upright plane, single-word places, sections
   as separate shapes and type that only steps down. Measured, the upright plane shrank its low text
-  under 14 dp, and the coordinator chose one plane facing the eyes at its centre instead. ADR 0026,
-  accepted by the owner on 2026-10-02 with the split header, records D's structure and these rules.
+  under 14 dp, so one plane facing the eyes at its centre was chosen instead. ADR 0026,
+  accepted on 2026-10-02 with the split header, records D's structure and these rules.

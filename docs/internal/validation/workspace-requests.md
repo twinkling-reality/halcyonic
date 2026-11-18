@@ -2,7 +2,7 @@
 
 ## 2026-11-10 (later): the product's model passes continue and observe
 
-The lead's decision: a request runs on the person's chosen local model (Halcyonic's own OpenCode settings,
+The decision: a request runs on the person's chosen local model (Halcyonic's own OpenCode settings,
 written by `pnpm mac-setup local-model`), else the companion's. On this Mac that is `muse-glimmer:30b-mlx`. With
 no companion model set, `GET /api/workspace/agent` answered `muse-glimmer:30b-mlx`, served on this Mac.
 
@@ -15,11 +15,11 @@ blue instead of green. Then tell me what changed and whether it works." Steps: `
 to work in the observed run. 216 s in all. This passes the exchange the 30B model failed earlier (eight reads,
 then the planning bound).
 
-Not yet rerun on this model: the code after AUDIT2's S3, which moves the evidence and the agent's words from a
-system message into a quoted user-role block. A rerun began at 23:40Z and was stopped at 23:51Z on the lead's
-word, to free memory for a landing gate; no result. The request tests pass on that code.
+Not yet rerun on this model: the code after review finding S3, which moves the evidence and the agent's words from a
+system message into a quoted user-role block. A rerun began at 23:40Z and was stopped at 23:51Z
+to free memory for another check; no result. The request tests pass on that code.
 
-A second rerun, 00:12 to 00:39Z on 2026-11-11, with a Unity job of another lane running: Codex's first turn on the
+A second rerun, 00:12 to 00:39Z on 2026-11-11, with an unrelated Unity job running: Codex's first turn on the
 fresh task changed no file and said nothing (no check followed), and two requests on that task then failed at the
 transport's 45 s bound for one model turn (`timeout`), the second at 30% memory free. Stopped there and the model
 unloaded. Suspected, not verified: Codex runs the model with a 65,536-token context (`pnpm mac-setup local-model`)
@@ -38,22 +38,22 @@ task (a green sphere, check passed), "Make the sphere blue instead of green. The
 works." went `read_workspace`, `continue_task` (delivered, Codex's turn observed to its end), `observe_task`, then two
 `read_results`, two refused `read_result`, one `read_events`, and the planning bound: interrupted with no reply,
 although the Mac's check of the blue change had passed (03:04:54Z, files current). Memory was 25% free just before
-the request (the 30B loaded for Codex and another lane's Unity job running); the run was stopped there and the model
+the request (the 30B loaded for Codex and an unrelated Unity job running); the run was stopped there and the model
 unloaded. So the host context now says `work_outcome_in: true` once the work the request sent has its outcome, its
 check included, and the prompt says to answer then; and `read_result` is offered only after `read_results`. And
 the first model turn after that is offered no tool at all, so the model can only answer.
 
-A fourth run, 07:40 to 07:49Z on 2026-11-11, under rule 24a (no LEAD Unity slot; 77% free at the start), with the
+A fourth run, 07:40 to 07:49Z on 2026-11-11 (77% free at the start), with the
 no-tool turn: a fresh Codex task (a green sphere, check passed), then "Make the sphere blue instead of green. Then tell
 me what changed and whether it works.": `read_workspace`, `continue_task` (delivered, Codex's turn observed), then the
 no-tool turn, where the model wrote a tool call as text (`<atem:function_calls>` naming `observe_task`), which the
 request took as its reply: `responded` with that markup. So now the no-tool turn also says, as a system message, to
 answer in plain words, and a reply that is a tool call written as text is never kept as the reply: the request is
 interrupted with a step saying so. The all-work request did not run: memory was 37% free once Codex and the model were
-loaded (with another lane's Unity job), and the driver stops under 40%. The model was unloaded and the run file
+loaded (with an unrelated Unity job), and the driver stops under 40%. The model was unloaded and the run file
 removed at 07:49Z.
 
-A fifth run, from 08:30Z on 2026-11-11, under rule 24b (84% free at the start; a run may go on down to 25% free), on
+A fifth run, from 08:30Z on 2026-11-11 (84% free at the start; a run may go on down to 25% free), on
 the code with the whole counts: "What is going on with my work?" bound to nothing went `read_projects`, six
 `read_project_at` and a second `read_projects`, all eight planning turns, and ended at the budget interrupt with no reply
 after 89 s. So the budget's last turn is now offered no tool, with a system message to answer from what was read and
@@ -62,8 +62,7 @@ run ended there before the continue request. The plane and the model stayed up a
 skipped the driver's cleanup; they were stopped by hand at 08:40:31Z, and the driver's floor watcher now cleans up
 itself.
 
-A sixth run, 08:48 to 09:01Z on 2026-11-11 (82% free at the start; it started while the lead's suites ran, which
-rule 24c now forbids), on the code with the last turn offered no tool: the all-work request read `read_projects`
+A sixth run, 08:48 to 09:01Z on 2026-11-11 (82% free at the start; it started while test suites ran), on the code with the last turn offered no tool: the all-work request read `read_projects`
 twice and `read_project_at` five times, then on the last turn, offered none, wrote a tool call as text, so it ended
 interrupted with no reply after 85 s. The fresh Codex task (a green sphere) ran past its 8-minute cap with its turn
 still open, under the suites' load, and had no check. The continue request read `read_workspace`,
@@ -88,7 +87,7 @@ offers only `continue_task`, `observe_task` and `ask_person`; and a request abou
 
 Setup: an isolated control plane on 127.0.0.1 with its own data directory, Codex 0.157.0 confined to a
 starter project, local Ollama models only, the assistant's model set by `HALCYONIC_COMPANION_MODEL`.
-No hosted model, no change to the owner's host. Each reply below was compared with the journal and the
+No hosted model, no change to the host Mac. Each reply below was compared with the journal and the
 project's files.
 
 - The question "What did it change, and is it working?" on a task whose first turn added a cube and left a
@@ -111,7 +110,7 @@ project's files.
 - A request that continues the task and observes it ("Make the cube blue ... then tell me whether it works"):
   - `muse-glimmer:30b-mlx`: eight reads, no `continue_task`; interrupted at the planning bound. A failure.
   - `qwen3.5:9b` on a task whose Codex thread did not survive a restart of the scratch host: `continue_task`
-    refused, `execution_unknown_to_runtime`; the reply said so truly. Threads are not reattached yet (CORE).
+    refused, `execution_unknown_to_runtime`; the reply said so truly. Threads are not reattached yet.
   - `qwen3.5:9b` on a fresh task in the same host process: one `continue_task`, delivery confirmed, the native
     turn observed to its end, a reply whose colour and line were true. It answered five seconds before the
     host's automatic check of that turn ended, so it guessed "should work". The coordinator now waits, after
@@ -119,7 +118,7 @@ project's files.
     check ends. On the next run it replied two seconds after the check (passed, files current), with true facts,
     yet said whether it works was not checked: the 9B model did not use the check it was given.
 
-Status at the end of 2026-11-10's runs: requests across all work, the quoted data block (AUDIT2 S3) and the reused
+Status at the end of 2026-11-10's runs: requests across all work, the quoted data block (review finding S3) and the reused
 context are not yet shown on a real model, and the headset does not show a whole-project or all-work request
 yet (its request column binds a task).
 
@@ -392,7 +391,7 @@ passed (2/2). Actual keyboard/composition behavior on a headset is still pending
 
 The production coordinator/transport ran against local Ollama 0.34.4 and real OpenCode 2.0.18
 with an explicitly selected local `qwen3.5:9b`. The temporary project, journal, home and runtime
-record were isolated from the owner's workspace. The runtime's sandbox denied other user files
+record were isolated from the user's workspace. The runtime's sandbox denied other user files
 and exposed only the approved local model endpoint. No hosted model, approval answer, live host
 restart or settings change was involved. The request asked for one synthetic file edit and a
 verification read; the witness independently compared the exact resulting bytes and file list.
@@ -472,7 +471,7 @@ The same isolated witness passed against the reviewed coordinator at `c2c64d92`.
 the real OpenCode execution complete, and returned a reported reply. Independent comparison
 verified the exact requested file bytes and that no extra files appeared. Elapsed time was
 20.807 seconds. The model was explicitly selected for this probe; this does not establish the
-owner's live model configuration. No hosted call, live workspace edit or host/settings change
+user's live model configuration. No hosted call, live workspace edit or host/settings change
 was made. The prior two failures above remain part of the evidence.
 
 This proves one actual model-to-runtime-to-result exchange using the general tool loop. It does

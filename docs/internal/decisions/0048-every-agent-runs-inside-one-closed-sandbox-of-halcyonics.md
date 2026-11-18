@@ -1,6 +1,6 @@
 # ADR 0048: Every agent runs inside one closed sandbox of Halcyonic's, whatever its runtime
 
-- Status: Accepted (the lead's decision of 2026-11-10; the package, the owner's choice of 2026-11-11)
+- Status: Accepted (decided 2026-11-10; the package chosen 2026-11-11)
 - Date: 2026-11-11
 
 ## Context
@@ -84,11 +84,11 @@
 - BOX-3b built: OpenCode's folder servers inside the profile, each with a home of its own and listening on its own port
   ([ADR 0028](0028-opencode-runs-inside-a-sandbox-of-halcyonics-own.md), amendment of 2026-11-11).
 - BOX-4 built for a new app's project: the amendment below. Never asking for Claude Code stays refused until a real
-  run, which needs the owner's own key.
+  run, which needs a person's own key.
 
 ## Amendment, 2026-11-11: Claude Code, confined only where a start asks for it (BOX-4)
 
-The lead's choice of 2026-11-11, on VRIFY's question: Salidium's and Seorak's evidence of a Claude Code session comes
+Decided on 2026-11-11: Salidium's and Seorak's evidence of a Claude Code session comes
 from the person's own Claude Code hooks, and inside the closed profile those do not load. That evidence is one of the
 things that sets the product apart, so it is kept wherever the person works in their own repositories.
 
@@ -101,16 +101,16 @@ things that sets the product apart, so it is kept wherever the person works in t
      Code runs under the copy profile (ADR 0045, amended 2026-11-16), not this one: the person's settings, hooks and
      `CLAUDE.md` are passed as on their folder, so Salidium and Seorak observe the run in the copy, found by its
      session id; the hooks write their own homes, which the profile leaves open. It records `confined: false`.
-   - **The gate holds the key, the agent holds none (VRIFY, 2026-11-12; AUDIT BOX-4 F1 closed):** until then
+   - **The gate holds the key, the agent holds none (2026-11-12; audit finding BOX-4 F1 closed):** until then
      `ANTHROPIC_API_KEY` reached the confined process, where the agent's own commands could read it, so such a run was
      recorded not confined. Now the agent's environment holds only its run's credential from the gate (random, per
      run, revoked when the run's process ends; the gate takes nothing else, nor a request whose Host is not its own,
-     AUDIT3 2026-11-12) and `ANTHROPIC_BASE_URL` points at the gate; the gate drops every credential the agent sends and adds the person's key
+     2026-11-12) and `ANTHROPIC_BASE_URL` points at the gate; the gate drops every credential the agent sends and adds the person's key
      in the header the adapter declares (Claude Code's declaration, `CLAUDE_CODE_KEY_GATE`: `x-api-key`, how the
      Anthropic API takes a key and how Claude Code sends `ANTHROPIC_API_KEY`), so a run inside is recorded confined and what it makes can be played, published and shared
-     like any other. The owner's word, 2026-11-12 (lead's answer of 14:33Z); the record is
+     like any other. Decided 2026-11-12; the record is
      [claude-code-key-gate.md](../validation/claude-code-key-gate.md).
-   - **On a connected folder too (VRIFY, 2026-11-13; the lead's 18:21Z step 3):** a Claude Code process outside the
+   - **On a connected folder too (2026-11-13):** a Claude Code process outside the
      closed profile reaches its API through the same gate with a run credential of its own, never the key, and runs
      under a light profile that denies reading and writing the host's own folders (its data folder, the task copies'
      folder, every `.halcyonic*` home) and takes nothing else away. It is still recorded `confined: false`.
@@ -134,19 +134,19 @@ things that sets the product apart, so it is kept wherever the person works in t
    reader sees only this process's configuration folder.
 
 - **Evidence for confined sessions:** Salidium could read the folder's own store, as it reads the other tools' folders.
-  That is a request for the Salidium project and the owner's call there; nothing is built for it here.
+  That is a request for the Salidium project and that project's call; nothing is built for it here.
 - **Tests:** unit tests of the gate, the launch, the store reader, the scope and the re-attach rule; an e2e test on
   the bundled CLI with a fake API (`confined.e2e.test.ts`).
 - **Revisit** when Salidium reads confined sessions, or when a real run allows never asking.
 
-## Amendment, 2026-11-13: what runs later is never written (AUDIT3, the lead's 12:52Z)
+## Amendment, 2026-11-13: what runs later is never written
 
 The closed profile let a confined run write all of its folder, the folder's own `.git` included. Some files there run
 later outside any sandbox without the person choosing to run anything: the project's git configuration and hooks (in
 the person's git, their editor's and Halcyonic's own send) and the files an editor or a shell runs when the folder is
 opened (`.envrc`, `.vscode/`, `.idea/`, `.devcontainer/`, `*.code-workspace`, `.gitmodules`). The profile now refuses
 every write to them in the confined folder, a task's copy as well as the project's (`RUNS_LATER` and `runsLaterUnder`
-in `packages/seatbelt/src/profile.ts`, one list; AUDIT3 owns it, by "runs without the person choosing to run the
+in `packages/seatbelt/src/profile.ts`, one list, defined by "runs without the person choosing to run the
 app"). The app's own code and package scripts are not on it: they run when the person runs the app, or in the host's
 confined preview. A git directory a `.git` file names outside the folder was read only already.
 
@@ -156,23 +156,23 @@ confined preview. A git directory a `.git` file names outside the folder was rea
 - **Tests:** `profile.test.ts` writes each under `sandbox-exec` with the profile (refused; failing first without the
   rule) and the rest of the folder as before; `confined.e2e.test.ts`'s confined shell writes `.git/config` and
   `.envrc` and both are refused; `keptPath` is unit tested.
-- **At every depth, the whole list (AUDIT3's 17:32Z alert, the lead's 17:33Z):** the first rule covered the folder's
+- **At every depth, the whole list:** the first rule covered the folder's
   top only, so a confined run could write `lib/.git/config` or a nested hook, which the person's git and their
-  editor find. The list is now AUDIT3's whole one (version control `.git`, `.hg`, `.svn`, `.jj`, `.gitmodules`; what a
+  editor find. The list is now the audit's whole one (version control `.git`, `.hg`, `.svn`, `.jj`, `.gitmodules`; what a
   shell runs on entering a folder, `.envrc`, `.autoenv*`, mise's files; editors' `.vscode/`, `.idea/`, `.devcontainer/`
   and `.devcontainer.json`, `.zed/`, `.fleet/`, `.nova/`, `*.code-workspace`; the person's other agent apps' `.claude/`,
   `.mcp.json`, `.cursor/`, `.windsurf/`, `opencode.json(c)`, `.opencode/`, `.codex/`; CI that runs with the repository's
   secrets once sent, `.github/workflows/`, `.github/actions/` and the others), refused at ANY depth and in any letter
   case, in the profile and in `runsLater` alike, one list. A git repository of the run's own lives outside the project
   (its own home). Package managers' configuration files (`.npmrc`, `.yarnrc.yml`, `.pnpmfile.cjs`, `bunfig.toml`) are
-  not on it: the lead's call, open. `profile.test.ts` makes or writes every entry, at the top and two folders down, in
+  not on it: an open call. `profile.test.ts` makes or writes every entry, at the top and two folders down, in
   its own case and in upper case, under `sandbox-exec` (each refused; the test failed first on the top-only rule).
-- **What it does not close (AUDIT3, 2026-11-13T17:53Z):** a bare repository needs no `.git` name. A confined run can
-  make a folder anywhere in the project holding `HEAD`, `config`, `objects` and `refs` (AUDIT3's probe made one), and
+- **What it does not close (2026-11-13):** a bare repository needs no `.git` name. A confined run can
+  make a folder anywhere in the project holding `HEAD`, `config`, `objects` and `refs` (an audit probe made one), and
   git treats such a folder as a repository when a person runs git inside it (`safe.bareRepository` is `all` by
   default) and reads its `config`. It is narrow: editors' repository scans look for `.git` and do not find it; and of
   the git commands a person runs inside that folder, `status`, `log`, `rev-parse` and `branch` ran none of the
   programs its settings named, while a network command (`fetch`, and so `pull` and `push`) ran its `core.sshCommand`
-  (AUDIT3's probe, git 2.43.0 on this Mac, 2026-11-13). Closing it would mean refusing files named `HEAD` or `config`
+  (an audit probe, git 2.43.0 on this Mac, 2026-11-13). Closing it would mean refusing files named `HEAD` or `config`
   at any depth, which breaks ordinary app files of those names and still leaves other layouts; decided not to
-  (AUDIT3, 2026-11-13T17:59Z), to be reopened if any product path ever runs git inside a sub-folder of a project.
+  (2026-11-13), to be reopened if any product path ever runs git inside a sub-folder of a project.

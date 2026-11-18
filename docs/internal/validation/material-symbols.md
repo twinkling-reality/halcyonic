@@ -5,7 +5,7 @@
 - **Date:** 2026-10-02.
 - **Environment:** macOS 26.7 on an Apple M5 Max; Python 3.14 with fontTools 4.65.0; Unity
   6000.3.25f1 in batch mode with the Android build target.
-- **Method:** The source font, downloaded on 2026-10-01 with the owner's leave and kept outside the
+- **Method:** The source font, downloaded on 2026-10-01 and kept outside the
   repository, hashed and read with fontTools; `apps/xr/tools/glaze_icons.py` run on it in a scratch
   copy of its folders and its output compared byte for byte with the committed font and table; the
   atlas built again in Unity (`GlazeIconAtlas.Check`) over the committed one and compared with it;

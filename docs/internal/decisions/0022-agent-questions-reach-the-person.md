@@ -1,13 +1,13 @@
 # ADR 0022: An agent's questions reach the person, who answers them through the runtime's own surface
 
-- Status: Accepted on 2026-10-01 by the owner.
+- Status: Accepted on 2026-10-01.
 - Date: 2026-10-01
 
 ## Context
 
 In the fifth headset session an OpenCode agent called its `question` tool. Halcyonic recorded only
 a tool start, so the character read Working while the agent waited for an answer nobody could give,
-until the owner stopped the turn ([quest-3-device.md](../validation/quest-3-device.md)).
+until the tester stopped the turn ([quest-3-device.md](../validation/quest-3-device.md)).
 
 Each runtime Halcyonic hosts asks through a structured surface, verified on 2026-10-01 against the
 pinned binaries on a local model ([agent-questions.md](../validation/agent-questions.md)):

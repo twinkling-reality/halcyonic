@@ -11,8 +11,8 @@
 - **Method:** `--help` of the pinned binaries; OpenCode's served `/openapi.json`; Codex's
   `app-server generate-json-schema`; the SDK's `sdk.d.ts`; the official pages below, read on
   2026-10-02. Probes ran on 127.0.0.1 in scratch homes with no provider reachable and no sign-in, and
-  no model turn ran anywhere. Two read-only listings touched the owner's real data and printed
-  counts only: Codex `thread/list` on the owner's `CODEX_HOME` (an app-server writes to its home
+  no model turn ran anywhere. Two read-only listings touched real local data and printed
+  counts only: Codex `thread/list` on a real `CODEX_HOME` (an app-server writes to its home
   whenever it runs), and `claude agents --json`.
 - **Status:** Research only. Nothing is attached and no capability is declared; the decision is in
   [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md). Labels below: **fact** (seen in a source or a
@@ -85,10 +85,10 @@ watching or answering; instructions spend the person's own provider setup.
   check for updates after five minutes and then hourly, and a restart for an update may interrupt
   active or queued work. [The app-server docs](https://learn.chatgpt.com/docs/app-server) call the
   app-server and its WebSocket transport experimental and not for production. No daemon ran on the
-  owner's Mac on 2026-10-02.
+  test Mac on 2026-10-02.
 - `thread/list` filters by `cwd`, source kinds and search terms, with `useStateDbOnly` to avoid
   metadata repair writes; a `Thread` carries `cwd`, `source`, `cliVersion`, `status`, `name` and
-  `preview` (usually the first user message). On the owner's home every listed thread had a `cwd`
+  `preview` (usually the first user message). On the real home every listed thread had a `cwd`
   and a `preview`, and every one read `notLoaded`, including one updated seconds earlier.
 - In a scratch probe with no turn, a thread one client started over `ws://127.0.0.1` reached a second
   client of the same process, which joined it with `thread/resume`. A second process on the same
@@ -107,7 +107,7 @@ interrupt it.
 that updates itself; whether any stable field tells a running thread apart in the listing (none
 found).
 
-**Risks:** the owner's threads already span several CLI versions; previews and history are the
+**Risks:** a real user's threads already span several CLI versions; previews and history are the
 person's text; the control socket is guarded by file mode alone and turns run on the person's sign-in
 (whether a third party may drive Codex with it is already open); every app-server writes to
 `CODEX_HOME`.

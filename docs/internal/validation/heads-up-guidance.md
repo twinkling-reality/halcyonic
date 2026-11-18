@@ -6,7 +6,7 @@
 - **Date:** 2026-10-02.
 - **Method:** Meta's developer documentation, design guidelines, help and safety pages, and the
   OpenXR specification, read on the date above, with each page's own date where it shows one; the
-  v207 Core SDK sources in the project's package cache; the owner's references, a post with an image
+  v207 Core SDK sources in the project's package cache; reference material, a post with an image
   of a runner's display, and two makers of displays for sport. No headset.
 - **Status:** Documentation only. Nothing here is verified on a headset.
 
@@ -92,7 +92,7 @@
 
 ### References for the layout
 
-- The owner's reference post (Linus Ekenstam, X, 2026-10-01, read through X's own embed) wishes
+- The reference post (Linus Ekenstam, X, 2026-10-01, read through X's own embed) wishes
   runners could race their own past runs; its image, a concept rather than a product, shows pace,
   distance, elapsed time and heart rate stacked at the left edge, a split time against a best at the
   right edge, a ghost runner ahead, and a small distance and elevation strip at the bottom right.

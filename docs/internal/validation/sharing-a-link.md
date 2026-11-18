@@ -2,8 +2,8 @@
 
 Verified for Share a Link (keeping and sharing what was made, F1, [ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md))
 with Cloudflare's `cloudflared` 2026.10.7 for macOS on Apple silicon, on this Mac, against a
-synthetic test page only. No project of the owner's and no preview of the owner's control plane was
-ever behind a tunnel. The owner approved the download and the use in the TASKS session on 2026-11-11.
+synthetic test page only. No real project and no preview of a real control plane was ever behind a
+tunnel.
 
 ## The program
 
@@ -62,7 +62,7 @@ It takes at most 32 connections at once, with a 5 s keep-alive.
 Not verified: a real share on the Mac's Wi-Fi address. Whether macOS's application firewall asks
 the person to allow incoming connections the first time, a device on the network reaching it (a
 router that isolates its clients blocks it), and on the headset that a page at a LAN `http://`
-address has no immersive session (asked of FIELD).
+address has no immersive session.
 
 ## The code to scan (2026-11-11)
 
@@ -74,7 +74,7 @@ code, through JavaScript for Automation, nothing installed) reads back exactly t
   positions and, from version 7, version information are right.
 
 The test renders 8 pixels a cell with a 4-cell margin. Not verified: a real phone or headset camera
-reading one from the headset's panel, which waits for the owner (size on the panel, glare, the
+reading one from the headset's panel, which waits for a headset session (size on the panel, glare, the
 headset's own scanner).
 
 ## The setup step (2026-11-11)
@@ -87,6 +87,6 @@ page's download from GitHub itself.
 
 ## Not verified
 
-- A real project's preview behind the tunnel on the owner's Mac (by design: never before AUDIT2).
+- A real project's preview behind the tunnel on a real Mac (by design: not before a security review).
 - How long a quick tunnel lives when left running, and whether Cloudflare ends one on its own.
 - Two shares at once: the second program's metrics listener takes the next free port.

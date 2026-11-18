@@ -398,7 +398,7 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   never appeared; an escalated `touch` outside the project wrote nothing, and Codex did not ask for approval first.
   Each confined launch first has the server `cat` a canary file in the data directory through `command/exec`; the
   read was refused, and a server whose profile did not cover the data directory was stopped before any thread.
-- **Closed by default (after AUDIT's M15A verdict):** the first profile allowed everything but the home folder's
+- **Closed by default (after a review verdict):** the first profile allowed everything but the home folder's
   reads; under it `lsappinfo` answered, `pbpaste` read the clipboard, `osascript` ran, `open` started Calculator, and
   a listen on every address succeeded. The profile now starts from Codex's own base policy (`(deny default)`, read
   from the binary) with the project's allowances. With the real binary and the fake provider, each of these is
@@ -408,20 +408,20 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
   loopback (a bind to every address passed under `(allow network-bind (local ip "localhost:*"))`), so the profile
   allows no bind at all. A `localhost` provider is still reached, and Node (from Homebrew's prefix), the system Perl,
   and Codex's bundled `zsh` run. Homebrew's whole prefix was first readable, and on this Mac `/opt/homebrew/var`
-  holds PostgreSQL and MongoDB data folders (AUDIT M5): reads are now `Cellar`, `opt`, `lib`, `bin`, `libexec`,
+  holds PostgreSQL and MongoDB data folders: reads are now `Cellar`, `opt`, `lib`, `bin`, `libexec`,
   `share` and the one file `etc/openssl@3/openssl.cnf`, without which a Homebrew Node exits at start ("OpenSSL
   configuration error ... Operation not permitted"); a listing of `var` or `etc` is refused.
 - **Not verified:** a real model's turns, how often a model needs something the profile refuses (a shell's start-up
   files in the home folder are refused), other macOS versions.
 
 
-## The confined server starts again (2026-10-31, CX1)
+## The confined server starts again (2026-10-31)
 
 - **Question:** does Codex 0.157.0 start inside the confined profile now that the profile refuses Halcyonic's data
-  folder outright and allows the confinement's own folders in it again (M1.8c-1)?
+  folder outright and allows the confinement's own folders in it again?
 - **Environment:** this Mac (macOS 26.7), the pinned 0.157.0 binary, a scratch data folder shaped like the default one
-  (`data/codex-confined/<key>`, `data/starters`, `data/codex-home`); the owner's data folder was not used.
-- **Found:** it did not. MAKE's rehearsal of a kid's game (K1) stopped at the first start with "The Codex server
+  (`data/codex-confined/<key>`, `data/starters`, `data/codex-home`); the user's data folder was not used.
+- **Found:** it did not. A rehearsal of a kid's game stopped at the first start with "The Codex server
   connection ended before initialize was answered". The server, run once by hand in the profile the product wrote,
   printed "failed to canonicalize CODEX_HOME ... Operation not permitted" and exited 1; the kernel's sandbox log showed
   `deny(1) file-test-existence` on the data folder. The 2026-10-29 run above predates that refusal.
@@ -432,7 +432,7 @@ The pinned binary ran threads on open models that Ollama serves on the Mac, thro
 - **Still refused, tried with the denial in place on markers of our own and confirmed in the kernel's log:** a listing
   of the data folder and of `codex-confined` (`file-read-data`), a read, `stat` or existence test of a file in the data
   folder, the open server's home and its settings, and a listing of the person's home folder and of `~/.codex`.
-- **Not verified:** a real model's turns inside the profile (the K1 rerun), other macOS versions.
+- **Not verified:** a real model's turns inside the profile (a rerun of that rehearsal), other macOS versions.
 
 ## A temporary folder of its own (2026-11-03)
 

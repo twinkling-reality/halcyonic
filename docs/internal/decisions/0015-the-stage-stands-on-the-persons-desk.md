@@ -1,6 +1,6 @@
 # ADR 0015: The stage stands on the person's desk, found with MRUK and kept with a spatial anchor
 
-- Status: Accepted on 2026-09-29, a decision the owner delegated; the headset checks in
+- Status: Accepted on 2026-09-29; the headset checks in
   [mixed-reality-room.md](../validation/mixed-reality-room.md) are still to run.
 - Date: 2026-09-29
 
@@ -12,15 +12,15 @@ The record below preserves the original decision and its evidence.
 
 Halcyonic's idea for mixed reality is that a person's agents live in their real workspace: the
 characters stand on the desk in front of the seated person and are still there the next time. The
-competition's judging asks for passthrough that changes the experience, for correct use of scene
+mixed reality bar it aims at asks for passthrough that changes the experience, for correct use of scene
 understanding through the MR Utility Kit (MRUK), for content anchored to real surfaces, for
-spatial anchors, and for entries that hold up in rooms their developer never tested; it asks too
+spatial anchors, and for apps that hold up in rooms their developer never tested; it asks too
 for a seated experience within about two feet, hands first, at 60 fps or more.
 
 What was verified on 2026-09-29, in Meta's documentation and the v207 SDKs' source
 ([mixed-reality-room.md](../validation/mixed-reality-room.md)):
 
-- The owner approved adding MRUK 207.0.0 on 2026-09-29. Its runtime reads the Immersive
+- Adding MRUK 207.0.0 was approved on 2026-09-29. Its runtime reads the Immersive
   Debugger's settings in `MRUK.Awake`, so a release build that leaves the debugger's runtime out
   fails to link ([horizon-store-release.md](../validation/horizon-store-release.md)).
 - Reading the room needs the spatial data permission, which the person grants at runtime after the
@@ -75,11 +75,11 @@ What was verified on 2026-09-29, in Meta's documentation and the v207 SDKs' sour
   through a new space setup was not verified; a spatial anchor of the app's own restores without
   room access, as the brief asked.
 - **The Core SDK's scene API without MRUK.** No new package and no debugger in release builds, but
-  it rebuilds the room queries MRUK provides, and the judging names MRUK.
+  it rebuilds the room queries MRUK provides, and the mixed reality bar names MRUK.
 - **Asking for access at startup**, through OVRManager or MRUK's loading on startup: the system's
   dialog would come before anything is shown and without the app's reason.
 - **Starting space setup whenever no room is found**, MRUK's default: it forces a long system flow
-  on anyone who has not set up their room, judges included.
+  on anyone who has not set up their room, first-time users included.
 - **Any horizontal plane, the floor included.** The floor is too far below a seated person's eyes,
   and a couch's box top is its backrest, not a seat.
 - **Passthrough only where the system recommends it** (the person uses passthrough in Home): the
@@ -101,5 +101,5 @@ What was verified on 2026-09-29, in Meta's documentation and the v207 SDKs' sour
   recent log lines in memory; `QuestBuild` no longer leaves it out.
 - The anchors live on the headset; the app erases the ones it no longer uses.
 - The engine-free choices are tested on .NET; everything at runtime is verified only on a headset.
-- Revisit if MRUK stops needing the debugger, if judges' rooms often end in front of the person,
+- Revisit if MRUK stops needing the debugger, if first-time users' rooms often end in front of the person,
   if system windows cover the desk, or if passthrough costs the frame rate.

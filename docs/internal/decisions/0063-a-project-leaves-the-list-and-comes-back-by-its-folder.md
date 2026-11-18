@@ -5,12 +5,12 @@
 
 ## Context
 
-A person could not take a project off their list: no command did it (VRIFY, 2026-11-13 08:40Z, taking four folders
-off the proving plane). A list that only grows is not one a person keeps tidy. ADR 0060's R6 keeps "deleting a
-project" unsayable and without a command; this is not that. The shape went to AUDIT2 before code (TASKS's ASK of
-09:11Z, version 2 after a fresh critic found that hiding the project from the host's own reads would delete its
+A person could not take a project off their list: no command did it (found on 2026-11-13 while taking four
+folders off the proving plane). A list that only grows is not one a person keeps tidy. ADR 0060's R6 keeps "deleting a
+project" unsayable and without a command; this is not that. The shape was reviewed before code (version 2 after a
+fresh critic found that hiding the project from the host's own reads would delete its
 secret values at the next start, open its folder to other projects' agents and cut a VR version from its original),
-and AUDIT2 passed it at 12:37Z with five MUSTs. The lead made it sayable at 12:35Z.
+and passed review the same day.
 
 ## Decision
 
@@ -55,7 +55,7 @@ and AUDIT2 passed it at 12:37Z with five MUSTs. The lead made it sayable at 12:3
    world reader. Filtered but not tested on their own: the catalog route's project ids and the setup page's shared and
    secrets lists, which read `listedProjects` directly.
 6. **The review card is read from the projection alone.** It names the project by its name and its folder, so a
-   misheard name is caught before the press (the lead's condition). It lists the tasks, the tasks with changes not
+   misheard name is caught before the press. It lists the tasks, the tasks with changes not
    added (or never read), and the secret names kept. It warns of a published game, which stays up, and of a project
    with no folder, which cannot come back. Its digest covers every fact on it. `review_required`, confirm `review`,
    sayable.
@@ -86,6 +86,5 @@ and AUDIT2 passed it at 12:37Z with five MUSTs. The lead made it sayable at 12:3
   one stays off for good, its secrets held unseen. A small list of what was taken off, with Bring Back, would answer
   that, the no-folder case and the headset's way back in one read; not now.
 - A return keeps the project's own name, not the one typed when adding the folder; the `returned` flag is the client's
-  cue to say so. The headset side (an open project going back to the list in words, the `returned` flag said) is
-  FIELD's and XR's,
-  from TASKS's note once the Mac side passes.
+  cue to say so. The headset side (an open project going back to the list in words, the `returned` flag said)
+  follows once the Mac side passes.

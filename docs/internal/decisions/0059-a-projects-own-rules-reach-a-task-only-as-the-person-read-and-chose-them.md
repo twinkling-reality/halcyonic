@@ -18,7 +18,7 @@ What each runtime reads by itself under Halcyonic ([project-rules.md](../validat
   ([claude-code-project-settings.md](../validation/claude-code-project-settings.md)).
 
 So since step 1 no runtime loads a project's rules by itself, and a task works without them unless its agent reads
-the file. The owner's decision (E5, 2026-11-11, through the lead): rules the person sees, then chooses, the same
+the file. The decision (E5, 2026-11-11): rules the person sees, then chooses, the same
 for every runtime.
 
 ## Decision

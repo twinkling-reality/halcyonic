@@ -1,6 +1,6 @@
 # ADR 0026: The headset's interface is a game menu of places, sections and prompts, on one plane facing the eyes
 
-- Status: Accepted on 2026-10-02 by the owner, with the split header; notes added from the owner's picks
+- Status: Accepted on 2026-10-02, with the split header; notes added from the picks made
   on 2026-10-08.
 - Date: 2026-10-02
 
@@ -20,19 +20,19 @@ remain requirements of the new composition.
 
 [ADR 0023](0023-the-headset-interface-is-one-system-of-tokens-and-components.md) kept a task's
 workspace as one 44 by 26 degree panel: the title and goal, tabs, question pills, Refresh and a pager
-beside the heading, the answer and a bar of buttons. On 2026-10-02 lane W measured it in
+beside the heading, the answer and a bar of buttons. On 2026-10-02 it was measured in
 `WorkspaceRender`: about 24 of its 26 degrees are fixed rows, which leaves about 2 for an answer
 ([headset-redesign-research.md](../validation/headset-redesign-research.md)).
 
-The owner rejected that panel, then a first round of 3 directions: too many things still forced into
-one panel, and buttons all over the place. They asked for a game menu's organisation, naming Dead
-Space, Destiny 2 and detective case files. From public sources on those games (same record), lane V
-rendered 2 more directions in the editor (`DirectionsRender`), and the owner chose D, a game menu,
+That panel was rejected, then a first round of 3 directions: too many things still forced into
+one panel, and buttons all over the place. A game menu's organisation was asked for, naming Dead
+Space, Destiny 2 and detective case files. From public sources on those games (same record), 2 more
+directions were rendered in the editor (`DirectionsRender`), and D was chosen, a game menu,
 with 7 changes: footer prompts after Destiny 2, glass without blur, a strict type scale and grid after
 Detroit: Become Human, minimal screens with a connected side panel, a light line from the character,
 generic file-type icons under Apache-2.0 or MIT, and a Tasks view of every task.
 
-On D, styled, the owner then asked for 5 more things:
+On D, styled, 5 more things were then asked for:
 
 1. Every surface faces the person squarely, on one shared plane, edges aligned, with side panels
    along that plane.
@@ -46,7 +46,7 @@ meet an upright plane at a slant, and its text spans its size times the square o
 elevation: from 18 to 42 degrees below eye level, down to 56 percent, under Meta's 14 dp. The size
 checks measure at a surface's perpendicular distance, exact only for a surface that faces the eyes,
 so they passed, and the level renders, keeping verticals parallel, hid it (same record, "A plane
-below the eyes, measured"). The coordinator chose one plane tipped back to face the eyes at its
+below the eyes, measured"). The choice was one plane tipped back to face the eyes at its
 centre, which keeps every word at its size.
 
 ## Decision
@@ -84,11 +84,11 @@ centre, which keeps every word at its size.
   appears in a slot no control held on that page or since, Cancel takes the first press's place, and
   the whole request shows before Yes, its parts paged by a row on the page. Move and Reset position have
   no slot: Reset position lives in Settings' Your space, and holding a file's subject drags the whole
-  plane round the eyes at touch distance, still facing them (lane U's hold-to-drag, `PanelDrag`), if
+  plane round the eyes at touch distance, still facing them (the hold-to-drag, `PanelDrag`), if
   that keeps the plane rule; otherwise holding does nothing.
 
 The design system, as hard rules. The renders check those marked checked, in `DirectionsRender`
-today and, once built, in lane U's renders of every surface:
+today and, once built, in the renders of every surface:
 
 1. **One plane, facing the eyes at its centre (checked).** The subject, sections, content and side
    panels of a composition are separate shapes on one flat plane, square to the line of sight at the
@@ -104,7 +104,7 @@ today and, once built, in lane U's renders of every surface:
    size, 15 dp, is only for small facts inside a row, and prompts are 18 dp. An upright plane stays in
    the renders as the case this check must catch. The stage's labels are held to it too: on a desk,
    where the eyes look down on them, they lean back to face the eyes, as ADR 0023 now records;
-   standing upright there, their badge words read at 64 percent (lane U's inventory, 2026-10-02).
+   standing upright there, their badge words read at 64 percent (the inventory, 2026-10-02).
 3. **One selection treatment (checked).** Chosen, a shape lights up, white at 10 percent, and gains a
    crisp white frame; pointed at, it gains the frame alone, fainter. Places, sections, rows, answers
    and prompts all use it. Nothing is marked by an underline or a bar, and the accent marks only the
@@ -134,14 +134,14 @@ today and, once built, in lane U's renders of every surface:
 7. **File-type icons** from Material Symbols Rounded (Apache-2.0,
    [material-symbols.md](../validation/material-symbols.md)), generic only: code, database,
    data_object, description, image, terminal, deployed_code, folder, and chevron_right for what opens
-   more. No language or brand logo, which the competition's rules forbid
+   more. No language or brand logo
    ([demonstration-build.md](../validation/demonstration-build.md)). `glaze_icons.py` and the
    atlas add them.
 
 - **The client core keeps every model and presenter, never weakened:** `WorkspaceScreen`,
   `WorkspaceSteering`, `QuestionPlace`, `QuestionDraft`; the presenters in `WorkAnswers.cs`
   (`UnderstandingPresenter`, `CheckedPresenter` and `AnswerRoom`, `AnswerDepth` giving a section's
-  brief lines and a side panel's full ones) with lane W's truth rules: each claim keeps its class, a
+  brief lines and a side panel's full ones) with the truth rules: each claim keeps its class, a
   line without a chip only for observed facts with the source named on every page, Inferred always
   chipped, the agent's words marked as theirs (leaning on a ground only Halcyonic draws, since
   2026-10-08, below), and each Seorak part's own availability, coverage and freshness;
@@ -161,8 +161,7 @@ today and, once built, in lane U's renders of every surface:
 
 ### Decided after acceptance
 
-Decided on 2026-10-02 by lane V, the design owner, as the lanes began to build, with the
-coordinator's first-visit words:
+Decided on 2026-10-02, as building began, with the first-visit words:
 
 - **One kind of small fact a list.** Tasks' rows carry each task's project, in the secondary colour,
   or amber on a row that waits; the state stands on the icon and its tone, the row's place in the
@@ -180,7 +179,7 @@ coordinator's first-visit words:
 - **A confirmation pages by a row.** A request in parts shows one part a page, with a row at the end,
   "Next part, 2 of 3", which only takes you on. Approve's Yes appears once the last part has shown;
   Deny's at once, as denying runs nothing and a person who sees part 1 of something dangerous must be
-  able to refuse it then (the coordinator, 2026-10-02). Its footer is Close, Yes in the middle, and
+  able to refuse it then (2026-10-02). Its footer is Close, Yes in the middle, and
   Cancel where the pressed prompt stood.
 - **Each action is one footer prompt in its place.** On an approval: Approve as the main action, Deny
   beside it. Under a question's answer rows: Send answer as the main action. On a working task's
@@ -225,19 +224,18 @@ coordinator's first-visit words:
 - **The companion's note that it is an AI is the source line** of any page showing its words. New
   project's row of steps is the way back; there is no Back prompt.
 - **The first visit** opened the menu on Projects, and the demonstration had a first visit of its own
-  that opened Projects too (the owner, 2026-10-07). Both were replaced on 2026-10-08, below.
+  that opened Projects too (2026-10-07). Both were replaced on 2026-10-08, below.
 - **Closed, the menu is one rounded shape** on the plane's top line: its subject at 18 dp, saying what
   waits or that nothing is waiting, and an Open prompt at its right. Pressing it opens Tasks when
   something waits, else the place last open.
 - **The demonstration's two lines stay on the line above the stage**, which the menu does not touch
   (ADR 0012). The stage's banner that carries them hangs under the labels, where the open menu
   stands, and steps aside for it in a live session. In the demonstration it stands raised instead,
-  whatever is open, the closed bar included, which stands where it would hang (the coordinator,
-  2026-10-08, after the render found the lines overlapping the bar once the demonstration opened
+  whatever is open, the closed bar included, which stands where it would hang (2026-10-08, after the render found the lines overlapping the bar once the demonstration opened
   closed): it stands a little more than a degree over the highest a risen character
   reaches, as it stands over a surface, and over the open plane's top edge, or the closed bar's,
   which over a desk's lineup stand where it would; it says the demonstration's lines alone, since the menu says what
-  waits (the coordinator, 2026-10-07). The peek still takes its place. Amended 2026-10-08: the stage's
+  waits (2026-10-07). The peek still takes its place. Amended 2026-10-08: the stage's
   lines stand raised above the stage always, live too (below).
 - **The stage keeps its own sizes**, its labels' 20 dp titles and 16 dp badges, sized for its
   distances and held to text as the eyes see it; the three sizes govern the menu's plane.
@@ -247,7 +245,7 @@ coordinator's first-visit words:
   edges of a wide composition, where the plane's slant would shrink it under, as a side panel's
   counts at the far right or a chip at the far left of a file beside its side panel, it takes the
   content's 18 dp. The layout decides it from the place on the plane, before the text is laid.
-- **A footer holds what its words fit, not a count.** Lane U's footer measure takes each prompt as
+- **A footer holds what its words fit, not a count.** The footer measure takes each prompt as
   its 1.45 degree cap, a grid step, its 18 dp words (a main action's 5 percent wider) and 1.2
   degrees of margin, 12 mm apart, against its column's content width. Frames grow whole with larger
   text, so a footer that fits at one size fits at both, and a render whose footer does not fit
@@ -257,7 +255,7 @@ coordinator's first-visit words:
   menu's 30.3, Close, Hide from the stage and Add a task take 31.4, so that prompt shortens to Hide
   from stage and Show on stage where the footer model fits them, else Hide its tasks and Show its
   tasks.
-- **A question whose answers don't fit pages them by a row** (measured at real heights by lane W on
+- **A question whose answers don't fit pages them by a row** (measured at real heights on
   2026-10-02: with the reason line and the typed and paging rows apart, even a one-row question
   could not share a page with one 2-row answer at the standard size). A page packs by height, not
   rows: a line of words takes its line, a target its 48 dp, against the page's content height
@@ -299,7 +297,7 @@ coordinator's first-visit words:
   clears as it clears a label. Turned aside for a
   window, the plane stands under the characters, as everywhere. Nothing of Halcyonic's comes within
   a degree of the window's assumed place, straight ahead; the renders check it.
-- **Labels are cleared where they stand** (2026-10-02, lane U's renders at the far stage on a Quest
+- **Labels are cleared where they stand** (2026-10-02, renders at the far stage on a Quest
   3S): placement clears each label at its own yaw, not with the plane's lowest corner, which had
   set a 64 degree plane's top at 18.9 degrees and taken Tasks' 4 rows beside a file to 43.9 of
   43.5. At the far stage this gains nothing, since the arc's outer labels stand over the plane's
@@ -329,7 +327,7 @@ coordinator's first-visit words:
   side panel it would leave undrawn. Amended again 2026-10-03, after review: the menu or a file
   coming back from stepping aside takes no press as it slides in, every button waiting to settle as
   a new one does, so an Approve or an armed Yes under the hand is never pressed by the slide.
-- **Lane U's views set the last spacing**, measured with the split header's pill: the plane's top
+- **The views set the last spacing**, measured with the split header's pill: the plane's top
   stands 17.5 degrees below eye level (`MenuPage.TopDegrees`); a subject's title stands half a grid
   step under the pill's lower edge; the footer follows the page's last target 12 mm below it, with no
   16 dp gap; a small fact keeps 18 dp's room wherever it stands, so a line wraps the same anywhere,
@@ -363,7 +361,7 @@ coordinator's first-visit words:
 - **A page of content keeps its glow above its first row.** The light from its top edge ends within
   its top padding, so a row that is not chosen never looks lit; a subject keeps the glow's full
   reach. The render checks that nothing to press stands in a page's glow.
-- **New project's pages page as the menu's do** (2026-10-03, the coordinator). Where a page needs
+- **New project's pages page as the menu's do** (2026-10-03). Where a page needs
   more than the stage gives, a list (the recap's facts, the folders, the agent apps and models)
   turns by the footer's Next page, "First page" on the last, in the secondary place beside the main
   action; a question's answers turn as answers do, by "More answers, 2 of 2", the question heading
@@ -373,7 +371,7 @@ coordinator's first-visit words:
   turns by a row, "Next page, 2 of 3". The source line and the reason stay on every page. A page's
   room is read once for what shows, never as the head moves, and anything new starts at its first
   page.
-- **Never four prompts** (2026-10-03, the coordinator). The footer's middle acts on the chosen row;
+- **Never four prompts** (2026-10-03). The footer's middle acts on the chosen row;
   with none chosen, it pages. A chosen row's action replaces the pager, since a turn closes it
   anyway: the person closes its details or chooses another row on the page, then turns. New
   project's Start over is the recap's last row, on its last page even when the recap fits one,
@@ -383,13 +381,13 @@ coordinator's first-visit words:
   the recap's place carries them. The workspace render lays every New project footer at both text
   sizes and fails on four prompts or a footer that doesn't fit.
 
-### Decided on 2026-10-08, from the owner's picks
+### Decided on 2026-10-08, from the picks
 
-On 2026-10-08 the owner picked the recommended options of lane V's proposal "One kit, four forms" and of
+On 2026-10-08 the recommended options were picked from the proposal "One kit, four forms" and of
 its page on outside words, "Whose words" (both outside the repository). These notes record what they
 change here; [ADR 0013](0013-characters-are-bots-with-a-living-surface.md) and
 [ADR 0027](0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md) carry the characters and
-the motion. None of it is built yet; lanes U, C and W build it, each step with its renders.
+the motion. None of it is built yet; each step is built with its renders.
 
 - **The first visit is one question.** On a headset's first visit to a computer with no task at all,
   one plate asks "What would you like to work on?", with two rows, Something new and A project on
@@ -399,7 +397,7 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
   only choose. Start a project opens New project alone in the plate's place, and Show my projects
   opens Projects alone with its folders.
   - The row of places holds Settings alone, at its right end, in the slot it keeps once Tasks,
-    Projects and Usage join it with the first task (lane V, after the pick, so Text size, Reset
+    Projects and Usage join it with the first task (after the pick, so Text size, Reset
     position and pairing stay one press away). On the plate and on Projects alone nothing in it is
     lit, since neither is a place yet.
   - Close folds to the bar, which reads "Nothing is running yet", and while there is no task its Open
@@ -408,10 +406,10 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
   - Once a task exists the first visit is over for that computer on that headset: every later visit
     opens closed, the bar and the characters, and a first visit to a computer that already has work
     opens closed with its places.
-  - The demonstration's first visit opens closed too (the owner, 2026-10-08): its recorded characters
+  - The demonstration's first visit opens closed too (2026-10-08): its recorded characters
     at work, its two lines above the stage and the bar saying what waits. Projects and New project's
     recorded companion stay one press away, and the headset still keeps each first visit apart.
-  - As built (lane C, 2026-10-08): the plate opens by itself once each app start, when the live
+  - As built (2026-10-08): the plate opens by itself once each app start, when the live
     state is first ready with no workstream, and a reconnect doesn't open it again; nothing is
     decided before the first snapshot or on a stale state. "For that computer" is its journal: the
     headset keeps the journals that have had a task (`halcyonic.entry.started`, the 8 most recent),
@@ -422,7 +420,7 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
 - **A grip under the plane and under the bar.** Holding it and moving drags the whole plane round
   the eyes, still facing them, as holding a file's subject does (`PanelDrag`); its target keeps the
   60 dp hit area. Reset position stays in Settings' Your space.
-- **While the plane stays open, its top line holds** (lane V and the coordinator, after lane C's
+- **While the plane stays open, its top line holds** (after the
   first-visit renders showed Settings rising about 2 degrees under the ray as it was pressed, since a
   page of another height re-centred the plate). Whatever a press changes while the plane stays open,
   a place, a section, a page, a side panel, the text's size, New project in the plate's place or a
@@ -432,7 +430,7 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
   field or come within a degree of a character or a label, only as far as that needs, as one piece
   over the slide, and it doesn't move back on its own while it stays open. Sideways the first rule
   holds: the plane re-centres as one piece. Opening from the bar, a file opening from its character,
-  a drag, Reset position and the stage being placed anew place it as before. Lane U builds it before
+  a drag, Reset position and the stage being placed anew place it as before. It is built before
   the characters' places and travel.
 - **Where tasks wait is asked once,** the first time another window takes focus and the person comes
   back: "Where should your tasks wait?", with Below my screen, On my right and On my left, and the
@@ -468,11 +466,11 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
 
   Pills, the light line, prompts, places and sections carry Halcyonic's words only. Halcyonic adds no
   quotes and no leads such as "It says:"; a claim's chip stays as its class, never the only mark; and
-  theirs is cut first, inside its ground. Lane W applies it as batch B of the outside-text audit
+  theirs is cut first, inside its ground. It is applied as batch B of the outside-text audit
   ([outside-text-audit.md](../validation/outside-text-audit.md)). Amended 2026-10-16 (below): on the
   independent workspace candidate, agent prose attributed whole and the ordinary instruction input
   stand upright; mixed lines keep their lean and ground.
-- **The stage's lines stand above the stage** (lane V and the coordinator, after lane C's render found
+- **The stage's lines stand above the stage** (after a render found
   the banner under the labels overlapping the closed bar by about 2 degrees). The demonstration's two
   lines and a live session's lines stand raised above the stage, never under the labels. "Connected to
   your computer" shows for 3 seconds as the connection becomes live, then leaves over Leave; a
@@ -482,13 +480,13 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
 
 ## Alternatives considered
 
-- **One panel with better names.** Rejected by the owner twice: the fixed rows and the buttons stay.
+- **One panel with better names.** Rejected twice: the fixed rows and the buttons stay.
 - **A, a card and a shelf; B, a story thread; C, one step at a time.** Rejected in the first round.
 - **E, a case file with an index**, projected from its character. Every section's line at once, but
   taller and 2 pages to read. Its light line is kept.
-- **D, styled: each surface facing the eyes on its own.** The surfaces turn against each other; the
-  owner rejected it.
-- **One upright plane**, the owner's first wording. The eyes meet it at a slant: it narrows toward
+- **D, styled: each surface facing the eyes on its own.** The surfaces turn against each other; it
+  was rejected.
+- **One upright plane**, the first wording. The eyes meet it at a slant: it narrows toward
   its bottom and its text shrinks to 56 percent. Set aside on 2026-10-02 once the renders measured
   text as the eyes see it.
 - **An upright plane raised to near eye level**, where the slant costs under 7 percent within 15
@@ -497,7 +495,7 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
   menu and a file: it ends off square to the person, the file's far text reads under 14 dp (the main
   prompt at 73 percent), a corner falls past a Quest 3S's field, and the file's top runs into a
   character's label.
-- **One gentle common curve**, which the owner allowed. It keeps text at the sides at its size, but
+- **One gentle common curve**, which was allowed. It keeps text at the sides at its size, but
   its columns turn against each other; not needed while a composition stays within about 64 degrees.
 - **Prompts at 15 dp**, the size of facts. At the far corners of a menu and file side by side they
   read 0.78 degrees, under 14 dp.
@@ -508,24 +506,24 @@ the motion. None of it is built yet; lanes U, C and W build it, each step with i
 ## Consequences
 
 - A person learns once where to look and where to press, and a section's page gets most of the
-  frame. The lanes rebuild the presentation, not the logic.
+  frame. The presentation is rebuilt, not the logic.
 - The menu and a file side by side make a plane 64.3 by 33.0 degrees with the split header, from 17.5
-  to 50.5 degrees below eye level along its middle (lane U's views); ADR 0023's panels reach about 42
+  to 50.5 degrees below eye level along its middle (the views); ADR 0023's panels reach about 42
   degrees. Whether the low edge is comfortable is judged on the
   headset, beside the open question on panels taller than 26 degrees
   ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)); if not, a menu shows 3 rows a page.
 - A Quest 3S's field holds the menu and a file at both text sizes, as `FieldChecks` sees it with the
   head turned to the composition and tipped 8 degrees (`WorkspacePlacement.ReadingPitch`), with about
   a degree to spare at the near stage, Tasks showing 4 rows a page at the standard size where they
-  fit and 3 at larger text or on a 3S at the far stage; lane U's
+  fit and 3 at larger text or on a 3S at the far stage; the
   views render all five of its compositions at both sizes and check it.
 - Contrast at 96 percent is calculated, not measured: over a white wall, as in passthrough, secondary
   text keeps 4.8:1 (`GlazeChecks.Over`). The contrast check composites every surface over white, and
   the opacity rises or the secondary colour lightens wherever text falls short.
-- Lane V's refined renders count 137 draw calls for the scene with the menu and a file, and 46 to 51
+- The refined renders count 137 draw calls for the scene with the menu and a file, and 46 to 51
   for each column before batching; the separate shapes share one material in the product. The
   budgets are 60 a surface and 220 a scene.
-- The renders' new checks move into lane U's `GlazeChecks` for every surface: text as the eyes see
+- The renders' new checks move into `GlazeChecks` for every surface: text as the eyes see
   it, one plane facing the eyes, aligned columns and one selection treatment. Today's renders list
   what reads under 14 dp as seen without failing on it: the labels on a desk, and captions near the
   corners of Settings and the entry panel's Guide, both being replaced.
@@ -550,7 +548,7 @@ policy confirmation and runtime-confirmation limits still apply. Historical rati
 
 ## Amendment, 2026-10-11: named manual organization controls
 
-The owner's next organization slice makes Compact/Expand and Move explicit while retaining one
+The next organization slice makes Compact/Expand and Move explicit while retaining one
 active composition. The primary subject reserves its right side for named Move and Compact targets;
 the compact bar keeps the exact retained identity with separate Move and Expand targets. A whole-bar
 Open action and an unnamed whole-subject grip no longer define production interaction. Close keeps
@@ -568,7 +566,7 @@ multiple-reader architecture, a retained-file count limit or disk draft persiste
 ## Placement-policy amendment, 2026-10-15
 
 The established workspace's indefinite fixed anchor is superseded for the main application by
-[ADR 0032](0032-recover-the-workspace-when-it-leaves-view.md), after the owner confirmed it stayed
+[ADR 0032](0032-recover-the-workspace-when-it-leaves-view.md), after headset testing confirmed it stayed
 behind and left view. Stable in-view reading, the first-pose readiness gate, deliberate room/agent
 placement and native OS panel ownership remain. Legacy fixed-anchor renderer setups are comparison
 fixtures; they no longer define production head-movement acceptance.

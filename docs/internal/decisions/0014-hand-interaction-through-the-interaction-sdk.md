@@ -7,9 +7,9 @@
 
 Milestone 3 is the defining interaction ([PRODUCT.md](../product/PRODUCT.md)): open a character
 into its workspace, understand and act, collapse it back, with hands only. After trying the stage
-on a Quest 3, the owner set three levels of detail, all in place: ambient characters; a one-line
+on a Quest 3, three levels of detail were set, all in place: ambient characters; a one-line
 peek while a hand ray points at one, without a pinch; and a pinch that opens the workspace beside
-that character, never in a separate scene. The competition then asked for gaze interactions with
+that character, never in a separate scene. The design then called for gaze interactions with
 the Interaction SDK v207, a layout that suits a narrower field of view, hands first throughout, a
 first five minutes without a wall of text, and everything within about two feet of a seated
 person.
@@ -35,7 +35,7 @@ headset.
 - **Gaze.** The SDK's gaze (its eye gaze with camera pose emulation, which is head gaze on a
   Quest 3, and a gaze conecaster) drives a gaze interactor that only hovers: the gaze peeks,
   selection stays with the hand ray's pinch and the poke.
-- **Levels of detail.** Ambient, peek and open, all in place, as the owner set them. The open
+- **Levels of detail.** Ambient, peek and open, all in place, as set above. The open
   workspace is a world-space panel next to its character in view, grown out of it and linked to it
   while open: 0.6 m from the eyes, within a seated person's reach, at about 34 by 27 degrees, near
   the middle of the view.
@@ -67,7 +67,7 @@ headset.
 - **Detecting pinches directly from hand tracking.** It would re-implement rays, pokes and their
   arbitration, which the SDK already provides and Meta tests.
 - **Unity's legacy TextMesh.** Bitmap glyphs that blur at a distance, and no wrapping.
-- **Opening the workspace in a separate view or scene.** Ruled out by the owner: the same work must
+- **Opening the workspace in a separate view or scene.** Ruled out: the same work must
   read as the same object at a different level of detail.
 - **Opening the workspace at the character's distance, beside it.** Out of reach for a poke at 1.6
   to 2.4 m, and at the edge of the view for a character at the end of the arc.
@@ -88,12 +88,12 @@ headset.
   choice if the system keyboard is unusable with hands.
 - The first session with the workspace on a Quest 3 (2026-09-29) confirmed opening, reading,
   approving with the second press and the runtime-confirmed result, and `HttpClient` under IL2CPP.
-  It also showed what this decision left too eager or too narrow, and the owner asked for these
+  It also showed what this decision left too eager or too narrow, and led to these
   changes, made the same day ([workspace-interaction.md](../validation/workspace-interaction.md)):
   - The gaze peeked every character the head swept past: the conecaster's 0.2 s dwell is shorter
     than a sweep takes to cross a character. The peek now waits for the gaze to rest half a second
     near the middle of the view with the head nearly still, fades, and shows one at a time.
-  - Look and pinch, the alternative left for a headset trial, is adopted, as the competition names
+  - Look and pinch, the alternative left for a headset trial, is adopted, as the design calls for
     gaze interactions: while a gaze peek shows and no hand ray or finger is on a target, a pinch of
     either hand at any height opens that character. It no longer competes with the ray's pinch,
     because it acts only when no hand points at anything.
