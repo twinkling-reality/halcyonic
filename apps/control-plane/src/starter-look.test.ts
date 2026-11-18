@@ -1601,7 +1601,7 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       look(),
-      /hill\.translate\(Math\.cos\(a\) \* d, PLAIN_LEVEL - 0\.9, Math\.sin\(a\) \* d\);/,
+      /position\.setY\(i, PLAIN_LEVEL \+ hillHeight\(position\.getX\(i\), position\.getZ\(i\)\)\);/,
     );
     assert.doesNotMatch(
       look(),
@@ -1631,6 +1631,25 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
       look(),
       /'c \*= mix\(0\.8, 1\.0, exp\(-a \/ 0\.75\)\);',/,
       'the sky deepens away from the sun, so its halo shows',
+    );
+  });
+
+  test('the hills are one rolling ring rising out of the land, varied round the horizon, with trees standing on them', () => {
+    const hills = look().slice(
+      look().indexOf('function hills('),
+      look().indexOf('\n}\n', look().indexOf('function hills(')),
+    );
+    assert.match(hills, /new RingGeometry\(18, 39, 220, 96\)/, 'one mesh, not a row of domes');
+    assert.doesNotMatch(hills, /SphereGeometry/);
+    const height = look().slice(
+      look().indexOf('function hillHeight('),
+      look().indexOf('function farClumps('),
+    );
+    assert.match(height, /Math\.sin\(a \* 3 \+ 1\.3\)/, 'ridges vary round the horizon');
+    assert.match(
+      look(),
+      /PLAIN_LEVEL \+ \(onHills \? hillHeight\(x, z\) : 0\) - 0\.12 \* s/,
+      'far trees stand on the hills',
     );
   });
 

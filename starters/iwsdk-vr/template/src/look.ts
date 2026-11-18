@@ -710,18 +710,41 @@ function plainLand(colours: readonly [string, string], horizon: string): Mesh {
 }
 
 /**
+ * How high the hills rise above the plain at a point (0 within 20 m of the island): crests 26 to 34 m out, their
+ * heights and widths varying round the horizon, so the skyline is long ridges, saddles and steeper flanks, not domes.
+ */
+function hillHeight(x: number, z: number): number {
+  const r = Math.hypot(x, z);
+  const a = Math.atan2(z, x);
+  const crest = 31 + 2.5 * Math.sin(a * 2 + 0.7) + 1.5 * Math.sin(a * 5 + 2.1);
+  const rise = Math.min(1, Math.max(0, (r - 20) / Math.max(1, crest - 20)));
+  const fall = Math.min(1, Math.max(0, (39 - r) / Math.max(1, 39 - crest)));
+  const envelope = (rise * rise * (3 - 2 * rise)) * Math.min(1, fall * 1.4);
+  const ridges =
+    2.4 * (0.5 + 0.5 * Math.sin(a * 3 + 1.3)) +
+    1.5 * (0.5 + 0.5 * Math.sin(a * 7 + 0.4 + r * 0.06)) +
+    0.6 * Math.sin(a * 17 + 2) +
+    0.9 * Math.max(0, Math.sin(a * 2 - 0.5)) ** 3;
+  return Math.max(0, envelope * (0.5 + ridges) * 0.42);
+}
+
+/**
  * Far clumps of trees on the land between the island and the hills, as one instanced mesh (one draw call): each a
  * leafy crown low on the land, darker and hazed with distance like the hills, so the eye reads the land's depth.
  */
-function farClumps(colour: string, horizon: string): InstancedMesh {
+function farClumps(colour: string, horizon: string, onHills: boolean): InstancedMesh {
   const random = seeded(31);
-  const crown = new SphereGeometry(1, 14, 9);
+  const crown = new SphereGeometry(1, 20, 12);
   const position = crown.getAttribute('position');
   for (let i = 0; i < position.count; i++) {
     const px = position.getX(i);
     const py = position.getY(i);
     const pz = position.getZ(i);
-    const k = 1 + 0.16 * Math.sin(5 * px + 1) * Math.sin(4 * py + 2) * Math.sin(5 * pz);
+    // A broken leafy edge: large clumps and smaller tufts at their rims.
+    const k =
+      1 +
+      0.2 * Math.sin(5 * px + 1) * Math.sin(4 * py + 2) * Math.sin(5 * pz) +
+      0.1 * Math.sin(13 * px + 2) * Math.sin(12 * py) * Math.sin(11 * pz + 1);
     position.setXYZ(i, px * k, Math.max(-0.2, py) * k, pz * k);
   }
   crown.computeVertexNormals();
@@ -730,7 +753,7 @@ function farClumps(colour: string, horizon: string): InstancedMesh {
   const crownShade: number[] = [];
   const lifted = crown.getAttribute('position');
   for (let i = 0; i < lifted.count; i++) {
-    const s = 0.45 + 0.55 * Math.min(1, Math.max(0, (lifted.getY(i) - 0.35) / 1.4));
+    const s = 0.3 + 0.7 * Math.min(1, Math.max(0, (lifted.getY(i) - 0.93) / 1.3)) ** 0.8;
     crownShade.push(s, s, s);
   }
   crown.setAttribute('color', new Float32BufferAttribute(crownShade, 3));
@@ -740,7 +763,7 @@ function farClumps(colour: string, horizon: string): InstancedMesh {
   trunk.setAttribute('color', new Float32BufferAttribute(new Array(trunk.getAttribute('position').count).fill([0.32, 0.24, 0.2]).flat(), 3));
   const tree = mergeGeometries([crown.toNonIndexed(), trunk.toNonIndexed()]) ?? crown;
   const material = new MeshPhysicalMaterial({ color: '#FFFFFF', vertexColors: true, roughness: 0.95, metalness: 0 });
-  const count = 90;
+  const count = 140;
   const clumps = new InstancedMesh(tree, material, count + 30);
   const place = new Object3D();
   const base = new Color(colour);
@@ -748,11 +771,12 @@ function farClumps(colour: string, horizon: string): InstancedMesh {
   for (let i = 0; i < count; i++) {
     const a = random() * Math.PI * 2;
     // Never between the player and the game: none in the cone in front of the island.
-    const d = 14 + random() * 17;
+    const d = 14 + random() * 22;
     const x = Math.cos(a) * d;
     const z = Math.sin(a) * d;
     const s = 0.22 + random() * 0.4;
-    place.position.set(x, PLAIN_LEVEL, z);
+    // Settled a little into the ground, so none floats where the mesh between its vertices lies lower.
+    place.position.set(x, PLAIN_LEVEL + (onHills ? hillHeight(x, z) : 0) - 0.12 * s, z);
     place.scale.set(s * (1 + random() * 0.8), s * (0.8 + random() * 0.5), s);
     place.rotation.set(0, random() * 6.28, 0);
     place.updateMatrix();
@@ -778,31 +802,47 @@ function farClumps(colour: string, horizon: string): InstancedMesh {
   return clumps;
 }
 
-/** Low hills far off round the horizon, as one mesh: one draw call. */
+/**
+ * Hills round the horizon as one rolling ring of land (one mesh, one draw call): long ridges, saddles and steeper
+ * flanks rising out of the plain from 20 m and falling away behind their crests, fields on their slopes, darker in the
+ * folds, and kept in the haze.
+ */
 function hills(colours: readonly [string, string]): Mesh {
-  const random = seeded(11);
-  const pieces: BufferGeometry[] = [];
-  const shades = colours.map((c) => new Color(c));
-  for (let i = 0; i < 18; i++) {
-    const a = (i / 18) * Math.PI * 2 + random() * 0.2;
-    const d = 27 + random() * 5;
-    const r = 4.5 + random() * 3.5;
-    const hill = new SphereGeometry(r, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-    hill.scale(1.4, 0.32 + random() * 0.18, 1);
-    hill.rotateY(-a);
-    // Rooted below the plain round the island, so each rises out of the land, never floats over it.
-    hill.translate(Math.cos(a) * d, PLAIN_LEVEL - 0.9, Math.sin(a) * d);
-    // Far off, the hills take on the sky's colour: their edges soften into the haze.
-    const shade = (shades[i % 2] ?? new Color('#88AA55')).clone().lerp(new Color(currentWorld().sky.horizon), 0.38);
-    const count = hill.getAttribute('position').count;
-    hill.setAttribute('color', new Float32BufferAttribute(new Array(count).fill([shade.r, shade.g, shade.b]).flat(), 3));
-    pieces.push(hill);
+  const geometry = new RingGeometry(18, 39, 220, 96);
+  geometry.rotateX(-Math.PI / 2);
+  const position = geometry.getAttribute('position');
+  for (let i = 0; i < position.count; i++)
+    position.setY(i, PLAIN_LEVEL + hillHeight(position.getX(i), position.getZ(i)));
+  geometry.computeVertexNormals();
+  const [a, b] = colours.map((c) => new Color(c)) as [Color, Color];
+  const dry = a.clone().offsetHSL(-0.04, -0.15, 0.06);
+  const sky = new Color(currentWorld().sky.horizon);
+  const normal = geometry.getAttribute('normal');
+  const colour: number[] = [];
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const z = position.getZ(i);
+    const h = position.getY(i) - PLAIN_LEVEL;
+    const r = Math.hypot(x, z);
+    // Fields on the slopes, as on the plain, a little larger.
+    const field = fieldsAt((x * 0.94 + z * 0.34) / 9, (-x * 0.34 + z * 0.94) / 11);
+    const c = a.clone().lerp(dry, field.dry * 0.7).lerp(b, field.green * 0.8);
+    c.multiplyScalar(0.72 + 0.4 * field.value);
+    // Darker in the folds and on the slopes turned from the sky; lighter on the crests.
+    const up = normal.getY(i);
+    c.multiplyScalar(0.62 + 0.38 * up ** 6 + 0.1 * Math.min(1, h / 2));
+    // Lines of trees climbing the slopes, darker, along the folds.
+    const line = Math.abs(Math.sin(Math.atan2(z, x) * 26 + h * 1.7));
+    if (h > 0.25 && line < 0.12) c.multiplyScalar(0.62);
+    // Kept in the haze: the farther and higher, the more of the sky's colour.
+    c.lerp(sky, Math.min(0.75, 0.22 + 0.3 * ((r - 18) / 21) + 0.04 * h));
+    colour.push(c.r, c.g, c.b);
   }
-  const merged = mergeGeometries(pieces);
+  geometry.setAttribute('color', new Float32BufferAttribute(colour, 3));
   const material = toyMaterial('#FFFFFF', { ground: true, roughness: 0.95 });
   material.vertexColors = true;
   material.sheen = 0;
-  return new Mesh(merged ?? new BufferGeometry(), material);
+  return new Mesh(geometry, material);
 }
 
 /**
@@ -891,7 +931,7 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   if (look.ground.sea !== undefined) stage.add(sea(look.ground.sea, look.sky.disc?.at, look.sky.horizon));
   if (look.ground.plain !== undefined && look.ground.sea === undefined) {
     stage.add(plainLand(look.ground.plain, look.sky.horizon));
-    stage.add(farClumps(look.ground.hills?.[1] ?? look.ground.plain[1], look.sky.horizon));
+    stage.add(farClumps(look.ground.hills?.[1] ?? look.ground.plain[1], look.sky.horizon, look.ground.hills !== undefined));
   }
   if (look.ground.hills !== undefined) stage.add(hills(look.ground.hills));
   const clouds = look.sky.clouds;
