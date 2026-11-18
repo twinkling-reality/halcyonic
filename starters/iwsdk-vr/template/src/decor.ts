@@ -26,6 +26,8 @@ import {
   Shape,
   ShapeGeometry,
   SphereGeometry,
+  SpriteMaterial,
+  Sprite,
   SRGBColorSpace,
   TorusGeometry,
   TubeGeometry,
@@ -458,9 +460,9 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
   }
   for (const [i, [x, z, size]] of LAYOUT.bushes.slice(0, bushes).entries()) {
     const parts = [
-      part(foliage(0.16, i * 3 + 1), '#B3A58C', [0, 0.04, 0], [1.25, 0.55, 1]),
-      part(foliage(0.1, i * 3 + 2), '#9C8F78', [0.17, 0.03, 0.05], [1, 0.6, 1], [0.4, i, 0]),
-      part(foliage(0.07, i * 3 + 3), '#C4B69C', [-0.14, 0.02, 0.08], [1, 0.65, 1], [0, i * 2, 0.3]),
+      part(foliage(0.16, i * 3 + 1), '#D8C8A8', [0, 0.04, 0], [1.25, 0.55, 1]),
+      part(foliage(0.1, i * 3 + 2), '#C4B394', [0.17, 0.03, 0.05], [1, 0.6, 1], [0.4, i, 0]),
+      part(foliage(0.07, i * 3 + 3), '#E2D4B6', [-0.14, 0.02, 0.08], [1, 0.65, 1], [0, i * 2, 0.3]),
     ];
     // Weathered stone: lumpy, matte, with the relief of rock, settled into the sand.
     const rock = prop(parts, { natural: true, roughness: 0.92 });
@@ -546,7 +548,8 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
     const phase = i * 2.4;
     ambientMotion((time) => {
       const at = flight(time * 0.6, phase, reach * 2.2);
-      body.position.set(x * 1.4 + at.x, y + 1.3 + at.y, z - 0.6 + at.z);
+      // Small and far, high over the sea, where a gull is a shape against the sky.
+      body.position.set(x * 5 + at.x * 3, y + 5.5 + at.y, z * 5 - 14 + at.z * 3);
       body.rotation.y = at.heading;
       const open = 0.35 * flap(time * 0.35, phase * 3);
       right.rotation.z = open;
@@ -582,7 +585,7 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
   for (const [i, [x, z, size]] of LAYOUT.bushes.slice(0, bushes).entries()) {
     // A cluster of six-sided shards leaning out from one root, each brighter toward its tip.
     const parts = [
-      part(shard(0.045, 0.28), '#7E6BD6', [0, 0, 0], [1, 1, 1], [0, i, 0.08]),
+      part(shard(0.04, 0.19), '#7E6BD6', [0, 0, 0], [1, 1, 1], [0, i, 0.08]),
       part(shard(0.035, 0.2), '#5C7FE0', [0.06, 0, 0.02], [1, 1, 1], [0, 0.4 + i, -0.42]),
       part(shard(0.03, 0.17), '#A58CF0', [-0.06, 0, 0.03], [1, 1, 1], [0, i * 2, 0.5]),
       part(shard(0.025, 0.12), '#6A9AF0', [0.02, 0, -0.06], [1, 1, 1], [0.45, i, 0.1]),
@@ -652,36 +655,27 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
         }
       flies.instanceMatrix.needsUpdate = true;
     };
-    // Each firefly's own glow: two soft shells of added light round its bright heart, a tight halo as a true emitter
-    // has (CAST, seat31), on the same places as the flies, one draw call each.
-    const shells = [
-      [0.045, 0.32],
-      [0.11, 0.1],
-    ].map(([radius, strength]) => {
-      const shell = new InstancedMesh(
-        new SphereGeometry(radius, 12, 8),
-        new MeshBasicMaterial({
-          color: new Color('#EAFF86').multiplyScalar(strength),
-          transparent: true,
-          depthWrite: false,
-          blending: AdditiveBlending,
-          fog: false,
-        }),
-        homes.length * swarm,
+    // Each firefly's own glow: one soft sprite of added light, a radial fade to nothing, its halo several times its heart
+    // and much fainter (CAST, seat39), always turned to the eye.
+    const glow = fireflyGlow();
+    const sprites = Array.from({ length: homes.length * swarm }, () => {
+      const sprite = new Sprite(
+        new SpriteMaterial({ map: glow, color: '#EAFF86', transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false }),
       );
-      shell.frustumCulled = false;
-      return shell;
+      sprite.scale.setScalar(0.16);
+      decor.add(sprite);
+      return sprite;
     });
     const shine = (time: number) => {
       move(time);
-      for (let k = 0; k < homes.length * swarm; k++) {
+      for (const [k, sprite] of sprites.entries()) {
         flies.getMatrixAt(k, place.matrix);
-        for (const shell of shells) shell.setMatrixAt(k, place.matrix);
+        sprite.position.setFromMatrixPosition(place.matrix);
+        sprite.material.opacity = 0.55 + 0.45 * Math.sin(time * 2.2 + k * 1.7);
       }
-      for (const shell of shells) shell.instanceMatrix.needsUpdate = true;
     };
     shine(0);
-    decor.add(flies, ...shells);
+    decor.add(flies);
     ambientMotion(shine);
   }
 }
@@ -969,6 +963,29 @@ function appleShape(): BufferGeometry {
     new Vector2(0.001, 0.03),
   ];
   return new LatheGeometry(profile, 18);
+}
+
+let fireflyPicture: CanvasTexture | null = null;
+
+/** A firefly's glow: bright at its heart and fading smoothly to nothing at a few times its width. */
+function fireflyGlow(): CanvasTexture {
+  if (fireflyPicture !== null) return fireflyPicture;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const context = canvas.getContext('2d');
+  if (context !== null) {
+    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.1, 'rgba(255,255,255,0.85)');
+    gradient.addColorStop(0.25, 'rgba(255,255,255,0.3)');
+    gradient.addColorStop(0.55, 'rgba(255,255,255,0.08)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 64, 64);
+  }
+  fireflyPicture = new CanvasTexture(canvas);
+  fireflyPicture.colorSpace = SRGBColorSpace;
+  return fireflyPicture;
 }
 
 /** One part of a prop: a geometry in its own colour, placed in the prop. */

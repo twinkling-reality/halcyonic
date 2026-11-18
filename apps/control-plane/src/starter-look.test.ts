@@ -1744,11 +1744,27 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
       /decor\.add\(prop\(parts, \{ natural: true, roughness: 0\.88 \}\)\);\n\}/,
       'a fence of weathered wood',
     );
-    assert.match(decor, /'#B3A58C', \[0, 0\.04, 0\]/, 'rocks in stone colours');
+    assert.match(decor, /'#D8C8A8', \[0, 0\.04, 0\]/, 'rocks in stone colours');
+    assert.match(decor, /decor\.add\(sprite\);/, 'each firefly glows as a soft sprite');
+  });
+
+  test('the mound faces out, casts no long shadow and leaves no ring of blades; fireflies glow as soft sprites; gulls fly far', () => {
+    assert.match(
+      look(),
+      /new LatheGeometry\(bank\.slice\(\)\.reverse\(\), 96\)/,
+      'a lathe written top-down faces in',
+    );
+    assert.match(look(), /tier\.castShadow = false;/);
+    assert.match(look(), /FLOOR\.tier\.radius \+ 0\.42;/, 'the lawn stops at the mound foot');
+    const decor = read('src/decor.ts');
     assert.match(
       decor,
-      /decor\.add\(flies, \.\.\.shells\);/,
-      'each firefly glows in shells of added light',
+      /new SpriteMaterial\(\{ map: glow, color: '#EAFF86', transparent: true, depthWrite: false, blending: AdditiveBlending/,
+    );
+    assert.match(
+      decor,
+      /body\.position\.set\(x \* 5 \+ at\.x \* 3, y \+ 5\.5 \+ at\.y, z \* 5 - 14 \+ at\.z \* 3\);/,
+      'gulls small and far',
     );
   });
 
@@ -1771,7 +1787,7 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(decor, /part\(petal\(0\.05, 0\.03\), colour/);
     assert.match(decor, /part\(capShape\(0\.055, 0\.042\), cap/);
     assert.doesNotMatch(decor, /new OctahedronGeometry\(0\.08, 0\), 'grape'/);
-    assert.match(decor, /part\(shard\(0\.045, 0\.28\)/);
+    assert.match(decor, /part\(shard\(0\.04, 0\.19\)/);
     const night = decor.slice(
       decor.indexOf('function nightDressing'),
       decor.indexOf('\n}\n', decor.indexOf('function nightDressing')),

@@ -248,7 +248,7 @@ function island(): Group {
   // A rounded bank of the island's own turf (or a dune of its sand): its top flat for a sign, its shoulder rolling
   // over into a long foot that runs out into the lawn, so it rises out of the ground instead of standing on it.
   const t = FLOOR.tier;
-  const foot = ground.grass === undefined ? 0.8 : 0.5;
+  const foot = ground.grass === undefined ? 0.45 : 0.4;
   // Flat for a sign out to 0.3 m inside its edge, then falling away in one smooth curve to its foot: no crease to
   // catch a line of shade.
   const bank = [new Vector2(0.001, t.height)];
@@ -256,12 +256,16 @@ function island(): Group {
     const f = k / 14;
     bank.push(new Vector2(t.radius - 0.3 + f * (0.3 + foot), t.height * (0.5 + 0.5 * Math.cos(Math.PI * f)) + 0.004 * (1 - f)));
   }
+  // On below the ground, so where the island falls away behind it its foot goes on down instead of ending in the air.
+  bank.push(new Vector2(t.radius + foot + 0.05, -0.7));
   const tier = new Mesh(
-    new LatheGeometry(bank, 96),
+    // A lathe faces out when its profile runs from the bottom up; this one was written from the top down.
+    new LatheGeometry(bank.slice().reverse(), 96),
     withGrain(toyMaterial(ground.top, { ground: true }), 6, 0.4),
   );
   tier.position.set(0, 0, t.z);
-  tier.castShadow = true;
+  // A low mound's shadow from a sun near the horizon would stretch across the whole island; it casts none.
+  tier.castShadow = false;
   tier.receiveShadow = true;
   group.add(tier);
   // No lip round its top: the bank's own turf rounds over into the lawn on top, as a bank does.
@@ -314,7 +318,8 @@ function island(): Group {
       grows: (x, z) => {
         const r = Math.hypot(x, z);
         if (r > (R - 0.06) * lobe(Math.atan2(z, x))) return false;
-        return Math.hypot(x, z - FLOOR.tier.z) > FLOOR.tier.radius + 0.02;
+        // The lawn stops at the mound's foot: blades under its bank would poke through it as a dark ring.
+        return Math.hypot(x, z - FLOOR.tier.z) > FLOOR.tier.radius + 0.42;
       },
       height: (x, z) => 0.035 + 0.055 * Math.min(1, Math.hypot(x, z) / R) ** 1.5,
     });
@@ -616,13 +621,13 @@ function sea(
   const shore = beach.getAttribute('position');
   const sand: number[] = [];
   const dryColour = new Color(currentWorld().ground.top);
-  const wetColour = dryColour.clone().multiplyScalar(0.72);
+  const wetColour = dryColour.clone().multiplyScalar(0.84);
   for (let k = 0; k < shore.count; k++) {
     const along = (Math.hypot(shore.getX(k), shore.getZ(k)) - (ISLAND_RADIUS - 0.05)) / 1.65;
-    const y = -0.01 + (water.level - 0.25) * along ** 1.2;
+    const y = -0.003 + (water.level - 0.25) * Math.max(0, along - 0.06) ** 1.2;
     shore.setY(k, y);
     // Wet only in a band at the waterline, where the surf reaches; dry and pale above it.
-    const c = dryColour.clone().lerp(wetColour, Math.min(1, Math.max(0, 1 - (y - water.level) / 0.07)));
+    const c = dryColour.clone().lerp(wetColour, Math.min(1, Math.max(0, 1 - (y - water.level) / 0.14)) ** 2);
     sand.push(c.r, c.g, c.b);
   }
   beach.setAttribute('color', new Float32BufferAttribute(sand, 3));
