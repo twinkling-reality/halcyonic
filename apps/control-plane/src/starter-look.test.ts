@@ -405,7 +405,8 @@ describe('a game can be set in a world of its own, so two games never read as on
       for (const part of ['sky:', 'light:', 'ground:', `dressing: '${name}'`, 'sound:'])
         assert.ok(body.includes(part), `${name} has ${part}`);
     }
-    // The meadow is the starter's own, so a game that keeps it draws the same picture as before (DRAWN's reference).
+    // The meadow is the starter's own: ART7's sky and grass, with no sun disc, stars, sea or sunset band; since the lead's
+    // starter look (2026-11-18) it stands on land with far hills, grounded as every land world is.
     const meadow = worlds.slice(
       worlds.indexOf('const meadow'),
       worlds.indexOf('\n};', worlds.indexOf('const meadow')),
@@ -415,7 +416,9 @@ describe('a game can be set in a world of its own, so two games never read as on
       /sky: \{ top: palette\.sky, horizon: palette\.cloud, clouds: '#FFFFFF' \}/,
     );
     assert.match(meadow, /top: palette\.leaf,/);
-    assert.doesNotMatch(meadow, /middle:|disc:|stars:|sea:|hills:/);
+    assert.doesNotMatch(meadow, /middle:|disc:|stars:|sea:/);
+    assert.match(meadow, /plain: \[/);
+    assert.match(meadow, /hills: \[/);
   });
 
   test('setupLook takes the world, the meadow when none is named, and decorate dresses the island for it', () => {
