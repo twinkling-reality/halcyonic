@@ -1769,7 +1769,14 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
   test('trees and bushes are leafy crowns and the tufts are blades: no bare sphere or cone of foliage', () => {
     const decor = read('src/decor.ts');
     assert.doesNotMatch(decor, /part\(new SphereGeometry\(r, \d+, \d+\), '#47B04A'/);
-    assert.match(decor, /part\(foliage\(r, /);
+    assert.match(decor, /part\(foliage\(r \* 0\.72, /, 'a dark core holds each crown');
+    assert.match(
+      decor,
+      /swaying\.add\(canopy\(crown, /,
+      'trees carry built canopies of leaf cards',
+    );
+    assert.match(decor, /bush\.add\(canopy\(leafy, /, 'and so do bushes');
+    assert.match(decor, /alphaTest: 0\.5,/, 'leaves cut out at their edges');
     assert.doesNotMatch(decor, /new ConeGeometry\(0\.025, 0\.12, 6\)/);
     assert.match(decor, /part\(grassBlade\(0\.02\)/);
   });

@@ -17,6 +17,7 @@ import {
   InstancedMesh,
   LatheGeometry,
   Mesh,
+  MeshStandardMaterial,
   type MeshPhysicalMaterial,
   Object3D,
   OctahedronGeometry,
@@ -115,14 +116,17 @@ function meadowDressing(decor: Group, counts: DecorCounts): void {
   for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
     const tree = new Group();
     const parts = [part(barkTrunk(0.06, 0.08, 0.5, x + z), 'cocoa', [0, 0, 0])];
-    for (const [a, b, c, r] of [
-      [0, 0.72, 0, 0.36],
-      [0.2, 0.6, 0.05, 0.26],
-      [-0.2, 0.62, -0.02, 0.27],
-    ] as const)
-      parts.push(part(foliage(r, x * 3.1 + a * 7 + z), '#47B04A', [a, b, c]));
+    const crown = [
+      [0, 0.74, 0, 0.36, '#4FB244'],
+      [0.21, 0.6, 0.05, 0.27, '#3F9E3C'],
+      [-0.2, 0.63, -0.03, 0.28, '#47A841'],
+      [0.04, 0.95, -0.05, 0.22, '#5ABE4C'],
+    ] as const;
+    // A dark core holds the crown's mass behind the leaves, so the sky never shows through it.
+    for (const [a, b, c, r] of crown) parts.push(part(foliage(r * 0.72, x * 3.1 + a * 7 + z), '#24561F', [a, b, c]));
     // The trunk and crown sway together above a still shadow, which would dip into the grass if it leaned.
     const swaying = prop(parts, { natural: true, roughness: 0.82 });
+    swaying.add(canopy(crown, x * 3.1 + z));
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size);
@@ -133,12 +137,14 @@ function meadowDressing(decor: Group, counts: DecorCounts): void {
     });
   }
   for (const [x, z, size] of LAYOUT.bushes.slice(0, bushes)) {
-    const parts = [
-      [0, 0, 0.2],
-      [0.18, -0.03, 0.15],
-      [-0.17, -0.04, 0.14],
-    ].map(([a, c, r]) => part(foliage(r, x * 2.3 + a * 5 + z), '#3FA247', [a, r * 0.7 + c, 0]));
+    const leafy = [
+      [0, 0.14, 0, 0.2, '#45A847'],
+      [0.18, 0.075, 0, 0.15, '#3A9A40'],
+      [-0.17, 0.058, 0, 0.14, '#4FB04A'],
+    ] as const;
+    const parts = leafy.map(([a, b, c, r]) => part(foliage(r * 0.72, x * 2.3 + a * 5 + z), '#21501F', [a, b, c]));
     const bush = prop(parts, { natural: true, roughness: 0.82 });
+    bush.add(canopy(leafy, x * 2.3 + z));
     bush.position.set(x, 0, z);
     bush.scale.setScalar(size * 1.4);
     decor.add(bush);
@@ -280,12 +286,12 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
   for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
     const tree = new Group();
     const parts = [part(barkTrunk(0.06, 0.085, 0.55, x + z), '#8A5232', [0, 0, 0])];
-    for (const [a, b, c, r] of [
-      [0, 0.78, 0, 0.38],
-      [0.22, 0.64, 0.06, 0.27],
-      [-0.22, 0.66, -0.02, 0.28],
-    ] as const)
-      parts.push(part(foliage(r, x * 3.1 + a * 7 + z), '#5DA43C', [a, b, c]));
+    const crown = [
+      [0, 0.78, 0, 0.38, '#63A83E'],
+      [0.22, 0.64, 0.06, 0.27, '#558F36'],
+      [-0.22, 0.66, -0.02, 0.28, '#6CB044'],
+    ] as const;
+    for (const [a, b, c, r] of crown) parts.push(part(foliage(r * 0.72, x * 3.1 + a * 7 + z), '#2E4F1E', [a, b, c]));
     for (const [a, b, c] of [
       [0.16, 0.86, 0.3],
       [-0.2, 0.74, 0.27],
@@ -295,6 +301,7 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
     ] as const)
       parts.push(part(new SphereGeometry(0.05, 16, 12), 'berry', [a, b, c]));
     const swaying = prop(parts, { natural: true, roughness: 0.7 });
+    swaying.add(canopy(crown, x * 3.1 + z));
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size);
@@ -553,14 +560,15 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
   for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
     const tree = new Group();
     const parts = [part(barkTrunk(0.05, 0.08, 0.6, x + z), '#4A3B6B', [0, 0, 0])];
-    for (const [a, b, c, r, colour] of [
-      [0, 0.86, 0, 0.3, '#24305A'],
-      [0.18, 0.66, 0.04, 0.22, '#1E2A50'],
-      [-0.17, 0.7, -0.02, 0.23, '#283664'],
-      [0.02, 1.1, 0, 0.17, '#2C3A6C'],
-    ] as const)
-      parts.push(part(foliage(r, x * 3.1 + a * 7 + z), colour, [a, b, c]));
+    const crown = [
+      [0, 0.86, 0, 0.3, '#2C3A66'],
+      [0.18, 0.66, 0.04, 0.22, '#24305A'],
+      [-0.17, 0.7, -0.02, 0.23, '#323F72'],
+      [0.02, 1.1, 0, 0.17, '#36457A'],
+    ] as const;
+    for (const [a, b, c, r] of crown) parts.push(part(foliage(r * 0.72, x * 3.1 + a * 7 + z), '#141A33', [a, b, c]));
     const swaying = prop(parts, { natural: true, roughness: 0.6 });
+    swaying.add(canopy(crown, x * 3.1 + z));
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size);
@@ -833,6 +841,134 @@ function fireflyGlow(): CanvasTexture {
   fireflyPicture = new CanvasTexture(canvas);
   fireflyPicture.colorSpace = SRGBColorSpace;
   return fireflyPicture;
+}
+
+let leafPicture: CanvasTexture | null = null;
+
+/**
+ * A spray of leaves, drawn once in the browser: pointed leaves on a clear ground, each its own shade, white where the
+ * card's colour shows through, so one picture serves every tree's own green.
+ */
+function leafTexture(): CanvasTexture {
+  if (leafPicture !== null) return leafPicture;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const context = canvas.getContext('2d');
+  if (context !== null) {
+    let a = 41;
+    const random = () => {
+      a = (a * 16807) % 2147483647;
+      return a / 2147483647;
+    };
+    for (let i = 0; i < 26; i++) {
+      const x = 18 + random() * 92;
+      const y = 18 + random() * 92;
+      const turn = random() * Math.PI * 2;
+      const length = 16 + random() * 14;
+      const v = Math.round(150 + random() * 105);
+      context.save();
+      context.translate(x, y);
+      context.rotate(turn);
+      context.fillStyle = `rgb(${v},${v},${v})`;
+      context.beginPath();
+      context.moveTo(-length / 2, 0);
+      context.quadraticCurveTo(0, -length * 0.32, length / 2, 0);
+      context.quadraticCurveTo(0, length * 0.32, -length / 2, 0);
+      context.fill();
+      // Its midrib, a little darker.
+      context.strokeStyle = `rgba(0,0,0,0.18)`;
+      context.lineWidth = 1;
+      context.beginPath();
+      context.moveTo(-length / 2, 0);
+      context.lineTo(length / 2, 0);
+      context.stroke();
+      context.restore();
+    }
+  }
+  leafPicture = new CanvasTexture(canvas);
+  leafPicture.colorSpace = SRGBColorSpace;
+  return leafPicture;
+}
+
+let leafMaterial: MeshStandardMaterial | null = null;
+
+/** The leaves' one material: the leaf picture cut out at its edges, lit from both sides, tinted by each card. */
+function leaves(): MeshStandardMaterial {
+  if (leafMaterial === null)
+    leafMaterial = new MeshStandardMaterial({
+      map: leafTexture(),
+      alphaTest: 0.5,
+      side: DoubleSide,
+      vertexColors: true,
+      roughness: 0.78,
+      metalness: 0,
+    });
+  return leafMaterial;
+}
+
+/**
+ * A built canopy: many small cards of leaves set round and within each of a crown's `blobs` (x, y, z, radius, colour),
+ * each turned its own way, lit as the crown's rounded mass (its normal points out from the blob's centre), darker
+ * underneath and inside. One mesh, one draw call; it sways with the tree it is added to.
+ */
+function canopy(blobs: readonly (readonly [number, number, number, number, string])[], seed: number): Mesh {
+  let a = Math.floor(Math.abs(seed) * 1000) + 7;
+  const random = () => {
+    a = (a * 16807) % 2147483647;
+    return a / 2147483647;
+  };
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const colours: number[] = [];
+  const indices: number[] = [];
+  const up = new Vector3(0, 1, 0);
+  for (const [bx, by, bz, r, colour] of blobs) {
+    const tint = new Color(colour);
+    const cards = Math.round(70 * (r / 0.3) ** 2);
+    for (let k = 0; k < cards; k++) {
+      // A direction out from the blob's centre, a little more of them toward the light above.
+      const y = Math.min(1, random() * 2 - 0.85);
+      const t = random() * Math.PI * 2;
+      const out = new Vector3(Math.cos(t) * Math.sqrt(1 - y * y), y, Math.sin(t) * Math.sqrt(1 - y * y)).normalize();
+      const depth = r * (0.62 + random() * 0.45);
+      const centre = new Vector3(bx, by, bz).addScaledVector(out, depth);
+      const size = 0.17 * Math.sqrt(r / 0.3) * (0.75 + random() * 0.6);
+      const side = new Vector3().crossVectors(out, Math.abs(out.y) > 0.9 ? new Vector3(1, 0, 0) : up).normalize();
+      const along = new Vector3().crossVectors(side, out).normalize();
+      const roll = random() * Math.PI * 2;
+      const u = side.clone().multiplyScalar(Math.cos(roll)).addScaledVector(along, Math.sin(roll)).multiplyScalar(size / 2);
+      const v = side.clone().multiplyScalar(-Math.sin(roll)).addScaledVector(along, Math.cos(roll)).multiplyScalar(size / 2);
+      // Tilted a little out of the crown's surface, as leaves are.
+      v.addScaledVector(out, size * 0.25 * (random() - 0.5));
+      const base = positions.length / 3;
+      for (const [su, sv] of [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ] as const) {
+        const p = centre.clone().addScaledVector(u, su).addScaledVector(v, sv);
+        positions.push(p.x, p.y, p.z);
+        normals.push(out.x, out.y, out.z);
+        uvs.push((su + 1) / 2, (sv + 1) / 2);
+        // Darker underneath and deeper in, lighter at the sunlit top.
+        const shade = (0.5 + 0.5 * (out.y * 0.5 + 0.5)) * (0.7 + 0.3 * ((depth / r - 0.62) / 0.45)) * (0.85 + 0.3 * random());
+        colours.push(tint.r * shade, tint.g * shade, tint.b * shade);
+      }
+      indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3));
+  geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
+  geometry.setIndex(indices);
+  const mesh = new Mesh(geometry, leaves());
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
 /** One part of a prop: a geometry in its own colour, placed in the prop. */
