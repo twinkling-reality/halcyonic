@@ -31,11 +31,13 @@ namespace Halcyonic.XR.Workspace.Editor
 
         private static readonly (string Words, float Rim, GlazeColor? Tone, GlazeColor? Tint)[] GlassPanels =
         {
+            // Every panel in the shipped look, no tone and no tint (the lead's 2026-11-18 ruling: a state is shown by form, weight and white,
+            // never hue, and a sheet shows what ships).
             ("At Rest", KitGlassMaterial.RimDp, null, null),
-            ("Needs You", KitGlassMaterial.RimDp, SpatialKit.Attention, null),
-            ("Passed", KitGlassMaterial.RimDp, SpatialKit.Passed, null),
-            ("Failed", KitGlassMaterial.RimDp, SpatialKit.Failure, null),
-            ("Plate Rim", KitGlassMaterial.PlateRimDp, null, SpatialKit.AvatarTint),
+            ("Needs You", KitGlassMaterial.RimDp, null, null),
+            ("Passed", KitGlassMaterial.RimDp, null, null),
+            ("Failed", KitGlassMaterial.RimDp, null, null),
+            ("Plate Rim", KitGlassMaterial.PlateRimDp, null, null),
             ("Tile Rim", KitGlassMaterial.SmallRimDp, null, null),
         };
 
