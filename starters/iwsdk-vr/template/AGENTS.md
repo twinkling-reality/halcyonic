@@ -273,6 +273,10 @@ Music and light, not a game (a piece that plays itself, a concert of light, a pl
 - Start from the whole small piano of light at the end of this file and change it into the piece asked for.
 
 A place from the person's own photo or video (somewhere they were, a view they loved), to stand in:
+- The person's photo or video is the reference for the place, never a picture to hang in it. Build what it shows all
+  around the person in 3D: its land, its sky and light, and the things and creatures in it, where the person stood
+  among them (on a camel in a line of camels, at a table by the sea). Look at its stills to see them. Show the photo
+  or video itself as a picture only when the person asks to see it.
 - A photo or video the person added to the project is in its `media/` folder. A video has a play copy beside it, its
   name ending `-play.mp4`: copy that one, or the photo (JPEG, PNG or WebP), into `public/media/`, never a `.mov` or a
   `.heic`. Pictures beside it named as stills are for you to look at; the app reads the photo or video itself.
@@ -289,8 +293,8 @@ A place from the person's own photo or video (somewhere they were, a view they l
   builds to a peak about 14 s in while the sun sinks, from about 7 s, and the sky deepens toward night by about 19 s,
   faint stars coming out by themselves (`peak: false` keeps it calm). Add its `group` to
   `root` and pass its `move` to `ambientMotion`.
-- `const shown = pictureWindow('/media/<file>', { width: 2.4 })` shows the photo or video itself on a window in the
-  place: float it over the sand four to six metres off, on the other side of the view from the sun, with
+- Only when the person asks to see the photo or video itself:
+  `const shown = pictureWindow('/media/<file>', { width: 2.4 })` shows it on a window in the place: float it over the sand four to six metres off, on the other side of the view from the sun, with
   `shown.standOn(land, x, z)` (it floats just over the sand, turned to the person, and its own light falls on the sand
   in front of it), add its `group` and pass its `move` to `ambientMotion`. A video plays by itself, muted and looping;
   the window stays hidden until its first frame is ready, then fades in. One window is enough. Move the welcome card

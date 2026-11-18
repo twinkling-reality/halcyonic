@@ -85,3 +85,11 @@ M1 to M9, C1 to C8, D1 to D4, E1 and E2, K1 and K2, and a fresh critic's read); 
 - A medium an agent copies into a built piece is public once the piece is shared.
 - Removing a medium is the person's own; the view stays the journal's, and a read says when the file is gone.
 - Revisit if a runtime reads video itself, or if a person needs media larger than 80 MB.
+
+## Amendment, 2026-11-18: the person's media is what to make
+
+After the host's line about each photo or video it gives a task, it adds one line, once: "From Halora: the photos and videos
+above are the person's reference for what to make. Build what they show in the app itself, and show a photo or video as a picture only
+where the person's words ask for that." (`MEDIA_IS_REFERENCE` in `command-service.ts`.) A VR version of the owner's
+camel ride had hung the video on a board instead of making the ride a place; the starter's own notes had asked for that
+window and now no longer do (ADR 0037's amendment of the same day). Like the lines before it, it is never journaled.

@@ -9,6 +9,7 @@ import type { StartExecutionRequest } from '@halcyonic/runtime-core';
 import { createHostLocations } from '../locations.ts';
 import { createTestControlPlane, SCENARIOS, startTestServer } from '../testing/harness.ts';
 import { clip, StandInTool } from '../testing/media-stand-in.ts';
+import { MEDIA_IS_REFERENCE } from './command-service.ts';
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'halcyonic-media-command-')));
 after(() => rmSync(root, { recursive: true, force: true }));
@@ -136,6 +137,12 @@ test('Add Media places a video, records it added then prepared, completes only a
     instruction,
     new RegExp(`From Halora: the person gave this task ${medium.path}, a 7-second video`),
   );
+  // The person's media is what to build, never a picture to hang in its place unless they ask (the owner, 2026-11-18).
+  assert.ok(
+    instruction.endsWith(`\n${MEDIA_IS_REFERENCE}`),
+    "the reference line closes the host's lines",
+  );
+  assert.equal(instruction.split(MEDIA_IS_REFERENCE).length, 2, 'once, however many media');
   const events = [...controlPlane.journal.readAll()].map((stored) => stored.event);
   const given = events.find((event) => event.event_type === 'execution.instruction.media_given');
   assert.deepEqual(given?.payload, {

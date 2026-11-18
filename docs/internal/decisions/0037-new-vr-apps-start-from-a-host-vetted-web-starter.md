@@ -520,3 +520,17 @@ applies a starter for `project.create`, it now writes the project's name where t
 it is, and the template itself never changes, so its digest and the starter's own reference picture are as before
 (the welcome card lies outside the drawn measures, `CARD_REGION`). `namedFile` is pure, so whatever compares a
 project's folder with its template can name the template the same way first.
+
+## Amendment, 2026-11-18: the laptop view from the person's own place, and the person's media as the place's reference
+
+`?seat` on a preview's address shows the laptop view from where the person stands in a headset: at the origin, 1.6 m
+up, facing -z (`SEAT`, `seatPose` in `src/legible.ts`). It is applied on the first frame after the app's own setup, so
+it wins over a laptop camera the app placed itself, and the laptop drift then stands down there. A drag still turns it,
+and in a headset nothing changes. The owner judged a piano from its app's own laptop camera, a step behind the bench,
+and it did not feel like VR; steering between steps now looks from the seat. The final judgement stays on frames from a
+real headset.
+
+The template's notes for a place made from the person's own photo or video said to float the photo or video on a
+window in it, so a camel ride's VR version showed the ride on a board in the sand. They now say the person's media is the
+reference for the place: build what it shows all around the person in 3D, its land, sky, light and the things and
+creatures in it, and show the photo or video as a picture only when the person asks to see it.

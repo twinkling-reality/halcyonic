@@ -213,7 +213,8 @@ client                                   server
   - An instruction's `attachments` take `{kind: 'media', path}` of one of them. Admission refuses a path that is
     none of the project's, and more than 4 pictures once a video's stills are counted for a runtime that takes
     pictures. A runtime that takes pictures gets the stills; every runtime gets one line of the host's after the
-    person's words saying where the file and its copies are. `execution.instruction.media_given` (`command_id`,
+    person's words saying where the file and its copies are, then once a line saying the media is the person's
+    reference for what to make, shown as a picture only where their words ask (ADR 0066, amended). `execution.instruction.media_given` (`command_id`,
     each medium's `path`, `media_type`, `stills_given`, and `line_added`) records it before the runtime is given
     the instruction, never the line's text; `ExecutionView.media` holds each medium given, with its first still.
 - **What can be done here** (ADR 0060). `GET /api/actions?project_id=&workstream_id=&execution_id=` (all

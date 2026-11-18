@@ -3150,7 +3150,9 @@ export class CommandService {
       });
       lines.push(mediaLine(view, stills));
     }
-    return media.length === 0 ? null : { media, attachments: pictured, note: lines.join('\n') };
+    return media.length === 0
+      ? null
+      : { media, attachments: pictured, note: [...lines, MEDIA_IS_REFERENCE].join('\n') };
   }
 
   /** Which photos and videos the instruction carries, recorded before the runtime is handed it (ADR 0066). */
@@ -3740,6 +3742,14 @@ interface MediaGiven {
   readonly attachments: readonly InstructionAttachment[];
   readonly note: string;
 }
+
+/**
+ * The host's line after the photos and videos it names: the person's media is what they mean, for the agent to build,
+ * never a picture to put up in place of it unless they say so (the owner, 2026-11-18: a VR version of a video ride hung
+ * the video on a board instead of making the place).
+ */
+export const MEDIA_IS_REFERENCE =
+  "From Halora: the photos and videos above are the person's reference for what to make. Build what they show in the app itself, and show a photo or video as a picture only where the person's words ask for that.";
 
 /**
  * The host's line about one photo or video, made only from its path, the paths the host made and
