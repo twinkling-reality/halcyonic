@@ -30,6 +30,8 @@ export {
 } from './look.js';
 export { bob, bonk, drift, flap, flight, hide, motion, pop, pulse, sway, wiggle } from './motion.js';
 export { type PaletteName, palette, toyMaterial } from './palette.js';
+export { bothSidesUp, grassBlade, grassCarpet } from './grass.js';
+export { surfaceGrain, water, waterMaterial, withGrain } from './surface.js';
 export { mode, moveAxis, onSelect, onTouch, pressed, setupPlayInput } from './play-input.js';
 export { type WorldLook, type WorldName, worlds } from './worlds.js';
 export { fitText } from './page-fit.js';

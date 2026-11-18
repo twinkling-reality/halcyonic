@@ -151,11 +151,13 @@ describe("the starter's sky shows ART7's colours (U2)", () => {
       look.indexOf('fragmentShader'),
       look.indexOf('}),', look.indexOf('fragmentShader')),
     );
-    const mixed = shader.indexOf('gl_FragColor = vec4(mix(horizon, top, t), 1.0);');
+    const mixed = shader.indexOf('vec3 c = mix(horizon, top, t);');
+    const written = shader.indexOf('gl_FragColor = vec4(c, 1.0);');
     const converted = shader.search(/^\s*'\s*#include <colorspace_fragment>',$/m);
     assert.ok(mixed > 0, 'the sky mixes horizon to top');
+    assert.ok(written > mixed, 'and writes that mix, its haze and dither added');
     assert.ok(
-      converted > mixed,
+      converted > written,
       'then converts, on a line of its own (three.js includes only whole lines)',
     );
   });
@@ -224,7 +226,7 @@ describe('a fresh island comes decorated and costs a headset few draw calls (U4)
     const decor = read('src/decor.ts');
     assert.match(
       decor,
-      /import \{ mergeGeometries \} from 'three\/addons\/utils\/BufferGeometryUtils\.js';/,
+      /import \{ mergeGeometries, mergeVertices \} from 'three\/addons\/utils\/BufferGeometryUtils\.js';/,
     );
     assert.match(decor, /new InstancedMesh\(/);
     assert.match(decor, /vertexColors = true/);
@@ -1497,5 +1499,71 @@ describe('?seat shows the laptop view as the headset will see it (VRIFY)', () =>
       look.indexOf('export function setupScene('),
     );
     assert.ok(lookSetup.includes('seatOnFirstFrame(world);'), 'setupLook asks for the seat');
+
+describe("the starter's worlds are lit and finished like a shipped scene (the lead's starter look, 2026-11-18)", () => {
+  // JUDGE's bar (.private references, not shipped): light with a key, a tone-mapped image and sky light on materials;
+  // depth from haze; finish with no bare toy primitive and no flat water. Read from the files, as above.
+  const look = () => read('src/look.ts');
+  const setup = () => look().slice(look().indexOf('export function setupLook'), look().indexOf('export function setupScene'));
+
+  test('setupLook tone-maps like film, lights every material by the world\'s own sky, and hazes the horizon', () => {
+    const body = setup();
+    assert.match(body, /renderer\.toneMapping = NeutralToneMapping;/);
+    assert.match(body, /renderer\.toneMappingExposure = look\.light\.exposure \?\? 1;/);
+    assert.match(body, /world\.scene\.environment = skyLight\(renderer, look\);/);
+    assert.match(body, /new FogExp2\(new Color\(look\.sky\.horizon\), haze\)/);
+    const light = look().slice(look().indexOf('function skyLight'), look().indexOf('export function setupLook'));
+    assert.match(light, /new PMREMGenerator\(renderer\)/);
+    assert.match(light, /pmrem\.fromScene\(scene, /, 'the sky is blurred once, at setup');
+    assert.match(light, /look\.light\.sunAt/, 'the sun in the sky light is where the key light shines from');
+  });
+
+  test('setupScene keeps a view from another app as it is: no tone mapping, sky light or haze of the starter', () => {
+    const scene = look().slice(look().indexOf('export function setupScene'));
+    assert.match(scene, /renderer\.toneMapping = NoToneMapping;/);
+    assert.match(scene, /world\.scene\.environment = null;/);
+    assert.match(scene, /world\.scene\.fog = null;/);
+  });
+
+  test('the sea is water that ripples and mirrors the sky, and takes no shadow', () => {
+    const sea = look().slice(look().indexOf('function sea('), look().indexOf('function hills('));
+    assert.match(sea, /waterMaterial\(/);
+    assert.match(sea, /ambientMotion\(\(time\) => surfaceMaterial\.move\(time\)\)/);
+    assert.match(sea, /surface\.receiveShadow = false;/);
+    const surface = read('src/surface.ts');
+    assert.match(surface, /roughness: 0\.05/);
+    assert.match(surface, /normalMap: map/);
+  });
+
+  test('the grass worlds grow grass, the seaside none, as one instanced mesh moved by the GPU', () => {
+    const worlds = read('src/worlds.ts');
+    for (const name of ['meadow', 'garden', 'night']) {
+      const world = worlds.slice(worlds.indexOf(`name: '${name}'`), worlds.indexOf('dressing:', worlds.indexOf(`name: '${name}'`)));
+      assert.match(world, /grass: \{ colour: '#[0-9A-F]{6}', tip: '#[0-9A-F]{6}' \}/, name);
+    }
+    const seaside = worlds.slice(worlds.indexOf("name: 'seaside'"), worlds.indexOf('dressing:', worlds.indexOf("name: 'seaside'")));
+    assert.doesNotMatch(seaside, /grass:/);
+    assert.match(look(), /if \(ground\.grass !== undefined\) \{\n\s+const carpet = grassCarpet\(/);
+    const grass = read('src/grass.ts');
+    assert.match(grass, /new InstancedMesh\(grassBlade\(\), material, options\.count\)/);
+    assert.match(grass, /uniform float grassTime;/, 'the wind is in the vertex shader');
+    const move = grass.slice(grass.indexOf('move(t: number): void {'), grass.indexOf('},', grass.indexOf('move(t: number): void {')));
+    assert.doesNotMatch(move, /setMatrixAt/, 'nothing per blade on the CPU each frame');
+  });
+
+  test('trees and bushes are leafy crowns and the tufts are blades: no bare sphere or cone of foliage', () => {
+    const decor = read('src/decor.ts');
+    assert.doesNotMatch(decor, /part\(new SphereGeometry\(r, \d+, \d+\), '#47B04A'/);
+    assert.match(decor, /part\(foliage\(r, /);
+    assert.doesNotMatch(decor, /new ConeGeometry\(0\.025, 0\.12, 6\)/);
+    assert.match(decor, /part\(grassBlade\(0\.02\)/);
+  });
+
+  test('the agent is told the light is the starter\'s, that water is water(...), and how natural things take relief', () => {
+    const agents = read('AGENTS.md');
+    assert.match(agents, /Leave `renderer\.toneMapping`, `scene\.environment`\n\s+and `scene\.fog` to `setupLook`/);
+    assert.match(agents, /`const lake = water\(1\.2\)` from `\.\/kit\.js`/);
+    assert.match(agents, /Never a flat coloured disc\./);
+    assert.match(read('src/kit.ts'), /export \{ surfaceGrain, water, waterMaterial, withGrain \} from '\.\/surface\.js';/);
   });
 });

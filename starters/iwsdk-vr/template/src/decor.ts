@@ -606,7 +606,7 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
  * breaks into clumps, darker underneath and inside where the leaves shade each other.
  */
 function foliage(r: number, seed: number): BufferGeometry {
-  const base = new IcosahedronGeometry(r, 4);
+  const base = new IcosahedronGeometry(r, 3);
   base.deleteAttribute('normal');
   base.deleteAttribute('uv');
   const shape = mergeVertices(base, 1e-5);

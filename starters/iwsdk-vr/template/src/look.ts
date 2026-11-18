@@ -301,6 +301,19 @@ function island(): Group {
     });
     group.add(carpet.mesh);
     ambientMotion(carpet.move);
+    // The tier's top has its own short lawn, kept low so a sign or a goal stands clear of it.
+    const stage = grassCarpet({
+      count: 900,
+      extent: FLOOR.tier.radius,
+      colour: ground.grass.colour,
+      tip: ground.grass.tip,
+      seed: 17,
+      grows: (x, z) => Math.hypot(x, z) < FLOOR.tier.radius - 0.05,
+      height: () => 0.03,
+    });
+    stage.mesh.position.set(0, FLOOR.tier.height, FLOOR.tier.z);
+    group.add(stage.mesh);
+    ambientMotion(stage.move);
   }
   // A rim of grass that rolls over the edge.
   const rimGeometry = new TorusGeometry(R - 0.01, 0.075, 16, 160);

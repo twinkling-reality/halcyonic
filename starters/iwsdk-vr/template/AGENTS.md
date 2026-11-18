@@ -91,6 +91,16 @@ Make it fun to look at:
 - `world.createTransformEntity(object)` moves the object to the scene's root: an object inside a group of your own
   that is moved or turned would jump when it becomes an entity. Keep the objects the game makes into entities directly
   in `gameIsland()`, or pass `{ parent: entity }` to keep one under an entity of yours.
+- The starter lights each world like a film set: its own sky lights every lit material (soft light and reflections),
+  highlights roll off like film, and far things fade into the haze. Leave `renderer.toneMapping`, `scene.environment`
+  and `scene.fog` to `setupLook`, and make every object of a material that takes light (`toyMaterial`,
+  `MeshStandardMaterial`), never `MeshBasicMaterial`, which draws flat and unlit.
+- Water (a lake, a pond, a pool, a moat) is real water: `const lake = water(1.2)` from `./kit.js` is a disc 1.2 m
+  across that ripples and mirrors the sky; set `lake.mesh.position` where it lies, a few millimetres above the
+  ground, add it to `gameIsland()` and pass `lake.move` to `ambientMotion`. Never a flat coloured disc.
+- Natural things (grass, soil, bark, rock, leaves) take `toyMaterial(colour, { ground: true })`, which gives them a
+  surface's fine relief; toys keep the plain `toyMaterial(colour)`. A field of grass of your own is
+  `grassCarpet(...)` from `./kit.js`; the grass worlds already grow it over the island.
 - Colour every object with `toyMaterial('berry')` and the other names in `src/palette.ts`, never a colour of your
   own; its other colours go in as themselves, `toyMaterial(soilLip)`. Put a `contactShadow(radius)` under each prop
   and set its `castShadow`. Reuse one geometry and one material for objects that look alike: a headset draws few
