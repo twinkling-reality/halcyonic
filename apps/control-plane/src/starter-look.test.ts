@@ -1507,18 +1507,29 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
   // JUDGE's bar (.private references, not shipped): light with a key, a tone-mapped image and sky light on materials;
   // depth from haze; finish with no bare toy primitive and no flat water. Read from the files, as above.
   const look = () => read('src/look.ts');
-  const setup = () => look().slice(look().indexOf('export function setupLook'), look().indexOf('export function setupScene'));
+  const setup = () =>
+    look().slice(
+      look().indexOf('export function setupLook'),
+      look().indexOf('export function setupScene'),
+    );
 
-  test('setupLook tone-maps like film, lights every material by the world\'s own sky, and hazes the horizon', () => {
+  test("setupLook tone-maps like film, lights every material by the world's own sky, and hazes the horizon", () => {
     const body = setup();
     assert.match(body, /renderer\.toneMapping = NeutralToneMapping;/);
     assert.match(body, /renderer\.toneMappingExposure = look\.light\.exposure \?\? 1;/);
     assert.match(body, /world\.scene\.environment = skyLight\(renderer, look\);/);
     assert.match(body, /new FogExp2\(new Color\(look\.sky\.horizon\), haze\)/);
-    const light = look().slice(look().indexOf('function skyLight'), look().indexOf('export function setupLook'));
+    const light = look().slice(
+      look().indexOf('function skyLight'),
+      look().indexOf('export function setupLook'),
+    );
     assert.match(light, /new PMREMGenerator\(renderer\)/);
     assert.match(light, /pmrem\.fromScene\(scene, /, 'the sky is blurred once, at setup');
-    assert.match(light, /look\.light\.sunAt/, 'the sun in the sky light is where the key light shines from');
+    assert.match(
+      light,
+      /look\.light\.sunAt/,
+      'the sun in the sky light is where the key light shines from',
+    );
   });
 
   test('setupScene keeps a view from another app as it is: no tone mapping, sky light or haze of the starter', () => {
@@ -1541,34 +1552,59 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
   test('the grass worlds grow grass, the seaside none, as one instanced mesh moved by the GPU', () => {
     const worlds = read('src/worlds.ts');
     for (const name of ['meadow', 'garden', 'night']) {
-      const world = worlds.slice(worlds.indexOf(`name: '${name}'`), worlds.indexOf('dressing:', worlds.indexOf(`name: '${name}'`)));
+      const world = worlds.slice(
+        worlds.indexOf(`name: '${name}'`),
+        worlds.indexOf('dressing:', worlds.indexOf(`name: '${name}'`)),
+      );
       assert.match(world, /grass: \{ colour: '#[0-9A-F]{6}', tip: '#[0-9A-F]{6}' \}/, name);
     }
-    const seaside = worlds.slice(worlds.indexOf("name: 'seaside'"), worlds.indexOf('dressing:', worlds.indexOf("name: 'seaside'")));
+    const seaside = worlds.slice(
+      worlds.indexOf("name: 'seaside'"),
+      worlds.indexOf('dressing:', worlds.indexOf("name: 'seaside'")),
+    );
     assert.doesNotMatch(seaside, /grass:/);
     assert.match(look(), /if \(ground\.grass !== undefined\) \{\n\s+const carpet = grassCarpet\(/);
     const grass = read('src/grass.ts');
     assert.match(grass, /new InstancedMesh\(grassBlade\(\), material, options\.count\)/);
     assert.match(grass, /uniform float grassTime;/, 'the wind is in the vertex shader');
-    const move = grass.slice(grass.indexOf('move(t: number): void {'), grass.indexOf('},', grass.indexOf('move(t: number): void {')));
+    const move = grass.slice(
+      grass.indexOf('move(t: number): void {'),
+      grass.indexOf('},', grass.indexOf('move(t: number): void {')),
+    );
     assert.doesNotMatch(move, /setMatrixAt/, 'nothing per blade on the CPU each frame');
   });
 
   test('every land world is grounded: land to the horizon fading into its haze, hills rising out of it, a turfed tier', () => {
     const worlds = read('src/worlds.ts');
     for (const name of ['meadow', 'garden', 'night']) {
-      const world = worlds.slice(worlds.indexOf(`name: '${name}'`), worlds.indexOf('dressing:', worlds.indexOf(`name: '${name}'`)));
+      const world = worlds.slice(
+        worlds.indexOf(`name: '${name}'`),
+        worlds.indexOf('dressing:', worlds.indexOf(`name: '${name}'`)),
+      );
       assert.match(world, /plain: \['#[0-9A-F]{6}', '#[0-9A-F]{6}'\]/, name);
       assert.match(world, /hills: \['#[0-9A-F]{6}', '#[0-9A-F]{6}'\]/, name);
     }
-    const land = look().slice(look().indexOf('function plainLand('), look().indexOf('function hills('));
-    assert.match(land, /\.lerp\(far, /, 'far off, the land takes the horizon colour, so it meets the sky in haze');
-    assert.match(look(), /hill\.translate\(Math\.cos\(a\) \* d, PLAIN_LEVEL - 0\.9, Math\.sin\(a\) \* d\);/);
+    const land = look().slice(
+      look().indexOf('function plainLand('),
+      look().indexOf('function hills('),
+    );
+    assert.match(
+      land,
+      /\.lerp\(far, /,
+      'far off, the land takes the horizon colour, so it meets the sky in haze',
+    );
+    assert.match(
+      look(),
+      /hill\.translate\(Math\.cos\(a\) \* d, PLAIN_LEVEL - 0\.9, Math\.sin\(a\) \* d\);/,
+    );
     assert.match(look(), /const turf = new Mesh\(lipOfTurf, /);
   });
 
   test('clouds are soft cards lit by the sky, and the night is lit by its moon over little fill', () => {
-    const clouds = look().slice(look().indexOf('function cloud('), look().indexOf('/** A small deterministic'));
+    const clouds = look().slice(
+      look().indexOf('function cloud('),
+      look().indexOf('/** A small deterministic'),
+    );
     assert.match(clouds, /new Sprite\(/);
     assert.match(clouds, /fog: true/, 'far clouds take the haze like the land');
     assert.doesNotMatch(clouds, /SphereGeometry/, 'no ball clusters');
@@ -1583,8 +1619,15 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(decor, /part\(capShape\(0\.055, 0\.042\), cap/);
     assert.doesNotMatch(decor, /new OctahedronGeometry\(0\.08, 0\), 'grape'/);
     assert.match(decor, /part\(shard\(0\.045, 0\.28\)/);
-    const night = decor.slice(decor.indexOf('function nightDressing'), decor.indexOf('\n}\n', decor.indexOf('function nightDressing')));
-    assert.doesNotMatch(night, /new SphereGeometry\(0\.009, 8, 6\), '#FFFFFF'/, 'no white dots on the caps');
+    const night = decor.slice(
+      decor.indexOf('function nightDressing'),
+      decor.indexOf('\n}\n', decor.indexOf('function nightDressing')),
+    );
+    assert.doesNotMatch(
+      night,
+      /new SphereGeometry\(0\.009, 8, 6\), '#FFFFFF'/,
+      'no white dots on the caps',
+    );
   });
 
   test('trees and bushes are leafy crowns and the tufts are blades: no bare sphere or cone of foliage', () => {
@@ -1595,13 +1638,22 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(decor, /part\(grassBlade\(0\.02\)/);
   });
 
-  test('the agent is told the light is the starter\'s, that water is water(...), and how natural things take relief', () => {
+  test("the agent is told the light is the starter's, that water is water(...), and how natural things take relief", () => {
     const agents = read('AGENTS.md');
-    assert.match(agents, /Leave `renderer\.toneMapping`,\n\s+`scene\.environment` and `scene\.fog` to `setupLook`/);
-    assert.match(agents, /only a picture all\n\s+round \(a sky, stars\) stays on `MeshBasicMaterial`/);
+    assert.match(
+      agents,
+      /Leave `renderer\.toneMapping`,\n\s+`scene\.environment` and `scene\.fog` to `setupLook`/,
+    );
+    assert.match(
+      agents,
+      /only a picture all\n\s+round \(a sky, stars\) stays on `MeshBasicMaterial`/,
+    );
     assert.match(agents, /a disc 1\.2 m\n\s+in radius/);
     assert.match(agents, /`const lake = water\(1\.2\)` from `\.\/kit\.js`/);
     assert.match(agents, /Never a flat coloured disc\./);
-    assert.match(read('src/kit.ts'), /export \{ surfaceGrain, water, waterMaterial, withGrain \} from '\.\/surface\.js';/);
+    assert.match(
+      read('src/kit.ts'),
+      /export \{ surfaceGrain, water, waterMaterial, withGrain \} from '\.\/surface\.js';/,
+    );
   });
 });

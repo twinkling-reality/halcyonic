@@ -1,6 +1,6 @@
 import {
   BoxGeometry,
-  type BufferGeometry,
+  BufferGeometry,
   CanvasTexture,
   CapsuleGeometry,
   CircleGeometry,
@@ -324,24 +324,28 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
     const tall = 0.4 + (i % 3) * 0.07;
     const parts = [
       part(new CylinderGeometry(0.012, 0.016, tall, 8), '#4E9A3A', [0, tall / 2, 0]),
-      part(new SphereGeometry(0.04, 12, 8), '#4E9A3A', [0.04, tall * 0.45, 0], [1.4, 0.25, 0.8], [0, 0, 0.5]),
-      part(new CylinderGeometry(0.05, 0.05, 0.03, 20), '#6B3F24', [0, tall + 0.02, 0.02], [1, 1, 1], [
-        Math.PI / 2,
-        0,
-        0,
-      ]),
+      part(grassBlade(0.07), '#4E9A3A', [0, tall * 0.4, 0], [1, 0.16, 1], [0, 0.4, -0.9]),
+      part(grassBlade(0.07), '#4E9A3A', [0, tall * 0.55, 0], [1, 0.14, 1], [0, 3.5, 0.9]),
+      // The seed head: a domed disc of seeds, darker toward the middle, facing the player.
+      part(foliage(0.05, x + z), '#5A3418', [0, tall + 0.02, 0.02], [1, 1, 0.35]),
     ];
-    for (let k = 0; k < 12; k++) {
-      const a = (k / 12) * Math.PI * 2;
-      parts.push(
-        part(new SphereGeometry(0.03, 12, 8), 'sunny', [Math.cos(a) * 0.075, tall + 0.02 + Math.sin(a) * 0.075, 0.012], [
-          1.5,
-          0.6,
-          0.35,
-        ], [0, 0, a]),
-      );
-    }
-    const flower = prop(parts);
+    // Two rings of long petals round the head, the back ring offset, each cupped and darker where it joins.
+    for (const [ring, depth, offset] of [
+      [0, 0.0, 0],
+      [1, -0.01, Math.PI / 14],
+    ] as const)
+      for (let k = 0; k < 14; k++) {
+        const a = (k / 14) * Math.PI * 2 + offset;
+        parts.push(
+          part(petal(0.075 - ring * 0.008, 0.026), ring === 0 ? 'sunny' : '#F2A81E', [0, tall + 0.02, 0.025 + depth], [1, 1, 1], [
+            0.12,
+            0,
+            a - Math.PI / 2,
+          ]),
+        );
+      }
+    const flower = prop(parts, { natural: true, roughness: 0.65 });
+    bothSidesUp(flower.material as MeshPhysicalMaterial);
     flower.position.set(x, 0, z);
     decor.add(flower);
     ambientMotion((time) => {
@@ -404,16 +408,14 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
     const bark = new Mesh(trunk, toyMaterial('#FFFFFF', { roughness: 0.7 }));
     (bark.material as MeshPhysicalMaterial).vertexColors = true;
     bark.castShadow = true;
-    for (let f = 0; f < 7; f++) {
-      const a = (f / 7) * Math.PI * 2 + 0.3;
-      parts.push(
-        part(new SphereGeometry(0.2, 16, 8), '#3FAE5A', [tip.x + Math.cos(a) * 0.2, tip.y - 0.04, Math.sin(a) * 0.2], [
-          1.6,
-          0.14,
-          0.5,
-        ], [0, -a, -0.45]),
-      );
+    // Fronds arching out all round and drooping, each a rib with leaflets down both sides: a palm, not paper.
+    const crown: Mesh[] = [];
+    for (let f = 0; f < 11; f++) {
+      const a = (f / 11) * Math.PI * 2 + 0.3;
+      crown.push(part(frond(0.82 - (f % 3) * 0.08), f % 2 === 0 ? '#3E9A4E' : '#4FAE58', [tip.x, tip.y, tip.z], [1, 1, 1], [0, -a, 0.18 + (f % 3) * 0.08]));
     }
+    const fronds = prop(crown, { natural: true, roughness: 0.7 });
+    bothSidesUp(fronds.material as MeshPhysicalMaterial);
     for (const [a, b] of [
       [0.05, 0.05],
       [-0.05, 0.03],
@@ -421,7 +423,7 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
     ] as const)
       parts.push(part(new SphereGeometry(0.045, 12, 10), 'cocoa', [tip.x + a, tip.y - 0.06, b]));
     const swaying = prop(parts, { roughness: 0.55, clearcoat: 0.15 });
-    swaying.add(bark);
+    swaying.add(bark, fronds);
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size * 1.15);
@@ -698,6 +700,40 @@ function shard(r: number, h: number): BufferGeometry {
   merged.setAttribute('shade', new Float32BufferAttribute(shade, 1));
   merged.computeVertexNormals();
   return merged;
+}
+
+/**
+ * A palm frond: a rib arching out along +x and drooping toward its tip, with narrow leaflets down both sides that
+ * shorten toward the tip and hang a little, darker near the rib. `length` in metres.
+ */
+function frond(length: number): BufferGeometry {
+  const positions: number[] = [];
+  const shade: number[] = [];
+  const rib = (t: number) => new Vector3(t * length, 0.12 * length * Math.sin(Math.PI * t * 0.5) - 0.55 * length * t * t, 0);
+  const count = 22;
+  for (let k = 1; k <= count; k++) {
+    const t = k / (count + 1);
+    const at = rib(t);
+    const along = rib(t + 0.02).sub(at).normalize();
+    const reach = 0.26 * length * (1 - 0.6 * t);
+    for (const side of [1, -1]) {
+      // A leaflet: a slim quad from the rib, out to the side, swept toward the tip and hanging a little.
+      const out = new Vector3(along.x * 0.45, -0.35, side).normalize().multiplyScalar(reach);
+      const w = along.clone().multiplyScalar(0.022 * length);
+      const a = at.clone().sub(w);
+      const b = at.clone().add(w);
+      const c = at.clone().add(out).add(w.clone().multiplyScalar(0.3));
+      const d = at.clone().add(out).sub(w.clone().multiplyScalar(0.3));
+      for (const p of [a, b, c, a, c, d]) positions.push(p.x, p.y, p.z);
+      for (const s of [0.6, 0.6, 1, 0.6, 1, 1]) shade.push(s);
+    }
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new Float32BufferAttribute(new Array((positions.length / 3) * 2).fill(0), 2));
+  geometry.setAttribute('shade', new Float32BufferAttribute(shade, 1));
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 /** One part of a prop: a geometry in its own colour, placed in the prop. */
