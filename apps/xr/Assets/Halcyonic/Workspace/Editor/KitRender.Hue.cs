@@ -39,9 +39,12 @@ namespace Halcyonic.XR.Workspace.Editor
             bool OldKit(Component part) => part.GetComponentInParent<KitWorkView>() != null || part.GetComponentInParent<KitOverviewView>() != null
                 || part.GetComponentInParent<KitPresenceView>() != null || InControlSheet(part.transform);
             static bool InControlSheet(Transform part) { for (var at = part; at != null; at = at.parent) if (at.name == ControlSheetName) return true; return false; }
+            // A character's body keeps its identity hue; its name tag is chrome and is read (AUDIT3, 2026-11-18: no part of the chrome unread).
+            bool Body(Component part) => part.GetComponentInParent<CharacterView>() != null && part.GetComponentInParent<RoomTag>() == null
+                && part.GetComponentInParent<RoomNameTag>() == null;
             bool Exempt(Component part)
             {
-                if (part.GetComponentInParent<CharacterView>() != null || part.GetComponentInParent<KitFigure>() != null || OldKit(part)) return true;
+                if (Body(part) || part.GetComponentInParent<KitFigure>() != null || OldKit(part)) return true;
                 chromePartsRead++;
                 return false;
             }
@@ -73,6 +76,25 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (Exempt(surface) || surface.GetComponent<Renderer>() is Renderer drawn && !drawn.enabled) continue;
                 if (Hued(surface.Fill) is string fill) yield return what + ": " + Path(surface.transform) + " is filled with a hue, " + fill;
                 if (Hued(surface.Edge) is string edge) yield return what + ": " + Path(surface.transform) + " is edged with a hue, " + edge;
+            }
+            // The room's glass, its shapes and the agent's words band (AUDIT3's trace, 2026-11-18): each drawn colour of its look.
+            foreach (var glass in root.GetComponentsInChildren<Halcyonic.XR.UI.RoomSurface>(false))
+            {
+                if (Exempt(glass) || glass.Glass != null && !glass.Glass.enabled) continue;
+                var look = Halcyonic.XR.UI.RoomSurface.Looks(glass.Kind);
+                foreach (var (part, colour) in new[] { ("face top", look.FillTop), ("face foot", look.FillFoot), ("edge top", look.EdgeTop), ("edge foot", look.EdgeFoot), ("hairline", look.InnerColour) })
+                    if (Hued(colour) is string hued) yield return what + ": the room glass " + Path(glass.transform) + "'s " + part + " carries a hue, " + hued;
+            }
+            foreach (var shape in root.GetComponentsInChildren<RoomShape>(false))
+            {
+                if (Exempt(shape) || shape.Renderer is Renderer drawnShape && !drawnShape.enabled) continue;
+                if (Hued(shape.Fill) is string fill) yield return what + ": " + Path(shape.transform) + " is filled with a hue, " + fill;
+                if (Hued(shape.Edge) is string edge) yield return what + ": " + Path(shape.transform) + " is edged with a hue, " + edge;
+            }
+            foreach (var band in root.GetComponentsInChildren<RoomBand>(false))
+            {
+                if (Exempt(band) || band.GroundShown <= 0.01f) continue;
+                if (Hued(Halcyonic.XR.UI.RoomSurface.Hex(RoomWords.GroundColour)) is string ground) yield return what + ": the words band " + Path(band.transform) + "'s ground carries a hue, " + ground;
             }
             foreach (var label in root.GetComponentsInChildren<TMPro.TMP_Text>(false))
             {
