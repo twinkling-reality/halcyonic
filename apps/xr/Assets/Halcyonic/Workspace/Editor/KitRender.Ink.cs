@@ -175,7 +175,14 @@ namespace Halcyonic.XR.Workspace.Editor
                 if (InGlyph(x, y)) box.Add(pixels[y * Width + x]);
                 else around.Add(pixels[y * Width + x]);
             if (box.Count == 0) return (1.0, true, 0.0, 0.0);
-            var mode = Luminance(glyphs != null && around.Count >= Math.Max(GroundPixels, rect.width * rect.height / 4) ? MostCommon(around) : MostCommon(pixels, rect));
+            // Never the words' own colour for their ground, where the box holds another: a lone mark in its ring of the same tone leaves the
+            // ring as most of what stands around its quad, so there the whole box's most common colour, the glass inside the ring, stands
+            // (the kit's 26-receipt "?", 2026-11-17). A word on its own colour alone still reads 1 to 1.
+            var boxMode = MostCommon(pixels, rect);
+            var aroundMode = glyphs != null && around.Count >= Math.Max(GroundPixels, rect.width * rect.height / 4) ? MostCommon(around) : boxMode;
+            var drawnLuminance = Luminance((Color32)drawn);
+            bool WordsOwn(Color32 colour) => (Math.Max(Luminance(colour), drawnLuminance) + 0.05) / (Math.Min(Luminance(colour), drawnLuminance) + 0.05) < OwnColourRatio;
+            var mode = Luminance(WordsOwn(aroundMode) ? boxMode : aroundMode);
             var drawnLight = Luminance((Color32)drawn) > mode;
             double ink;
             double ground;
@@ -255,7 +262,24 @@ namespace Halcyonic.XR.Workspace.Editor
             }
             var faintRead = InkBox(frame, faint, Color.white, faintQuads).Ratio;
             if (faintRead >= 4.5) yield return "the box reader: strokes a shade off their glass read " + faintRead.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, at or over 4.5";
+            // A lone mark in its ring of the same tone: the ring is most of what stands around the mark's quad, yet the mark reads on the
+            // glass inside the ring. And the same mark on a disc of its own colour reads as nothing.
+            var amber = new Color32(255, 193, 100, 255);
+            var ringBox = new RectInt(100, 700, 24, 24);
+            Fill(ringBox, amber);
+            Fill(new RectInt(102, 702, 20, 20), glass);
+            var markQuad = new RectInt(105, 704, 14, 16);
+            Fill(new RectInt(110, 707, 4, 10), amber);
+            var ringRead = InkBox(frame, ringBox, (Color)amber, new[] { markQuad }).Ratio;
+            if (ringRead < 4.5) yield return "the box reader: a mark in its ring of the same tone reads " + ringRead.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, under 4.5 (the ring taken for its ground)";
+            var discBox = new RectInt(100, 760, 24, 24);
+            Fill(discBox, amber);
+            var discRead = InkBox(frame, discBox, (Color)amber, new[] { new RectInt(105, 764, 14, 16) }).Ratio;
+            if (discRead >= 4.5) yield return "the box reader: a mark on a disc of its own colour reads " + discRead.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, at or over 4.5";
         }
+
+        /// <summary>Under this contrast with the words' drawn colour, a colour around their quads is their own (a ring, a stroke's edge), never their ground.</summary>
+        private const double OwnColourRatio = 1.5;
 
         /// <summary>The fewest pixels outside a word's glyph quads that are read as its ground; fewer, and the whole box is.</summary>
         private const int GroundPixels = 16;
