@@ -18,7 +18,7 @@ import {
  */
 
 /** One blade, 1 m tall before scaling, rooted at y = 0, tapering to its tip and curving forward as it rises. */
-export function grassBlade(width = 0.014): BufferGeometry {
+export function grassBlade(width = 0.022): BufferGeometry {
   const blade = new PlaneGeometry(width, 1, 1, 4).translate(0, 0.5, 0);
   const position = blade.getAttribute('position');
   const shade: number[] = [];

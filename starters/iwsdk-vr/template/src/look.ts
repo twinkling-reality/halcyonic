@@ -245,21 +245,27 @@ function island(): Group {
     y -= h;
   }
   // One raised tier at the back: a stage for a sign or a goal.
+  // A rounded bank of the island's own turf (or a dune of its sand): its top flat for a sign, its shoulder rolling
+  // over into a long foot that runs out into the lawn, so it rises out of the ground instead of standing on it.
+  const t = FLOOR.tier;
+  const foot = ground.grass === undefined ? 0.8 : 0.5;
+  const bank = [
+    new Vector2(0.001, t.height),
+    new Vector2(t.radius - 0.3, t.height),
+    new Vector2(t.radius - 0.08, t.height - 0.012),
+    new Vector2(t.radius + 0.1, t.height - 0.05),
+    new Vector2(t.radius + foot * 0.3, t.height * 0.62),
+    new Vector2(t.radius + foot * 0.55, t.height * 0.3),
+    new Vector2(t.radius + foot * 0.8, t.height * 0.08),
+    new Vector2(t.radius + foot, 0.004),
+  ];
   const tier = new Mesh(
-    // On grass a bank; on sand a low dune with a long foot, never a dish.
-    new CylinderGeometry(FLOOR.tier.radius, FLOOR.tier.radius + (current.ground.grass === undefined ? 0.75 : 0.26), FLOOR.tier.height, 64),
-    [
-      toyMaterial(ground.side, { ground: true }),
-      toyMaterial(ground.top, { ground: true }),
-      toyMaterial(ground.side, { ground: true }),
-    ],
+    new LatheGeometry(bank, 96),
+    withGrain(toyMaterial(ground.grass === undefined ? ground.top : ground.rim, { ground: true }), 6, 0.4),
   );
-  tier.position.set(0, FLOOR.tier.height / 2, FLOOR.tier.z);
+  tier.position.set(0, 0, t.z);
   tier.castShadow = true;
   tier.receiveShadow = true;
-  // Its side is a bank of the island's own turf (or sand) sloping into the ground, not a painted plinth.
-  const soil = withGrain(toyMaterial(ground.grass === undefined ? ground.top : ground.rim, { ground: true }), 5, 0.5);
-  tier.material = [soil, toyMaterial(ground.top, { ground: true }), soil];
   group.add(tier);
   // No lip round its top: the bank's own turf rounds over into the lawn on top, as a bank does.
   // The top: leaf, a touch lighter at the centre, mixed toward the second green by a smooth noise.
@@ -311,7 +317,7 @@ function island(): Group {
       grows: (x, z) => {
         const r = Math.hypot(x, z);
         if (r > (R - 0.06) * lobe(Math.atan2(z, x))) return false;
-        return Math.hypot(x, z - FLOOR.tier.z) > FLOOR.tier.radius + 0.12;
+        return Math.hypot(x, z - FLOOR.tier.z) > FLOOR.tier.radius + 0.02;
       },
       height: (x, z) => 0.035 + 0.055 * Math.min(1, Math.hypot(x, z) / R) ** 1.5,
     });
@@ -574,6 +580,7 @@ function sea(
   const far = new Color(water.far);
   const glitter = new Color(water.glitter);
   const sky = new Color(horizon);
+  const shoal = new Color('#4FC9BE');
   const sunAngle = discAt === undefined ? null : Math.atan2(discAt[2], discAt[0]);
   const colours: number[] = [];
   const position = geometry.getAttribute('position');
@@ -582,12 +589,15 @@ function sea(
     const z = position.getZ(i);
     const r = Math.hypot(x, z);
     const c = near.clone().lerp(far, Math.min(1, (r / 30) ** 0.7));
+    // Turquoise shallows over the sand round the island, deepening a couple of metres out.
+    const shallow = Math.max(0, 1 - (r - ISLAND_RADIUS) / 4.5);
+    c.lerp(shoal, shallow ** 2 * 0.6);
     // Far out the sea takes the horizon's own colour, so it meets the sky in haze, not along a hard line.
     c.lerp(sky, Math.min(1, Math.max(0, (r - 14) / 20)) ** 1.15);
     if (sunAngle !== null && r > 4) {
       let d = Math.atan2(z, x) - sunAngle;
       d = Math.atan2(Math.sin(d), Math.cos(d));
-      c.lerp(glitter, Math.exp(-(d * d) * 30) * Math.min(1, (r - 4) / 12) * 0.95 * (1 - Math.min(1, Math.max(0, (r - 20) / 14))));
+      c.lerp(glitter, Math.exp(-(d * d) * 30) * Math.min(1, (r - 4) / 12) * 0.6 * (1 - Math.min(1, Math.max(0, (r - 20) / 14))));
     }
     colours.push(c.r, c.g, c.b);
   }
@@ -601,14 +611,44 @@ function sea(
   // Open water takes no shadow: a palm's shadow far out on the sea reads as a hole, not as shade.
   surface.receiveShadow = false;
   group.add(surface);
-  const foamGeometry = new TorusGeometry(ISLAND_RADIUS + 0.04, 0.07, 10, 160);
-  foamGeometry.rotateX(Math.PI / 2);
-  foamGeometry.scale(1, 0.4, 1);
-  const foamMaterial = toyMaterial('#FFFFFF', { ground: true, roughness: 0.7 });
-  foamMaterial.emissive = new Color('#FFFFFF');
-  foamMaterial.emissiveIntensity = 0.35;
+  // A beach that runs on from the island's edge under the water, darker where it is wet, so the island meets the sea
+  // through sand and shallows instead of a rim straight into deep water.
+  const beach = new RingGeometry(ISLAND_RADIUS - 0.05, ISLAND_RADIUS + 1.6, 160, 12);
+  beach.rotateX(-Math.PI / 2);
+  const shore = beach.getAttribute('position');
+  const sand: number[] = [];
+  const dryColour = new Color(currentWorld().ground.top);
+  const wetColour = dryColour.clone().multiplyScalar(0.72);
+  for (let k = 0; k < shore.count; k++) {
+    const along = (Math.hypot(shore.getX(k), shore.getZ(k)) - (ISLAND_RADIUS - 0.05)) / 1.65;
+    const y = -0.01 + (water.level - 0.25) * along ** 1.2;
+    shore.setY(k, y);
+    const c = dryColour.clone().lerp(wetColour, Math.min(1, Math.max(0, (0.02 - y) / 0.25)));
+    sand.push(c.r, c.g, c.b);
+  }
+  beach.setAttribute('color', new Float32BufferAttribute(sand, 3));
+  beach.computeVertexNormals();
+  const beachMaterial = withGrain(toyMaterial('#FFFFFF', { ground: true, roughness: 0.9 }), 14, 0.35);
+  beachMaterial.vertexColors = true;
+  const beachMesh = new Mesh(deform(beach), beachMaterial);
+  beachMesh.receiveShadow = true;
+  group.add(beachMesh);
+  // The waterline: where the beach meets the sea, a soft band of foam.
+  const reach = ISLAND_RADIUS - 0.05 + 1.65 * (water.level / (water.level - 0.25)) ** (1 / 1.2);
+  // Fading in and out across its width (the alpha in its vertex colours), so it reads as surf, not as a rim.
+  const foamGeometry = new RingGeometry(reach - 0.12, reach + 0.18, 160, 6);
+  foamGeometry.rotateX(-Math.PI / 2);
+  const surf = foamGeometry.getAttribute('position');
+  const surfColours: number[] = [];
+  for (let k = 0; k < surf.count; k++) {
+    const across = (Math.hypot(surf.getX(k), surf.getZ(k)) - (reach - 0.12)) / 0.3;
+    const broken = 0.6 + 0.4 * Math.sin(Math.atan2(surf.getZ(k), surf.getX(k)) * 37);
+    surfColours.push(1, 1, 1, 0.42 * Math.sin(Math.PI * Math.min(1, Math.max(0, across))) * broken);
+  }
+  foamGeometry.setAttribute('color', new Float32BufferAttribute(surfColours, 4));
+  const foamMaterial = new MeshBasicMaterial({ color: '#FFFFFF', vertexColors: true, transparent: true, depthWrite: false });
   const foam = new Mesh(deform(foamGeometry), foamMaterial);
-  foam.position.y = water.level + 0.01;
+  foam.position.y = water.level + 0.012;
   group.add(foam);
   ambientMotion((time) => {
     const s = 1 + 0.012 * Math.sin(time * 0.9);
@@ -710,13 +750,20 @@ function plainLand(colours: readonly [string, string], horizon: string): Mesh {
   return land;
 }
 
+/** A turn of its own for each world (0 to 2 pi, from its name), so no two worlds share their hills, clouds or trees. */
+function worldTurn(): number {
+  let h = 7;
+  for (const c of currentWorld().name) h = (h * 31 + c.charCodeAt(0)) % 9973;
+  return (h / 9973) * Math.PI * 2;
+}
+
 /**
  * How high the hills rise above the plain at a point (0 within 20 m of the island): crests 26 to 34 m out, their
  * heights and widths varying round the horizon, so the skyline is long ridges, saddles and steeper flanks, not domes.
  */
 function hillHeight(x: number, z: number): number {
   const r = Math.hypot(x, z);
-  const a = Math.atan2(z, x);
+  const a = Math.atan2(z, x) + worldTurn();
   const crest = 31 + 2.5 * Math.sin(a * 2 + 0.7) + 1.5 * Math.sin(a * 5 + 2.1);
   const rise = Math.min(1, Math.max(0, (r - 20) / Math.max(1, crest - 20)));
   const fall = Math.min(1, Math.max(0, (39 - r) / Math.max(1, 39 - crest)));
@@ -733,8 +780,9 @@ function hillHeight(x: number, z: number): number {
  * Far clumps of trees on the land between the island and the hills, as one instanced mesh (one draw call): each a
  * leafy crown low on the land, darker and hazed with distance like the hills, so the eye reads the land's depth.
  */
-function farClumps(colour: string, horizon: string, onHills: boolean): InstancedMesh {
-  const random = seeded(31);
+function farClumps(colour: string, horizon: string, onHills: boolean): Group {
+  const random = seeded(31 + Math.round(worldTurn() * 100));
+  const grounded: [number, number, number][] = [];
   const crown = new SphereGeometry(1, 20, 12);
   const position = crown.getAttribute('position');
   for (let i = 0; i < position.count; i++) {
@@ -804,6 +852,7 @@ function farClumps(colour: string, horizon: string, onHills: boolean): Instanced
     place.rotation.set(0, random() * 6.28, 0);
     place.updateMatrix();
     clumps.setMatrixAt(i, place.matrix);
+    grounded.push([place.position.x, place.position.z, s]);
     clumps.setColorAt(i, base.clone().multiplyScalar(0.7 + random() * 0.3).lerp(sky, Math.min(0.6, (d - 12) / 26)));
   }
   // Nearer, between the island and the far trees: bushes low on the land and a few lone trees, so the eye steps
@@ -818,11 +867,30 @@ function farClumps(colour: string, horizon: string, onHills: boolean): Instanced
     place.rotation.set(0, random() * 6.28, 0);
     place.updateMatrix();
     clumps.setMatrixAt(i, place.matrix);
+    grounded.push([place.position.x, place.position.z, s]);
     clumps.setColorAt(i, base.clone().multiplyScalar(0.62 + random() * 0.25).lerp(sky, Math.min(0.35, (d - 5) / 30)));
   }
   clumps.instanceMatrix.needsUpdate = true;
   clumps.computeBoundingSphere();
-  return clumps;
+  // A soft shadow on the ground under every one, near and far, so none floats (CAST, seat31).
+  contactShadow(1);
+  const shadows = new InstancedMesh(
+    new PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+    new MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false, opacity: 0.85 }),
+    grounded.length,
+  );
+  for (const [k, [x, z, s]] of grounded.entries()) {
+    place.position.set(x, PLAIN_LEVEL + (onHills ? hillHeight(x, z) : 0) + 0.03, z);
+    place.rotation.set(0, 0, 0);
+    place.scale.set(2.6 * s, 1, 2.6 * s);
+    place.updateMatrix();
+    shadows.setMatrixAt(k, place.matrix);
+  }
+  shadows.instanceMatrix.needsUpdate = true;
+  shadows.computeBoundingSphere();
+  const group = new Group();
+  group.add(shadows, clumps);
+  return group;
 }
 
 /**
@@ -889,7 +957,8 @@ function skyLight(renderer: World['renderer'], look: WorldLook): Texture {
   const toward = new Vector3(...look.light.sunAt).normalize();
   const disc = new Mesh(
     new SphereGeometry(1.4, 16, 8),
-    new MeshBasicMaterial({ color: new Color(look.light.sun).multiplyScalar(look.light.sunStrength * 6) }),
+    // Bright enough to glint, not so bright that the glint clips to white under the tone mapping.
+    new MeshBasicMaterial({ color: new Color(look.light.sun).multiplyScalar(look.light.sunStrength * 3.5) }),
   );
   disc.position.copy(toward.multiplyScalar(30));
   scene.add(disc);
@@ -966,12 +1035,23 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
       [-18, 3.0, -19, 0.75],
       [1, 6.0, -30, 1.1],
     ].entries()) {
-      const puff = cloud(x, y, z, size, clouds);
+      // Each world turns the cloud field its own way and lifts each cloud its own height, so no two skies match.
+      const turn = (worldTurn() / Math.PI - 1) * 0.5;
+      const cx = x * Math.cos(turn) - z * Math.sin(turn);
+      const cz = x * Math.sin(turn) + z * Math.cos(turn);
+      let cy = y + 0.8 * Math.sin(worldTurn() * 3 + i);
+      // Never across the sun or the moon: a cloud that would stand in front of it is lifted clear.
+      if (look.sky.disc !== undefined) {
+        const toward = new Vector3(...look.sky.disc.at).normalize();
+        const at = new Vector3(cx, cy, cz).normalize();
+        if (at.dot(toward) > Math.cos(0.3)) cy += 3.2;
+      }
+      const puff = cloud(cx, cy, cz, size * (0.85 + 0.3 * Math.abs(Math.sin(worldTurn() + i))), clouds);
       stage.add(puff);
       // Each wanders around its own home, out of step with the others.
       ambientMotion((time) => {
         const away = drift(time, i * 1.9);
-        puff.position.set(x + away.x, y + away.y, z);
+        puff.position.set(cx + away.x, cy + away.y, cz);
       });
     }
 

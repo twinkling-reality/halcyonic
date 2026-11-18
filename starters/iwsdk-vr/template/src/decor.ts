@@ -1,4 +1,5 @@
 import {
+  AdditiveBlending,
   BoxGeometry,
   BufferGeometry,
   CanvasTexture,
@@ -20,6 +21,8 @@ import {
   Object3D,
   OctahedronGeometry,
   PlaneGeometry,
+  Points,
+  PointsMaterial,
   Shape,
   ShapeGeometry,
   SphereGeometry,
@@ -636,9 +639,35 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
         }
       flies.instanceMatrix.needsUpdate = true;
     };
-    move(0);
-    decor.add(flies);
-    ambientMotion(move);
+    // Each firefly's own glow: a tight soft halo round it, added light, as a true emitter has (CAST, seat31).
+    const glowPositions = new Float32Array(homes.length * swarm * 3);
+    const glowGeometry = new BufferGeometry();
+    glowGeometry.setAttribute('position', new Float32BufferAttribute(glowPositions, 3));
+    const halo = new Points(
+      glowGeometry,
+      new PointsMaterial({
+        size: 0.14,
+        map: fireflyGlow(),
+        color: '#EAFF86',
+        transparent: true,
+        depthWrite: false,
+        blending: AdditiveBlending,
+        fog: false,
+      }),
+    );
+    halo.frustumCulled = false;
+    const shine = (time: number) => {
+      move(time);
+      for (let k = 0; k < homes.length * swarm; k++) {
+        flies.getMatrixAt(k, place.matrix);
+        place.position.setFromMatrixPosition(place.matrix);
+        glowPositions.set([place.position.x, place.position.y, place.position.z], k * 3);
+      }
+      glowGeometry.getAttribute('position').needsUpdate = true;
+    };
+    shine(0);
+    decor.add(flies, halo);
+    ambientMotion(shine);
   }
 }
 
@@ -782,6 +811,28 @@ function barkTrunk(rt: number, rb: number, h: number, seed: number): BufferGeome
   }
   trunk.computeVertexNormals();
   return trunk;
+}
+
+let fireflyPicture: CanvasTexture | null = null;
+
+/** A firefly's halo: bright at its heart and gone within a few of its own widths. */
+function fireflyGlow(): CanvasTexture {
+  if (fireflyPicture !== null) return fireflyPicture;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const context = canvas.getContext('2d');
+  if (context !== null) {
+    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.18, 'rgba(255,255,255,0.75)');
+    gradient.addColorStop(0.45, 'rgba(255,255,255,0.18)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 64, 64);
+  }
+  fireflyPicture = new CanvasTexture(canvas);
+  fireflyPicture.colorSpace = SRGBColorSpace;
+  return fireflyPicture;
 }
 
 /** One part of a prop: a geometry in its own colour, placed in the prop. */

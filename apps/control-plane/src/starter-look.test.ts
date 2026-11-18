@@ -411,12 +411,12 @@ describe('a game can be set in a world of its own, so two games never read as on
       worlds.indexOf('const meadow'),
       worlds.indexOf('\n};', worlds.indexOf('const meadow')),
     );
-    assert.match(
-      meadow,
-      /sky: \{ top: palette\.sky, horizon: palette\.cloud, clouds: '#FFFFFF' \}/,
-    );
+    assert.match(meadow, /sky: \{\n\s+top: palette\.sky,\n\s+horizon: palette\.cloud,/);
     assert.match(meadow, /top: palette\.leaf,/);
-    assert.doesNotMatch(meadow, /middle:|disc:|stars:|sea:/);
+    // Since the lead's starter look's tenth pass (CAST, seat31) the meadow is a morning: one low sun drives its key light,
+    // its shadows and its sky's light. Still ART7's sky, with no sunset band, stars or sea.
+    assert.match(meadow, /disc: \{ at: \[-0\.62, 0\.22, -1\]/);
+    assert.doesNotMatch(meadow, /middle:|stars:|sea:/);
     assert.match(meadow, /plain: \[/);
     assert.match(meadow, /hills: \[/);
   });
@@ -1706,6 +1706,35 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
   });
 
+  test('each world has its own layout, every scattered thing a contact shadow, a shore at the sea, and glowing fireflies', () => {
+    assert.match(look(), /function worldTurn\(\): number \{/);
+    assert.match(
+      look(),
+      /const a = Math\.atan2\(z, x\) \+ worldTurn\(\);/,
+      'each world its own hills',
+    );
+    assert.match(
+      look(),
+      /seeded\(31 \+ Math\.round\(worldTurn\(\) \* 100\)\)/,
+      'each world its own scatter',
+    );
+    assert.match(
+      look(),
+      /new MeshBasicMaterial\(\{ map: shadowTexture, transparent: true, depthWrite: false, opacity: 0\.85 \}\)/,
+    );
+    assert.match(
+      look(),
+      /const beach = new RingGeometry\(ISLAND_RADIUS - 0\.05, ISLAND_RADIUS \+ 1\.6, 160, 12\);/,
+    );
+    assert.match(
+      look(),
+      /foamGeometry\.setAttribute\('color', new Float32BufferAttribute\(surfColours, 4\)\);/,
+      'surf, not a rim',
+    );
+    const decor = read('src/decor.ts');
+    assert.match(decor, /blending: AdditiveBlending,/, 'each firefly glows');
+  });
+
   test('clouds are soft cards lit by the sky, and the night is lit by its moon over little fill', () => {
     const clouds = look().slice(
       look().indexOf('function cloud('),
@@ -1715,7 +1744,8 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(clouds, /fog: true/, 'far clouds take the haze like the land');
     assert.doesNotMatch(clouds, /SphereGeometry/, 'no ball clusters');
     const night = read('src/worlds.ts').slice(read('src/worlds.ts').indexOf("name: 'night'"));
-    assert.match(night, /fill: 0\.5,/);
+    assert.match(night, /fill: 0\.3,/);
+    assert.match(night, /sunStrength: 3\.4,/, 'the moon is the key light');
     assert.match(night, /exposure: 0\.72,/);
   });
 

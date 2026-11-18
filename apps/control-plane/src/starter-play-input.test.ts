@@ -291,8 +291,9 @@ describe("the IWSDK starter's input layer", () => {
       "sky: '#9CC8FF',",
       "ground: '#8FC46E',",
       'fill: 0.55,',
-      "sun: '#FFE9C7',",
-      'sunStrength: 2.45,',
+      // The meadow's morning sun (the starter look's tenth pass): warm, low ahead and to the left.
+      "sun: '#FFE2B4',",
+      'sunStrength: 2.6,',
       "rim: '#CFE4FF',",
       'rimStrength: 0.6,',
     ])

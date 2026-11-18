@@ -85,14 +85,20 @@ export interface WorldLook {
 
 const meadow: WorldLook = {
   name: 'meadow',
-  sky: { top: palette.sky, horizon: palette.cloud, clouds: '#FFFFFF' },
+  sky: {
+    top: palette.sky,
+    horizon: palette.cloud,
+    // A morning sun, low ahead and to the left: one sun drives the key light, the shadows and the sky's light.
+    disc: { at: [-0.62, 0.22, -1], colour: '#FFF4DC', size: 0.05, glow: '#FFE2A8', glowStrength: 1.0 },
+    clouds: '#FFFFFF',
+  },
   light: {
     sky: '#9CC8FF',
     ground: '#8FC46E',
     fill: 0.55,
-    sun: '#FFE9C7',
-    sunAt: [4.0, 4.4, 3.2],
-    sunStrength: 2.45,
+    sun: '#FFE2B4',
+    sunAt: [-4.4, 3.2, -5.6],
+    sunStrength: 2.6,
     rim: '#CFE4FF',
     rimStrength: 0.6,
   },
@@ -200,10 +206,10 @@ const night: WorldLook = {
   light: {
     sky: '#8C9BFF',
     ground: '#2F6E78',
-    fill: 0.5,
+    fill: 0.3,
     sun: '#DCE4FF',
     sunAt: [-3.2, 4.6, 3.0],
-    sunStrength: 2.6,
+    sunStrength: 3.4,
     exposure: 0.72,
     rim: '#B8C6FF',
     rimStrength: 1.6,
