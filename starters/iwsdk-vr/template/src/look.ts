@@ -26,6 +26,9 @@ import {
   Scene,
   ShaderMaterial,
   SphereGeometry,
+  Sprite,
+  SpriteMaterial,
+  SRGBColorSpace,
   type Texture,
   TorusGeometry,
   Vector2,
@@ -333,7 +336,9 @@ function island(): Group {
   rimGeometry.rotateX(Math.PI / 2);
   const rim = new Mesh(deform(rimGeometry), toyMaterial(ground.rim, { ground: true, roughness: 0.8 }));
   rim.position.y = -0.02;
-  group.add(rim);
+  // On a grass world the blades fringe the edge; a tube there reads as plastic. Bare ground keeps a low, soft lip.
+  rim.scale.y = 0.4;
+  if (ground.grass === undefined) group.add(rim);
   // A worn patch in front of the play area.
   const worn = new Mesh(
     new CircleGeometry(0.9, 48),
@@ -347,52 +352,76 @@ function island(): Group {
   return group;
 }
 
+let cloudPicture: CanvasTexture | null = null;
+
 /**
- * A cumulus cloud as one mesh (one draw call): soft billows heaped on a flat base, bright on top and shaded grey-blue
- * underneath, matte as vapour is, never a plastic ball.
+ * A soft cloud's picture, drawn once in the browser: many soft puffs heaped on a flat base, lit white on top and
+ * shaded grey-blue underneath, its edges fading to nothing, so it reads as vapour lit by the sky, not as a solid.
  */
-function cloud(x: number, y: number, z: number, size: number, colour: string): Mesh {
-  const billows = [
-    [0, 0, 0, 1],
-    [0.9, -0.15, 0.1, 0.75],
-    [-0.9, -0.2, -0.05, 0.7],
-    [0.35, 0.45, 0, 0.7],
-    [-0.45, 0.32, 0.15, 0.58],
-    [1.55, -0.32, 0, 0.5],
-    [-1.55, -0.36, 0.05, 0.45],
-  ].map(([a, b, c, r], i) => {
-    const billow = new SphereGeometry(r, 24, 12);
-    const position = billow.getAttribute('position');
-    for (let k = 0; k < position.count; k++) {
-      const px = position.getX(k) / r;
-      const py = position.getY(k) / r;
-      const pz = position.getZ(k) / r;
-      const lump = 1 + 0.07 * Math.sin(7 * px + i) * Math.sin(6 * py + 2 * i) * Math.sin(7 * pz + i * 0.5);
-      position.setXYZ(k, px * r * lump, py * r * lump, pz * r * lump);
+function cloudTexture(): CanvasTexture {
+  if (cloudPicture !== null) return cloudPicture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+  const context = canvas.getContext('2d');
+  if (context !== null) {
+    const random = seeded(23);
+    for (let i = 0; i < 70; i++) {
+      // Heaped higher in the middle, spread wider at the base, and nothing below the base line.
+      const across = (random() - 0.5) * 2;
+      const x = 256 + across * 200;
+      const lift = (1 - across * across) * 110;
+      const y = 190 - random() * lift;
+      const r = 26 + random() * (34 + lift * 0.35);
+      const gradient = context.createRadialGradient(x, y, 0, x, y, r);
+      gradient.addColorStop(0, 'rgba(255,255,255,0.55)');
+      gradient.addColorStop(0.6, 'rgba(255,255,255,0.22)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, 512, 256);
     }
-    billow.computeVertexNormals();
-    return billow.translate(a, b, c);
-  });
-  const shape = mergeGeometries(billows) ?? new BufferGeometry();
-  // A flat base where the vapour condenses, and the shade under it.
-  const position = shape.getAttribute('position');
-  const shade: number[] = [];
-  for (let k = 0; k < position.count; k++) {
-    const py = Math.max(-0.42, position.getY(k));
-    position.setY(k, py);
-    const s = 0.74 + 0.26 * Math.min(1, Math.max(0, (py + 0.42) / 1.1));
-    shade.push(s, s, s * 1.04);
+    // The flat base: cut softly under y = 196.
+    const base = context.createLinearGradient(0, 180, 0, 214);
+    base.addColorStop(0, 'rgba(0,0,0,0)');
+    base.addColorStop(1, 'rgba(0,0,0,1)');
+    context.globalCompositeOperation = 'destination-out';
+    context.fillStyle = base;
+    context.fillRect(0, 180, 512, 76);
+    // Lit from above: the colour runs from white on top to a soft grey-blue under the billows.
+    context.globalCompositeOperation = 'source-atop';
+    const shade = context.createLinearGradient(0, 40, 0, 200);
+    shade.addColorStop(0, 'rgba(255,255,255,1)');
+    shade.addColorStop(0.55, 'rgba(244,246,252,1)');
+    shade.addColorStop(1, 'rgba(176,186,206,1)');
+    context.fillStyle = shade;
+    context.fillRect(0, 0, 512, 256);
   }
-  shape.setAttribute('color', new Float32BufferAttribute(shade, 3));
-  shape.computeVertexNormals();
-  // White, or the world's tint, with a little self-light of its own colour, so it keeps that colour in the warm sun.
-  const material = new MeshPhysicalMaterial({ color: new Color(colour), vertexColors: true, roughness: 1, metalness: 0 });
-  material.emissive = new Color(colour);
-  material.emissiveIntensity = 0.32;
-  const puff = new Mesh(shape, material);
-  puff.position.set(x, y, z);
-  puff.scale.set(size, size * 0.8, size);
-  return puff;
+  cloudPicture = new CanvasTexture(canvas);
+  cloudPicture.colorSpace = SRGBColorSpace;
+  return cloudPicture;
+}
+
+/**
+ * A cloud as soft cards lit by the sky: two or three layered pictures of vapour, each turned to the eye, tinted by
+ * the world's cloud colour and hazed with distance like everything else far off. Two or three draw calls, no geometry.
+ */
+function cloud(x: number, y: number, z: number, size: number, colour: string): Group {
+  const group = new Group();
+  const tint = new Color(colour);
+  for (const [dx, dy, dz, w, a] of [
+    [0, 0, 0, 7.5, 0.95],
+    [1.6, -0.25, -0.4, 5.2, 0.8],
+    [-1.9, -0.3, 0.3, 4.6, 0.75],
+  ] as const) {
+    const card = new Sprite(
+      new SpriteMaterial({ map: cloudTexture(), color: tint, transparent: true, opacity: a, depthWrite: false, fog: true }),
+    );
+    card.scale.set(w * size, w * size * 0.5, 1);
+    card.position.set(dx * size, dy * size, dz * size);
+    group.add(card);
+  }
+  group.position.set(x, y, z);
+  return group;
 }
 
 /** A small deterministic random sequence, so the same world draws the same stars on every load. */
@@ -536,13 +565,18 @@ function stars(count: number): Group {
  * A sea round the island, its top at `level`: deep near the island, the sky's colour far off, and a glittering path
  * toward the sun; and a ring of foam where the water meets the sand, breathing slowly. Two draw calls.
  */
-function sea(water: NonNullable<WorldLook['ground']['sea']>, discAt: readonly [number, number, number] | undefined): Group {
+function sea(
+  water: NonNullable<WorldLook['ground']['sea']>,
+  discAt: readonly [number, number, number] | undefined,
+  horizon: string,
+): Group {
   const group = new Group();
   const geometry = new CircleGeometry(38, 96, 0, Math.PI * 2);
   geometry.rotateX(-Math.PI / 2);
   const near = new Color(water.near);
   const far = new Color(water.far);
   const glitter = new Color(water.glitter);
+  const sky = new Color(horizon);
   const sunAngle = discAt === undefined ? null : Math.atan2(discAt[2], discAt[0]);
   const colours: number[] = [];
   const position = geometry.getAttribute('position');
@@ -551,6 +585,8 @@ function sea(water: NonNullable<WorldLook['ground']['sea']>, discAt: readonly [n
     const z = position.getZ(i);
     const r = Math.hypot(x, z);
     const c = near.clone().lerp(far, Math.min(1, (r / 30) ** 0.7));
+    // Far out the sea takes the horizon's own colour, so it meets the sky in haze, not along a hard line.
+    c.lerp(sky, Math.min(1, Math.max(0, (r - 22) / 15)) ** 1.3);
     if (sunAngle !== null && r > 4) {
       let d = Math.atan2(z, x) - sunAngle;
       d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -696,7 +732,7 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   world.scene.environment = skyLight(renderer, look);
   world.scene.environmentIntensity = 0.55 * (look.light.environment ?? 1);
   // Haze toward the horizon: far hills and clouds fade into the sky's own colour at the horizon.
-  const haze = look.light.haze ?? 0.016;
+  const haze = look.light.haze ?? 0.024;
   world.scene.fog = haze > 0 ? new FogExp2(new Color(look.sky.horizon), haze) : null;
   // HemisphereLight uses its world position as the sky direction: keep it on the scene root at (0, 1, 0). The sky's
   // light above carries most of the soft light now, so this one only lifts the shade.
@@ -726,17 +762,17 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   const plain = look.sky.middle === undefined && look.sky.disc === undefined;
   stage.add(plain ? meadowSky(look.sky) : skyDome(look.sky));
   if ((look.sky.stars ?? 0) > 0) stage.add(stars(look.sky.stars ?? 0));
-  if (look.ground.sea !== undefined) stage.add(sea(look.ground.sea, look.sky.disc?.at));
+  if (look.ground.sea !== undefined) stage.add(sea(look.ground.sea, look.sky.disc?.at, look.sky.horizon));
   if (look.ground.plain !== undefined && look.ground.sea === undefined) stage.add(plainLand(look.ground.plain, look.sky.horizon));
   if (look.ground.hills !== undefined) stage.add(hills(look.ground.hills));
   const clouds = look.sky.clouds;
   if (clouds !== null)
     for (const [i, [x, y, z, size]] of [
-      [-6, 2.2, -12, 1.0],
-      [5.5, 2.8, -14, 1.2],
-      [10, 1.4, -11, 0.8],
-      [-10.5, 1.2, -10, 0.75],
-      [0.5, 3.6, -20, 1.1],
+      [-9, 4.0, -22, 1.0],
+      [8, 4.8, -26, 1.2],
+      [17, 3.2, -21, 0.8],
+      [-18, 3.0, -19, 0.75],
+      [1, 6.0, -30, 1.1],
     ].entries()) {
       const puff = cloud(x, y, z, size, clouds);
       stage.add(puff);

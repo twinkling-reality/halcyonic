@@ -3,6 +3,7 @@ import {
   type BufferGeometry,
   CanvasTexture,
   CapsuleGeometry,
+  CircleGeometry,
   CatmullRomCurve3,
   Color,
   ConeGeometry,
@@ -139,15 +140,18 @@ function meadowDressing(decor: Group, counts: DecorCounts): void {
     decor.add(bush);
   }
   for (const [x, z, colour] of LAYOUT.flowers.slice(0, flowers)) {
-    const parts = [part(new CylinderGeometry(0.012, 0.012, 0.16, 8), '#3E9E3A', [0, 0.08, 0])];
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2;
-      parts.push(
-        part(new SphereGeometry(0.035, 16, 8), colour, [Math.cos(a) * 0.04, 0.17, Math.sin(a) * 0.04], [1, 0.5, 1]),
-      );
-    }
-    parts.push(part(new SphereGeometry(0.025, 16, 8), 'sunny', [0, 0.175, 0]));
-    const flower = prop(parts);
+    // A slim stem and two leaves under six cupped petals round a seeded centre: a flower, not five beads.
+    const parts = [
+      part(new CylinderGeometry(0.005, 0.008, 0.17, 6), '#3E8E34', [0, 0.085, 0]),
+      part(grassBlade(0.03), '#4C9E3C', [0, 0.02, 0], [1, 0.09, 1], [0, 0.6, 0.5]),
+      part(grassBlade(0.03), '#4C9E3C', [0, 0.04, 0], [1, 0.07, 1], [0, 3.6, -0.55]),
+    ];
+    for (let i = 0; i < 6; i++)
+      parts.push(part(petal(0.05, 0.03), colour, [0, 0.17, 0], [1, 1, 1], [0, (i / 6) * Math.PI * 2, 1.15], ));
+    parts.push(part(foliage(0.016, x + z), '#8A5A1E', [0, 0.172, 0], [1, 0.6, 1]));
+    const flower = prop(parts, { natural: true, roughness: 0.6 });
+    bothSidesUp(flower.material as MeshPhysicalMaterial);
+    flower.scale.setScalar(1.5);
     flower.position.set(x, 0, z);
     decor.add(flower);
     // Rooted at its stem: the head nods with the breeze, a little across it too.
@@ -536,31 +540,40 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
     });
   }
   for (const [i, [x, z, size]] of LAYOUT.bushes.slice(0, bushes).entries()) {
+    // A cluster of six-sided shards leaning out from one root, each brighter toward its tip.
     const parts = [
-      part(new OctahedronGeometry(0.08, 0), 'grape', [0, 0.17, 0], [1, 2.3, 1]),
-      part(new OctahedronGeometry(0.06, 0), 'ocean', [0.1, 0.11, 0.03], [1, 2.1, 1], [0, 0.4, -0.35]),
-      part(new OctahedronGeometry(0.05, 0), '#C59BFF', [-0.09, 0.09, 0.05], [1, 2, 1], [0, i, 0.4]),
+      part(shard(0.045, 0.28), '#7E6BD6', [0, 0, 0], [1, 1, 1], [0, i, 0.08]),
+      part(shard(0.035, 0.2), '#5C7FE0', [0.06, 0, 0.02], [1, 1, 1], [0, 0.4 + i, -0.42]),
+      part(shard(0.03, 0.17), '#A58CF0', [-0.06, 0, 0.03], [1, 1, 1], [0, i * 2, 0.5]),
+      part(shard(0.025, 0.12), '#6A9AF0', [0.02, 0, -0.06], [1, 1, 1], [0.45, i, 0.1]),
+      part(shard(0.02, 0.09), '#8C78E6', [-0.03, 0, 0.07], [1, 1, 1], [-0.5, i, -0.2]),
     ];
-    const crystal = prop(parts, { roughness: 0.15, clearcoat: 0.9 });
-    glowing(crystal.material as MeshPhysicalMaterial, 0.45);
+    const crystal = prop(parts, { roughness: 0.12, clearcoat: 1 });
+    glowing(crystal.material as MeshPhysicalMaterial, 0.4);
     crystal.position.set(x, 0, z);
     crystal.scale.setScalar(size * 1.3);
     crystal.add(contactShadow(0.25));
     decor.add(crystal);
   }
-  const caps: readonly string[] = ['berry', 'grape', 'ocean', 'sunny', 'tangerine', 'grape', 'berry', 'ocean'];
+  // Muted caps over gills that glow, as night mushrooms do: the light comes from underneath, never a candy colour.
+  const caps: readonly (readonly [string, string])[] = [
+    ['#6E4E72', '#7FF2D8'],
+    ['#4E5A82', '#9CC8FF'],
+    ['#7A5A44', '#FFD78A'],
+    ['#5A4A78', '#C4A2FF'],
+    ['#6A6A52', '#A8FFB2'],
+    ['#7A4A5A', '#FFB0D0'],
+  ];
   for (const [i, [x, z]] of LAYOUT.flowers.slice(0, flowers).entries()) {
     const tall = 0.07 + (i % 3) * 0.03;
-    const cap = caps[i % caps.length] ?? 'berry';
+    const [cap, gills] = caps[i % caps.length] ?? ['#6E4E72', '#7FF2D8'];
     const parts = [
-      part(new CylinderGeometry(0.014, 0.02, tall, 10), '#5B5470', [0, tall / 2, 0]),
-      part(new SphereGeometry(0.055, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), cap, [0, tall - 0.005, 0], [1, 0.75, 1]),
+      part(new CylinderGeometry(0.011, 0.017, tall, 10), '#B8AFC4', [0, tall / 2, 0]),
+      part(new CircleGeometry(0.046, 24).rotateX(Math.PI / 2), gills, [0, tall + 0.003, 0]),
+      part(capShape(0.055, 0.042), cap, [0, tall - 0.002, 0]),
     ];
-    for (let k = 0; k < 4; k++) {
-      const a = k * 1.7 + i;
-      parts.push(part(new SphereGeometry(0.009, 8, 6), '#FFFFFF', [Math.cos(a) * 0.033, tall + 0.03, Math.sin(a) * 0.033]));
-    }
-    const mushroom = prop(parts, { roughness: 0.35 });
+    const mushroom = prop(parts, { natural: true, roughness: 0.55 });
+    bothSidesUp(mushroom.material as MeshPhysicalMaterial);
     glowing(mushroom.material as MeshPhysicalMaterial, 0.55);
     mushroom.position.set(x, 0, z);
     mushroom.scale.setScalar(2);
@@ -632,6 +645,59 @@ function foliage(r: number, seed: number): BufferGeometry {
   shape.setAttribute('shade', new Float32BufferAttribute(shade, 1));
   shape.computeVertexNormals();
   return shape;
+}
+
+/**
+ * A petal: a slim leaf of colour, rounded at its tip, pinched at its base and cupped, pointing up the y axis from the
+ * origin; darker where it joins the flower. Lay it out with `part`'s turn.
+ */
+function petal(length: number, width: number): BufferGeometry {
+  const shape = new PlaneGeometry(width, length, 2, 5).translate(0, length / 2, 0);
+  const position = shape.getAttribute('position');
+  const shade: number[] = [];
+  for (let i = 0; i < position.count; i++) {
+    const t = position.getY(i) / length;
+    const across = position.getX(i) / (width / 2);
+    // Widest two thirds along, pinched to the base, rounded to the tip, and cupped across.
+    position.setX(i, position.getX(i) * Math.sin(Math.PI * Math.min(1, t * 0.75 + 0.06)) ** 0.8);
+    position.setZ(i, width * 0.28 * (1 - across * across) + length * 0.12 * t * t);
+    shade.push(0.62 + 0.38 * Math.min(1, t * 1.6));
+  }
+  shape.setAttribute('shade', new Float32BufferAttribute(shade, 1));
+  shape.computeVertexNormals();
+  return shape;
+}
+
+/** A mushroom's cap as one turned surface: a dome over a soft rim, open underneath. `r` its radius, `h` its height. */
+function capShape(r: number, h: number): BufferGeometry {
+  const profile = [
+    new Vector2(0.001, h),
+    new Vector2(r * 0.45, h * 0.94),
+    new Vector2(r * 0.8, h * 0.7),
+    new Vector2(r, h * 0.3),
+    new Vector2(r * 0.96, h * 0.08),
+    new Vector2(r * 0.84, h * 0.02),
+  ];
+  const cap = new LatheGeometry(profile, 28);
+  const position = cap.getAttribute('position');
+  const shade: number[] = [];
+  for (let i = 0; i < position.count; i++) shade.push(0.7 + 0.3 * (position.getY(i) / h));
+  cap.setAttribute('shade', new Float32BufferAttribute(shade, 1));
+  return cap;
+}
+
+/** A crystal shard: a six-sided column under a pointed tip, brighter toward the tip as light gathers in it. */
+function shard(r: number, h: number): BufferGeometry {
+  const column = new CylinderGeometry(r, r * 1.08, h, 6, 1).translate(0, h / 2, 0);
+  const tip = new ConeGeometry(r, h * 0.42, 6, 1).translate(0, h + h * 0.21, 0);
+  const merged = mergeGeometries([column.toNonIndexed(), tip.toNonIndexed()]);
+  if (merged === null) throw new Error('A crystal could not be made.');
+  const position = merged.getAttribute('position');
+  const shade: number[] = [];
+  for (let i = 0; i < position.count; i++) shade.push(0.55 + 0.6 * Math.min(1, position.getY(i) / (h * 1.42)));
+  merged.setAttribute('shade', new Float32BufferAttribute(shade, 1));
+  merged.computeVertexNormals();
+  return merged;
 }
 
 /** One part of a prop: a geometry in its own colour, placed in the prop. */
