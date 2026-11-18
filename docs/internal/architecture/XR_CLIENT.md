@@ -4759,6 +4759,16 @@ needs the person, and the sign stands only while the shelf gathers or is spread 
 shelf keeps one character a page (`CharacterPlace`). `StageRender.AgentShelfCheck` lays its pages by
 `LayOwnShelf` at 1, 3, 6 and 10 tasks.
 
+No colour in the shipped chrome carries a hue (the lead's 2026-11-17 and 2026-11-18 rulings). State is
+shown by form, weight and white, never hue. Only a character's body, a figure, an app's own content and
+the code view's syntax spans are exempt. `KitRender.ChromeTakesNoHue` holds every redesign state of
+`KitRender.Check` and every moment of `JudgeRoomWalkCheck` to an HSV saturation of 0.12 or under. It
+reads the kit's glass (no tone, no tint), every surface's fill and edge, every room glass's look, every
+room shape's fill and edge, the words band's ground and every drawn word, the characters' name tags
+included. Lit white is light, not hue. The old kit's views are read only where a host shown under the
+redesign stands them, and that fails. The kit's greys and the room's are each the true grey of the
+luminance they had (STYLE.md), so their contrast holds.
+
 Actual unchanged-render probes isolated a shell/feature composition dependency: isolated
 features and shells were stable, while the overlapping pair changed a few edge pixels at fixed
 poses. Earlier feature order alone left ghost and Clover/Horns failures. Private feature-only
