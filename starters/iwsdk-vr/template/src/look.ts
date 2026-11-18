@@ -212,6 +212,16 @@ export function contactShadow(radius: number): Mesh {
 }
 
 /**
+ * The seat mound's height at `r` from its centre: flat for a sign out to 0.3 m inside its edge, then falling away in
+ * one smooth curve to its foot, `foot` beyond its edge.
+ */
+function bankHeight(r: number, foot: number): number {
+  const t = FLOOR.tier;
+  const f = Math.min(1, Math.max(0, (r - (t.radius - 0.3)) / (0.3 + foot)));
+  return t.height * (0.5 + 0.5 * Math.cos(Math.PI * f)) + 0.004 * (1 - f);
+}
+
+/**
  * The colour a grass island's lawn reads as from the seat, or its top's colour where it grows no grass: its blades'
  * roots shade their tips, so open turf in that colour, which no blade shades, is darker still to read the same.
  */
@@ -263,8 +273,8 @@ function island(): Group {
   // catch a line of shade.
   const bank = [new Vector2(0.001, t.height)];
   for (let k = 0; k <= 14; k++) {
-    const f = k / 14;
-    bank.push(new Vector2(t.radius - 0.3 + f * (0.3 + foot), t.height * (0.5 + 0.5 * Math.cos(Math.PI * f)) + 0.004 * (1 - f)));
+    const r = t.radius - 0.3 + (k / 14) * (0.3 + foot);
+    bank.push(new Vector2(r, bankHeight(r, foot)));
   }
   // On below the ground, so where the island falls away behind it its foot goes on down instead of ending in the air.
   bank.push(new Vector2(t.radius + foot + 0.05, -0.7));
@@ -273,7 +283,9 @@ function island(): Group {
     new LatheGeometry(bank.slice().reverse(), 96),
     // On a grass island, the lawn's own colour as the eye sees it, its blades' roots shading their tips: open turf in
     // the island's top colour reads paler than the lawn round it, a plinth rather than a bank (CAST, seat42).
-    withGrain(toyMaterial(lawnColour(ground), { ground: true }), 6, 0.4),
+    ground.grass === undefined
+      ? withGrain(toyMaterial(ground.top, { ground: true }), 6, 0.4)
+      : withTurf(withGrain(toyMaterial(lawnColour(ground), { ground: true }), 6, 0.4), 3),
   );
   tier.position.set(0, 0, t.z);
   // Turf, not felt: no white sheen at the grazing angle the seat sees its top from, which paled it against the lawn.
@@ -308,7 +320,9 @@ function island(): Group {
     vertexColors: true,
     roughness: 0.85,
     metalness: 0,
-    sheen: 0.8,
+    // Sand and bare earth take the world's sheen; under a lawn the top only shows at the edge, where a sheen read as a
+    // band of frost (CAST, assets3).
+    sheen: ground.grass === undefined ? 0.8 : 0,
     sheenRoughness: 0.5,
     sheenColor: new Color(ground.sheen),
   });
@@ -332,24 +346,29 @@ function island(): Group {
       grows: (x, z) => {
         const r = Math.hypot(x, z);
         if (r > (R - 0.06) * lobe(Math.atan2(z, x))) return false;
-        // The lawn stops at the mound's foot: blades under its bank would poke through it as a dark ring.
-        return Math.hypot(x, z - FLOOR.tier.z) > FLOOR.tier.radius + 0.42;
+        // The lawn stops at the mound's foot, where the mound's own turf meets it: blades under its bank would poke
+        // through it as a dark ring.
+        return Math.hypot(x, z - FLOOR.tier.z) > FLOOR.tier.radius + foot;
       },
       height: (x, z) => 0.035 + 0.055 * Math.min(1, Math.hypot(x, z) / R) ** 1.5,
     });
     group.add(carpet.mesh);
     ambientMotion(carpet.move);
-    // The tier's top has its own short lawn, kept low so a sign or a goal stands clear of it.
+    // The mound has its own turf, top and bank alike: short blades standing close in clumps, rooted on its surface
+    // all the way down to its foot, kept low on top so a sign or a goal stands clear of it (CAST, assets3: loose
+    // blades lying on a smooth surface read as hay on a plinth).
     const stage = grassCarpet({
-      count: 900,
-      extent: FLOOR.tier.radius,
+      count: 6500,
+      extent: FLOOR.tier.radius + foot,
       colour: ground.grass.colour,
       tip: ground.grass.tip,
+      light: [current.light.sunAt[0], current.light.sunAt[2]],
       seed: 17,
-      grows: (x, z) => Math.hypot(x, z) < FLOOR.tier.radius - 0.05,
-      height: () => 0.03,
+      grows: (x, z) => Math.hypot(x, z) < FLOOR.tier.radius + foot,
+      height: (x, z) => 0.03 + 0.01 * Math.sin(x * 9 + Math.sin(z * 7) * 2),
+      ground: (x, z) => bankHeight(Math.hypot(x, z), foot) - 0.004,
     });
-    stage.mesh.position.set(0, FLOOR.tier.height, FLOOR.tier.z);
+    stage.mesh.position.set(0, 0, FLOOR.tier.z);
     group.add(stage.mesh);
     ambientMotion(stage.move);
   }
@@ -885,6 +904,21 @@ function farClumps(colour: string, onHills: boolean): Group {
     grounded.push([x, z, s]);
     if (random() < 0.35) footBushes.push([x + 0.6 * s, y, z + 0.4 * s, s * 0.9, random() * 6.28]);
   }
+  // Patches of wildflowers in the middle ground, clumps close together in each, so the eye is carried out into
+  // the land as beds carry it (CAST, assets3: the fields between the trees were bare).
+  const daisies: [number, number, number, number, number][] = [];
+  const bells: [number, number, number, number, number][] = [];
+  for (let bed = 0; bed < 8; bed++) {
+    const a = ((bed + 0.6 * random()) / 8) * Math.PI * 2;
+    const d = 6 + random() * 10;
+    for (let k = 0; k < 8; k++) {
+      const t = random() * Math.PI * 2;
+      const spread = random() * 1.5;
+      const x = Math.cos(a) * d + Math.cos(t) * spread;
+      const z = Math.sin(a) * d + Math.sin(t) * spread;
+      (k % 4 === 3 ? bells : daisies).push([x, PLAIN_LEVEL - 0.01, z, 0.8 + 0.5 * random(), random() * 6.28]);
+    }
+  }
   // Nearer, between the island and the far trees: modelled bushes on the land and a few lone trees, so the eye
   // steps from the island to the hills.
   const lone: [number, number, number, number, number][] = [];
@@ -921,6 +955,7 @@ function farClumps(colour: string, onHills: boolean): Group {
   const lightness = base.getHSL({ h: 0, s: 0, l: 0 }).l;
   const amount = Math.min(0.95, Math.max(0.45, 1.3 - 1.8 * lightness));
   const tint = `#${new Color('#FFFFFF').lerp(base, amount).getHexString()}`;
+  const bloom = `#${new Color('#FFFFFF').lerp(base, amount * 0.5).getHexString()}`;
   group.add(
     shadows,
     byQuarter('CommonTree_5', 3, round, tint),
@@ -929,6 +964,9 @@ function farClumps(colour: string, onHills: boolean): Group {
     byQuarter('Bush_Common', 1.1, footBushes, tint),
     byQuarter('CommonTree_5', 2.6, lone, tint),
     byQuarter('Bush_Common', 1.1, bushes, tint),
+    // Flowers keep more of their own colours than the leaves round them: half the land's tint.
+    byQuarter('Flower_3_Group', 0.62, daisies, bloom),
+    byQuarter('Flower_4_Group', 0.7, bells, bloom),
   );
   return group;
 }

@@ -1792,7 +1792,24 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
       'a lathe written top-down faces in',
     );
     assert.match(look(), /tier\.castShadow = false;/);
-    assert.match(look(), /FLOOR\.tier\.radius \+ 0\.42;/, 'the lawn stops at the mound foot');
+    // Since CAST's assets3 the lawn stops at the mound's foot, where the mound's own turf, rooted on its bank, meets it.
+    assert.match(
+      look(),
+      /return Math\.hypot\(x, z - FLOOR\.tier\.z\) > FLOOR\.tier\.radius \+ foot;/,
+      'the lawn stops at the mound foot',
+    );
+    assert.match(
+      look(),
+      /ground: \(x, z\) => bankHeight\(Math\.hypot\(x, z\), foot\) - 0\.004,/,
+      'the mound wears its own turf',
+    );
+    assert.match(
+      look(),
+      /bank\.push\(new Vector2\(r, bankHeight\(r, foot\)\)\);/,
+      'blades and bank share one profile',
+    );
+    // Under a lawn the island's top shows only at its edge, where a sheen read as frost.
+    assert.match(look(), /sheen: ground\.grass === undefined \? 0\.8 : 0,/);
     const decor = read('src/decor.ts');
     assert.match(
       decor,
@@ -1993,6 +2010,20 @@ describe("the starter's skies and nature models are free files of its own (the l
     assert.match(read('src/nature.ts'), /look\.dress\?\.\(slot\);/);
   });
 
+  test('beds of wildflowers carry the eye across the middle ground, in more of their own colours', () => {
+    const clumps = look().slice(
+      look().indexOf('function farClumps('),
+      look().indexOf('function hills('),
+    );
+    assert.match(clumps, /for \(let bed = 0; bed < 8; bed\+\+\) \{/);
+    assert.match(clumps, /natureInstances\('Flower_3_Group', 0\.62, daisies, \{ tint: bloom \}\),/);
+    assert.match(clumps, /natureInstances\('Flower_4_Group', 0\.7, bells, \{ tint: bloom \}\),/);
+    assert.match(
+      clumps,
+      /const bloom = `#\$\{new Color\('#FFFFFF'\)\.lerp\(base, amount \* 0\.5\)\.getHexString\(\)\}`;/,
+    );
+  });
+
   test("the land and the hills have turf's clumps, and the seat mound reads as the lawn round it", () => {
     const surface = read('src/surface.ts');
     assert.match(surface, /export function turfColour\(\): DataTexture \{/);
@@ -2023,9 +2054,16 @@ describe("the starter's skies and nature models are free files of its own (the l
       /const panel = Math\.floor\(\(\(Math\.atan2\(cz, cx\) \+ Math\.PI\) \/ \(Math\.PI \* 2\)\) \* 8\) % 2;/,
     );
     assert.match(seaside, /new SphereGeometry\(0\.026, 12, 8\), '#FFF8EC', \[-0\.072, 1\.115, 0\]/);
-    // The palm: stacked rings, pale where each swells and dark in its scar.
+    // The palm: one tapering column, flared at its foot, its leaf scars shallow bands (CAST, assets3).
     assert.match(seaside, /new TubeGeometry\(curve, 48, 0\.055, 12, false\)/);
-    assert.match(seaside, /const c = pale\.clone\(\)\.lerp\(scar, \(k % 4\) \/ 3\);/);
+    assert.match(
+      seaside,
+      /const radius = 0\.042 \+ 0\.022 \* \(1 - f\) \+ 0\.011 \* Math\.max\(0, 1 - f \/ 0\.12\) \*\* 2;/,
+    );
+    assert.match(
+      seaside,
+      /const scale = \(radius \+ 0\.003 \* Math\.cos\(\(k \/ 4\) \* Math\.PI \* 2\)\) \/ 0\.055;/,
+    );
   });
 
   test('the dressing places the models, each with a drawn one standing in if the files cannot be read', () => {

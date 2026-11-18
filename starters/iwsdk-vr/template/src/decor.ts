@@ -549,27 +549,36 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
       [0, 0.4, 0.8, 1.2].map((y) => new Vector3(lean * 0.18 * (y / 1.2) ** 2, y, 0)),
     );
     const tip = curve.getPoint(1);
-    // One trunk of stacked rings: each ring pale where it swells at its base and dark in the scar above it, as a
-    // palm's old leaf bases leave them (CAST, seat42: one flat colour read as a tube).
+    // One tapering column, flared at its foot and gently curved, its old leaf bases left as shallow bands in the bark
+    // every ten centimetres: a palm, not stacked rings (CAST, assets3: frilled rings read as a toy spring).
     const trunk = new TubeGeometry(curve, 48, 0.055, 12, false);
     const ringColours: number[] = [];
-    const pale = new Color('#C89A68');
-    const scar = new Color('#6E4A2E');
+    const pale = new Color('#B88C60');
+    const band = new Color('#8A6440');
     for (let k = 0; k <= 48; k++)
       for (let v = 0; v <= 12; v++) {
-        const c = pale.clone().lerp(scar, (k % 4) / 3);
+        const c = pale.clone().lerp(band, 0.5 + 0.5 * Math.cos((k / 4) * Math.PI * 2));
         ringColours.push(c.r, c.g, c.b);
       }
     trunk.setAttribute('color', new Float32BufferAttribute(ringColours, 3));
-    // Each ring of the palm's bark swells at its base and narrows into its scar, so the trunk reads as stacked rings.
-    const swell = trunk.getAttribute('position');
-    const along = trunk.getAttribute('normal');
-    for (let k = 0; k <= 48; k++)
+    const surface = trunk.getAttribute('position');
+    const middle = new Vector3();
+    for (let k = 0; k <= 48; k++) {
+      const f = k / 48;
+      curve.getPoint(f, middle);
+      // From 0.075 at its flared foot to 0.042 under the crown, each band a few millimetres proud of the bark.
+      const radius = 0.042 + 0.022 * (1 - f) + 0.011 * Math.max(0, 1 - f / 0.12) ** 2;
+      const scale = (radius + 0.003 * Math.cos((k / 4) * Math.PI * 2)) / 0.055;
       for (let v = 0; v <= 12; v++) {
         const i = k * 13 + v;
-        const bump = 0.016 * (1 - (k % 4) / 3) - 0.004 + 0.003 * Math.sin(v * 2.1 + k);
-        swell.setXYZ(i, swell.getX(i) + along.getX(i) * bump, swell.getY(i) + along.getY(i) * bump, swell.getZ(i) + along.getZ(i) * bump);
+        surface.setXYZ(
+          i,
+          middle.x + (surface.getX(i) - middle.x) * scale,
+          middle.y + (surface.getY(i) - middle.y) * scale,
+          middle.z + (surface.getZ(i) - middle.z) * scale,
+        );
       }
+    }
     trunk.computeVertexNormals();
     // Bark with the relief of bark, ringed, matte: not a smooth tube.
     const bark = new Mesh(trunk, withGrain(toyMaterial('#FFFFFF', { ground: true, roughness: 0.88 }), 2, 0.9));

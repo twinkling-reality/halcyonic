@@ -101,8 +101,9 @@ function swayingGrass(): MeshStandardMaterial & { move(time: number): void } {
 }
 
 /**
- * A carpet of grass over ground at y = 0: `count` blades wherever `grows(x, z)` says, each `height` metres tall or so
- * (`height(x, z)` for its own), in colours between `root` and `tip`. Returns the mesh and its `move` for `ambientMotion`.
+ * A carpet of grass over ground at y = 0, or at `ground(x, z)` where the ground rises (a mound, a bank): `count` blades
+ * wherever `grows(x, z)` says, each `height` metres tall or so (`height(x, z)` for its own), in colours between `root`
+ * and `tip`. Returns the mesh and its `move` for `ambientMotion`.
  */
 export function grassCarpet(options: {
   count: number;
@@ -115,6 +116,7 @@ export function grassCarpet(options: {
   dry?: string;
   light?: readonly [number, number];
   seed?: number;
+  ground?: (x: number, z: number) => number;
 }): { mesh: InstancedMesh; move(time: number): void } {
   const random = seeded(options.seed ?? 5);
   const material = swayingGrass();
@@ -135,7 +137,7 @@ export function grassCarpet(options: {
     const z = (random() * 2 - 1) * options.extent;
     if (!options.grows(x, z)) continue;
     const h = options.height(x, z) * (0.65 + random() * 0.7);
-    place.position.set(x, 0, z);
+    place.position.set(x, options.ground?.(x, z) ?? 0, z);
     place.rotation.set(0, random() * Math.PI * 2, 0);
     place.scale.set(0.8 + random() * 0.6, h, 1);
     place.updateMatrix();
