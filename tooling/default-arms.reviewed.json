@@ -229,21 +229,9 @@
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/KitPillMaterial.cs",
-    "answer": "GlazeColor.Hex(0x083870)",
-    "count": 1,
-    "why": "style: Pill colour for Blue and None; a colour only."
-  },
-  {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/KitPillMaterial.cs",
-    "answer": "GlazeColor.Hex(0x0C488A)",
-    "count": 1,
-    "why": "style: Pill colour for Blue and None; a colour only."
-  },
-  {
-    "file": "apps/xr/Packages/com.halcyonic.client/Runtime/KitPillMaterial.cs",
-    "answer": "GlazeColor.Hex(0x6ED7FF)",
-    "count": 1,
-    "why": "style: Pill colour for Blue and None; a colour only."
+    "answer": "GlazeColor.Hex(ProminentPlate)",
+    "count": 3,
+    "why": "style: the prominent plate's rim, glow and middle for the Blue (primary), Green (Approve) and None pills; a colour only."
   },
   {
     "file": "apps/xr/Packages/com.halcyonic.client/Runtime/KitPresenter.cs",
