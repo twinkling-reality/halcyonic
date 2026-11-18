@@ -1684,8 +1684,8 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       clumps,
-      /for \(const spot of spots\.slice\(0, 72\)\) \{/,
-      'at most 72 trees in the woods',
+      /for \(const spot of spots\.slice\(0, 40\)\) \{/,
+      "at most 40 trees in the woods, a headset's budget",
     );
     assert.match(
       clumps,

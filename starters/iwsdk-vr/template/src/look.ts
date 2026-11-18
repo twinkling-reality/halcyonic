@@ -867,13 +867,13 @@ function farClumps(colour: string, onHills: boolean): Group {
     }
   }
   // The kit's three lightest trees (3,200 to 4,100 triangles), mixed as a wood is, each its own size from 0.7 to 1.4
-  // times and turned its own way, some with a bush at their foot: twelve copses and two hedgerows come to some sixty,
-  // never more than 72, a headset's budget for the woods (CAST, assets2: one tree, copied).
+  // times and turned its own way, some with a bush at their foot: never more than 40, which keeps a view of the land
+  // near 400,000 triangles for a headset at 72 fps (CAST, assets2: one tree, copied; the lead, 2026-11-18).
   const round: [number, number, number, number, number][] = [];
   const tall: [number, number, number, number, number][] = [];
   const slim: [number, number, number, number, number][] = [];
   const footBushes: [number, number, number, number, number][] = [];
-  for (const spot of spots.slice(0, 72)) {
+  for (const spot of spots.slice(0, 40)) {
     const x = spot.x;
     const z = spot.z;
     const s = (0.3 + random() * 0.22) * spot.size * (0.7 + 0.7 * random());

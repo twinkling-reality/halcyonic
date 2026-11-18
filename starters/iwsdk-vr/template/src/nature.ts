@@ -18,9 +18,10 @@ import { holdFirstFrame } from './look.js';
 /**
  * The nature models in `public/models/nature/`: five trees, bushes, flower clumps, rocks and a fern from Quaternius's
  * Stylized Nature MegaKit (CC0, see NOTICE), compressed for a headset (meshopt geometry, 512 px WebP textures, about
- * 0.77 MB for all thirteen). They load once from the app's own files, never from the network, and the first frame waits
- * for them, so nothing pops in. The textures are files of their own beside `nature.gltf`, not packed into one binary:
- * the page's security policy lets it fetch its own files but not the blob: addresses a packed file's pictures load from.
+ * 0.77 MB for all thirteen). They load once from the app's own files, never from the network, and the first frame
+ * waits for them (`holdFirstFrame`, up to three seconds), so nothing pops in. The textures are files of their own
+ * beside `nature.gltf`, not packed into one binary: the page's security policy lets it fetch its own files but not the
+ * blob: addresses a packed file's pictures load from.
  */
 export type NatureModel =
   | 'CommonTree_1'
@@ -80,9 +81,9 @@ function natureKit(): Promise<Map<string, Loaded> | null> {
 
 /**
  * A nature model, `height` metres tall from the ground, in a group you can place, turn and sway at once; the model
- * fills it as soon as the kit has loaded (before the first frame). `tint` multiplies its colours, for a world's own
- * stone or leaf, and `dress` is called with the filled group once the model is in it (to hang fruit on its leaves,
- * say). If the file cannot be read, `fallback` fills it instead, or nothing does.
+ * fills it as soon as the kit has loaded, which the first frame waits for, up to three seconds. `tint` multiplies its
+ * colours, for a world's own stone or leaf, and `dress` is called with the filled group once the model is in it (to
+ * hang fruit on its leaves, say). If the file cannot be read, `fallback` fills it instead, or nothing does.
  */
 export function natureModel(
   name: NatureModel,
