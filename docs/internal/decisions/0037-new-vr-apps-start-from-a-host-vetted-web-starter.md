@@ -534,3 +534,18 @@ The template's notes for a place made from the person's own photo or video said 
 window in it, so a camel ride's VR version showed the ride on a board in the sand. They now say the person's media is the
 reference for the place: build what it shows all around the person in 3D, its land, sky, light and the things and
 creatures in it, and show the photo or video as a picture only when the person asks to see it.
+
+## Amendment, 2026-11-18: each VR version is its own app, not a shared card layout
+
+Two VR versions of very different apps came out the same: three text cards in an arc, rows of pill buttons, an
+on-screen letter keyboard, and a "stand-in" line in view. The owner asked why they were the same and why they were
+cards. The cause was ours: the instruction and the template's notes steered every app that is not a game to `pages()`,
+`rows()` and a keyboard of letters, and a rule about cards made cards the expected form. The instruction
+(`vr-version.txt`) and the notes now ask the agent first to work out what the app is for and the few things at its
+centre, to write a short plan headed "What this app is in VR", and to build those things in the space around the person
+(a sky's stars all around, a lesson's call stack as frames stacking up in front, a map's land at the feet). Cards or a
+row of panels are never the main layout; text shows a thing's details when the person points at it or presses it.
+There is no keyboard of letters: a field that needs typed words is named among what the version leaves out. What is not
+carried yet goes in a small panel opened by a press labelled "Not Here Yet", never in the main view, and never as a
+"stand-in" or a "demo". Each VR version is to look and feel like its own app. `pages()` and `rows()` stay in the kit for
+a thing's details and its presses.

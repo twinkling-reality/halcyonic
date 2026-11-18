@@ -707,7 +707,14 @@ describe("an app's use comes whole, read to its end and readable (the lead, 2026
     const has = (pattern: RegExp) => assert.match(agents, pattern);
     has(/An app's use, not a game/);
     has(/Nothing of the use is dropped without a word/);
-    has(/a keyboard of letter buttons for short free words \(a search, a name, a short\s+note\)/);
+    // The owner rejected two VR versions built as the same cards and an on-screen keyboard (2026-11-18): no keyboard.
+    has(
+      /Never show a keyboard of letters: a field that needs typed words is named among what this\s+version leaves out/,
+    );
+    assert.doesNotMatch(agents, /keyboard of letter buttons/);
+    has(/write a short plan headed "What this app is in VR"/);
+    has(/Cards or a row of panels are never the main layout/);
+    has(/Each VR version looks and feels like its own app/);
     has(/Never fix such a field to a sample value or to now without saying so/);
     // A words critic: long text, files and sign-ins would push an agent to build editors or fake a form.
     has(
@@ -722,9 +729,9 @@ describe("an app's use comes whole, read to its end and readable (the lead, 2026
       /Words in the scene are read at a distance: draw them no smaller than `TYPE` from `\.\/kit\.js`/,
     );
     has(/a title never runs into the words beside\s+or below it/);
-    // The welcome card's words leave at once in VR, so the line stands in the scene.
+    // What is not carried yet is honest but out of the main view, in a panel the person opens (the lead, 2026-11-18).
     has(
-      /one plain line that stays in the scene beside the use \(the welcome\s+card's words leave after a few seconds, and at once in VR\), and in your closing words; a code comment is not saying\s+it/,
+      /goes in a small panel the person opens with a\s+press labelled "Not Here Yet", never in the main view, and in your closing words; a code comment is not saying it\.\s+Never call anything in it a stand-in or a demo\./,
     );
     has(/pass all of them/);
     assert.doesNotMatch(agents, /pass up to six/);

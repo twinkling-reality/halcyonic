@@ -422,7 +422,7 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     // The host now writes the project's own name on the card and in the title (namedFile); the instruction keeps it.
     assert.match(
       instruction,
-      /Its welcome card and page title already hold this project's name; keep it, and put one line on what to do on the card\. If it is not a game, put one plain line beside its use, in the scene, on what of the app this version does not carry yet, or that it carries all of it\./,
+      /Its welcome card and page title already hold this project's name; keep it, and put one line on what to do on the card\. If it is not a game, put what of the app this version does not carry yet, or that it carries all of it, in a small panel the person opens with a press labelled "Not Here Yet", never in the main view; never call anything in it a stand-in or a demo\./,
     );
     // Run (b4)'s model put its plan to the person before building (the lead, 2026-11-13T19:47Z item 3); a question an
     // agent does ask still reaches the person.
@@ -445,11 +445,11 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     // list is read to its end, words are no smaller than the kit's type scale.
     assert.match(
       instruction,
-      /each way it finds things \(a search, a filter\) and each field of its forms gets a way that works with a hand in VR, as 'An app's use, not a game' in this project's AGENTS\.md says, or is named among what this version leaves out\./,
+      /each way it finds things \(a search, a filter\) and each choice it asks for gets a way that works with a hand in VR, or is named among what this version leaves out\./,
     );
     assert.match(
       instruction,
-      /If it is not a game, let every list be read to its end\. Draw every word in the scene, titles, card text, labels and footnotes alike, no smaller than TYPE\.words from src\/kit\.ts/,
+      /If it is not a game, let the person reach every one of the app's things, never only the first few\. Draw every word in the scene, titles, labels, details and footnotes alike, no smaller than TYPE\.words from src\/kit\.ts/,
     );
     // V1: the main play only, from the starter's worked game, in a world that fits, type checked before it ends.
     assert.match(
@@ -461,7 +461,7 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     // with its own sample content and said; its look dresses the use; the agent says at the end what it carried.
     assert.match(
       instruction,
-      /If it is not a game, first find from its own code \(its routes, its main screen, what its data is\) the one thing people open it to do, write in a line or two what it is for and what of it this VR version will carry, then build without waiting/,
+      /If it is not a game, first work out from its own code \(its routes, its main screen, what its data is\) what the app is for and the few things at its centre, the things a person works with in it\. Then write a short plan headed "What this app is in VR": .* Then build it without waiting\./,
     );
     assert.match(
       instruction,
@@ -469,15 +469,15 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     );
     assert.match(
       instruction,
-      /carry with the app's own sample content, or where it has none with a small stand-in of the same kind, and say so; never drop it silently/,
+      /carry with the app's own sample content where it has some, and say so; never drop it silently/,
     );
     assert.match(
       instruction,
-      /If it is not a game, let its own look \(its colours, pictures and effects\) dress that use, never replace it/,
+      /If it is not a game, let its own look \(its colours, pictures and effects\) dress those things/,
     );
     assert.match(
       instruction,
-      /End your turn with a few lines for the person: what the app is for, what this VR version carries, what stands in for what could not come, and what it leaves out and why\./,
+      /End your turn with a few lines for the person: what the app is for, what this VR version is, what of it comes from the app's sample content, and what it leaves out and why\./,
     );
     assert.doesNotMatch(instruction, /most striking view/);
     assert.match(instruction, /leave out title, end and pause screens, menus and best scores/);
@@ -576,7 +576,7 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     // Every word at the kit's size, an app's own canvas words included, which the check does not measure (legible.ts).
     assert.ok(
       instruction.includes(
-        'Draw every word in the scene, titles, card text, labels and footnotes alike, no smaller than TYPE.words from src/kit.ts',
+        'Draw every word in the scene, titles, labels, details and footnotes alike, no smaller than TYPE.words from src/kit.ts',
       ),
     );
     assert.ok(
@@ -588,14 +588,29 @@ describe('making a VR version of a project (M1.8c-1)', () => {
         'Give every press its words, saying what it does; never a press without words',
       ),
     );
-    // An empty card reads as broken (a real VR version drew mostly empty ones, 2026-11-17).
+    // The owner rejected two VR versions built as the same three cards, rows of pills and a letter keyboard: "why are
+    // they the same, why are they cards" (2026-11-18). The app's own things around the person, its own look, no cards.
     assert.ok(
       instruction.includes(
-        "Show only cards that hold the app's own real content from its folder; where there is too little, show fewer cards, never an empty one",
+        'Then write a short plan headed "What this app is in VR": what each of those things becomes in the space around the person',
       ),
     );
-    // The honest line on what is not carried stays.
-    assert.ok(instruction.includes('on what of the app this version does not carry yet'));
+    assert.ok(
+      instruction.includes(
+        "Build those things as things in the space around the person, never as pictures of the app's pages",
+      ),
+    );
+    assert.ok(instruction.includes('Never make cards or a row of panels the main layout.'));
+    assert.ok(
+      instruction.includes(
+        'Never show a keyboard of letters on screen: the person points and presses.',
+      ),
+    );
+    assert.ok(instruction.includes('never like a layout shared with other apps'));
+    assert.equal(instruction.includes('Show only cards'), false);
+    assert.equal(/stand-in of the same kind/.test(instruction), false);
+    // The honest note on what is not carried stays, in a panel the person opens.
+    assert.ok(instruction.includes('what of the app this version does not carry yet'));
   });
 
   test('the VR instruction keeps addParts, so later tasks add to the VR version in parts of their own', () => {

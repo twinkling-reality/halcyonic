@@ -7,21 +7,26 @@ If it is a game, build its main play:
 start from the whole small game at the end of this project's AGENTS.md and change it into this one, importing from src/kit.ts.
 Keep to the main play and its score: leave out title, end and pause screens, menus and best scores.
 Set it in the world from src/worlds.ts that fits the original, and keep its feel.
-If it is not a game, first find from its own code (its routes, its main screen, what its data is) the one thing people open it to do, write in a line or two what it is for and what of it this VR version will carry, then build without waiting.
+If it is not a game, first work out from its own code (its routes, its main screen, what its data is) what the app is for and the few things at its centre, the things a person works with in it.
+Then write a short plan headed "What this app is in VR": what each of those things becomes in the space around the person, and what the person does with it with their hands. Then build it without waiting.
+Build those things as things in the space around the person, never as pictures of the app's pages: for example a sky app's stars in the sky all around, a lesson's call stack as frames that stack up in front of you, a map's land at your feet.
+Never make cards or a row of panels the main layout. Text appears only to show a thing's details, when the person points at the thing or presses it.
+Never show a keyboard of letters on screen: the person points and presses. Where the app needs typed words, name that among what this version leaves out.
+Make this VR version look and feel like this app alone, in its own colours, pictures, shapes and motion, never like a layout shared with other apps.
 If it is not a game, build it in setupScene(world, colour) from src/kit.ts with the app's own page colour, never on the island and never in a world from src/worlds.ts, however well one fits its theme.
-Build that use, working, with the app's own content: what a person sees and what they do with their hands. Its landing or marketing page is not its use, unless the app is nothing else.
-Keep every part of that use: each way it finds things (a search, a filter) and each field of its forms gets a way that works with a hand in VR, as 'An app's use, not a game' in this project's AGENTS.md says, or is named among what this version leaves out.
-If it is not a game, let every list be read to its end.
-Draw every word in the scene, titles, card text, labels and footnotes alike, no smaller than TYPE.words from src/kit.ts, which is sized to be read 1.6 m away; make words larger when they stand farther than that.
+Build that use, working, with the app's own content. Its landing or marketing page is not its use, unless the app is nothing else.
+Keep every part of that use: each way it finds things (a search, a filter) and each choice it asks for gets a way that works with a hand in VR, or is named among what this version leaves out.
+If it is not a game, let the person reach every one of the app's things, never only the first few.
+Draw every word in the scene, titles, labels, details and footnotes alike, no smaller than TYPE.words from src/kit.ts, which is sized to be read 1.6 m away; make words larger when they stand farther than that.
 Where words do not fit, show fewer or page them; never shrink them.
 Give every press its words, saying what it does; never a press without words, or a symbol alone.
-Show only cards that hold the app's own real content from its folder; where there is too little, show fewer cards, never an empty one.
-What cannot come with it (a server, other people, an account), carry with the app's own sample content, or where it has none with a small stand-in of the same kind, and say so; never drop it silently.
-If it is not a game, let its own look (its colours, pictures and effects) dress that use, never replace it; when its use is itself a view (a sky, a map, a model), bring that view as 'A view from another app' in this project's AGENTS.md says.
+What cannot come with it (a server, other people, an account), carry with the app's own sample content where it has some, and say so; never drop it silently.
+If it is not a game, let its own look (its colours, pictures and effects) dress those things; when its use is itself a view (a sky, a map, a model), bring that view as 'A view from another app' in this project's AGENTS.md says.
 Read every input through src/play-input.ts.
 Copy pictures and sounds you need from the original into public/ and name them in src/assets.ts.
-Its welcome card and page title already hold this project's name; keep it, and put one line on what to do on the card. If it is not a game, put one plain line beside its use, in the scene, on what of the app this version does not carry yet, or that it carries all of it.
+Its welcome card and page title already hold this project's name; keep it, and put one line on what to do on the card.
+If it is not a game, put what of the app this version does not carry yet, or that it carries all of it, in a small panel the person opens with a press labelled "Not Here Yet", never in the main view; never call anything in it a stand-in or a demo.
 If it is not a game, rewrite the card's laptop line (laptop-help in public/ui/welcome.uikitml) to say only what a mouse and keyboard really do in it: the starter's game keys do nothing there unless the app reads them.
 Keep addParts(world) as the last call of the setup in src/index.ts, as every example at the end of AGENTS.md has it, so later tasks can each add to this app in a file of their own in src/parts/ without touching yours.
 Run npx tsc --noEmit and fix every error it reports before you finish.
-End your turn with a few lines for the person: what the app is for, what this VR version carries, what stands in for what could not come, and what it leaves out and why.
+End your turn with a few lines for the person: what the app is for, what this VR version is, what of it comes from the app's sample content, and what it leaves out and why.
