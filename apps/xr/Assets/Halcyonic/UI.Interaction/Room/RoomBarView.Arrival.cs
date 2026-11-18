@@ -162,10 +162,14 @@ namespace Halcyonic.XR.UI
             }
         }
 
+        /// <summary>How far past whole a render's settle stands the panel, in seconds: enough that a float subtraction reads it whole.</summary>
+        private const float SettlePastSeconds = 0.01f;
+
         /// <summary>For renders: the panel in its place, whole.</summary>
         public void SettleArrival()
         {
-            arrivedAt = PanelClock() - arrivalHold - RoomMotion.PanelArrivalSeconds(panelWords.Count);
+            // A hundredth of a second past whole, so the clock's float subtraction never reads it a hair short of whole (PanelBuilt).
+            arrivedAt = PanelClock() - arrivalHold - RoomMotion.PanelArrivalSeconds(panelWords.Count) - SettlePastSeconds;
             // A render's settle is whole at once: its presses keep the settle the render gives them.
             builtBefore = true;
             FollowArrival();
