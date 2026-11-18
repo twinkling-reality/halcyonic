@@ -1567,6 +1567,26 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(look(), /const turf = new Mesh\(lipOfTurf, /);
   });
 
+  test('clouds are soft cards lit by the sky, and the night is lit by its moon over little fill', () => {
+    const clouds = look().slice(look().indexOf('function cloud('), look().indexOf('/** A small deterministic'));
+    assert.match(clouds, /new Sprite\(/);
+    assert.match(clouds, /fog: true/, 'far clouds take the haze like the land');
+    assert.doesNotMatch(clouds, /SphereGeometry/, 'no ball clusters');
+    const night = read('src/worlds.ts').slice(read('src/worlds.ts').indexOf("name: 'night'"));
+    assert.match(night, /fill: 0\.5,/);
+    assert.match(night, /exposure: 0\.72,/);
+  });
+
+  test('flowers, mushrooms and crystals are natural forms: petals, gilled caps and shards, no beads or gems', () => {
+    const decor = read('src/decor.ts');
+    assert.match(decor, /part\(petal\(0\.05, 0\.03\), colour/);
+    assert.match(decor, /part\(capShape\(0\.055, 0\.042\), cap/);
+    assert.doesNotMatch(decor, /new OctahedronGeometry\(0\.08, 0\), 'grape'/);
+    assert.match(decor, /part\(shard\(0\.045, 0\.28\)/);
+    const night = decor.slice(decor.indexOf('function nightDressing'), decor.indexOf('\n}\n', decor.indexOf('function nightDressing')));
+    assert.doesNotMatch(night, /new SphereGeometry\(0\.009, 8, 6\), '#FFFFFF'/, 'no white dots on the caps');
+  });
+
   test('trees and bushes are leafy crowns and the tufts are blades: no bare sphere or cone of foliage', () => {
     const decor = read('src/decor.ts');
     assert.doesNotMatch(decor, /part\(new SphereGeometry\(r, \d+, \d+\), '#47B04A'/);
