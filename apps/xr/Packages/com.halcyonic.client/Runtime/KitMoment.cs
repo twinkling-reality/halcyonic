@@ -530,10 +530,10 @@ namespace Halcyonic.Client
             _ => null,
         };
 
-        /// <summary>"Host: This Mac" or "Host: Sandbox": the composer's Host chip for <paramref name="environment"/>.</summary>
+        /// <summary>"Host: This Computer" or "Host: Sandbox": the composer's Host chip for <paramref name="environment"/>.</summary>
         public static string HostChip(string environment) => HostPrefix + environment;
 
-        /// <summary>"Agent: Codex", "Agent: Claude Agent", "Agent: qwen3.6:35b-a3b-nvfp4": the category, then their name whole.</summary>
+        /// <summary>"Agent: Local Models", "Agent: Hosted Models": the category, then what the agent app is (<see cref="RuntimeFaces"/>).</summary>
         public static string AgentChip(string agent) => AgentPrefix + agent;
 
         /// <summary>
