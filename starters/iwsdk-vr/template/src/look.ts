@@ -249,19 +249,16 @@ function island(): Group {
   // over into a long foot that runs out into the lawn, so it rises out of the ground instead of standing on it.
   const t = FLOOR.tier;
   const foot = ground.grass === undefined ? 0.8 : 0.5;
-  const bank = [
-    new Vector2(0.001, t.height),
-    new Vector2(t.radius - 0.3, t.height),
-    new Vector2(t.radius - 0.08, t.height - 0.012),
-    new Vector2(t.radius + 0.1, t.height - 0.05),
-    new Vector2(t.radius + foot * 0.3, t.height * 0.62),
-    new Vector2(t.radius + foot * 0.55, t.height * 0.3),
-    new Vector2(t.radius + foot * 0.8, t.height * 0.08),
-    new Vector2(t.radius + foot, 0.004),
-  ];
+  // Flat for a sign out to 0.3 m inside its edge, then falling away in one smooth curve to its foot: no crease to
+  // catch a line of shade.
+  const bank = [new Vector2(0.001, t.height)];
+  for (let k = 0; k <= 14; k++) {
+    const f = k / 14;
+    bank.push(new Vector2(t.radius - 0.3 + f * (0.3 + foot), t.height * (0.5 + 0.5 * Math.cos(Math.PI * f)) + 0.004 * (1 - f)));
+  }
   const tier = new Mesh(
     new LatheGeometry(bank, 96),
-    withGrain(toyMaterial(ground.grass === undefined ? ground.top : ground.rim, { ground: true }), 6, 0.4),
+    withGrain(toyMaterial(ground.top, { ground: true }), 6, 0.4),
   );
   tier.position.set(0, 0, t.z);
   tier.castShadow = true;
@@ -344,7 +341,8 @@ function island(): Group {
   rim.position.y = -0.02;
   // On a grass world the blades fringe the edge; a tube there reads as plastic. Bare ground keeps a low, soft lip.
   rim.scale.y = 0.4;
-  if (ground.grass === undefined) group.add(rim);
+  // No rim is laid: grass fringes a grass island's edge, and a beach runs on from a sand island's (CAST, seat34).
+  void rim;
   // No worn patch is laid: on grass the blades cover the play area, and on sand a paler disc read as a mat (AUDIT).
   return group;
 }
@@ -590,8 +588,8 @@ function sea(
     const r = Math.hypot(x, z);
     const c = near.clone().lerp(far, Math.min(1, (r / 30) ** 0.7));
     // Turquoise shallows over the sand round the island, deepening a couple of metres out.
-    const shallow = Math.max(0, 1 - (r - ISLAND_RADIUS) / 4.5);
-    c.lerp(shoal, shallow ** 2 * 0.6);
+    const shallow = Math.max(0, 1 - (r - ISLAND_RADIUS) / 5.5);
+    c.lerp(shoal, shallow ** 1.2 * 0.85);
     // Far out the sea takes the horizon's own colour, so it meets the sky in haze, not along a hard line.
     c.lerp(sky, Math.min(1, Math.max(0, (r - 14) / 20)) ** 1.15);
     if (sunAngle !== null && r > 4) {
@@ -623,7 +621,8 @@ function sea(
     const along = (Math.hypot(shore.getX(k), shore.getZ(k)) - (ISLAND_RADIUS - 0.05)) / 1.65;
     const y = -0.01 + (water.level - 0.25) * along ** 1.2;
     shore.setY(k, y);
-    const c = dryColour.clone().lerp(wetColour, Math.min(1, Math.max(0, (0.02 - y) / 0.25)));
+    // Wet only in a band at the waterline, where the surf reaches; dry and pale above it.
+    const c = dryColour.clone().lerp(wetColour, Math.min(1, Math.max(0, 1 - (y - water.level) / 0.07)));
     sand.push(c.r, c.g, c.b);
   }
   beach.setAttribute('color', new Float32BufferAttribute(sand, 3));
@@ -958,7 +957,7 @@ function skyLight(renderer: World['renderer'], look: WorldLook): Texture {
   const disc = new Mesh(
     new SphereGeometry(1.4, 16, 8),
     // Bright enough to glint, not so bright that the glint clips to white under the tone mapping.
-    new MeshBasicMaterial({ color: new Color(look.light.sun).multiplyScalar(look.light.sunStrength * 3.5) }),
+    new MeshBasicMaterial({ color: new Color(look.light.sun).multiplyScalar(look.light.sunStrength * 2) }),
   );
   disc.position.copy(toward.multiplyScalar(30));
   scene.add(disc);

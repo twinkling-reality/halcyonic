@@ -1735,6 +1735,23 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(decor, /blending: AdditiveBlending,/, 'each firefly glows');
   });
 
+  test('no bare primitive is left: no rim tube, real apples, a weathered fence, stone rocks, fireflies with a halo', () => {
+    assert.match(look(), /void rim;/, 'no rim tube on any island');
+    const decor = read('src/decor.ts');
+    assert.match(decor, /part\(appleShape\(\), /, 'apples, not red balls');
+    assert.match(
+      decor,
+      /decor\.add\(prop\(parts, \{ natural: true, roughness: 0\.88 \}\)\);\n\}/,
+      'a fence of weathered wood',
+    );
+    assert.match(decor, /'#B3A58C', \[0, 0\.04, 0\]/, 'rocks in stone colours');
+    assert.match(
+      decor,
+      /decor\.add\(flies, \.\.\.shells\);/,
+      'each firefly glows in shells of added light',
+    );
+  });
+
   test('clouds are soft cards lit by the sky, and the night is lit by its moon over little fill', () => {
     const clouds = look().slice(
       look().indexOf('function cloud('),

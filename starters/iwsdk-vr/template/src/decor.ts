@@ -17,13 +17,12 @@ import {
   InstancedMesh,
   LatheGeometry,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   type MeshPhysicalMaterial,
   Object3D,
   OctahedronGeometry,
   PlaneGeometry,
-  Points,
-  PointsMaterial,
   Shape,
   ShapeGeometry,
   SphereGeometry,
@@ -257,17 +256,19 @@ function fence(decor: Group): void {
       const x = Math.cos(a) * R;
       const z = Math.sin(a) * R;
       const turn = -a + Math.PI / 2;
-      parts.push(part(new BoxGeometry(0.06, 0.34, 0.03), '#FFF8EC', [x, 0.17, z], [1, 1, 1], [0, turn, 0]));
-      parts.push(
-        part(new ConeGeometry(0.043, 0.06, 4), '#FFF8EC', [x, 0.37, z], [1, 1, 0.5], [0, turn + Math.PI / 4, 0]),
-      );
+      // Weathered wood, each post its own height and a little out of true.
+      const lean = 0.05 * Math.sin(i * 2.3 + a * 5);
+      const tall = 0.34 + 0.03 * Math.sin(i * 1.7);
+      const shade = i % 3 === 0 ? '#E2D4B8' : i % 3 === 1 ? '#EADFC8' : '#D8C9AA';
+      parts.push(part(barkTrunk(0.026, 0.03, tall, i + a), shade, [x, 0, z], [1.2, 1, 0.6], [lean, turn, lean * 0.6]));
+      parts.push(part(new ConeGeometry(0.04, 0.06, 4), shade, [x, tall + 0.03, z], [1, 1, 0.5], [lean, turn + Math.PI / 4, 0]));
       if (previous !== null) {
         const [px, pz] = previous;
         const length = Math.hypot(x - px, z - pz);
         const along = Math.atan2(-(z - pz), x - px);
         for (const y of [0.1, 0.24])
           parts.push(
-            part(new BoxGeometry(length, 0.035, 0.02), '#F2E6D2', [(x + px) / 2, y, (z + pz) / 2 - 0.0], [1, 1, 1], [
+            part(new BoxGeometry(length, 0.035, 0.02, 6, 1, 1), '#DCCDB0', [(x + px) / 2, y, (z + pz) / 2 - 0.0], [1, 1, 1], [
               0,
               along,
               0,
@@ -277,7 +278,7 @@ function fence(decor: Group): void {
       previous = [x, z];
     }
   }
-  decor.add(prop(parts, { roughness: 0.5 }));
+  decor.add(prop(parts, { natural: true, roughness: 0.88 }));
 }
 
 /** A garden at golden hour: apple trees, pumpkins, sunflowers facing the player, grass, butterflies and a fence. */
@@ -299,7 +300,7 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
       [0.34, 0.62, 0.17],
       [-0.33, 0.8, 0.1],
     ] as const)
-      parts.push(part(new SphereGeometry(0.05, 16, 12), 'berry', [a, b, c]));
+      parts.push(part(appleShape(), a > 0 ? '#C8323A' : '#B8402E', [a, b, c]), part(new CylinderGeometry(0.004, 0.005, 0.025, 5), '#5A3A1E', [a, b + 0.05, c]));
     const swaying = prop(parts, { natural: true, roughness: 0.7 });
     swaying.add(canopy(crown, x * 3.1 + z));
     tree.add(swaying);
@@ -457,9 +458,9 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
   }
   for (const [i, [x, z, size]] of LAYOUT.bushes.slice(0, bushes).entries()) {
     const parts = [
-      part(foliage(0.16, i * 3 + 1), '#9C988F', [0, 0.06, 0], [1.25, 0.62, 1]),
-      part(foliage(0.1, i * 3 + 2), '#857F76', [0.17, 0.04, 0.05], [1, 0.7, 1], [0.4, i, 0]),
-      part(foliage(0.07, i * 3 + 3), '#AFA99E', [-0.14, 0.03, 0.08], [1, 0.75, 1], [0, i * 2, 0.3]),
+      part(foliage(0.16, i * 3 + 1), '#B3A58C', [0, 0.04, 0], [1.25, 0.55, 1]),
+      part(foliage(0.1, i * 3 + 2), '#9C8F78', [0.17, 0.03, 0.05], [1, 0.6, 1], [0.4, i, 0]),
+      part(foliage(0.07, i * 3 + 3), '#C4B69C', [-0.14, 0.02, 0.08], [1, 0.65, 1], [0, i * 2, 0.3]),
     ];
     // Weathered stone: lumpy, matte, with the relief of rock, settled into the sand.
     const rock = prop(parts, { natural: true, roughness: 0.92 });
@@ -586,6 +587,10 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
       part(shard(0.03, 0.17), '#A58CF0', [-0.06, 0, 0.03], [1, 1, 1], [0, i * 2, 0.5]),
       part(shard(0.025, 0.12), '#6A9AF0', [0.02, 0, -0.06], [1, 1, 1], [0.45, i, 0.1]),
       part(shard(0.02, 0.09), '#8C78E6', [-0.03, 0, 0.07], [1, 1, 1], [-0.5, i, -0.2]),
+      // Small shards round its foot, so it reads as a cluster grown from the ground, never one cone.
+      part(shard(0.018, 0.07), '#7A8AE8', [0.08, 0, -0.03], [1, 1, 1], [0.3, i + 1, -0.6]),
+      part(shard(0.016, 0.06), '#9A84F0', [-0.07, 0, -0.05], [1, 1, 1], [-0.4, i + 2, 0.55]),
+      part(shard(0.014, 0.05), '#6E7EE0', [0.03, 0, 0.08], [1, 1, 1], [0.6, i + 3, 0.3]),
     ];
     const crystal = prop(parts, { roughness: 0.12, clearcoat: 1 });
     glowing(crystal.material as MeshPhysicalMaterial, 0.4);
@@ -628,7 +633,7 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
   if (homes.length > 0) {
     const material = glowing(toyMaterial('#FFFFFF', { roughness: 0.4 }), 1.4);
     material.vertexColors = true;
-    const flies = new InstancedMesh(merge([part(new SphereGeometry(0.022, 10, 8), '#EAFF86', [0, 0, 0])]), material, homes.length * swarm);
+    const flies = new InstancedMesh(merge([part(new SphereGeometry(0.011, 8, 6), '#F4FFB0', [0, 0, 0])]), material, homes.length * swarm);
     flies.frustumCulled = false;
     const place = new Object3D();
     const move = (time: number) => {
@@ -647,34 +652,36 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
         }
       flies.instanceMatrix.needsUpdate = true;
     };
-    // Each firefly's own glow: a tight soft halo round it, added light, as a true emitter has (CAST, seat31).
-    const glowPositions = new Float32Array(homes.length * swarm * 3);
-    const glowGeometry = new BufferGeometry();
-    glowGeometry.setAttribute('position', new Float32BufferAttribute(glowPositions, 3));
-    const halo = new Points(
-      glowGeometry,
-      new PointsMaterial({
-        size: 0.14,
-        map: fireflyGlow(),
-        color: '#EAFF86',
-        transparent: true,
-        depthWrite: false,
-        blending: AdditiveBlending,
-        fog: false,
-      }),
-    );
-    halo.frustumCulled = false;
+    // Each firefly's own glow: two soft shells of added light round its bright heart, a tight halo as a true emitter
+    // has (CAST, seat31), on the same places as the flies, one draw call each.
+    const shells = [
+      [0.045, 0.32],
+      [0.11, 0.1],
+    ].map(([radius, strength]) => {
+      const shell = new InstancedMesh(
+        new SphereGeometry(radius, 12, 8),
+        new MeshBasicMaterial({
+          color: new Color('#EAFF86').multiplyScalar(strength),
+          transparent: true,
+          depthWrite: false,
+          blending: AdditiveBlending,
+          fog: false,
+        }),
+        homes.length * swarm,
+      );
+      shell.frustumCulled = false;
+      return shell;
+    });
     const shine = (time: number) => {
       move(time);
       for (let k = 0; k < homes.length * swarm; k++) {
         flies.getMatrixAt(k, place.matrix);
-        place.position.setFromMatrixPosition(place.matrix);
-        glowPositions.set([place.position.x, place.position.y, place.position.z], k * 3);
+        for (const shell of shells) shell.setMatrixAt(k, place.matrix);
       }
-      glowGeometry.getAttribute('position').needsUpdate = true;
+      for (const shell of shells) shell.instanceMatrix.needsUpdate = true;
     };
     shine(0);
-    decor.add(flies, halo);
+    decor.add(flies, ...shells);
     ambientMotion(shine);
   }
 }
@@ -821,28 +828,6 @@ function barkTrunk(rt: number, rb: number, h: number, seed: number): BufferGeome
   return trunk;
 }
 
-let fireflyPicture: CanvasTexture | null = null;
-
-/** A firefly's halo: bright at its heart and gone within a few of its own widths. */
-function fireflyGlow(): CanvasTexture {
-  if (fireflyPicture !== null) return fireflyPicture;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 64;
-  const context = canvas.getContext('2d');
-  if (context !== null) {
-    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gradient.addColorStop(0, 'rgba(255,255,255,1)');
-    gradient.addColorStop(0.18, 'rgba(255,255,255,0.75)');
-    gradient.addColorStop(0.45, 'rgba(255,255,255,0.18)');
-    gradient.addColorStop(1, 'rgba(255,255,255,0)');
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 64, 64);
-  }
-  fireflyPicture = new CanvasTexture(canvas);
-  fireflyPicture.colorSpace = SRGBColorSpace;
-  return fireflyPicture;
-}
-
 let leafPicture: CanvasTexture | null = null;
 
 /**
@@ -969,6 +954,21 @@ function canopy(blobs: readonly (readonly [number, number, number, number, strin
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   return mesh;
+}
+
+/** An apple: round, a little wider at the shoulder, dimpled where its stem rises. */
+function appleShape(): BufferGeometry {
+  const profile = [
+    new Vector2(0.001, -0.042),
+    new Vector2(0.022, -0.04),
+    new Vector2(0.042, -0.02),
+    new Vector2(0.049, 0.008),
+    new Vector2(0.043, 0.032),
+    new Vector2(0.022, 0.044),
+    new Vector2(0.006, 0.036),
+    new Vector2(0.001, 0.03),
+  ];
+  return new LatheGeometry(profile, 18);
 }
 
 /** One part of a prop: a geometry in its own colour, placed in the prop. */
