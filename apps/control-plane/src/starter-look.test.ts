@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { READING_HIDDEN_POINTS } from '@halcyonic/contracts';
 import {
@@ -293,10 +293,12 @@ describe('a hit can celebrate and the score can be shown big, ready for any game
 });
 
 describe('the page shows the sky while the game loads, never a white page (U6b)', () => {
-  test("the page's own background is ART7's sky, behind the canvas", () => {
+  test("the page's own background is the meadow's sky, behind the canvas", () => {
     const page = read('index.html');
     assert.match(page, /html,\s*body \{[^}]*height: 100%;/);
-    assert.match(page, /background: linear-gradient\(#4FAEFF, #D8F0FF\);/);
+    // Since the starter's photographed skies (SCREENS, 2026-11-18) the meadow's sky colours are its photograph's.
+    assert.match(page, /background: linear-gradient\(#768CB7, #C5CAD7\);/);
+    assert.match(read('src/worlds.ts'), /top: '#768CB7',\n\s+horizon: '#C5CAD7',/);
     assert.match(read('src/palette.ts'), /sky: '#4FAEFF'/);
     assert.match(read('src/palette.ts'), /cloud: '#D8F0FF'/);
   });
@@ -405,13 +407,13 @@ describe('a game can be set in a world of its own, so two games never read as on
       for (const part of ['sky:', 'light:', 'ground:', `dressing: '${name}'`, 'sound:'])
         assert.ok(body.includes(part), `${name} has ${part}`);
     }
-    // The meadow is the starter's own: ART7's sky and grass, with no sun disc, stars, sea or sunset band; since the lead's
-    // starter look (2026-11-18) it stands on land with far hills, grounded as every land world is.
+    // The meadow is the starter's own: ART7's grass, with no stars, sea or sunset band; since the lead's starter look
+    // (2026-11-18) it stands on land with far hills, grounded as every land world is, under a photographed sky.
     const meadow = worlds.slice(
       worlds.indexOf('const meadow'),
       worlds.indexOf('\n};', worlds.indexOf('const meadow')),
     );
-    assert.match(meadow, /sky: \{\n\s+top: palette\.sky,\n\s+horizon: palette\.cloud,/);
+    assert.match(meadow, /picture: \{ file: 'skies\/meadow\.webp', sun: 0\.5947, below: 0\.06 \},/);
     assert.match(meadow, /top: palette\.leaf,/);
     // Since the lead's starter look's tenth pass (CAST, seat31) the meadow is a morning: one low sun drives its key light,
     // its shadows and its sky's light. Still ART7's sky, with no sunset band, stars or sea.
@@ -427,7 +429,10 @@ describe('a game can be set in a world of its own, so two games never read as on
       look,
       /export function setupLook\(world: World, setting: WorldName \| WorldLook = 'meadow'\): \{ island: Group \}/,
     );
-    assert.match(look, /stage\.add\(plain \? meadowSky\(look\.sky\) : skyDome\(look\.sky\)\);/);
+    assert.match(
+      look,
+      /const drawn = plain \? meadowSky\(look\.sky\) : skyDome\(look\.sky\);\n\s+stage\.add\(drawn\);/,
+    );
     assert.match(look, /startAmbience\(look\.sound, ambientMotion\);/);
     const decor = read('src/decor.ts');
     for (const dressing of ['garden', 'seaside', 'night'])
@@ -1675,8 +1680,13 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       clumps,
-      /new InstancedMesh\(tree, material, count \+ 30\)/,
+      /new InstancedMesh\(tree, material, count\)/,
       'far clumps cost one draw call',
+    );
+    assert.match(
+      clumps,
+      /natureInstances\('CommonTree_5', 2\.6, lone, tint\);\n\s+group\.add\(shadows, clumps, trees, natureInstances\('Bush_Common', 1\.1, bushes, tint\)\);/,
+      'the nearer lone trees and bushes are the modelled ones, one draw call per part',
     );
     assert.match(
       clumps,
@@ -1830,6 +1840,124 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(
       read('src/kit.ts'),
       /export \{ surfaceGrain, water, waterMaterial, withGrain \} from '\.\/surface\.js';/,
+    );
+  });
+});
+
+describe("the starter's skies and nature models are free files of its own (the lead's starter assets, 2026-11-18)", () => {
+  const look = () => read('src/look.ts');
+  const worlds = read('src/worlds.ts');
+  const notice = read('NOTICE');
+  const bytes = (path: string) => statSync(new URL(path, template)).size;
+
+  test('the meadow, garden and seaside have photographed skies in public/skies, small and credited; night keeps its drawn one', () => {
+    for (const [name, page] of [
+      ['meadow', 'kloofendal_48d_partly_cloudy_puresky'],
+      ['garden', 'kloppenheim_06_puresky'],
+      ['seaside', 'qwantani_dusk_2_puresky'],
+    ] as const) {
+      const body = worlds.slice(
+        worlds.indexOf(`const ${name}: WorldLook = {`),
+        worlds.indexOf('\n};', worlds.indexOf(`const ${name}`)),
+      );
+      assert.match(
+        body,
+        new RegExp(`picture: \\{ file: 'skies/${name}\\.webp', sun: 0\\.\\d+, below: 0\\.06 \\},`),
+        name,
+      );
+      // A photograph brings its own clouds: no toy clouds in front of it.
+      assert.match(body, /clouds: null,/, name);
+      assert.ok(bytes(`public/skies/${name}.webp`) < 80_000, `${name}'s sky is under 80 KB`);
+      assert.ok(notice.includes(`https://polyhaven.com/a/${page}`), `NOTICE names ${page}'s page`);
+    }
+    assert.match(notice, /each under CC0 1\.0 \(public domain;/);
+    const night = worlds.slice(worlds.indexOf('const night: WorldLook = {'));
+    assert.doesNotMatch(night.slice(0, night.indexOf('\n};')), /picture:/);
+  });
+
+  test("a photographed sky loads from the app's own files, turned so its sun stands at the world's, the drawn sky standing in", () => {
+    const sky = look().slice(
+      look().indexOf('function pictureSky('),
+      look().indexOf('/** Stars in the upper sky'),
+    );
+    assert.match(
+      sky,
+      /new TextureLoader\(\)\.load\(\n\s+`\$\{import\.meta\.env\.BASE_URL\}\$\{picture\.file/,
+    );
+    assert.doesNotMatch(sky, /https?:\/\//);
+    assert.match(
+      sky,
+      /dome\.rotation\.y = picture\.sun \* Math\.PI \* 2 - Math\.atan2\(toward\[2\], toward\[0\]\);/,
+    );
+    assert.match(sky, /toneMapped: false/);
+    // Until it loads, or if it cannot be read, the drawn sky shows and lights the world; once it has, it takes over both.
+    assert.match(
+      look(),
+      /drawn\.visible = false;\n\s+world\.scene\.environment = skyLight\(renderer, look, dome\);/,
+    );
+  });
+
+  test('the first frame waits for those files, never more than three seconds of game time', () => {
+    assert.match(look(), /export function holdFirstFrame\(until: Promise<unknown>\): void/);
+    assert.match(look(), /if \(shown \|\| \(holding > 0 && time - started < 3\)\) return;/);
+    assert.match(read('src/nature.ts'), /holdFirstFrame\(kit\);/);
+  });
+
+  test("eleven CC0 models load by three.js's own loader with its bundled meshopt decoder, textures as files of their own", () => {
+    const nature = read('src/nature.ts');
+    assert.match(
+      nature,
+      /import \{ MeshoptDecoder \} from 'three\/addons\/libs\/meshopt_decoder\.module\.js';/,
+    );
+    assert.match(nature, /\.setMeshoptDecoder\(MeshoptDecoder\)/);
+    assert.match(nature, /`\$\{import\.meta\.env\.BASE_URL\}models\/nature\/nature\.gltf`/);
+    // The SDK's own loader would fetch its Draco and KTX2 decoders from the internet.
+    assert.doesNotMatch(nature, /AssetManager|DRACOLoader|KTX2Loader|https?:\/\//);
+    const gltf = JSON.parse(read('public/models/nature/nature.gltf')) as {
+      extensionsUsed: string[];
+      images: { uri?: string; bufferView?: number }[];
+      scenes: { nodes: number[] }[];
+      nodes: { name: string }[];
+    };
+    assert.ok(gltf.extensionsUsed.includes('EXT_meshopt_compression'));
+    assert.ok(!gltf.extensionsUsed.some((name) => /draco|basisu/i.test(name)));
+    // Packed pictures would load from blob: addresses, which the preview's security policy refuses.
+    for (const image of gltf.images) assert.match(image.uri ?? '', /^[a-z_0-9]+\.webp$/i);
+    const names = gltf.scenes.flatMap((scene) => scene.nodes.map((k) => gltf.nodes[k]?.name));
+    const listed = [...nature.matchAll(/\| '([A-Za-z_0-9]+)'/g)].map((m) => m[1]);
+    assert.deepEqual([...names].sort(), [...listed].sort());
+    assert.equal(listed.length, 11);
+    for (const name of listed) assert.ok(notice.includes(name as string), `NOTICE names ${name}`);
+    assert.match(
+      notice,
+      /Quaternius's Stylized Nature MegaKit, free Standard edition, under\nCC0 1\.0/,
+    );
+    const folder = new URL('public/models/nature/', template);
+    const total = readdirSync(folder).reduce(
+      (sum, file) => sum + statSync(new URL(file, folder)).size,
+      0,
+    );
+    assert.ok(total < 700_000, `the models are ${total} bytes, under 0.7 MB for a headset`);
+  });
+
+  test('the dressing places the models, each with a drawn one standing in if the files cannot be read', () => {
+    const decor = read('src/decor.ts');
+    assert.match(
+      decor,
+      /natureModel\(ROUND_TREES\[i % ROUND_TREES\.length\], 1\.5, \{ fallback: \(\) => roundTree\(x, z\) \}\)/,
+    );
+    assert.match(decor, /natureModel\('Fern_1', 0\.17\)/);
+    assert.match(decor, /fallback: \(\) => roundBush\(x, z\)/);
+    assert.match(decor, /fallback: \(\) => drawnFlower\(x, z, colour\)/);
+    assert.match(
+      decor,
+      /natureModel\(SEA_ROCKS\[i % SEA_ROCKS\.length\], 0\.2 \* size, \{\n\s+tint: '#F2E4CC',/,
+    );
+    // The kit's vertex colours weight its wind for its maker's shader; drawn as colour they bleach the leaves.
+    assert.match(read('src/nature.ts'), /material\.vertexColors = false;/);
+    assert.match(
+      read('src/kit.ts'),
+      /export \{ type NatureModel, natureInstances, natureModel \} from '\.\/nature\.js';/,
     );
   });
 });

@@ -40,6 +40,7 @@ import { withGrain } from './surface.js';
 import { wordsOn } from './legible.js';
 import { ambientMotion, contactShadow, currentWorld, gameIsland, gameTime, ISLAND_CENTRE, TIER } from './look.js';
 import { ambient, confettiPiece, flap, flight, juice, pulse, sway } from './motion.js';
+import { type NatureModel, natureModel } from './nature.js';
 import { type PaletteName, palette, toyMaterial } from './palette.js';
 
 /**
@@ -114,20 +115,12 @@ export function decorate(island: Group, counts: DecorCounts = {}): Group {
 
 function meadowDressing(decor: Group, counts: DecorCounts): void {
   const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
-  for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
+  for (const [i, [x, z, size]] of LAYOUT.trees.slice(0, trees).entries()) {
     const tree = new Group();
-    const parts = [part(barkTrunk(0.06, 0.08, 0.5, x + z), 'cocoa', [0, 0, 0])];
-    const crown = [
-      [0, 0.74, 0, 0.36, '#4FB244'],
-      [0.21, 0.6, 0.05, 0.27, '#3F9E3C'],
-      [-0.2, 0.63, -0.03, 0.28, '#47A841'],
-      [0.04, 0.95, -0.05, 0.22, '#5ABE4C'],
-    ] as const;
-    // A dark core holds the crown's mass behind the leaves, so the sky never shows through it.
-    for (const [a, b, c, r] of crown) parts.push(part(foliage(r * 0.72, x * 3.1 + a * 7 + z), '#24561F', [a, b, c]));
-    // The trunk and crown sway together above a still shadow, which would dip into the grass if it leaned.
-    const swaying = prop(parts, { natural: true, roughness: 0.82 });
-    swaying.add(canopy(crown, x * 3.1 + z));
+    // A modelled tree, each of the three its own; the drawn one stands in if the models cannot be read. The trunk and
+    // crown sway together above a still shadow, which would dip into the grass if it leaned.
+    const swaying = natureModel(ROUND_TREES[i % ROUND_TREES.length], 1.5, { fallback: () => roundTree(x, z) });
+    swaying.rotation.y = x * 2.1 + z;
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size);
@@ -136,21 +129,82 @@ function meadowDressing(decor: Group, counts: DecorCounts): void {
     ambientMotion((time) => {
       swaying.rotation.z = sway(time, x, z, ambient.treeAmp, ambient.treePeriod);
     });
+    // Ferns at its foot, where a tree's shade keeps the ground damp.
+    for (const [a, b, turn] of FERNS) {
+      const fern = natureModel('Fern_1', 0.17);
+      fern.position.set(x + a, 0, z + b);
+      fern.rotation.y = turn + x;
+      decor.add(fern);
+    }
   }
-  for (const [x, z, size] of LAYOUT.bushes.slice(0, bushes)) {
-    const leafy = [
-      [0, 0.14, 0, 0.2, '#45A847'],
-      [0.18, 0.075, 0, 0.15, '#3A9A40'],
-      [-0.17, 0.058, 0, 0.14, '#4FB04A'],
-    ] as const;
-    const parts = leafy.map(([a, b, c, r]) => part(foliage(r * 0.72, x * 2.3 + a * 5 + z), '#21501F', [a, b, c]));
-    const bush = prop(parts, { natural: true, roughness: 0.82 });
-    bush.add(canopy(leafy, x * 2.3 + z));
+  for (const [i, [x, z, size]] of LAYOUT.bushes.slice(0, bushes).entries()) {
+    const bush = natureModel(i % 2 === 0 ? 'Bush_Common' : 'Bush_Common_Flowers', 0.5 * size, {
+      fallback: () => roundBush(x, z),
+    });
     bush.position.set(x, 0, z);
-    bush.scale.setScalar(size * 1.4);
+    bush.rotation.y = x * 1.7 + z * 2.3;
+    bush.add(contactShadow(0.3 * size));
     decor.add(bush);
   }
-  for (const [x, z, colour] of LAYOUT.flowers.slice(0, flowers)) {
+  for (const [i, [x, z, colour]] of LAYOUT.flowers.slice(0, flowers).entries()) {
+    // A clump of wild flowers; one drawn flower stands in if the models cannot be read.
+    const flower = natureModel(i % 2 === 0 ? 'Flower_3_Group' : 'Flower_4_Group', 0.26, {
+      fallback: () => drawnFlower(x, z, colour),
+    });
+    flower.rotation.y = x * 3 + z;
+    flower.position.set(x, 0, z);
+    decor.add(flower);
+    // Rooted at its stems: the heads nod with the breeze, a little across it too.
+    ambientMotion((time) => {
+      flower.rotation.z = sway(time, x, z);
+      flower.rotation.x = 0.35 * sway(time + 0.9, z, x);
+    });
+  }
+  grassTufts(decor, tufts, '#4FB045', 1);
+  flyers(decor, butterflies);
+}
+
+/** The meadow's modelled round trees, one for each place in turn. */
+const ROUND_TREES: readonly NatureModel[] = ['CommonTree_1', 'CommonTree_5', 'CommonTree_2'];
+
+/** Where ferns grow round a tree's foot, from its trunk (x, z, turn). */
+const FERNS = [
+  [0.32, 0.22, 0],
+  [-0.28, 0.3, 2.1],
+] as const;
+
+/** The drawn round tree: a bark trunk under a crown of leaf cards round dark cores. */
+function roundTree(x: number, z: number): Mesh {
+  const parts = [part(barkTrunk(0.06, 0.08, 0.5, x + z), 'cocoa', [0, 0, 0])];
+  const crown = [
+    [0, 0.74, 0, 0.36, '#4FB244'],
+    [0.21, 0.6, 0.05, 0.27, '#3F9E3C'],
+    [-0.2, 0.63, -0.03, 0.28, '#47A841'],
+    [0.04, 0.95, -0.05, 0.22, '#5ABE4C'],
+  ] as const;
+  // A dark core holds the crown's mass behind the leaves, so the sky never shows through it.
+  for (const [a, b, c, r] of crown) parts.push(part(foliage(r * 0.72, x * 3.1 + a * 7 + z), '#24561F', [a, b, c]));
+  const tree = prop(parts, { natural: true, roughness: 0.82 });
+  tree.add(canopy(crown, x * 3.1 + z));
+  return tree;
+}
+
+/** The drawn bush: three rounds of leaf cards round dark cores. */
+function roundBush(x: number, z: number): Mesh {
+  const leafy = [
+    [0, 0.14, 0, 0.2, '#45A847'],
+    [0.18, 0.075, 0, 0.15, '#3A9A40'],
+    [-0.17, 0.058, 0, 0.14, '#4FB04A'],
+  ] as const;
+  const parts = leafy.map(([a, b, c, r]) => part(foliage(r * 0.72, x * 2.3 + a * 5 + z), '#21501F', [a, b, c]));
+  const bush = prop(parts, { natural: true, roughness: 0.82 });
+  bush.add(canopy(leafy, x * 2.3 + z));
+  bush.scale.setScalar(2);
+  return bush;
+}
+
+/** The drawn flower: a slim stem and two leaves under six cupped petals round a seeded centre. */
+function drawnFlower(x: number, z: number, colour: PaletteName): Mesh {
     // A slim stem and two leaves under six cupped petals round a seeded centre: a flower, not five beads.
     const parts = [
       part(new CylinderGeometry(0.005, 0.008, 0.17, 6), '#3E8E34', [0, 0.085, 0]),
@@ -163,16 +217,7 @@ function meadowDressing(decor: Group, counts: DecorCounts): void {
     const flower = prop(parts, { natural: true, roughness: 0.6 });
     bothSidesUp(flower.material as MeshPhysicalMaterial);
     flower.scale.setScalar(1.5);
-    flower.position.set(x, 0, z);
-    decor.add(flower);
-    // Rooted at its stem: the head nods with the breeze, a little across it too.
-    ambientMotion((time) => {
-      flower.rotation.z = sway(time, x, z);
-      flower.rotation.x = 0.35 * sway(time + 0.9, z, x);
-    });
-  }
-  grassTufts(decor, tufts, '#4FB045', 1);
-  flyers(decor, butterflies);
+    return flower;
 }
 
 /** Grass: every tuft one instance of the same three blades, one draw call for the island, leaning with the breeze. */
@@ -371,6 +416,9 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
   flyers(decor, butterflies);
 }
 
+/** The seaside's modelled rocks, one for each place in turn. */
+const SEA_ROCKS: readonly NatureModel[] = ['Rock_Medium_1', 'Rock_Medium_3', 'Rock_Medium_2'];
+
 /** A seaside: palms and a striped umbrella, rocks, shells and starfish on the sand, dune grass, and gulls. */
 function seasideDressing(decor: Group, counts: DecorCounts): void {
   const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
@@ -459,15 +507,22 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
     });
   }
   for (const [i, [x, z, size]] of LAYOUT.bushes.slice(0, bushes).entries()) {
-    const parts = [
-      part(foliage(0.16, i * 3 + 1), '#D8C8A8', [0, 0.04, 0], [1.25, 0.55, 1]),
-      part(foliage(0.1, i * 3 + 2), '#C4B394', [0.17, 0.03, 0.05], [1, 0.6, 1], [0.4, i, 0]),
-      part(foliage(0.07, i * 3 + 3), '#E2D4B6', [-0.14, 0.02, 0.08], [1, 0.65, 1], [0, i * 2, 0.3]),
-    ];
-    // Weathered stone: lumpy, matte, with the relief of rock, settled into the sand.
-    const rock = prop(parts, { natural: true, roughness: 0.92 });
-    rock.position.set(x, 0, z);
-    rock.scale.setScalar(size * 1.2);
+    // Weathered stone, sun-bleached, settled into the sand; drawn stone stands in if the models cannot be read.
+    const rock = natureModel(SEA_ROCKS[i % SEA_ROCKS.length], 0.2 * size, {
+      tint: '#F2E4CC',
+      fallback: () => {
+        const parts = [
+          part(foliage(0.16, i * 3 + 1), '#D8C8A8', [0, 0.04, 0], [1.25, 0.55, 1]),
+          part(foliage(0.1, i * 3 + 2), '#C4B394', [0.17, 0.03, 0.05], [1, 0.6, 1], [0.4, i, 0]),
+          part(foliage(0.07, i * 3 + 3), '#E2D4B6', [-0.14, 0.02, 0.08], [1, 0.65, 1], [0, i * 2, 0.3]),
+        ];
+        const drawn = prop(parts, { natural: true, roughness: 0.92 });
+        drawn.scale.setScalar(size * 1.2);
+        return drawn;
+      },
+    });
+    rock.position.set(x, -0.015, z);
+    rock.rotation.y = i * 2.4 + x;
     rock.add(contactShadow(0.3));
     decor.add(rock);
   }

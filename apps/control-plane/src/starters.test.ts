@@ -825,6 +825,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       // SHOW: a person's own photo or video read as a sky over a ground (2026-11-16).
       'memory.ts',
       'motion.ts',
+      // SCREENS: the starter's CC0 nature models, loaded from its own files (the lead's starter assets, 2026-11-18).
+      'nature.ts',
       // VRIFY: a page's words spread over the pages they take, never cut off (AUDIT2, 2026-11-13).
       'page-fit.ts',
       // VRIFY unit 2: a web page's own cards, drawn as readable pages.

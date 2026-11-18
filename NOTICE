@@ -42,3 +42,7 @@ JetBrains Mono Regular, Copyright 2020 The JetBrains Mono Project Authors, is us
 commands and code in the room of projects. Licensed under the SIL Open Font License 1.1;
 full license: apps/xr/Assets/Halcyonic/UI/Fonts/JetBrainsMono/OFL.txt.
 Source: https://github.com/JetBrains/JetBrainsMono/releases/tag/v2.304
+
+The VR app starter (starters/iwsdk-vr/template) includes three skies made from Poly Haven skies by Greg Zaal with
+Jarod Guest and eleven models from Quaternius's Stylized Nature MegaKit, all under CC0 1.0 (public domain); the
+starter's own NOTICE names each, its page and what was changed.

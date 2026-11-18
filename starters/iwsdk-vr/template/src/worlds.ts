@@ -19,8 +19,15 @@ export interface WorldLook {
     readonly disc?: { readonly at: readonly [number, number, number]; readonly colour: string; readonly size: number; readonly glow: string; readonly glowStrength: number };
     /** How many stars, in the upper sky; 0 or absent for none. */
     readonly stars?: number;
-    /** The toy clouds' colour, or null for no clouds. */
+    /** The toy clouds' colour, or null for no clouds (a photographed sky brings its own). */
     readonly clouds: string | null;
+    /**
+     * A photographed sky in place of the drawn one: `file`, a picture in `public/` of the sky's upper half and `below`
+     * (a fraction of its height) of the lower, laid round the island and turned so its sun, at `sun` across the picture
+     * from its left edge, stands toward `disc.at`. `top` and `horizon` stay the sky's colours for the haze, and the
+     * drawn sky stands in until the picture loads. Make your own from any sky picture laid out the same way.
+     */
+    readonly picture?: { readonly file: string; readonly sun: number; readonly below: number };
   };
   readonly light: {
     /** The soft light from the sky and the ground. */
@@ -86,11 +93,13 @@ export interface WorldLook {
 const meadow: WorldLook = {
   name: 'meadow',
   sky: {
-    top: palette.sky,
-    horizon: palette.cloud,
-    // A morning sun, low ahead and to the left: one sun drives the key light, the shadows and the sky's light.
+    top: '#768CB7',
+    horizon: '#C5CAD7',
+    // A morning sun, ahead and to the left: one sun drives the key light, the shadows and the sky's light.
     disc: { at: [-0.62, 0.22, -1], colour: '#FFF4DC', size: 0.05, glow: '#FFE2A8', glowStrength: 1.0 },
-    clouds: '#FFFFFF',
+    clouds: null,
+    // A bright day with heaped cumulus (Poly Haven's "Kloofendal 48d Partly Cloudy (Pure Sky)", CC0; NOTICE).
+    picture: { file: 'skies/meadow.webp', sun: 0.5947, below: 0.06 },
   },
   light: {
     sky: '#9CC8FF',
@@ -123,11 +132,13 @@ const meadow: WorldLook = {
 const garden: WorldLook = {
   name: 'garden',
   sky: {
-    top: '#6E9FDC',
+    top: '#6E88AE',
     middle: '#F7B98A',
-    horizon: '#FFD596',
+    horizon: '#C3BFB9',
     disc: { at: [-0.55, 0.1, -1], colour: '#FFF6D6', size: 0.06, glow: '#FFAA55', glowStrength: 1.3 },
-    clouds: '#FFE6CC',
+    clouds: null,
+    // A low sun through light cloud (Poly Haven's "Kloppenheim 06 (Pure Sky)", CC0; NOTICE).
+    picture: { file: 'skies/garden.webp', sun: 0.6123, below: 0.06 },
   },
   light: {
     sky: '#FFD9AE',
@@ -136,6 +147,8 @@ const garden: WorldLook = {
     sun: '#FFC783',
     sunAt: [4.6, 2.7, 2.6],
     sunStrength: 2.7,
+    // Thinner haze than the meadow's: under a low sun a thick one turns the far hills to sand.
+    haze: 0.016,
     rim: '#FFB08A',
     rimStrength: 0.8,
   },
@@ -156,21 +169,24 @@ const garden: WorldLook = {
   sound: { wind: 0.25, birds: 0.9 },
 };
 
-/** A seaside at sunset: a sandy island in the sea, a big orange sun on the water, palms, rocks, shells and gulls. */
+/** A seaside at dusk: a sandy island in a calm sea under a lilac sky, palms, rocks, shells and gulls. */
 const seaside: WorldLook = {
   name: 'seaside',
   sky: {
-    top: '#4B4EA8',
-    middle: '#EE7F94',
-    horizon: '#FFA867',
+    top: '#8D99C7',
+    middle: '#CABECD',
+    horizon: '#A394A6',
     disc: { at: [0.3, 0.05, -1], colour: '#FFE7A6', size: 0.065, glow: '#FF8A4C', glowStrength: 1.2 },
-    clouds: '#FFC4A8',
+    clouds: null,
+    // A clear dusk, lilac over a pale glow where the sun has set (Poly Haven's "Qwantani Dusk 2 (Pure Sky)", CC0;
+    // NOTICE).
+    picture: { file: 'skies/seaside.webp', sun: 0.5898, below: 0.06 },
   },
   light: {
-    sky: '#FFBFA4',
+    sky: '#D8C4E0',
     ground: '#6FA3C9',
     fill: 0.68,
-    sun: '#FFB27A',
+    sun: '#FFCBAE',
     sunAt: [3.4, 2.4, 2.9],
     sunStrength: 2.4,
     rim: '#FFC08A',
@@ -186,7 +202,7 @@ const seaside: WorldLook = {
     side: '#D9AE76',
     lip: '#B98A55',
     steps: ['#B07A4E', '#946240'],
-    sea: { near: '#1F86B8', far: '#7FA6D6', glitter: '#FFC27A', level: -0.3 },
+    sea: { near: '#2A7FB0', far: '#9A9CC8', glitter: '#FFD8C0', level: -0.3 },
   },
   dressing: 'seaside',
   sound: { waves: 0.9, wind: 0.2, gulls: 0.5 },

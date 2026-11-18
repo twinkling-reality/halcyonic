@@ -1,9 +1,9 @@
 /**
  * Everything a game takes from the starter, in one place: `import { critter, onSelect, scoreSign } from './kit.js';`.
  * Each name lives in its own file (`src/look.ts`, `src/decor.ts`, `src/motion.ts`, `src/palette.ts`,
- * `src/play-input.ts`, `src/worlds.ts`, `src/relief.ts`, `src/pages.ts`, `src/parts.ts`, and for music and light
- * `src/instruments.ts`, `src/score.ts`, `src/pieces.ts`, `src/glow.ts`, `src/places.ts`); this file only gathers them,
- * so an import never names the wrong one.
+ * `src/play-input.ts`, `src/worlds.ts`, `src/nature.ts`, `src/relief.ts`, `src/pages.ts`, `src/parts.ts`, and for
+ * music and light `src/instruments.ts`, `src/score.ts`, `src/pieces.ts`, `src/glow.ts`, `src/places.ts`); this file
+ * only gathers them, so an import never names the wrong one.
  */
 export {
   balloon,
@@ -34,6 +34,7 @@ export { bothSidesUp, grassBlade, grassCarpet } from './grass.js';
 export { surfaceGrain, water, waterMaterial, withGrain } from './surface.js';
 export { mode, moveAxis, onSelect, onTouch, pressed, setupPlayInput } from './play-input.js';
 export { type WorldLook, type WorldName, worlds } from './worlds.js';
+export { type NatureModel, natureInstances, natureModel } from './nature.js';
 export { fitText } from './page-fit.js';
 export { type Page, type Pages, type PagesOptions, MAX_PAGES, pages, TYPE } from './pages.js';
 export { type HeightEncoding, type HeightGrid, type ReliefOptions, relief } from './relief.js';

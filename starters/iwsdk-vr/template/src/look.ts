@@ -32,6 +32,7 @@ import {
   SpriteMaterial,
   SRGBColorSpace,
   type Texture,
+  TextureLoader,
   TorusGeometry,
   Vector2,
   Vector3,
@@ -41,6 +42,7 @@ import { seatPose, VIEW_CAMERA, type ViewPose, viewDrift } from './legible.js';
 import { drift } from './motion.js';
 import { toyMaterial } from './palette.js';
 import { grassCarpet } from './grass.js';
+import { natureInstances } from './nature.js';
 import { waterMaterial, withGrain } from './surface.js';
 import { startAmbience } from './sound.js';
 import { type WorldLook, type WorldName, worlds } from './worlds.js';
@@ -519,6 +521,41 @@ function skyDome(sky: WorldLook['sky']): Mesh {
   );
 }
 
+/**
+ * A photographed sky (`sky.picture`): its picture, which shows the sky's upper half and a little below the horizon,
+ * laid inside a dome round the island and turned so the picture's sun stands where the world's sun is
+ * (`sky.disc.at`). The picture loads from the app's own files (`public/`), never from the network: the dome stays
+ * hidden until it has, and `ready` is told either way, with the dome once it shows or with nothing if the picture could
+ * not be read.
+ */
+function pictureSky(sky: WorldLook['sky'], ready: (dome: Mesh | null) => void): Mesh {
+  const picture = sky.picture;
+  if (picture === undefined) throw new Error('pictureSky needs sky.picture');
+  const material = new MeshBasicMaterial({ side: BackSide, depthWrite: false, fog: false, toneMapped: false });
+  // Only the part of the sphere the picture covers: from straight up to `below` under the horizon.
+  const dome = new Mesh(new SphereGeometry(40, 64, 24, 0, Math.PI * 2, 0, Math.PI * (0.5 + picture.below)), material);
+  // Seen from inside, a sphere's picture reads mirrored: flipped back so the sky reads as photographed.
+  dome.scale.x = -1;
+  const toward = sky.disc?.at ?? [0, 0.3, -1];
+  // The picture's sun is at `sun` across it, which on the flipped dome is that turn round from +x toward +z.
+  dome.rotation.y = picture.sun * Math.PI * 2 - Math.atan2(toward[2], toward[0]);
+  dome.visible = false;
+  new TextureLoader().load(
+    `${import.meta.env.BASE_URL}${picture.file.replace(/^\/+/u, '')}`,
+    (texture) => {
+      texture.colorSpace = SRGBColorSpace;
+      texture.anisotropy = 4;
+      material.map = texture;
+      material.needsUpdate = true;
+      dome.visible = true;
+      ready(dome);
+    },
+    undefined,
+    () => ready(null),
+  );
+  return dome;
+}
+
 /** Stars in the upper sky, as two layers of points (two draw calls); the bright layer twinkles slowly. */
 function stars(count: number): Group {
   const canvas = document.createElement('canvas');
@@ -817,7 +854,7 @@ function farClumps(colour: string, horizon: string, onHills: boolean): Group {
   const tree = mergeGeometries([crown.toNonIndexed(), trunk.toNonIndexed()]) ?? crown;
   const material = new MeshPhysicalMaterial({ color: '#FFFFFF', vertexColors: true, roughness: 0.95, metalness: 0 });
   const count = 150;
-  const clumps = new InstancedMesh(tree, material, count + 30);
+  const clumps = new InstancedMesh(tree, material, count);
   const place = new Object3D();
   const base = new Color(colour);
   const sky = new Color(horizon);
@@ -859,20 +896,19 @@ function farClumps(colour: string, horizon: string, onHills: boolean): Group {
     grounded.push([place.position.x, place.position.z, s]);
     clumps.setColorAt(i, base.clone().multiplyScalar(0.7 + random() * 0.3).lerp(sky, Math.min(0.6, (d - 12) / 26)));
   }
-  // Nearer, between the island and the far trees: bushes low on the land and a few lone trees, so the eye steps
-  // from the island to the hills.
-  for (let i = count; i < count + 30; i++) {
+  // Nearer, between the island and the far trees: modelled bushes on the land and a few lone trees, so the eye
+  // steps from the island to the hills.
+  const lone: [number, number, number, number, number][] = [];
+  const bushes: [number, number, number, number, number][] = [];
+  for (let i = 0; i < 30; i++) {
     const a = random() * Math.PI * 2;
     const d = 5 + random() * 9;
-    const lone = i % 6 === 0;
-    const s = lone ? 0.55 + random() * 0.3 : 0.22 + random() * 0.18;
-    place.position.set(Math.cos(a) * d, PLAIN_LEVEL - (lone ? 0 : 0.55 * s), Math.sin(a) * d);
-    place.scale.set(s * (1.1 + random() * 0.6), s * (lone ? 1 : 0.6), s);
-    place.rotation.set(0, random() * 6.28, 0);
-    place.updateMatrix();
-    clumps.setMatrixAt(i, place.matrix);
-    grounded.push([place.position.x, place.position.z, s]);
-    clumps.setColorAt(i, base.clone().multiplyScalar(0.62 + random() * 0.25).lerp(sky, Math.min(0.35, (d - 5) / 30)));
+    const tree = i % 6 === 0;
+    const s = tree ? 0.55 + random() * 0.3 : 0.22 + random() * 0.18;
+    const x = Math.cos(a) * d;
+    const z = Math.sin(a) * d;
+    (tree ? lone : bushes).push([x, PLAIN_LEVEL - 0.02, z, s, random() * 6.28]);
+    grounded.push([x, z, s]);
   }
   clumps.instanceMatrix.needsUpdate = true;
   clumps.computeBoundingSphere();
@@ -893,7 +929,13 @@ function farClumps(colour: string, horizon: string, onHills: boolean): Group {
   shadows.instanceMatrix.needsUpdate = true;
   shadows.computeBoundingSphere();
   const group = new Group();
-  group.add(shadows, clumps);
+  // The modelled ones take on the world's own land colour, the more the darker that land is, so a night's are as dim
+  // and blue as its woods while a day's keep their leaves' own green.
+  const lightness = base.getHSL({ h: 0, s: 0, l: 0 }).l;
+  const amount = Math.min(0.95, Math.max(0.45, 1.3 - 1.8 * lightness));
+  const tint = `#${new Color('#FFFFFF').lerp(base, amount).getHexString()}`;
+  const trees = natureInstances('CommonTree_5', 2.6, lone, tint);
+  group.add(shadows, clumps, trees, natureInstances('Bush_Common', 1.1, bushes, tint));
   return group;
 }
 
@@ -945,10 +987,17 @@ function hills(colours: readonly [string, string]): Mesh {
  * an environment map (PMREM) that every lit material reads for its soft light and its reflections. Drawn once at setup,
  * never per frame.
  */
-function skyLight(renderer: World['renderer'], look: WorldLook): Texture {
+function skyLight(renderer: World['renderer'], look: WorldLook, dome?: Mesh): Texture {
   const scene = new Scene();
   const plain = look.sky.middle === undefined && look.sky.disc === undefined;
-  scene.add(plain ? meadowSky(look.sky) : skyDome(look.sky));
+  if (dome === undefined) scene.add(plain ? meadowSky(look.sky) : skyDome(look.sky));
+  else {
+    // The same sky, turned the same way: one mesh can stand in one scene only.
+    const copy = new Mesh(dome.geometry, dome.material);
+    copy.scale.copy(dome.scale);
+    copy.rotation.copy(dome.rotation);
+    scene.add(copy);
+  }
   // The ground below the horizon, dimmer than the grass in the sun: the light it sends back up.
   const ground = new Mesh(
     new CircleGeometry(60, 48).rotateX(-Math.PI / 2),
@@ -970,6 +1019,21 @@ function skyLight(renderer: World['renderer'], look: WorldLook): Texture {
   const target = pmrem.fromScene(scene, 0.02);
   pmrem.dispose();
   return target.texture;
+}
+
+let holding = 0;
+
+/**
+ * Keeps the canvas clear until `until` settles (a picture or a model loading from the app's own files), so the first
+ * frame anyone sees already has it; never longer than three seconds of game time from the first frame, so a stalled
+ * load cannot keep the world hidden.
+ */
+export function holdFirstFrame(until: Promise<unknown>): void {
+  holding += 1;
+  const done = () => {
+    holding -= 1;
+  };
+  until.then(done, done);
 }
 
 /**
@@ -1022,7 +1086,24 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   stage.add(rim.target);
 
   const plain = look.sky.middle === undefined && look.sky.disc === undefined;
-  stage.add(plain ? meadowSky(look.sky) : skyDome(look.sky));
+  const drawn = plain ? meadowSky(look.sky) : skyDome(look.sky);
+  stage.add(drawn);
+  // A photographed sky takes the drawn one's place once its picture has loaded, and the sky's light is drawn again
+  // from it; until then (or if it cannot be read) the drawn sky stands in. The canvas waits for it, so the first frame
+  // anyone sees has the world's own sky.
+  if (look.sky.picture !== undefined)
+    holdFirstFrame(
+      new Promise<void>((settled) =>
+        stage.add(
+          pictureSky(look.sky, (dome) => {
+            settled();
+            if (dome === null) return;
+            drawn.visible = false;
+            world.scene.environment = skyLight(renderer, look, dome);
+          }),
+        ),
+      ),
+    );
   if ((look.sky.stars ?? 0) > 0) stage.add(stars(look.sky.stars ?? 0));
   if (look.ground.sea !== undefined) stage.add(sea(look.ground.sea, look.sky.disc?.at, look.sky.horizon));
   if (look.ground.plain !== undefined && look.ground.sea === undefined) {
@@ -1067,8 +1148,10 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   built = play;
   // index.html keeps the canvas clear over its sky until this first frame of the look, drawn after this update.
   let shown = false;
-  ambientMotion(() => {
-    if (shown) return;
+  let started: number | null = null;
+  ambientMotion((time) => {
+    if (started === null) started = time;
+    if (shown || (holding > 0 && time - started < 3)) return;
     renderer.domElement.style.opacity = '1';
     shown = true;
   });

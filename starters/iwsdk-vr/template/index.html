@@ -9,12 +9,13 @@
     <link rel="icon" href="data:," />
     <title>Untitled Game</title>
     <style>
-      /* The sky (src/palette.ts) while the game loads and its first frame is drawn, never a white page. */
+      /* The meadow's sky (src/worlds.ts, its top then its horizon) while the game loads and its first frame is drawn,
+         never a white page. */
       html,
       body {
         margin: 0;
         height: 100%;
-        background: linear-gradient(#4FAEFF, #D8F0FF);
+        background: linear-gradient(#768CB7, #C5CAD7);
       }
       /* Clear until the look's first frame (src/look.ts shows it), so its empty frames never show as black. */
       #scene-container canvas {
