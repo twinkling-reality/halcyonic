@@ -220,25 +220,25 @@ namespace Halcyonic.XR.UI
         /// One recipe for every status mark and step node (the critics, 2026-11-11): the tone's own hue, solid and saturated,
         /// its glyph bold and white over it; attention's amber is light, so its glyph is dark.
         /// </summary>
-        public const int GoodFill = 0x2FA65A;
-        public const int BadFill = 0xD4463B;
-        public const int WorkingFill = 0x1F98C2;
+        public const int GoodFill = 0x929292;  // was 0x2FA65A: the true grey of its luminance, no hue in the chrome (the lead's 2026-11-18)
+        public const int BadFill = 0x787878;  // was 0xD4463B: the true grey of its luminance, no hue in the chrome (the lead's 2026-11-18)
+        public const int WorkingFill = 0x8D8D8D;  // was 0x1F98C2: the true grey of its luminance, no hue in the chrome (the lead's 2026-11-18)
         public const int QuietFill = 0x525252;
 
         /// <summary>A mark's glyph stroke, heavier than a row's, so it reads at a glance on a solid fill.</summary>
         public const float MarkStroke = 3.4f;
 
         /// <summary>The tones' mid values, between hue and deep ground: a try's pip, never louder than the mark it hangs on.</summary>
-        public const int PassedMid = 0x4C9C67;
-        public const int FailedMid = 0xB25A54;
-        public const int AccentMid = 0x3B8EA6;
-        public const int AttentionMid = 0xA37A23;
-        public const int AgentOrb = 0x7A6BD6;
+        public const int PassedMid = 0x8C8C8C;  // was 0x4C9C67: the true grey of its luminance, no hue in the chrome (the lead's 2026-11-18)
+        public const int FailedMid = 0x747474;  // was 0xB25A54: the true grey of its luminance, no hue in the chrome (the lead's 2026-11-18)
+        public const int AccentMid = 0x848484;  // was 0x3B8EA6: the true grey of its luminance, no hue in the chrome (the lead's 2026-11-18)
+        public const int AttentionMid = 0x818181;  // was 0xA37A23: the true grey of its luminance, no hue in the chrome (the lead's 2026-11-18)
+        public const int AgentOrb = 0x7A7A7A;  // was 0x7A6BD6: the true grey of its luminance, no hue in the chrome (the lead's 2026-11-18)
         /// <summary>
         /// The project emblem's tile: a deep, quiet teal, so the one accent stays the main action's (the lead's one-accent ruling; SCREENS's
         /// 2026-11-14T02:28Z reader: the brighter 0x3F8FB0 pulled the eye nearly as much as Start Task). Its white glyph reads about 8:1 on it.
         /// </summary>
-        public const int ProjectTile = 0x2E5566;
+        public const int ProjectTile = 0x505050;  // was 0x2E5566: the true grey of its luminance, no hue in the chrome (the lead's 2026-11-18)
         public const int TileInk = 0xF3F3F3;
 
         private readonly Dictionary<KitRole, List<TextMeshPro>> texts = new Dictionary<KitRole, List<TextMeshPro>>();

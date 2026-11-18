@@ -1426,7 +1426,7 @@ namespace Halcyonic.XR.UI
         private void LayWell(Vector2 size, Vector2 centre)
         {
             well.gameObject.SetActive(true);
-            well.Draw(size, RoomType.Scaled(16f), new Color(7f / 255f, 8f / 255f, 13f / 255f, 0.9f));
+            well.Draw(size, RoomType.Scaled(16f), new Color(8f / 255f, 8f / 255f, 8f / 255f, 0.9f)); // the true grey of the old (7, 8, 13) at its luminance, no hue (the lead's 2026-11-18)
             well.transform.localPosition = new Vector3(centre.x, centre.y, -RoomType.Units(0.3f));
             var arm = RoomType.Scaled(TickArmDp);
             var line = RoomType.Scaled(TickLineDp);
