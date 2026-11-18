@@ -276,6 +276,19 @@ namespace Halcyonic.XR.Workspace.Editor
             Fill(discBox, amber);
             var discRead = InkBox(frame, discBox, (Color)amber, new[] { new RectInt(105, 764, 14, 16) }).Ratio;
             if (discRead >= 4.5) yield return "the box reader: a mark on a disc of its own colour reads " + discRead.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, at or over 4.5";
+            // And words on a stripe exactly their box, of their own colour (AUDIT3's IK1): nothing but their own colour stands around their
+            // quads or in the whole box, so they read as nothing.
+            var stripe = new RectInt(100, 820, 240, 40);
+            Fill(stripe, amber);
+            var stripeQuads = new List<RectInt>();
+            for (var letter = 0; letter < 6; letter++)
+            {
+                var quad = new RectInt(106 + letter * 38, 826, 30, 28);
+                stripeQuads.Add(quad);
+                Fill(new RectInt(quad.xMin + 2, quad.yMin + 2, 24, 24), amber);
+            }
+            var stripeRead = InkBox(frame, stripe, (Color)amber, stripeQuads).Ratio;
+            if (stripeRead >= 4.5) yield return "the box reader: words on a stripe of their own colour, exactly their box, read " + stripeRead.ToString("0.00", CultureInfo.InvariantCulture) + " to 1, at or over 4.5";
         }
 
         /// <summary>Under this contrast with the words' drawn colour, a colour around their quads is their own (a ring, a stroke's edge), never their ground.</summary>
