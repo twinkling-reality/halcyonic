@@ -3,6 +3,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { READING_HIDDEN_POINTS } from '@halcyonic/contracts';
 import {
+  FRAME_BUDGET_MS,
+  FrameGuard,
+  GUARD_WINDOW_S,
+} from '../../../starters/iwsdk-vr/template/src/frame-guard.ts';
+import {
   arcSlot,
   DRIFT,
   driftPose,
@@ -2021,8 +2026,15 @@ describe("the starter's skies and nature models are free files of its own (the l
       /const s = \(k \/ 7 - 0\.5\) \* \(1\.6 \+ random\(\) \* 1\.4\);/,
       'each a loose trail, not a bed',
     );
-    assert.match(clumps, /byQuarter\('Flower_3_Group', 0\.25, daisies, bloom\),/);
-    assert.match(clumps, /byQuarter\('Flower_4_Group', 0\.28, bells, bloom\),/);
+    assert.match(
+      clumps,
+      /byQuarter\('Flower_3_Group', 0\.25, daisies, bloom\), byQuarter\('Flower_4_Group', 0\.28, bells, bloom\)\);/,
+    );
+    assert.match(
+      clumps,
+      /\n\s+flowers,\n\s+\);/,
+      'the drifts stand in one group the frame guard can drop',
+    );
     assert.match(
       clumps,
       /const bloom = `#\$\{new Color\('#FFFFFF'\)\.lerp\(base, amount \* amount\)\.getHexString\(\)\}`;/,
@@ -2091,6 +2103,81 @@ describe("the starter's skies and nature models are free files of its own (the l
     assert.match(
       read('src/kit.ts'),
       /export \{ type NatureModel, natureInstances, natureModel \} from '\.\/nature\.js';/,
+    );
+  });
+});
+
+describe('in a headset only, the starter drops costly scenery if its first frames miss 72 Hz (the lead, 2026-11-18)', () => {
+  // Frames of `ms` milliseconds for `seconds` of game time from `from`, fed to the guard; returns what it dropped.
+  const run = (guard: FrameGuard, from: number, seconds: number, ms: number, inSession = true) => {
+    const dropped: string[] = [];
+    for (let t = from; t <= from + seconds + 1e-9; t += ms / 1000) {
+      const name = guard.step(t, inSession);
+      if (name !== null) dropped.push(name);
+    }
+    return dropped;
+  };
+  const knobs = () => {
+    const gone: string[] = [];
+    return {
+      gone,
+      list: ['grass', 'flowers'].map((name) => ({ name, drop: () => gone.push(name) })),
+    };
+  };
+
+  test('its budget is a 72 Hz frame, timed over two-second windows', () => {
+    assert.ok(Math.abs(FRAME_BUDGET_MS - 13.889) < 0.001);
+    assert.equal(GUARD_WINDOW_S, 2);
+  });
+
+  test('outside an XR session it never drops anything, however slow the frames', () => {
+    const { gone, list } = knobs();
+    assert.deepEqual(run(new FrameGuard(list), 0, 10, 40, false), []);
+    assert.deepEqual(gone, []);
+  });
+
+  test('slow frames drop the knobs in their order, one per window, and then it stops', () => {
+    const { gone, list } = knobs();
+    const guard = new FrameGuard(list);
+    assert.deepEqual(run(guard, 0, 2.05, 20), ['grass'], 'the first window drops the first knob');
+    assert.deepEqual(
+      run(guard, 2.07, 2.05, 20),
+      ['flowers'],
+      'still slow: the next window drops the second',
+    );
+    assert.deepEqual(run(guard, 4.2, 6, 20), [], 'nothing is left to drop');
+    assert.deepEqual(gone, ['grass', 'flowers']);
+  });
+
+  test('frames within the budget drop nothing, and once a window fits the guard stops for good', () => {
+    const { gone, list } = knobs();
+    const guard = new FrameGuard(list);
+    assert.deepEqual(run(guard, 0, 2.05, 11), []);
+    assert.deepEqual(run(guard, 2.1, 6, 40), [], 'a later slow stretch changes nothing');
+    assert.deepEqual(gone, []);
+  });
+
+  test('slow, then fast once the first knob is gone: only the first goes', () => {
+    const { gone, list } = knobs();
+    const guard = new FrameGuard(list);
+    assert.deepEqual(run(guard, 0, 2.05, 18), ['grass']);
+    assert.deepEqual(run(guard, 2.07, 2.05, 12), []);
+    assert.deepEqual(gone, ['grass']);
+  });
+
+  test("the look gives it the mound's blades first, then the wildflower drifts, and times only a session's frames", () => {
+    const look = read('src/look.ts');
+    assert.match(look, /name: "the mound's grass",\n\s+order: 0,/);
+    assert.match(look, /name: 'the wildflower drifts',\n\s+order: 1,/);
+    assert.match(
+      look,
+      /const guard = new FrameGuard\(\[\.\.\.frameKnobs\]\.sort\(\(a, b\) => a\.order - b\.order\)\);/,
+    );
+    assert.match(look, /const dropped = guard\.step\(time, renderer\.xr\.isPresenting\);/);
+    // No words on screen: one line in the log.
+    assert.match(
+      look,
+      /if \(dropped !== null\) console\.info\(`Halcyonic starter: dropped \$\{dropped\} to hold 72 fps`\);/,
     );
   });
 });

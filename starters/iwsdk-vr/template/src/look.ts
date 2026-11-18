@@ -40,6 +40,7 @@ import { seatPose, VIEW_CAMERA, type ViewPose, viewDrift } from './legible.js';
 import { drift } from './motion.js';
 import { toyMaterial } from './palette.js';
 import { grassCarpet } from './grass.js';
+import { FrameGuard, type FrameKnob } from './frame-guard.js';
 import { type NatureModel, natureInstances } from './nature.js';
 import { waterMaterial, withGrain, withTurf } from './surface.js';
 import { startAmbience } from './sound.js';
@@ -97,6 +98,8 @@ function deform<G extends BufferGeometry>(geometry: G): G {
 }
 
 let shadowTexture: CanvasTexture | null = null;
+/** Scenery a headset may drop to hold 72 fps (`FrameGuard`), each with its place in the order it goes in. */
+const frameKnobs: (FrameKnob & { readonly order: number })[] = [];
 let built: Group | null = null;
 /** The world `setupLook` or `setupScene` was given, for the kit's layouts that follow the headset session. */
 let session: World | null = null;
@@ -370,6 +373,14 @@ function island(): Group {
     });
     stage.mesh.position.set(0, 0, FLOOR.tier.z);
     group.add(stage.mesh);
+    // The first scenery a slow headset drops: about 45,000 triangles for the mound's blades.
+    frameKnobs.push({
+      name: "the mound's grass",
+      order: 0,
+      drop: () => {
+        stage.mesh.visible = false;
+      },
+    });
     ambientMotion(stage.move);
   }
   // A rim of grass that rolls over the edge.
@@ -958,6 +969,16 @@ function farClumps(colour: string, onHills: boolean): Group {
   const tint = `#${new Color('#FFFFFF').lerp(base, amount).getHexString()}`;
   // Flowers keep their own colours by day and close into the land's colour by night (CAST, turf1: they glowed).
   const bloom = `#${new Color('#FFFFFF').lerp(base, amount * amount).getHexString()}`;
+  const flowers = new Group();
+  flowers.add(byQuarter('Flower_3_Group', 0.25, daisies, bloom), byQuarter('Flower_4_Group', 0.28, bells, bloom));
+  // The second scenery a slow headset drops, after the mound's blades.
+  frameKnobs.push({
+    name: 'the wildflower drifts',
+    order: 1,
+    drop: () => {
+      flowers.visible = false;
+    },
+  });
   group.add(
     shadows,
     byQuarter('CommonTree_5', 3, round, tint),
@@ -966,8 +987,7 @@ function farClumps(colour: string, onHills: boolean): Group {
     byQuarter('Bush_Common', 1.1, footBushes, tint),
     byQuarter('CommonTree_5', 2.6, lone, tint),
     byQuarter('Bush_Common', 1.1, bushes, tint),
-    byQuarter('Flower_3_Group', 0.25, daisies, bloom),
-    byQuarter('Flower_4_Group', 0.28, bells, bloom),
+    flowers,
   );
   return group;
 }
@@ -1096,6 +1116,7 @@ export function holdFirstFrame(until: Promise<unknown>): void {
  */
 export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow'): { island: Group } {
   current = typeof setting === 'string' ? (worlds[setting] ?? worlds.meadow) : setting;
+  frameKnobs.length = 0;
   session = world;
   seatOnFirstFrame(world);
   const look = current;
@@ -1195,6 +1216,14 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
 
   const ground = island();
   stage.add(ground);
+  // In a headset only: if its first frames run slower than 72 Hz, the scenery above goes in its order, the mound's
+  // blades first, then the wildflower drifts, each logged once (the lead, 2026-11-18). A laptop and the person's
+  // computer's checks are never in a session, so what they see never depends on how fast the machine is.
+  const guard = new FrameGuard([...frameKnobs].sort((a, b) => a.order - b.order));
+  ambientMotion((time) => {
+    const dropped = guard.step(time, renderer.xr.isPresenting);
+    if (dropped !== null) console.info(`Halcyonic starter: dropped ${dropped} to hold 72 fps`);
+  });
   // The game's own frame is the world's, not the stage's: an interactive object leaves its group for the level's root.
   const play = new Group();
   world.scene.add(play);
