@@ -1,5 +1,6 @@
 export * from './actions.ts';
 export * from './api.ts';
+export * from './brief.ts';
 export * from './catalog.ts';
 export * from './checkpoints.ts';
 export * from './commands.ts';

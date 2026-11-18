@@ -23151,6 +23151,660 @@
         }
       ]
     },
+    "UnderstandingBriefResponse": {
+      "type": "object",
+      "required": [
+        "execution_id",
+        "result"
+      ],
+      "properties": {
+        "execution_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "result": {
+          "$ref": "#/$defs/UnderstandingBriefResult"
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingBriefResult": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "brief"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "available"
+            },
+            "brief": {
+              "$ref": "#/$defs/UnderstandingBrief"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "not_found"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "incompatible"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "availability",
+            "reason"
+          ],
+          "properties": {
+            "availability": {
+              "type": "string",
+              "const": "unauthorized"
+            },
+            "reason": {
+              "$ref": "#/$defs/ErrorInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "UnderstandingBrief": {
+      "type": "object",
+      "required": [
+        "source",
+        "archetype",
+        "moves",
+        "footprint"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/UnderstandingBriefSource"
+        },
+        "archetype": {
+          "$ref": "#/$defs/UnderstandingBriefArchetype"
+        },
+        "moves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnderstandingBriefMove"
+          },
+          "minItems": 2,
+          "maxItems": 4
+        },
+        "footprint": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UnderstandingBriefFootprint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingBriefSource": {
+      "type": "object",
+      "required": [
+        "system",
+        "synthetic",
+        "version",
+        "contract",
+        "instance_id",
+        "generated_at"
+      ],
+      "properties": {
+        "system": {
+          "type": "string",
+          "const": "salidium"
+        },
+        "synthetic": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "contract": {
+          "type": "object",
+          "required": [
+            "name",
+            "major",
+            "minor"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "major": {
+              "type": "integer"
+            },
+            "minor": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        "instance_id": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "generated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingBriefArchetype": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "verified-edit"
+        },
+        {
+          "type": "string",
+          "const": "blast-radius-edit"
+        },
+        {
+          "type": "string",
+          "const": "failing-or-unverified-edit"
+        },
+        {
+          "type": "string",
+          "const": "read-only-exploration"
+        },
+        {
+          "type": "string",
+          "const": "active-mid-flight"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "UnderstandingBriefMove": {
+      "type": "object",
+      "required": [
+        "kind",
+        "epistemic",
+        "plain_text",
+        "segments"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/UnderstandingBriefMoveKind"
+        },
+        "epistemic": {
+          "$ref": "#/$defs/UnderstandingEpistemic"
+        },
+        "plain_text": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnderstandingBriefSegment"
+          },
+          "minItems": 1,
+          "maxItems": 24
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingBriefMoveKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "action-scope"
+        },
+        {
+          "type": "string",
+          "const": "mechanism-blast"
+        },
+        {
+          "type": "string",
+          "const": "epistemic-verification"
+        },
+        {
+          "type": "string",
+          "const": "next-focus"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "UnderstandingBriefSegment": {
+      "type": "object",
+      "required": [
+        "kind",
+        "text",
+        "token",
+        "label",
+        "detail",
+        "epistemic",
+        "tone",
+        "paths",
+        "lines_added",
+        "lines_removed",
+        "check_outcomes"
+      ],
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "text"
+            },
+            {
+              "type": "string",
+              "const": "token"
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 400
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "token": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UnderstandingBriefTokenKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 80
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "epistemic": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UnderstandingEpistemic"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tone": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UnderstandingBriefTone"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "maxItems": 17
+        },
+        "lines_added": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lines_removed": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "check_outcomes": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "pass"
+              },
+              {
+                "type": "string",
+                "const": "fail"
+              },
+              {
+                "type": "string",
+                "const": "partial"
+              },
+              {
+                "type": "string",
+                "const": "unknown"
+              }
+            ]
+          },
+          "maxItems": 12
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingBriefTokenKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "file"
+        },
+        {
+          "type": "string",
+          "const": "file-rollup"
+        },
+        {
+          "type": "string",
+          "const": "caller"
+        },
+        {
+          "type": "string",
+          "const": "caller-rollup"
+        },
+        {
+          "type": "string",
+          "const": "check"
+        },
+        {
+          "type": "string",
+          "const": "turn"
+        },
+        {
+          "type": "string",
+          "const": "subagent"
+        },
+        {
+          "type": "string",
+          "const": "command"
+        },
+        {
+          "type": "string",
+          "const": "review"
+        },
+        {
+          "type": "string",
+          "const": "metric"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "UnderstandingBriefTone": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "good"
+        },
+        {
+          "type": "string",
+          "const": "bad"
+        },
+        {
+          "type": "string",
+          "const": "warn"
+        },
+        {
+          "type": "string",
+          "const": "accent"
+        },
+        {
+          "type": "string",
+          "const": "neutral"
+        }
+      ]
+    },
+    "UnderstandingBriefFootprint": {
+      "type": "object",
+      "required": [
+        "edited_files",
+        "modules",
+        "untouched_callers",
+        "unverified_dependents"
+      ],
+      "properties": {
+        "edited_files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnderstandingBriefEditedFile"
+          }
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnderstandingBriefModule"
+          }
+        },
+        "untouched_callers": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unverified_dependents": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingBriefEditedFile": {
+      "type": "object",
+      "required": [
+        "path",
+        "status",
+        "lines_added",
+        "lines_removed",
+        "module"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "status": {
+          "$ref": "#/$defs/UnderstandingBriefFileStatus"
+        },
+        "lines_added": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lines_removed": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "module": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 4096
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "UnderstandingBriefFileStatus": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "verified"
+        },
+        {
+          "type": "string",
+          "const": "unverified"
+        },
+        {
+          "type": "string",
+          "const": "failed"
+        },
+        {
+          "type": "string",
+          "const": "unknown"
+        }
+      ]
+    },
+    "UnderstandingBriefModule": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "files"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 4096
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "Understanding": {
       "type": "object",
       "required": [

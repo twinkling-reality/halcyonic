@@ -1,6 +1,10 @@
 import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { UnderstandingFailure, UnderstandingResult } from '@halcyonic/contracts';
+import type {
+  UnderstandingBriefResult,
+  UnderstandingFailure,
+  UnderstandingResult,
+} from '@halcyonic/contracts';
 import { OPENCODE_SANDBOX_FOLDER } from '@halcyonic/integration-opencode';
 import {
   defaultSalidiumHome,
@@ -24,6 +28,15 @@ export interface UnderstandingSource {
     nativeId: string,
     startedAt: string,
   ): Promise<UnderstandingResult>;
+  /**
+   * The brief the provider composed of the same session, as `understand` reads its report. Absent
+   * for a provider that composes none: the route then says the brief is not read.
+   */
+  brief?(
+    runtimeKind: string,
+    nativeId: string,
+    startedAt: string,
+  ): Promise<UnderstandingBriefResult>;
 }
 
 export interface SalidiumUnderstandingOptions {
@@ -54,51 +67,71 @@ export function salidiumUnderstanding(options: SalidiumUnderstandingOptions): Un
     options.confinedCodexHomes ?? join(dirname(options.codexHome), CODEX_CONFINED_FOLDER);
   const openCodeSandbox =
     options.openCodeSandbox ?? join(dirname(options.codexHome), OPENCODE_SANDBOX_FOLDER);
+  /**
+   * Reads one session through `read`, except where it is kept in Halcyonic's own Codex home or
+   * OpenCode store: only a Salidium that can read another tool's folders is asked about those, and
+   * one that cannot answers what it always did, without a credential read (unit 4b).
+   */
+  async function ask<R extends UnderstandingResult | UnderstandingBriefResult>(
+    client: SalidiumClient,
+    runtimeKind: string,
+    nativeId: string,
+    startedAt: string,
+    read: () => Promise<R>,
+  ): Promise<R | UnderstandingFailure> {
+    const own = (await inHalcyonicsCodexHome(
+      options.codexHome,
+      runtimeKind,
+      nativeId,
+      startedAt,
+      confinedHomes,
+    ))
+      ? 'Codex home'
+      : (await inHalcyonicsOpenCodeStore(openCodeSandbox, runtimeKind, startedAt))
+        ? 'OpenCode store'
+        : null;
+    if (own === null) return read();
+    const version = await client.version();
+    if (version === null || !readsOtherToolsSources(version)) {
+      return {
+        availability: 'unavailable',
+        reason: {
+          code: 'runtime_not_observed',
+          message: `Salidium, as installed, does not read Halora's own ${own}, where this session is kept.`,
+        },
+      };
+    }
+    const result = await read();
+    // A Salidium that could read them but has not seen the session has not been told where
+    // they are yet (SALIDIUM_EXTRA_CODEX_HOMES, SALIDIUM_EXTRA_OPENCODE_STORES), or has not
+    // seen it yet: never a fault.
+    if (result.availability === 'not_found' && result.reason.code === 'not_observed')
+      return {
+        availability: 'not_found',
+        reason: {
+          code: 'own_sources_not_set_up',
+          message: `Salidium ${version} can read Halora's own ${own}, but has not seen this session: it may not have been told where Halora keeps them yet (Setup shows the two lines), or not seen it yet.`,
+        },
+      };
+    return result;
+  }
+  const clientFor = () =>
+    new SalidiumClient({
+      home: options.home,
+      credential: () => readCredential(options.credentialPath),
+    });
   return {
     async understand(runtimeKind, nativeId, startedAt) {
-      const client = new SalidiumClient({
-        home: options.home,
-        credential: () => readCredential(options.credentialPath),
-      });
-      const own = (await inHalcyonicsCodexHome(
-        options.codexHome,
-        runtimeKind,
-        nativeId,
-        startedAt,
-        confinedHomes,
-      ))
-        ? 'Codex home'
-        : (await inHalcyonicsOpenCodeStore(openCodeSandbox, runtimeKind, startedAt))
-          ? 'OpenCode store'
-          : null;
-      if (own !== null) {
-        // Only a Salidium that can read another tool's folders is asked about Halcyonic's own; one
-        // that cannot answers what it always did, without a credential read (unit 4b).
-        const version = await client.version();
-        if (version === null || !readsOtherToolsSources(version)) {
-          return {
-            availability: 'unavailable',
-            reason: {
-              code: 'runtime_not_observed',
-              message: `Salidium, as installed, does not read Halora's own ${own}, where this session is kept.`,
-            },
-          };
-        }
-        const result = await client.understand(runtimeKind, nativeId);
-        // A Salidium that could read them but has not seen the session has not been told where
-        // they are yet (SALIDIUM_EXTRA_CODEX_HOMES, SALIDIUM_EXTRA_OPENCODE_STORES), or has not
-        // seen it yet: never a fault.
-        if (result.availability === 'not_found' && result.reason.code === 'not_observed')
-          return {
-            availability: 'not_found',
-            reason: {
-              code: 'own_sources_not_set_up',
-              message: `Salidium ${version} can read Halora's own ${own}, but has not seen this session: it may not have been told where Halora keeps them yet (Setup shows the two lines), or not seen it yet.`,
-            },
-          };
-        return result;
-      }
-      return client.understand(runtimeKind, nativeId);
+      const client = clientFor();
+      return ask(client, runtimeKind, nativeId, startedAt, () =>
+        client.understand(runtimeKind, nativeId),
+      );
+    },
+    async brief(runtimeKind, nativeId, startedAt) {
+      const client = clientFor();
+      return ask(client, runtimeKind, nativeId, startedAt, () =>
+        client.brief(runtimeKind, nativeId),
+      );
     },
   };
 }

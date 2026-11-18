@@ -97,6 +97,19 @@ namespace Halcyonic.Client
             return HalcyonicJson.Deserialize<UnderstandingResponse>(body);
         }
 
+        /// <summary>
+        /// The brief the understanding provider (Salidium) composed of an execution: its moves, each a
+        /// sentence with its own epistemic class, and the edit's footprint. The control plane reads it
+        /// through on request; the result states its availability instead of failing. Read it again
+        /// when the understanding's evidence sequence grows, never on a timer.
+        /// </summary>
+        public async Task<UnderstandingBriefResponse> GetBriefAsync(string executionId, CancellationToken cancellationToken = default)
+        {
+            var body = await GetAsync("api/executions/" + Uri.EscapeDataString(executionId) + "/brief", cancellationToken)
+                .ConfigureAwait(false);
+            return HalcyonicJson.Deserialize<UnderstandingBriefResponse>(body);
+        }
+
         public async Task<ToolResultsResponse> GetToolResultsAsync(string executionId, ToolResultsQuery query, CancellationToken cancellationToken = default)
         {
             var body = await GetAsync(ToolResultsPath(executionId, query), cancellationToken).ConfigureAwait(false);

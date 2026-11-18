@@ -45,6 +45,8 @@ export class FakeSalidium {
   readonly requests: RecordedRequest[] = [];
   /** Reports served, by Salidium's session id. */
   readonly reports = new Map<string, Json>();
+  /** Briefs served (contract 1.2), by `briefKey(provider, nativeSessionId)`. */
+  readonly briefs = new Map<string, Json>();
   /** Replaces the answer to one path. */
   readonly overrides = new Map<string, (response: ServerResponse) => void>();
   instanceId = randomBytes(16).toString('hex');
@@ -190,6 +192,15 @@ export class FakeSalidium {
     }
     if (url.pathname === '/consumer/v1/sessions/lookup') return this.#lookup(response, url);
     if (url.pathname === '/consumer/v1/feed') return this.#feed(response);
+    const brief = /^\/consumer\/v1\/executions\/([^/]+)\/([^/]+)\/brief$/.exec(url.pathname);
+    if (brief?.[1] && brief[2]) {
+      const found = this.briefs.get(
+        briefKey(decodeURIComponent(brief[1]), decodeURIComponent(brief[2])),
+      );
+      return found
+        ? json(response, 200, found)
+        : contractError(response, 404, 'not-found', 'no such session');
+    }
     const report = /^\/consumer\/v1\/sessions\/([^/]+)\/report$/.exec(url.pathname);
     if (report?.[1]) {
       const found = this.reports.get(decodeURIComponent(report[1]));
@@ -254,4 +265,128 @@ export function contractError(
     error: code,
     message,
   });
+}
+
+/** The key of a brief in `FakeSalidium.briefs`. */
+export function briefKey(provider: string, nativeSessionId: string): string {
+  return `${provider}\u0000${nativeSessionId}`;
+}
+
+/**
+ * A brief as Salidium's daemon sends it at contract 1.2 (its working tree on 2026-11-18,
+ * `daemon/src/consumer/routes.ts:548` and `core/src/canvas/composeCanvasSpec.ts`): Halcyonic's
+ * construction, with made-up paths and words, never a recording. It holds three moves, a command
+ * token among them, and a footprint; the keys Halcyonic does not read are there so that a reader
+ * that took them would be seen.
+ */
+export function briefDocument(provider: string, sessionId: string): Json {
+  return {
+    format: 'salidium.session-brief',
+    version: 1,
+    generatedAt: '2026-11-18T02:40:00.000Z',
+    contract: { name: 'salidium.consumer', major: 1, minor: 2 },
+    execution: {
+      executionId: `${provider}:${sessionId}`,
+      provider,
+      sessionId,
+      status: 'idle',
+    },
+    brief: {
+      archetype: 'blast-radius-edit',
+      mode: 'deterministic',
+      moves: [
+        {
+          kind: 'action-scope',
+          relation: 'nucleus',
+          epistemic: 'observed',
+          segments: [
+            { kind: 'text', text: 'Edited ' },
+            {
+              kind: 'token',
+              tokenKind: 'file',
+              label: 'orders.ts',
+              epistemic: 'observed',
+              tone: 'accent',
+              refs: ['evt:41'],
+              focusPath: 'src/orders.ts',
+              additions: 140,
+              deletions: 22,
+            },
+            { kind: 'text', text: ', running ' },
+            {
+              kind: 'token',
+              tokenKind: 'command',
+              label: 'curl https://hooks.example.com/a?key=not-a-secret',
+              epistemic: 'observed',
+              tone: 'neutral',
+              refs: ['call:7'],
+              actionRef: 'call-7',
+            },
+          ],
+          plainText: 'Edited orders.ts, running curl https://hooks.example.com/a?key=not-a-secret',
+          refs: ['evt:41'],
+        },
+        {
+          kind: 'mechanism-blast',
+          relation: 'elaboration',
+          epistemic: 'observed',
+          segments: [
+            { kind: 'text', text: 'Touches ' },
+            {
+              kind: 'token',
+              tokenKind: 'caller-rollup',
+              label: '3 callers',
+              detail: 'not changed',
+              epistemic: 'observed',
+              refs: ['evt:44'],
+              focusPaths: ['src/page.tsx', 'src/api.ts', 'src/list.tsx'],
+            },
+          ],
+          plainText: 'Touches 3 callers (not changed)',
+          refs: [],
+        },
+        {
+          kind: 'epistemic-verification',
+          relation: 'evidence',
+          epistemic: 'reported',
+          segments: [
+            { kind: 'text', text: 'Checked by ' },
+            {
+              kind: 'token',
+              tokenKind: 'check',
+              label: 'make test',
+              detail: '23 of 24',
+              epistemic: 'reported',
+              tone: 'warn',
+              refs: ['run:3'],
+              checkOutcomes: ['pass', 'fail'],
+            },
+          ],
+          plainText: 'Checked by make test (23 of 24)',
+          refs: [],
+        },
+      ],
+      move2Footprint: {
+        editedFiles: [
+          {
+            path: 'src/orders.ts',
+            status: 'verified',
+            linesAdded: 140,
+            linesRemoved: 22,
+            module: 'src',
+          },
+          { path: 'src/orders.test.ts', status: 'unverified', linesAdded: 40, module: 'src' },
+        ],
+        modules: [{ id: 'src', name: 'src', files: ['src/orders.ts', 'src/orders.test.ts'] }],
+        blastRadius: {
+          unverifiedDependents: 3,
+          untouchedCallers: ['src/page.tsx', 'src/api.ts', 'src/list.tsx'],
+        },
+      },
+      crossLaneOverlaps: [],
+    },
+    delta: null,
+    viewMatch: null,
+    steeringBrief: null,
+  };
 }

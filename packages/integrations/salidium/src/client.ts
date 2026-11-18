@@ -1,4 +1,9 @@
-import type { UnderstandingFailure, UnderstandingResult } from '@halcyonic/contracts';
+import type {
+  UnderstandingBriefResult,
+  UnderstandingFailure,
+  UnderstandingResult,
+} from '@halcyonic/contracts';
+import { BRIEF_MINOR, toBrief, validateBrief } from './brief.ts';
 import {
   ANSWER_MAX_BYTES,
   checkCredential,
@@ -9,6 +14,7 @@ import {
   type Failure,
   fail,
   get,
+  type Instance,
   invalid,
   isFailure,
   type Reply,
@@ -132,46 +138,10 @@ export class SalidiumClient {
     nativeId: string,
     options: UnderstandOptions = {},
   ): Promise<UnderstandingResult> {
-    const provider = salidiumProviderFor(runtimeKind);
-    const notObserved = fail(
-      'unavailable',
-      'runtime_not_observed',
-      `Salidium does not observe sessions of the ${runtimeKind} runtime.`,
-    );
-    if (provider === null) return notObserved;
-    if (!NATIVE_SESSION_ID_PATTERN.test(nativeId))
-      return fail(
-        'not_found',
-        'not_observable',
-        "Salidium's contract cannot name a session id with control characters or over 512 characters.",
-      );
     const { signal } = options;
-    // A provider asked about only where the daemon says it observes it: without a daemon that says
-    // so, the answer is what it always was, and the credential is not read for it. For the others,
-    // a missing credential is said first, as it always was.
-    const declaredOnly = DECLARED_ONLY.has(provider);
-    let configured = declaredOnly ? null : this.#configured();
-    if (configured !== null && typeof configured !== 'string') return configured;
-    // One budget for the whole read, so it answers in time whatever each request takes.
-    const deadline = AbortSignal.timeout(this.#budgetMs);
-    const instance = await connect(this.#home, this.#timeoutMs, signal, deadline);
-    // Only a Salidium that is not running leaves what it would observe unknown, and so the answer
-    // what it always was; a timeout, another process on the port or a broken document is said.
-    if (isFailure(instance)) {
-      return declaredOnly && instance.reason.code === 'not_running' ? notObserved : instance;
-    }
-    if (instance.providers === null ? declaredOnly : !instance.providers.has(provider))
-      return instance.providers === null
-        ? notObserved
-        : fail(
-            'unavailable',
-            'runtime_not_observed',
-            `Salidium is not observing sessions of the ${runtimeKind} runtime now; it lists the ones it does.`,
-          );
-    if (declaredOnly) configured = this.#configured();
-    if (configured !== null && typeof configured !== 'string') return configured;
-    const credential = checkCredential(configured);
-    if (typeof credential !== 'string') return credential;
+    const reached = await this.#reach(runtimeKind, nativeId, signal);
+    if (isFailure(reached)) return reached;
+    const { provider, instance, credential, deadline } = reached;
 
     let sessionId = options.sessionId;
     if (sessionId === undefined) {
@@ -209,6 +179,99 @@ export class SalidiumClient {
       availability: 'available',
       understanding: toUnderstanding(report.value, instance),
     };
+  }
+
+  /**
+   * Finds the provider, the running daemon and the credential for one session, or why there are
+   * none: everything the report and the brief share before their own request.
+   */
+  async #reach(
+    runtimeKind: string,
+    nativeId: string,
+    signal: AbortSignal | undefined,
+  ): Promise<
+    | { provider: SalidiumProvider; instance: Instance; credential: string; deadline: AbortSignal }
+    | Failure
+  > {
+    const provider = salidiumProviderFor(runtimeKind);
+    const notObserved = fail(
+      'unavailable',
+      'runtime_not_observed',
+      `Salidium does not observe sessions of the ${runtimeKind} runtime.`,
+    );
+    if (provider === null) return notObserved;
+    if (!NATIVE_SESSION_ID_PATTERN.test(nativeId))
+      return fail(
+        'not_found',
+        'not_observable',
+        "Salidium's contract cannot name a session id with control characters or over 512 characters.",
+      );
+    // A provider asked about only where the daemon says it observes it: without a daemon that says
+    // so, the answer is what it always was, and the credential is not read for it. For the others,
+    // a missing credential is said first, as it always was.
+    const declaredOnly = DECLARED_ONLY.has(provider);
+    let configured = declaredOnly ? null : this.#configured();
+    if (configured !== null && typeof configured !== 'string') return configured;
+    // One budget for the whole read, so it answers in time whatever each request takes.
+    const deadline = AbortSignal.timeout(this.#budgetMs);
+    const instance = await connect(this.#home, this.#timeoutMs, signal, deadline);
+    // Only a Salidium that is not running leaves what it would observe unknown, and so the answer
+    // what it always was; a timeout, another process on the port or a broken document is said.
+    if (isFailure(instance)) {
+      return declaredOnly && instance.reason.code === 'not_running' ? notObserved : instance;
+    }
+    if (instance.providers === null ? declaredOnly : !instance.providers.has(provider))
+      return instance.providers === null
+        ? notObserved
+        : fail(
+            'unavailable',
+            'runtime_not_observed',
+            `Salidium is not observing sessions of the ${runtimeKind} runtime now; it lists the ones it does.`,
+          );
+    if (declaredOnly) configured = this.#configured();
+    if (configured !== null && typeof configured !== 'string') return configured;
+    const credential = checkCredential(configured);
+    if (typeof credential !== 'string') return credential;
+    return { provider, instance, credential, deadline };
+  }
+
+  /**
+   * The brief Salidium composed of the session behind one execution (consumer contract 1.2): one
+   * request by the runtime's own session id, after the same checks as the report. A Salidium that
+   * does not offer the brief answers incompatible.
+   */
+  async brief(
+    runtimeKind: string,
+    nativeId: string,
+    options: { readonly signal?: AbortSignal } = {},
+  ): Promise<UnderstandingBriefResult> {
+    const { signal } = options;
+    const reached = await this.#reach(runtimeKind, nativeId, signal);
+    if (isFailure(reached)) return reached;
+    const { provider, instance, credential, deadline } = reached;
+    if (instance.contract.minor < BRIEF_MINOR)
+      return fail(
+        'incompatible',
+        'brief_not_offered',
+        `Salidium ${instance.discovery.salidium.version} does not offer the brief, which consumer contract 1.${BRIEF_MINOR} adds.`,
+      );
+    const path = `${CONSUMER_BASE_PATH}/executions/${encodeURIComponent(provider)}/${encodeURIComponent(nativeId)}/brief`;
+    const url = new URL(path, instance.origin);
+    // No steering brief: Halcyonic reads none of it.
+    url.searchParams.set('steer', '0');
+    const reply = await get(url, credential, this.#timeoutMs, signal, deadline);
+    const body = interpret(reply, 'session brief', 'not-found', NOT_OBSERVED);
+    if (isFailure(body)) return body;
+    const brief = validateBrief(body.value);
+    if (!brief.ok) return invalid('session brief', brief.issues);
+    const { execution } = brief.value;
+    if (execution.provider !== provider || execution.sessionId !== nativeId)
+      return fail(
+        'incompatible',
+        'invalid_document',
+        "Salidium's brief names a different session than the one requested.",
+      );
+    return { availability: 'available', brief: toBrief(brief.value, instance) };
   }
 }
 

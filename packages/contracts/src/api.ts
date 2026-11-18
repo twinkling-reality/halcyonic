@@ -1,4 +1,5 @@
 import Type, { type Static } from 'typebox';
+import { UnderstandingBriefResult } from './brief.ts';
 import { EvaluationResult } from './evaluation.ts';
 import { StoredEvent } from './events.ts';
 import {
@@ -102,6 +103,17 @@ export const UnderstandingResponse = Type.Object(
   strict,
 );
 export type UnderstandingResponse = Static<typeof UnderstandingResponse>;
+
+/**
+ * The brief the understanding source (Salidium) composed of one execution, read through on
+ * request beside the report and never journaled (ADR 0010). It is one request to the source; read
+ * it again when the report's evidence sequence grows, never on a timer.
+ */
+export const UnderstandingBriefResponse = Type.Object(
+  { execution_id: ExecutionId, result: UnderstandingBriefResult },
+  strict,
+);
+export type UnderstandingBriefResponse = Static<typeof UnderstandingBriefResponse>;
 
 /**
  * What the evaluation source (Seorak) measured about one execution, read through on request and

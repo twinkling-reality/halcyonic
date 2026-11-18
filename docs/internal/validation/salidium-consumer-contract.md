@@ -408,3 +408,49 @@ Tested against the fake daemon at 0.8.3 and 0.9.0 (`understanding.test.ts`), and
   only the control plane on their own data reads, or one of a separate scratch Salidium instance. So whether 0.9.0
   finds the sessions of tasks Halcyonic runs, through any extra-sources variables a person may have set, is still
   not seen; it shows on a task's Understand on the person's own control plane.
+
+## The brief, consumer contract 1.2 (2026-11-18)
+
+Read in Salidium's checkout (`main` at `a078498`), not run against a daemon. **Contract 1.2 is not
+committed there:** `HEAD` says minor 1 and serves no brief; the working tree's
+`packages/consumer-contract/src/schemas.ts:23` says minor 2 and `packages/daemon/src/consumer/
+routes.ts` serves it. Halcyonic's reader may need to change when Salidium commits it; until then an
+answer that does not match reads as `incompatible`, never as a wrong brief.
+
+- **Routes.** `GET /consumer/v1/executions/{provider}/{nativeSessionId}/brief` (routes.ts:276) and
+  `GET /consumer/v1/sessions/{id}/brief`, the same consumer credential as the report, GET only.
+  Halcyonic asks the first, by the runtime's own session id, so no lookup comes first, with
+  `steer=0`, which makes `steeringBrief` null (routes.ts:519). A missing session is 404 `not-found`.
+  Discovery says minor 2 from such a daemon; Halcyonic asks only then and answers `incompatible`
+  (`brief_not_offered`) before it, without a request.
+- **Shape** (`ExecutionBriefDocumentSchema`, schemas.ts:925): `execution` (`provider`, `sessionId`,
+  `status`), `generatedAt`, and `brief`: `archetype` (five values), `mode`, `moves` (2 to 4), and
+  optional `move2Footprint`, `move3Verification`, `claims`, `crossLaneOverlaps`. A move has `kind`
+  (`action-scope`, `mechanism-blast`, `epistemic-verification`, `next-focus`), `relation`,
+  `epistemic`, `segments` (1 to 24, text or token) and `plainText` (up to 600), which the producer
+  composes from the segments (composeCanvasSpec.ts:516). Only the moves that apply are sent:
+  `mechanism-blast` in some briefs, `next-focus` only when fewer than four. The footprint has
+  `editedFiles` (path, status verified, unverified or failed, lines, module), `modules` (by a path
+  rule of the producer's) and `blastRadius` (`unverifiedDependents`, `untouchedCallers`). It
+  carries no epistemic class and ties no caller to the file it calls. The brief carries no
+  evidence sequence.
+- **Defects in Salidium's working tree, built around, not fixed (read only):**
+  - The daemon sends `format: 'salidium.session-brief'` (routes.ts:549); the schema says
+    `salidium.execution-brief` (schemas.ts:926). Halcyonic reads either, and refuses any other.
+  - The brief is sent without the redaction and the producer check the report gets (routes.ts:363
+    and 548). Command tokens carry the command's words: Halcyonic keeps each command token's place
+    with the label "Command" and no words, and composes that move's plain text again from what it
+    kept, by the producer's rule. Other texts are the source's and stay untrusted data.
+  - `execution.status` is the raw state (`completed` in its own test), outside its status schema;
+    Halcyonic does not read it.
+- **Halcyonic's side.** `GET /api/executions/:execution_id/brief` answers `UnderstandingBriefResponse`:
+  the source (version, contract, instance, `generated_at`), archetype, moves and footprint, mapped
+  field by field. A word Salidium may add within its major version (an archetype, a kind of move or
+  token, a tone, a check outcome, a file status) reads as `unknown` (a tone as null); a kind of
+  segment it adds is left out. Not carried: delta, view match, steering, overlaps with other
+  sessions, claims, the verification move (the report's verification covers it) and every evidence
+  id. Halcyonic's own Codex home and OpenCode store are gated as the report is.
+- **Not verified:** a live daemon's brief; whether `generatedAt` is always present; the footprint of
+  a real session (Salidium's own 1.2 fixture has none). Tested against the fake daemon with a brief
+  in the daemon's shape (`brief.test.ts`, `brief-route.test.ts`).
+

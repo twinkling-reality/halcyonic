@@ -202,6 +202,44 @@ public class ControlPlaneApiTests
     }
 
     [Test]
+    public async Task ReadsABriefWithItsMovesAndFootprint()
+    {
+        var body = "{\"execution_id\":\"" + ExecutionId + "\",\"result\":{\"availability\":\"available\",\"brief\":{"
+            + "\"source\":{\"system\":\"salidium\",\"synthetic\":false,\"version\":\"0.9.0\","
+            + "\"contract\":{\"name\":\"salidium.consumer\",\"major\":1,\"minor\":2},"
+            + "\"instance_id\":\"0123456789abcdef0123456789abcdef\",\"generated_at\":null},"
+            + "\"archetype\":\"blast-radius-edit\",\"moves\":["
+            + "{\"kind\":\"action-scope\",\"epistemic\":\"observed\",\"plain_text\":\"Edited orders.ts, running Command\",\"segments\":["
+            + "{\"kind\":\"text\",\"text\":\"Edited \",\"token\":null,\"label\":null,\"detail\":null,\"epistemic\":null,\"tone\":null,"
+            + "\"paths\":[],\"lines_added\":null,\"lines_removed\":null,\"check_outcomes\":[]},"
+            + "{\"kind\":\"token\",\"text\":null,\"token\":\"file\",\"label\":\"orders.ts\",\"detail\":null,\"epistemic\":\"observed\","
+            + "\"tone\":\"accent\",\"paths\":[\"src/orders.ts\"],\"lines_added\":140,\"lines_removed\":22,\"check_outcomes\":[]}]},"
+            + "{\"kind\":\"epistemic-verification\",\"epistemic\":\"reported\",\"plain_text\":\"Checked\",\"segments\":["
+            + "{\"kind\":\"token\",\"text\":null,\"token\":\"check\",\"label\":\"make test\",\"detail\":\"23 of 24\",\"epistemic\":\"reported\","
+            + "\"tone\":null,\"paths\":[],\"lines_added\":null,\"lines_removed\":null,\"check_outcomes\":[\"pass\",\"fail\"]}]}],"
+            + "\"footprint\":{\"edited_files\":[{\"path\":\"src/orders.ts\",\"status\":\"verified\",\"lines_added\":140,\"lines_removed\":22,\"module\":\"src\"}],"
+            + "\"modules\":[{\"id\":\"src\",\"name\":null,\"files\":[\"src/orders.ts\"]}],"
+            + "\"untouched_callers\":[\"src/page.tsx\"],\"unverified_dependents\":1}}}}";
+        var handler = new CannedHandler(HttpStatusCode.OK, body);
+        using var api = Api(handler);
+        var response = await api.GetBriefAsync(ExecutionId);
+
+        var request = handler.Requests.Single();
+        Assert.That(request.RequestUri, Is.EqualTo(new Uri("http://127.0.0.1:47800/api/executions/" + ExecutionId + "/brief")));
+        Assert.That(response.Result, Is.TypeOf<AvailableBrief>());
+        var brief = ((AvailableBrief)response.Result).Brief;
+        Assert.That(brief.Archetype, Is.EqualTo(UnderstandingBriefArchetype.BlastRadiusEdit));
+        Assert.That(brief.Moves.Select(move => move.Kind), Is.EqualTo(new[] { UnderstandingBriefMoveKind.ActionScope, UnderstandingBriefMoveKind.EpistemicVerification }));
+        var file = brief.Moves[0].Segments[1];
+        Assert.That(file.Token, Is.EqualTo(UnderstandingBriefTokenKind.File));
+        Assert.That(file.LinesAdded, Is.EqualTo(140));
+        Assert.That(brief.Moves[1].Epistemic, Is.EqualTo(UnderstandingEpistemic.Reported));
+        Assert.That(brief.Footprint!.Modules.Single().Name, Is.Null);
+        Assert.That(brief.Footprint.UntouchedCallers, Is.EqualTo(new[] { "src/page.tsx" }));
+        Json.AssertRoundTrips<UnderstandingBriefResponse>(body);
+    }
+
+    [Test]
     public async Task ReadsWhyThereIsNoEvaluation()
     {
         var body = "{\"execution_id\":\"" + ExecutionId + "\",\"result\":{\"availability\":\"unauthorized\","

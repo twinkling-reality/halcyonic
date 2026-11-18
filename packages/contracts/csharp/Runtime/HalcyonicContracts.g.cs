@@ -9155,6 +9155,319 @@ namespace Halcyonic.Contracts
         public UnderstandingResult Result { get; set; } = default!;
     }
 
+    public sealed class UnderstandingBriefSourceContract
+    {
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Name { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("major", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Major { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("minor", Required = global::Newtonsoft.Json.Required.Always)]
+        public long Minor { get; set; }
+    }
+
+    public sealed class UnderstandingBriefSource
+    {
+        [global::Newtonsoft.Json.JsonProperty("system", Required = global::Newtonsoft.Json.Required.Always)]
+        public string System { get; set; } = "salidium";
+
+        [global::Newtonsoft.Json.JsonProperty("synthetic", Required = global::Newtonsoft.Json.Required.Always)]
+        public bool Synthetic { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("version", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Version { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("contract", Required = global::Newtonsoft.Json.Required.Always)]
+        public UnderstandingBriefSourceContract Contract { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("instance_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string InstanceId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("generated_at", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? GeneratedAt { get; set; }
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UnderstandingBriefArchetype
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "verified-edit")] VerifiedEdit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "blast-radius-edit")] BlastRadiusEdit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failing-or-unverified-edit")] FailingOrUnverifiedEdit,
+        [global::System.Runtime.Serialization.EnumMember(Value = "read-only-exploration")] ReadOnlyExploration,
+        [global::System.Runtime.Serialization.EnumMember(Value = "active-mid-flight")] ActiveMidFlight,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UnderstandingBriefMoveKind
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "action-scope")] ActionScope,
+        [global::System.Runtime.Serialization.EnumMember(Value = "mechanism-blast")] MechanismBlast,
+        [global::System.Runtime.Serialization.EnumMember(Value = "epistemic-verification")] EpistemicVerification,
+        [global::System.Runtime.Serialization.EnumMember(Value = "next-focus")] NextFocus,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UnderstandingBriefSegmentKind
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "text")] Text,
+        [global::System.Runtime.Serialization.EnumMember(Value = "token")] Token,
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UnderstandingBriefTokenKind
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "file")] File,
+        [global::System.Runtime.Serialization.EnumMember(Value = "file-rollup")] FileRollup,
+        [global::System.Runtime.Serialization.EnumMember(Value = "caller")] Caller,
+        [global::System.Runtime.Serialization.EnumMember(Value = "caller-rollup")] CallerRollup,
+        [global::System.Runtime.Serialization.EnumMember(Value = "check")] Check,
+        [global::System.Runtime.Serialization.EnumMember(Value = "turn")] Turn,
+        [global::System.Runtime.Serialization.EnumMember(Value = "subagent")] Subagent,
+        [global::System.Runtime.Serialization.EnumMember(Value = "command")] Command,
+        [global::System.Runtime.Serialization.EnumMember(Value = "review")] Review,
+        [global::System.Runtime.Serialization.EnumMember(Value = "metric")] Metric,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UnderstandingBriefTone
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "good")] Good,
+        [global::System.Runtime.Serialization.EnumMember(Value = "bad")] Bad,
+        [global::System.Runtime.Serialization.EnumMember(Value = "warn")] Warn,
+        [global::System.Runtime.Serialization.EnumMember(Value = "accent")] Accent,
+        [global::System.Runtime.Serialization.EnumMember(Value = "neutral")] Neutral,
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UnderstandingBriefSegmentCheckOutcomesItem
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "pass")] Pass,
+        [global::System.Runtime.Serialization.EnumMember(Value = "fail")] Fail,
+        [global::System.Runtime.Serialization.EnumMember(Value = "partial")] Partial,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class UnderstandingBriefSegment
+    {
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
+        public UnderstandingBriefSegmentKind Kind { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("text", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Text { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("token", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public UnderstandingBriefTokenKind? Token { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("label", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Label { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("detail", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Detail { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public UnderstandingEpistemic? Epistemic { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("tone", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public UnderstandingBriefTone? Tone { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("paths", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Paths { get; set; } = new global::System.Collections.Generic.List<string>();
+
+        [global::Newtonsoft.Json.JsonProperty("lines_added", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? LinesAdded { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("lines_removed", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? LinesRemoved { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("check_outcomes", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingBriefSegmentCheckOutcomesItem> CheckOutcomes { get; set; } = new global::System.Collections.Generic.List<UnderstandingBriefSegmentCheckOutcomesItem>();
+    }
+
+    public sealed class UnderstandingBriefMove
+    {
+        [global::Newtonsoft.Json.JsonProperty("kind", Required = global::Newtonsoft.Json.Required.Always)]
+        public UnderstandingBriefMoveKind Kind { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
+        public UnderstandingEpistemic Epistemic { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("plain_text", Required = global::Newtonsoft.Json.Required.Always)]
+        public string PlainText { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("segments", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingBriefSegment> Segments { get; set; } = new global::System.Collections.Generic.List<UnderstandingBriefSegment>();
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(global::Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum UnderstandingBriefFileStatus
+    {
+        [global::System.Runtime.Serialization.EnumMember(Value = "verified")] Verified,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unverified")] Unverified,
+        [global::System.Runtime.Serialization.EnumMember(Value = "failed")] Failed,
+        [global::System.Runtime.Serialization.EnumMember(Value = "unknown")] Unknown,
+    }
+
+    public sealed class UnderstandingBriefEditedFile
+    {
+        [global::Newtonsoft.Json.JsonProperty("path", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Path { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("status", Required = global::Newtonsoft.Json.Required.Always)]
+        public UnderstandingBriefFileStatus Status { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("lines_added", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? LinesAdded { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("lines_removed", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public long? LinesRemoved { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("module", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Module { get; set; }
+    }
+
+    public sealed class UnderstandingBriefModule
+    {
+        [global::Newtonsoft.Json.JsonProperty("id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Id { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("name", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Name { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<string> Files { get; set; } = new global::System.Collections.Generic.List<string>();
+    }
+
+    public sealed class UnderstandingBriefFootprint
+    {
+        [global::Newtonsoft.Json.JsonProperty("edited_files", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingBriefEditedFile> EditedFiles { get; set; } = new global::System.Collections.Generic.List<UnderstandingBriefEditedFile>();
+
+        [global::Newtonsoft.Json.JsonProperty("modules", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingBriefModule> Modules { get; set; } = new global::System.Collections.Generic.List<UnderstandingBriefModule>();
+
+        [global::Newtonsoft.Json.JsonProperty("untouched_callers", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public global::System.Collections.Generic.List<string>? UntouchedCallers { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("unverified_dependents", Required = global::Newtonsoft.Json.Required.Always)]
+        public long UnverifiedDependents { get; set; }
+    }
+
+    public sealed class UnderstandingBrief
+    {
+        [global::Newtonsoft.Json.JsonProperty("source", Required = global::Newtonsoft.Json.Required.Always)]
+        public UnderstandingBriefSource Source { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("archetype", Required = global::Newtonsoft.Json.Required.Always)]
+        public UnderstandingBriefArchetype Archetype { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("moves", Required = global::Newtonsoft.Json.Required.Always)]
+        public global::System.Collections.Generic.List<UnderstandingBriefMove> Moves { get; set; } = new global::System.Collections.Generic.List<UnderstandingBriefMove>();
+
+        [global::Newtonsoft.Json.JsonProperty("footprint", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public UnderstandingBriefFootprint? Footprint { get; set; }
+    }
+
+    [global::Newtonsoft.Json.JsonConverter(typeof(UnderstandingBriefResultConverter))]
+    public abstract class UnderstandingBriefResult
+    {
+        [global::Newtonsoft.Json.JsonProperty("availability", Order = -2)]
+        public string Availability => Discriminator;
+
+        protected abstract string Discriminator { get; }
+    }
+
+    public sealed class UnderstandingBriefResultConverter : JsonConverter
+    {
+        public override bool CanWrite => false;
+
+        public override bool CanConvert(Type objectType) => typeof(UnderstandingBriefResult).IsAssignableFrom(objectType);
+
+        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null) return null;
+            var item = JObject.Load(reader);
+            var token = item["availability"];
+            var tag = token != null && token.Type == JTokenType.String ? (string?)token : null;
+            UnderstandingBriefResult value = tag switch
+            {
+                "available" => new AvailableBrief(),
+                "not_found" => new NotFoundBrief(),
+                "unavailable" => new UnavailableBrief(),
+                "incompatible" => new IncompatibleBrief(),
+                "unauthorized" => new UnauthorizedBrief(),
+                _ => throw new JsonSerializationException(tag == null
+                    ? "UnderstandingBriefResult has no string availability."
+                    : "Unknown availability \"" + tag + "\" for UnderstandingBriefResult."),
+            };
+            if (!objectType.IsInstanceOfType(value))
+            {
+                throw new JsonSerializationException(
+                    "Expected " + objectType.Name + " but availability is \"" + tag + "\".");
+            }
+            using (var itemReader = item.CreateReader())
+            {
+                serializer.Populate(itemReader, value);
+            }
+            return value;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+            throw new NotSupportedException("Variants serialize as themselves.");
+    }
+
+    public sealed class AvailableBrief : UnderstandingBriefResult
+    {
+        protected override string Discriminator => "available";
+
+        [global::Newtonsoft.Json.JsonProperty("brief", Required = global::Newtonsoft.Json.Required.Always)]
+        public UnderstandingBrief Brief { get; set; } = default!;
+    }
+
+    public sealed class NotFoundBrief : UnderstandingBriefResult
+    {
+        protected override string Discriminator => "not_found";
+
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnavailableBrief : UnderstandingBriefResult
+    {
+        protected override string Discriminator => "unavailable";
+
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class IncompatibleBrief : UnderstandingBriefResult
+    {
+        protected override string Discriminator => "incompatible";
+
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnauthorizedBrief : UnderstandingBriefResult
+    {
+        protected override string Discriminator => "unauthorized";
+
+        [global::Newtonsoft.Json.JsonProperty("reason", Required = global::Newtonsoft.Json.Required.Always)]
+        public ErrorInfo Reason { get; set; } = default!;
+    }
+
+    public sealed class UnderstandingBriefResponse
+    {
+        [global::Newtonsoft.Json.JsonProperty("execution_id", Required = global::Newtonsoft.Json.Required.Always)]
+        public string ExecutionId { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("result", Required = global::Newtonsoft.Json.Required.Always)]
+        public UnderstandingBriefResult Result { get; set; } = default!;
+    }
+
     public sealed class EvaluationSource
     {
         [global::Newtonsoft.Json.JsonProperty("system", Required = global::Newtonsoft.Json.Required.Always)]

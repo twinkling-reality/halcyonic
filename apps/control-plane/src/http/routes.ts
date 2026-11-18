@@ -54,6 +54,8 @@ import {
   type StoredEvent,
   ToolResultsQuery,
   TRANSCRIPTION_MAX_BYTES,
+  UnderstandingBriefResponse,
+  type UnderstandingBriefResult,
   UnderstandingResponse,
   type UnderstandingResult,
   UsageLimitsResponse,
@@ -99,6 +101,7 @@ const validateCheckStepOutputQuery = compileValidator(CheckStepOutputQuery);
 const validateWorkspaceRequestId = compileValidator(WorkspaceRequestId);
 const validateWorkspaceCommandId = compileValidator(CommandId);
 const validateUnderstandingResponse = compileValidator(UnderstandingResponse);
+const validateUnderstandingBriefResponse = compileValidator(UnderstandingBriefResponse);
 const validateEvaluationResponse = compileValidator(EvaluationResponse);
 const validateUsageLimitsResponse = compileValidator(UsageLimitsResponse);
 const validateCompanionStatus = compileValidator(CompanionStatus);
@@ -858,6 +861,58 @@ export function registerRoutes(
         reason: {
           code: 'invalid_understanding',
           message: 'The understanding provider returned data outside the contract.',
+        },
+      },
+    };
+  });
+
+  // Read through to the understanding provider's brief; nothing here is journaled (ADR 0010).
+  app.get('/api/executions/:execution_id/brief', async (request, reply) => {
+    const executionId = (request.params as { execution_id: string }).execution_id;
+    if (!validateExecutionId(executionId).ok) {
+      return reply
+        .code(400)
+        .send(errorBody('invalid_request', 'execution_id must be an execution identifier.'));
+    }
+    const execution = controlPlane.projection.execution(executionId);
+    if (execution === undefined) {
+      return reply
+        .code(404)
+        .send(errorBody('execution_not_found', `Execution ${executionId} does not exist.`));
+    }
+    const { understanding } = sources;
+    const result: UnderstandingBriefResult =
+      execution.native_id === null
+        ? {
+            availability: 'not_found',
+            reason: {
+              code: 'native_id_unknown',
+              message: 'The runtime has not reported its session id yet.',
+            },
+          }
+        : understanding.brief === undefined
+          ? {
+              availability: 'unavailable',
+              reason: {
+                code: 'brief_not_read',
+                message: 'This understanding provider composes no brief.',
+              },
+            }
+          : await understanding.brief(
+              execution.runtime.kind,
+              execution.native_id,
+              execution.started_at ?? execution.created_at,
+            );
+    const body = { execution_id: execution.execution_id, result };
+    if (validateUnderstandingBriefResponse(body).ok) return body;
+    request.log.warn({ execution_id: executionId }, 'brief does not match the contract');
+    return {
+      execution_id: execution.execution_id,
+      result: {
+        availability: 'incompatible',
+        reason: {
+          code: 'invalid_brief',
+          message: 'The understanding provider returned a brief outside the contract.',
         },
       },
     };
