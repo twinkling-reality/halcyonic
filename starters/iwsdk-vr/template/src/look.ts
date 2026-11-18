@@ -6,6 +6,7 @@ import {
   Color,
   CylinderGeometry,
   DirectionalLight,
+  FogExp2,
   Float32BufferAttribute,
   BufferGeometry,
   Group,
@@ -14,14 +15,18 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshPhysicalMaterial,
+  NeutralToneMapping,
   NoToneMapping,
   PCFSoftShadowMap,
   PlaneGeometry,
+  PMREMGenerator,
   Points,
   PointsMaterial,
   RingGeometry,
+  Scene,
   ShaderMaterial,
   SphereGeometry,
+  type Texture,
   TorusGeometry,
   Vector2,
   Vector3,
@@ -30,6 +35,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { seatPose, VIEW_CAMERA, type ViewPose, viewDrift } from './legible.js';
 import { drift } from './motion.js';
 import { toyMaterial } from './palette.js';
+import { grassCarpet } from './grass.js';
+import { waterMaterial, withGrain } from './surface.js';
 import { startAmbience } from './sound.js';
 import { type WorldLook, type WorldName, worlds } from './worlds.js';
 
@@ -274,9 +281,27 @@ function island(): Group {
     sheenRoughness: 0.5,
     sheenColor: new Color(ground.sheen),
   });
-  const top = new Mesh(deform(topGeometry), topMaterial);
+  const top = new Mesh(deform(topGeometry), withGrain(topMaterial, 5, 0.16));
   top.receiveShadow = true;
   group.add(top);
+  // Grass as grass on a grass world: blades over the top, short where the game is played, longer toward the edge,
+  // none on the tier, so the stage stays clear for a sign or a goal.
+  if (ground.grass !== undefined) {
+    const carpet = grassCarpet({
+      count: 9000,
+      extent: R,
+      colour: ground.grass.colour,
+      tip: ground.grass.tip,
+      grows: (x, z) => {
+        const r = Math.hypot(x, z);
+        if (r > (R - 0.06) * lobe(Math.atan2(z, x))) return false;
+        return Math.hypot(x, z - FLOOR.tier.z) > FLOOR.tier.radius + 0.12;
+      },
+      height: (x, z) => 0.035 + 0.055 * Math.min(1, Math.hypot(x, z) / R) ** 1.5,
+    });
+    group.add(carpet.mesh);
+    ambientMotion(carpet.move);
+  }
   // A rim of grass that rolls over the edge.
   const rimGeometry = new TorusGeometry(R - 0.01, 0.075, 16, 160);
   rimGeometry.rotateX(Math.PI / 2);
@@ -340,7 +365,11 @@ function meadowSky(sky: WorldLook['sky']): Mesh {
         'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: [
         'uniform vec3 top; uniform vec3 horizon; varying vec3 vP;',
-        'void main(){ float t = smoothstep(-0.02, 0.32, vP.y); gl_FragColor = vec4(mix(horizon, top, t), 1.0);',
+        'void main(){ float t = smoothstep(-0.02, 0.32, vP.y); vec3 c = mix(horizon, top, t);',
+        // A band of light haze where the sky meets the land, and a dither so the gradient never bands on a headset.
+        'c = mix(c, horizon * 1.08, (1.0 - smoothstep(0.0, 0.12, abs(vP.y))) * 0.35);',
+        'c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;',
+        'gl_FragColor = vec4(c, 1.0);',
         '#include <colorspace_fragment>',
         '}',
       ].join('\n'),
@@ -390,7 +419,11 @@ function skyDome(sky: WorldLook['sky']): Mesh {
       // darker and bluer than ART7's (#146CFF for #4FAEFF). three.js includes a chunk only on a line of its own.
       fragmentShader: [
         ...lines,
-        `void main(){ float t = smoothstep(-0.02, 0.32, vP.y); ${colour} ${disc} gl_FragColor = vec4(c, 1.0);`,
+        `void main(){ float t = smoothstep(-0.02, 0.32, vP.y); ${colour} ${disc}`,
+        // A band of light haze where the sky meets the land, and a dither so the gradient never bands on a headset.
+        'c = mix(c, horizon * 1.08, (1.0 - smoothstep(0.0, 0.12, abs(vP.y))) * 0.35);',
+        'c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;',
+        'gl_FragColor = vec4(c, 1.0);',
         '#include <colorspace_fragment>',
         '}',
       ].join('\n'),
@@ -472,12 +505,14 @@ function sea(water: NonNullable<WorldLook['ground']['sea']>, discAt: readonly [n
     colours.push(c.r, c.g, c.b);
   }
   geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
-  const surface = new Mesh(
-    geometry,
-    new MeshPhysicalMaterial({ color: '#FFFFFF', vertexColors: true, roughness: 0.28, metalness: 0, clearcoat: 0.6 }),
-  );
+  // Real water: its ripples drift under the sky's light, so it mirrors the sky, the sun's glint and the island.
+  const surfaceMaterial = waterMaterial('#FFFFFF', 22);
+  surfaceMaterial.vertexColors = true;
+  ambientMotion((time) => surfaceMaterial.move(time));
+  const surface = new Mesh(geometry, surfaceMaterial);
   surface.position.y = water.level;
-  surface.receiveShadow = true;
+  // Open water takes no shadow: a palm's shadow far out on the sea reads as a hole, not as shade.
+  surface.receiveShadow = false;
   group.add(surface);
   const foamGeometry = new TorusGeometry(ISLAND_RADIUS + 0.04, 0.07, 10, 160);
   foamGeometry.rotateX(Math.PI / 2);
@@ -521,6 +556,37 @@ function hills(colours: readonly [string, string]): Mesh {
 }
 
 /**
+ * The world's sky as light: its sky dome, its ground below the horizon and its sun as a bright disc, blurred once into
+ * an environment map (PMREM) that every lit material reads for its soft light and its reflections. Drawn once at setup,
+ * never per frame.
+ */
+function skyLight(renderer: World['renderer'], look: WorldLook): Texture {
+  const scene = new Scene();
+  const plain = look.sky.middle === undefined && look.sky.disc === undefined;
+  scene.add(plain ? meadowSky(look.sky) : skyDome(look.sky));
+  // The ground below the horizon, dimmer than the grass in the sun: the light it sends back up.
+  const ground = new Mesh(
+    new CircleGeometry(60, 48).rotateX(-Math.PI / 2),
+    // Mostly grey, a little of the ground's colour: a green bounce would tint every cloud and gloss green.
+    new MeshBasicMaterial({ color: new Color(look.ground.sea?.far ?? look.ground.top).lerp(new Color('#7A7A72'), 0.7).multiplyScalar(0.4) }),
+  );
+  ground.position.y = -0.5;
+  scene.add(ground);
+  // The sun (or the moon) as a small, very bright disc, so gloss and water catch its glint.
+  const toward = new Vector3(...look.light.sunAt).normalize();
+  const disc = new Mesh(
+    new SphereGeometry(1.4, 16, 8),
+    new MeshBasicMaterial({ color: new Color(look.light.sun).multiplyScalar(look.light.sunStrength * 6) }),
+  );
+  disc.position.copy(toward.multiplyScalar(30));
+  scene.add(disc);
+  const pmrem = new PMREMGenerator(renderer);
+  const target = pmrem.fromScene(scene, 0.02);
+  pmrem.dispose();
+  return target.texture;
+}
+
+/**
  * Sets up the starter's look once, after World.create, in the world you name (`src/worlds.ts`): `setupLook(world,
  * 'night')`, or a world of your own. With none it is the meadow, the starter's default, which every new game shares.
  * Returns the island to put the game on.
@@ -531,25 +597,36 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   seatOnFirstFrame(world);
   const look = current;
   const renderer = world.renderer;
-  // No tone mapping: ACES turns yellows to mustard and washes out greens; keep colours true.
-  renderer.toneMapping = NoToneMapping;
+  // Khronos PBR Neutral tone mapping: highlights roll off like film, while colours below them stay as given (ACES
+  // turned yellows to mustard and washed out greens).
+  renderer.toneMapping = NeutralToneMapping;
+  renderer.toneMappingExposure = look.light.exposure ?? 1;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
-  world.scene.environment = null;
-  // HemisphereLight uses its world position as the sky direction: keep it on the scene root at (0, 1, 0).
-  world.scene.add(new HemisphereLight(look.light.sky, look.light.ground, look.light.fill));
+  // The sky lights the world: a blurred image of the world's own sky and ground falls on every lit material as soft
+  // light from every side and as its reflections, so water mirrors the sky and gloss catches it.
+  world.scene.environment = skyLight(renderer, look);
+  world.scene.environmentIntensity = 0.55 * (look.light.environment ?? 1);
+  // Haze toward the horizon: far hills and clouds fade into the sky's own colour at the horizon.
+  const haze = look.light.haze ?? 0.016;
+  world.scene.fog = haze > 0 ? new FogExp2(new Color(look.sky.horizon), haze) : null;
+  // HemisphereLight uses its world position as the sky direction: keep it on the scene root at (0, 1, 0). The sky's
+  // light above carries most of the soft light now, so this one only lifts the shade.
+  world.scene.add(new HemisphereLight(look.light.sky, look.light.ground, look.light.fill * 0.35));
   // ART7 framed the island from +z, where the player stands: left unturned, its front faces the headset and the
   // laptop camera alike, and the clouds and the tier are in front of them.
   const stage = new Group();
   stage.position.set(ISLAND_CENTRE.x, 0, ISLAND_CENTRE.z);
   world.scene.add(stage);
 
-  const sun = new DirectionalLight(look.light.sun, look.light.sunStrength);
+  // A stronger sun than before over less soft light: shade with depth, its highlights rolled off by the tone mapping.
+  const sun = new DirectionalLight(look.light.sun, look.light.sunStrength * 1.3);
   sun.position.set(...look.light.sunAt);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.radius = 5;
-  sun.shadow.bias = -0.0006;
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
   Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 0.5, far: 20 });
   stage.add(sun);
   stage.add(sun.target);
@@ -641,6 +718,7 @@ export function setupScene(world: World, background = '#000000'): { root: Group 
   });
   renderer.toneMapping = NoToneMapping;
   world.scene.environment = null;
+  world.scene.fog = null;
   // The SDK's environment system clears scene.background, so the colour is a sphere round the person, as the starter's
   // own skies are, inside the camera's far plane (200 m).
   const backdrop = new Mesh(

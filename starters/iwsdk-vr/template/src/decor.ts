@@ -28,7 +28,8 @@ import {
   Vector2,
   Vector3,
 } from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { bothSidesUp, grassBlade } from './grass.js';
 import { wordsOn } from './legible.js';
 import { ambientMotion, contactShadow, currentWorld, gameIsland, gameTime, ISLAND_CENTRE, TIER } from './look.js';
 import { ambient, confettiPiece, flap, flight, juice, pulse, sway } from './motion.js';
@@ -114,9 +115,9 @@ function meadowDressing(decor: Group, counts: DecorCounts): void {
       [0.2, 0.6, 0.05, 0.26],
       [-0.2, 0.62, -0.02, 0.27],
     ] as const)
-      parts.push(part(new SphereGeometry(r, 32, 16), '#47B04A', [a, b, c]));
+      parts.push(part(foliage(r, x * 3.1 + a * 7 + z), '#47B04A', [a, b, c]));
     // The trunk and crown sway together above a still shadow, which would dip into the grass if it leaned.
-    const swaying = prop(parts, { roughness: 0.6, clearcoat: 0.15 });
+    const swaying = prop(parts, { natural: true, roughness: 0.82 });
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size);
@@ -131,8 +132,8 @@ function meadowDressing(decor: Group, counts: DecorCounts): void {
       [0, 0, 0.2],
       [0.18, -0.03, 0.15],
       [-0.17, -0.04, 0.14],
-    ].map(([a, c, r]) => part(new SphereGeometry(r, 24, 12), '#3FA247', [a, r * 0.7 + c, 0]));
-    const bush = prop(parts, { roughness: 0.6 });
+    ].map(([a, c, r]) => part(foliage(r, x * 2.3 + a * 5 + z), '#3FA247', [a, r * 0.7 + c, 0]));
+    const bush = prop(parts, { natural: true, roughness: 0.82 });
     bush.position.set(x, 0, z);
     bush.scale.setScalar(size * 1.4);
     decor.add(bush);
@@ -162,10 +163,11 @@ function meadowDressing(decor: Group, counts: DecorCounts): void {
 /** Grass: every tuft one instance of the same three blades, one draw call for the island, leaning with the breeze. */
 function grassTufts(decor: Group, tufts: number, colour: string, height: number): void {
   if (tufts <= 0) return;
-  const blades = [0, 1, 2].map((k) =>
-    part(new ConeGeometry(0.025, 0.12, 6), colour, [(k - 1) * 0.03, 0.06, 0], [1, 1, 1], [0, 0, (k - 1) * 0.35]),
+  // Each tuft a fan of real blades (src/grass.ts), not cones: taller than the carpet round it.
+  const blades = [0, 1, 2, 3, 4].map((k) =>
+    part(grassBlade(0.02), colour, [(k - 2) * 0.012, 0, 0], [1, 0.15 + (k % 2) * 0.04, 1], [0, k * 1.2, (k - 2) * 0.22]),
   );
-  const material = toyMaterial('#FFFFFF', { ground: true, roughness: 0.8 });
+  const material = bothSidesUp(toyMaterial('#FFFFFF', { ground: true, roughness: 0.8 }));
   material.vertexColors = true;
   const grass = new InstancedMesh(merge(blades), material, tufts);
   const spots = Array.from({ length: tufts }, (_, i) => {
@@ -275,7 +277,7 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
       [0.22, 0.64, 0.06, 0.27],
       [-0.22, 0.66, -0.02, 0.28],
     ] as const)
-      parts.push(part(new SphereGeometry(r, 32, 16), '#5DA43C', [a, b, c]));
+      parts.push(part(foliage(r, x * 3.1 + a * 7 + z), '#5DA43C', [a, b, c]));
     for (const [a, b, c] of [
       [0.16, 0.86, 0.3],
       [-0.2, 0.74, 0.27],
@@ -284,7 +286,7 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
       [-0.33, 0.8, 0.1],
     ] as const)
       parts.push(part(new SphereGeometry(0.05, 16, 12), 'berry', [a, b, c]));
-    const swaying = prop(parts, { roughness: 0.55, clearcoat: 0.2 });
+    const swaying = prop(parts, { natural: true, roughness: 0.7 });
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size);
@@ -522,8 +524,8 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
       [-0.17, 0.7, -0.02, 0.23, '#5672DA'],
       [0.02, 1.1, 0, 0.17, '#5C7CE0'],
     ] as const)
-      parts.push(part(new SphereGeometry(r, 32, 16), colour, [a, b, c]));
-    const swaying = prop(parts, { roughness: 0.5, clearcoat: 0.25 });
+      parts.push(part(foliage(r, x * 3.1 + a * 7 + z), colour, [a, b, c]));
+    const swaying = prop(parts, { natural: true, roughness: 0.6 });
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size);
@@ -599,6 +601,39 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
   }
 }
 
+/**
+ * A crown of leaves, not a ball: a sphere of `r` pushed in and out by smooth noise (its own `seed`), so its outline
+ * breaks into clumps, darker underneath and inside where the leaves shade each other.
+ */
+function foliage(r: number, seed: number): BufferGeometry {
+  const base = new IcosahedronGeometry(r, 4);
+  base.deleteAttribute('normal');
+  base.deleteAttribute('uv');
+  const shape = mergeVertices(base, 1e-5);
+  const position = shape.getAttribute('position');
+  const uv: number[] = [];
+  const shade: number[] = [];
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i) / r;
+    const y = position.getY(i) / r;
+    const z = position.getZ(i) / r;
+    const clumps =
+      0.14 * Math.sin(5.1 * x + seed) * Math.sin(4.3 * y + 1.7 * seed) * Math.sin(4.7 * z + 0.6 * seed) +
+      0.06 * Math.sin(11.3 * x + 2.1 * seed) * Math.sin(12.7 * z + seed) +
+      0.03 * Math.sin(23.0 * y + 3.3 * seed);
+    const k = 1 + clumps;
+    position.setXYZ(i, x * r * k, y * r * k, z * r * k);
+    uv.push(Math.atan2(z, x) / (Math.PI * 2) + 0.5, Math.asin(Math.max(-1, Math.min(1, y))) / Math.PI + 0.5);
+    // Underneath and in the hollows the leaves shade each other.
+    const under = Math.min(1, Math.max(0, (y + 1) / 1.6));
+    shade.push((0.5 + 0.5 * under) * (0.82 + 1.3 * Math.max(-0.14, Math.min(0.14, clumps))));
+  }
+  shape.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  shape.setAttribute('shade', new Float32BufferAttribute(shade, 1));
+  shape.computeVertexNormals();
+  return shape;
+}
+
 /** One part of a prop: a geometry in its own colour, placed in the prop. */
 function part(
   geometry: BufferGeometry,
@@ -621,7 +656,15 @@ function merge(parts: readonly Mesh[]): BufferGeometry {
     const piece = mesh.geometry.clone().applyMatrix4(mesh.matrix);
     const { r, g, b } = (mesh.material as MeshPhysicalMaterial).color;
     const count = piece.getAttribute('position').count;
-    piece.setAttribute('color', new Float32BufferAttribute(new Array(count).fill([r, g, b]).flat(), 3));
+    // A part's own shade (a crown of leaves darker underneath) darkens its colour vertex by vertex.
+    const shade = piece.getAttribute('shade');
+    const colours: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const s = shade === undefined ? 1 : shade.getX(i);
+      colours.push(r * s, g * s, b * s);
+    }
+    piece.setAttribute('color', new Float32BufferAttribute(colours, 3));
+    if (shade !== undefined) piece.deleteAttribute('shade');
     return piece;
   });
   // An extruded shape has no index; merged geometries must all have one or none.
@@ -632,8 +675,9 @@ function merge(parts: readonly Mesh[]): BufferGeometry {
 }
 
 /** A prop of several coloured parts as one mesh, so it costs one draw call, casting and taking shadows. */
-function prop(parts: readonly Mesh[], look: { roughness?: number; clearcoat?: number } = {}): Mesh {
-  const material = toyMaterial('#FFFFFF', { roughness: look.roughness });
+function prop(parts: readonly Mesh[], look: { roughness?: number; clearcoat?: number; natural?: boolean } = {}): Mesh {
+  // A natural prop (a tree, a bush) is matte with a leaf's fine relief; a toy keeps its gloss.
+  const material = toyMaterial('#FFFFFF', { roughness: look.roughness, ground: look.natural });
   if (look.clearcoat !== undefined) material.clearcoat = look.clearcoat;
   material.vertexColors = true;
   const mesh = new Mesh(merge(parts), material);

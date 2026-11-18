@@ -1,4 +1,5 @@
 import { Color, MeshPhysicalMaterial } from 'three';
+import { withGrain } from './surface.js';
 
 /** Ten named kid colours (sRGB, ART7). They sit together, read on a headset, and stay apart in hue. */
 export const palette = {
@@ -23,14 +24,14 @@ export const soilLip = '#6A4A2E';
 
 /**
  * Soft plastic: glossy toys on a matte world. Give a palette name or a colour; pass `ground: true` for grass, soil
- * and foliage.
+ * and foliage, which take a natural surface's fine relief (`withGrain` in `src/surface.ts`) under the sky's light.
  */
 export function toyMaterial(
   colour: PaletteName | string,
   options: { ground?: boolean; roughness?: number } = {},
 ): MeshPhysicalMaterial {
   const named = (palette as Record<string, string>)[colour] ?? colour;
-  return new MeshPhysicalMaterial({
+  const material = new MeshPhysicalMaterial({
     color: named,
     roughness: options.roughness ?? (options.ground ? 0.85 : 0.3),
     metalness: 0,
@@ -40,4 +41,5 @@ export function toyMaterial(
     sheenRoughness: 0.5,
     sheenColor: new Color('#FFFFFF'),
   });
+  return options.ground ? withGrain(material, 3, 0.18) : material;
 }

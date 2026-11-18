@@ -36,6 +36,12 @@ export interface WorldLook {
     readonly rimStrength: number;
     /** Where the rim light shines from round the island; behind and to the left when not given. */
     readonly rimAt?: readonly [number, number, number];
+    /** The camera's exposure under the starter's tone mapping (1 when not given): lower for a darker hour. */
+    readonly exposure?: number;
+    /** How strongly the sky's own light (its reflections and its soft light from every side) falls on things; 1 when not given. */
+    readonly environment?: number;
+    /** The haze toward the horizon, as the fog's density (0.016 when not given, 0 for none): far things fade into the sky. */
+    readonly haze?: number;
   };
   readonly ground: {
     /** The island's top, mixed toward `patch`, with a worn patch in front and a rim rolling over the edge. */
@@ -52,6 +58,8 @@ export interface WorldLook {
     readonly sea?: { readonly near: string; readonly far: string; readonly glitter: string; readonly level: number };
     /** Low hills far off round the horizon, in these colours, or none. */
     readonly hills?: readonly [string, string];
+    /** A carpet of grass blades over the island's top, from `colour` at the root to `tip`, or none (sand, stone). */
+    readonly grass?: { readonly colour: string; readonly tip: string };
   };
   /**
    * The dressing `decorate()` puts at the island's sides and back. Its counts mean the same in every world: `trees`
@@ -86,6 +94,7 @@ const meadow: WorldLook = {
   ground: {
     top: palette.leaf,
     patch: groundPatch,
+    grass: { colour: '#5FAE3E', tip: '#B4E36E' },
     worn: '#A9DE6E',
     rim: palette.leaf,
     sheen: '#E8FFD8',
@@ -120,6 +129,7 @@ const garden: WorldLook = {
   ground: {
     top: '#A3CC52',
     patch: '#88B443',
+    grass: { colour: '#7A9E3A', tip: '#D2DC7A' },
     worn: '#C9DD7E',
     rim: '#98C24C',
     sheen: '#FFF1C8',
@@ -192,6 +202,7 @@ const night: WorldLook = {
   ground: {
     top: '#2FA590',
     patch: '#22887A',
+    grass: { colour: '#1D6E62', tip: '#4FC2A4' },
     worn: '#46B9A2',
     rim: '#2C9A86',
     sheen: '#B8C8FF',
