@@ -251,7 +251,16 @@ function island(): Group {
   tier.position.set(0, FLOOR.tier.height / 2, FLOOR.tier.z);
   tier.castShadow = true;
   tier.receiveShadow = true;
+  // Its side is soil with the relief of soil, not a painted band, under a lip of the island's own turf.
+  const soil = withGrain(toyMaterial(ground.side, { ground: true }), 5, 0.6);
+  tier.material = [soil, toyMaterial(ground.top, { ground: true }), soil];
   group.add(tier);
+  const lipOfTurf = new TorusGeometry(FLOOR.tier.radius + 0.01, 0.035, 10, 96);
+  lipOfTurf.rotateX(Math.PI / 2);
+  const turf = new Mesh(lipOfTurf, toyMaterial(ground.rim, { ground: true, roughness: 0.85 }));
+  turf.position.set(0, FLOOR.tier.height - 0.012, FLOOR.tier.z);
+  turf.receiveShadow = true;
+  group.add(turf);
   // The top: leaf, a touch lighter at the centre, mixed toward the second green by a smooth noise.
   const topGeometry = new RingGeometry(0.001, R - 0.01, 128, 24);
   topGeometry.rotateX(-Math.PI / 2);
@@ -281,7 +290,11 @@ function island(): Group {
     sheenRoughness: 0.5,
     sheenColor: new Color(ground.sheen),
   });
-  const top = new Mesh(deform(topGeometry), withGrain(topMaterial, 5, 0.16));
+  // Grass hides most of the ground's relief; bare sand or earth shows its own, ripples and all.
+  const top = new Mesh(
+    deform(topGeometry),
+    ground.grass === undefined ? withGrain(topMaterial, 11, 0.42) : withGrain(topMaterial, 5, 0.16),
+  );
   top.receiveShadow = true;
   group.add(top);
   // Grass as grass on a grass world: blades over the top, short where the game is played, longer toward the edge,
@@ -334,20 +347,48 @@ function island(): Group {
   return group;
 }
 
-/** A toy cloud of four puffs, as one mesh: one draw call. */
+/**
+ * A cumulus cloud as one mesh (one draw call): soft billows heaped on a flat base, bright on top and shaded grey-blue
+ * underneath, matte as vapour is, never a plastic ball.
+ */
 function cloud(x: number, y: number, z: number, size: number, colour: string): Mesh {
-  const puffs = [
+  const billows = [
     [0, 0, 0, 1],
-    [0.9, -0.15, 0, 0.75],
-    [-0.9, -0.2, 0, 0.7],
+    [0.9, -0.15, 0.1, 0.75],
+    [-0.9, -0.2, -0.05, 0.7],
     [0.35, 0.45, 0, 0.7],
-  ].map(([a, b, c, r]) => new SphereGeometry(r, 32, 16).translate(a, b, c));
-  const shape = mergeGeometries(puffs);
-  // White, or the world's tint, with a self-light of its own colour, so it keeps that colour in the warm sun.
-  const material = toyMaterial(colour, { ground: true, roughness: 0.9 });
-  material.sheen = 0;
+    [-0.45, 0.32, 0.15, 0.58],
+    [1.55, -0.32, 0, 0.5],
+    [-1.55, -0.36, 0.05, 0.45],
+  ].map(([a, b, c, r], i) => {
+    const billow = new SphereGeometry(r, 24, 12);
+    const position = billow.getAttribute('position');
+    for (let k = 0; k < position.count; k++) {
+      const px = position.getX(k) / r;
+      const py = position.getY(k) / r;
+      const pz = position.getZ(k) / r;
+      const lump = 1 + 0.07 * Math.sin(7 * px + i) * Math.sin(6 * py + 2 * i) * Math.sin(7 * pz + i * 0.5);
+      position.setXYZ(k, px * r * lump, py * r * lump, pz * r * lump);
+    }
+    billow.computeVertexNormals();
+    return billow.translate(a, b, c);
+  });
+  const shape = mergeGeometries(billows) ?? new BufferGeometry();
+  // A flat base where the vapour condenses, and the shade under it.
+  const position = shape.getAttribute('position');
+  const shade: number[] = [];
+  for (let k = 0; k < position.count; k++) {
+    const py = Math.max(-0.42, position.getY(k));
+    position.setY(k, py);
+    const s = 0.74 + 0.26 * Math.min(1, Math.max(0, (py + 0.42) / 1.1));
+    shade.push(s, s, s * 1.04);
+  }
+  shape.setAttribute('color', new Float32BufferAttribute(shade, 3));
+  shape.computeVertexNormals();
+  // White, or the world's tint, with a little self-light of its own colour, so it keeps that colour in the warm sun.
+  const material = new MeshPhysicalMaterial({ color: new Color(colour), vertexColors: true, roughness: 1, metalness: 0 });
   material.emissive = new Color(colour);
-  material.emissiveIntensity = 0.55;
+  material.emissiveIntensity = 0.32;
   const puff = new Mesh(shape, material);
   puff.position.set(x, y, z);
   puff.scale.set(size, size * 0.8, size);
@@ -543,6 +584,39 @@ function sea(water: NonNullable<WorldLook['ground']['sea']>, discAt: readonly [n
   return group;
 }
 
+/** The level of the land round the island, below its top (y = 0), so the island stands as a raised green. */
+const PLAIN_LEVEL = -0.32;
+
+/**
+ * Land round the island to the horizon, as one mesh: patches of its two colours that fade, far off, into the horizon's
+ * own colour, so the land meets the sky in haze with no edge.
+ */
+function plainLand(colours: readonly [string, string], horizon: string): Mesh {
+  const geometry = new CircleGeometry(38, 96, 0, Math.PI * 2);
+  // More rings near the island, where the eye is, than far off.
+  geometry.rotateX(-Math.PI / 2);
+  const [a, b] = colours.map((c) => new Color(c)) as [Color, Color];
+  const far = new Color(horizon);
+  const colour: number[] = [];
+  const position = geometry.getAttribute('position');
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const z = position.getZ(i);
+    const r = Math.hypot(x, z);
+    const n = 0.5 + 0.5 * Math.sin(x * 0.37 + Math.sin(z * 0.23) * 2.1) * Math.sin(z * 0.31 + Math.sin(x * 0.19) * 1.7);
+    const c = a.clone().lerp(b, n).lerp(far, Math.min(1, Math.max(0, (r - 14) / 22)) ** 1.4);
+    colour.push(c.r, c.g, c.b);
+  }
+  geometry.setAttribute('color', new Float32BufferAttribute(colour, 3));
+  const material = toyMaterial('#FFFFFF', { ground: true, roughness: 0.95 });
+  material.vertexColors = true;
+  material.sheen = 0;
+  const land = new Mesh(geometry, withGrain(material, 40, 0.25));
+  land.position.y = PLAIN_LEVEL;
+  land.receiveShadow = true;
+  return land;
+}
+
 /** Low hills far off round the horizon, as one mesh: one draw call. */
 function hills(colours: readonly [string, string]): Mesh {
   const random = seeded(11);
@@ -555,7 +629,8 @@ function hills(colours: readonly [string, string]): Mesh {
     const hill = new SphereGeometry(r, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
     hill.scale(1.4, 0.32 + random() * 0.18, 1);
     hill.rotateY(-a);
-    hill.translate(Math.cos(a) * d, -2.6, Math.sin(a) * d);
+    // Rooted below the plain round the island, so each rises out of the land, never floats over it.
+    hill.translate(Math.cos(a) * d, PLAIN_LEVEL - 0.9, Math.sin(a) * d);
     const shade = shades[i % 2] ?? new Color('#88AA55');
     const count = hill.getAttribute('position').count;
     hill.setAttribute('color', new Float32BufferAttribute(new Array(count).fill([shade.r, shade.g, shade.b]).flat(), 3));
@@ -652,6 +727,7 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   stage.add(plain ? meadowSky(look.sky) : skyDome(look.sky));
   if ((look.sky.stars ?? 0) > 0) stage.add(stars(look.sky.stars ?? 0));
   if (look.ground.sea !== undefined) stage.add(sea(look.ground.sea, look.sky.disc?.at));
+  if (look.ground.plain !== undefined && look.ground.sea === undefined) stage.add(plainLand(look.ground.plain, look.sky.horizon));
   if (look.ground.hills !== undefined) stage.add(hills(look.ground.hills));
   const clouds = look.sky.clouds;
   if (clouds !== null)

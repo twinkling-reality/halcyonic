@@ -1551,6 +1551,19 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.doesNotMatch(move, /setMatrixAt/, 'nothing per blade on the CPU each frame');
   });
 
+  test('every land world is grounded: land to the horizon fading into its haze, hills rising out of it, a turfed tier', () => {
+    const worlds = read('src/worlds.ts');
+    for (const name of ['meadow', 'garden', 'night']) {
+      const world = worlds.slice(worlds.indexOf(`name: '${name}'`), worlds.indexOf('dressing:', worlds.indexOf(`name: '${name}'`)));
+      assert.match(world, /plain: \['#[0-9A-F]{6}', '#[0-9A-F]{6}'\]/, name);
+      assert.match(world, /hills: \['#[0-9A-F]{6}', '#[0-9A-F]{6}'\]/, name);
+    }
+    const land = look().slice(look().indexOf('function plainLand('), look().indexOf('function hills('));
+    assert.match(land, /\.lerp\(far, /, 'far off, the land takes the horizon colour, so it meets the sky in haze');
+    assert.match(look(), /hill\.translate\(Math\.cos\(a\) \* d, PLAIN_LEVEL - 0\.9, Math\.sin\(a\) \* d\);/);
+    assert.match(look(), /const turf = new Mesh\(lipOfTurf, /);
+  });
+
   test('trees and bushes are leafy crowns and the tufts are blades: no bare sphere or cone of foliage', () => {
     const decor = read('src/decor.ts');
     assert.doesNotMatch(decor, /part\(new SphereGeometry\(r, \d+, \d+\), '#47B04A'/);
@@ -1561,7 +1574,9 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
 
   test('the agent is told the light is the starter\'s, that water is water(...), and how natural things take relief', () => {
     const agents = read('AGENTS.md');
-    assert.match(agents, /Leave `renderer\.toneMapping`, `scene\.environment`\n\s+and `scene\.fog` to `setupLook`/);
+    assert.match(agents, /Leave `renderer\.toneMapping`,\n\s+`scene\.environment` and `scene\.fog` to `setupLook`/);
+    assert.match(agents, /only a picture all\n\s+round \(a sky, stars\) stays on `MeshBasicMaterial`/);
+    assert.match(agents, /a disc 1\.2 m\n\s+in radius/);
     assert.match(agents, /`const lake = water\(1\.2\)` from `\.\/kit\.js`/);
     assert.match(agents, /Never a flat coloured disc\./);
     assert.match(read('src/kit.ts'), /export \{ surfaceGrain, water, waterMaterial, withGrain \} from '\.\/surface\.js';/);

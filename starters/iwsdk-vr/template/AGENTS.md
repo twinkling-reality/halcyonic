@@ -91,12 +91,13 @@ Make it fun to look at:
 - `world.createTransformEntity(object)` moves the object to the scene's root: an object inside a group of your own
   that is moved or turned would jump when it becomes an entity. Keep the objects the game makes into entities directly
   in `gameIsland()`, or pass `{ parent: entity }` to keep one under an entity of yours.
-- The starter lights each world like a film set: its own sky lights every lit material (soft light and reflections),
-  highlights roll off like film, and far things fade into the haze. Leave `renderer.toneMapping`, `scene.environment`
-  and `scene.fog` to `setupLook`, and make every object of a material that takes light (`toyMaterial`,
-  `MeshStandardMaterial`), never `MeshBasicMaterial`, which draws flat and unlit.
+- The starter lights each world from its own sky: every lit material gets soft light and reflections, bright
+  highlights stay soft instead of turning white, and far things fade into a haze. Leave `renderer.toneMapping`,
+  `scene.environment` and `scene.fog` to `setupLook`, and make every solid object of a material that takes light
+  (`toyMaterial`, `MeshStandardMaterial`), never `MeshBasicMaterial`, which draws flat and unlit; only a picture all
+  round (a sky, stars) stays on `MeshBasicMaterial`, as below.
 - Water (a lake, a pond, a pool, a moat) is real water: `const lake = water(1.2)` from `./kit.js` is a disc 1.2 m
-  across that ripples and mirrors the sky; set `lake.mesh.position` where it lies, a few millimetres above the
+  in radius that ripples and mirrors the sky; set `lake.mesh.position` where it lies, a few millimetres above the
   ground, add it to `gameIsland()` and pass `lake.move` to `ambientMotion`. Never a flat coloured disc.
 - Natural things (grass, soil, bark, rock, leaves) take `toyMaterial(colour, { ground: true })`, which gives them a
   surface's fine relief; toys keep the plain `toyMaterial(colour)`. A field of grass of your own is

@@ -60,6 +60,8 @@ export interface WorldLook {
     readonly hills?: readonly [string, string];
     /** A carpet of grass blades over the island's top, from `colour` at the root to `tip`, or none (sand, stone). */
     readonly grass?: { readonly colour: string; readonly tip: string };
+    /** Land round the island to the horizon in these two colours, fading into the haze, or none (the sea, or open sky). */
+    readonly plain?: readonly [string, string];
   };
   /**
    * The dressing `decorate()` puts at the island's sides and back. Its counts mean the same in every world: `trees`
@@ -95,6 +97,8 @@ const meadow: WorldLook = {
     top: palette.leaf,
     patch: groundPatch,
     grass: { colour: '#5FAE3E', tip: '#B4E36E' },
+    plain: ['#6DB548', '#559E3A'],
+    hills: ['#6AAE47', '#58993C'],
     worn: '#A9DE6E',
     rim: palette.leaf,
     sheen: '#E8FFD8',
@@ -130,6 +134,7 @@ const garden: WorldLook = {
     top: '#A3CC52',
     patch: '#88B443',
     grass: { colour: '#7A9E3A', tip: '#D2DC7A' },
+    plain: ['#93B65A', '#7EA34C'],
     worn: '#C9DD7E',
     rim: '#98C24C',
     sheen: '#FFF1C8',
@@ -149,7 +154,7 @@ const seaside: WorldLook = {
     top: '#4B4EA8',
     middle: '#EE7F94',
     horizon: '#FFA867',
-    disc: { at: [0.3, 0.05, -1], colour: '#FFE7A6', size: 0.085, glow: '#FF8A4C', glowStrength: 1.2 },
+    disc: { at: [0.3, 0.05, -1], colour: '#FFE7A6', size: 0.065, glow: '#FF8A4C', glowStrength: 1.2 },
     clouds: '#FFC4A8',
   },
   light: {
@@ -203,6 +208,8 @@ const night: WorldLook = {
     top: '#2FA590',
     patch: '#22887A',
     grass: { colour: '#1D6E62', tip: '#4FC2A4' },
+    plain: ['#1A5A55', '#144A48'],
+    hills: ['#1C5552', '#173F4A'],
     worn: '#46B9A2',
     rim: '#2C9A86',
     sheen: '#B8C8FF',
