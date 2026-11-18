@@ -115,7 +115,7 @@ state at rest, with the cadence above.
 
 **Material.** The room's panels are one window glass (`KitGlassMaterial` in the client core, `KitGlass` and the
 `Halcyonic/Kit Glass` shader in the Unity layer; `KitCarrier.DrawGlass` draws a carrier in it): one opaque face over the
-whole panel (`#333A4A`, n1 `#2B3140` at the middle, `#242936`), an optional horizontal left-edge wash in the avatar's hue
+whole panel (`#333A4A`, n1 `#313131` at the middle, `#242936`), an optional horizontal left-edge wash in the avatar's hue
 (`SpatialKit.AvatarTint` `#0F3380`, 28 percent at the left edge, 16 at 42 percent across, 6 at 74 percent, and 0 at the
 right edge; `KitGlassMaterial.LeftWash`), and a soft radial top light of white at 10 percent reaching 60 percent
 of the height, carrying every word (inset 10 dp on a panel, 8 on the lost plate and the earlier edge, 6 on a tile and the
@@ -137,8 +137,8 @@ outer rim. The one primary action on a card or the reader (`Run`, `Try Build`, `
 or the screen bar's primary) is a sapphire-blue glass capsule (`KitPillMeaning.Blue`); every secondary capsule (`Decline`,
 `Reply`, `Restore Checkpoint`, a passed check's `Read Output`, `Stop`) and round 60 dp icon button
 (`KitButtonRole.Round`, such as the reader's close button carrying `GlazeIcon.Close` while keeping `Fold` as its name) is a
-cool dark-slate neutral glass capsule (`KitPillMeaning.Neutral`: `#4C5568` to `#384050` to `#353D4D` to `#29303E` to `#3E4759`,
-rim `#1D222D`, bottom bounce `#6E7A90` at `0.16` alpha, top specular crown from `0.22` to `0.06` to `0.00`, and top rim
+cool dark-slate neutral glass capsule (`KitPillMeaning.Neutral`: `#4C5568` to `#384050` to `#3D3D3D` to `#29303E` to `#3E4759`,
+rim `#222222`, bottom bounce `#6E7A90` at `0.16` alpha, top specular crown from `0.22` to `0.06` to `0.00`, and top rim
 catch-light at `0.28` vs `0.34` to `0.10` to `0.00` crown, `0.28` bounce, and `0.42` catch-light on the saturated hues). Every
 capsule carries its word or glyph in n7 (`28 dp` in at either side on the primary, `18 dp` on a secondary answer; pointed,
 `3` percent larger than the size its owner stands it at (so the screen bar's growth is kept) with `+5` percent sRGB lift and, on the primary, a `3 dp` ring outside it at 3:1 or more on every face;

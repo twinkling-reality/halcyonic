@@ -21,7 +21,7 @@ public class KitGlassMaterialTests
     public void TheFaceIsTheWindowsGreyAndOpaque()
     {
         var face = KitGlassMaterial.Face;
-        Assert.That(face.Select(stop => KitGlassMaterial.ToColour(stop.Colour)), Is.EqualTo(new uint[] { 0x333A4A, 0x2B3140, 0x242936 }.Select(GlazeColor.Hex)), "cool obsidian-slate face stops");
+        Assert.That(face.Select(stop => KitGlassMaterial.ToColour(stop.Colour)), Is.EqualTo(new uint[] { 0x333A4A, 0x313131, 0x242936 }.Select(GlazeColor.Hex)), "cool obsidian-slate face stops");
         Assert.That(face.All(stop => stop.Alpha == 1), Is.True, "opaque at every stop: no part of a panel lets the room through");
         // The soft top light: white 10 percent at the top's middle, gone by 60 percent of the height.
         Assert.That(KitGlassMaterial.Deviation(KitGlassMaterial.LitFace(0), KitGlassMaterial.Prototype(Hex(0xFFFFFF), 0.10, GlazeColor.Hex(0x333A4A))), Is.LessThan(1e-9));
@@ -116,7 +116,10 @@ public class KitGlassMaterialTests
         var left = KitGlassMaterial.ToColour(KitGlassMaterial.LitFace(0.5, -1.0, SpatialKit.AvatarTint));
         var right = KitGlassMaterial.ToColour(KitGlassMaterial.LitFace(0.5, 1.0, SpatialKit.AvatarTint));
         var untintedRight = KitGlassMaterial.ToColour(KitGlassMaterial.LitFace(0.5, 1.0));
-        Assert.That(left.B - left.R, Is.GreaterThanOrEqualTo(35), "the avatar's blue wash shows at the left edge");
+        // The wash's own blue over the face it lies on (the face is a true grey since the no-hue sweep: its slate's 21 of blue over red,
+        // which the old 35 counted, is gone, so the wash alone is measured, at the same 14 it gave over the slate).
+        var untintedLeft = KitGlassMaterial.ToColour(KitGlassMaterial.LitFace(0.5, -1.0));
+        Assert.That((left.B - left.R) - (untintedLeft.B - untintedLeft.R), Is.GreaterThanOrEqualTo(14), "the avatar's blue wash shows at the left edge");
         Assert.That(right, Is.EqualTo(untintedRight), "the wash reaches zero at the right edge");
 
         foreach (var t in Through)

@@ -174,10 +174,10 @@ namespace Halcyonic.Client
         public static GlazeColor Side => Well;
 
         /// <summary>n2: a chip, a secondary control, and the lift under what is chosen.</summary>
-        public static GlazeColor Raised => GlazeColor.Hex(0x313848);
+        public static GlazeColor Raised => GlazeColor.Hex(0x383838);
 
         /// <summary>n0: the person's own words sunk into the slate, code, a screen's edge.</summary>
-        public static GlazeColor Well => GlazeColor.Hex(0x1C2029);
+        public static GlazeColor Well => GlazeColor.Hex(0x202020);
 
         /// <summary>
         /// The switch's thumb, raised above its n0 track: ART's n3, a step over the kit's <see cref="Control"/> so it stands off
@@ -205,13 +205,13 @@ namespace Halcyonic.Client
         // words are white at 82 and 78 percent, never less.
 
         /// <summary>n1: every surface in the room that carries words.</summary>
-        public static GlazeColor Carrier => GlazeColor.Hex(0x2B3140);
+        public static GlazeColor Carrier => GlazeColor.Hex(0x313131);
 
         /// <summary>n3: a button's fill; what the pointer rests on. The lightest step on which every word holds 4.5.</summary>
         public static GlazeColor Control => GlazeColor.Hex(0x394152);
 
         /// <summary>n4: a locked answer's ring, a hairline and the dotted gutter of code still only reported: at least 3:1 on every surface a locked control sits on.</summary>
-        public static GlazeColor Hairline => GlazeColor.Hex(0x8F96A6);
+        public static GlazeColor Hairline => GlazeColor.Hex(0x969696);
 
         /// <summary>n5: a time, a count.</summary>
         public static GlazeColor TextTertiary => GlazeColor.Hex(0xDBDCDC);

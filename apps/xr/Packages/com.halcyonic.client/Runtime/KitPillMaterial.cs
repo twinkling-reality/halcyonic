@@ -84,7 +84,7 @@ namespace Halcyonic.Client
         {
             new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0x4C5568), 1),
             new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x384050), 1),
-            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x353D4D), 1),
+            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x3D3D3D), 1),
             new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x29303E), 1),
             new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0x3E4759), 1),
         };
@@ -115,7 +115,7 @@ namespace Halcyonic.Client
         {
             KitPillMeaning.Green => GlazeColor.Hex(0x09441A),
             KitPillMeaning.Red => GlazeColor.Hex(0x6C1411),
-            KitPillMeaning.Neutral => GlazeColor.Hex(0x1D222D),
+            KitPillMeaning.Neutral => GlazeColor.Hex(0x222222),
             _ => GlazeColor.Hex(0x083870),
         };
 
@@ -133,7 +133,7 @@ namespace Halcyonic.Client
         {
             KitPillMeaning.Green => GlazeColor.Hex(0x0F5A24),
             KitPillMeaning.Red => GlazeColor.Hex(0x881C18),
-            KitPillMeaning.Neutral => GlazeColor.Hex(0x353D4D),
+            KitPillMeaning.Neutral => GlazeColor.Hex(0x3D3D3D),
             _ => GlazeColor.Hex(0x0C488A),
         };
 
