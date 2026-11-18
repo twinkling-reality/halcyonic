@@ -174,7 +174,8 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 if (carrier.Glass is not KitGlass glass) continue;
                 var labels = panelWords.Where(label => label.gameObject.activeInHierarchy).ToList();
-                if (glass.Tone is GlazeColor tone)
+                // Lit white is an answer's light, which says no state (no hue in the chrome, the lead's 2026-11-18): it needs no word.
+                if (glass.Tone is GlazeColor tone && !tone.Equals(SpatialKit.Text))
                 {
                     var word = tone.Equals(SpatialKit.Attention) ? "needs" : tone.Equals(SpatialKit.Passed) ? "passed" : tone.Equals(SpatialKit.Failure) ? "failed" : null;
                     if (word == null) yield return carrier.name + " is lit in a colour that means nothing";
