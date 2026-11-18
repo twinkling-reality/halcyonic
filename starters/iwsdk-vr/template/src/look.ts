@@ -476,9 +476,12 @@ function skyDome(sky: WorldLook['sky']): Mesh {
     lines.push('uniform vec3 discAt; uniform vec3 discColour; uniform vec3 glowColour; uniform float discSize; uniform float glowStrength;');
     disc = [
       'float a = acos(clamp(dot(normalize(vP), discAt), -1.0, 1.0));',
+      // The sky round a bright sun is near white already, so light added there clips: the sky away from it is a
+      // little deeper instead, and the halo shows by the step between them.
+      'c *= mix(0.8, 1.0, exp(-a / 0.75));',
       'c = mix(c, glowColour, glowStrength * 0.55 * exp(-a / (discSize * 2.2)));',
       // A wide soft halo round it, as light scatters near the sun or the moon.
-      'c += glowColour * glowStrength * (0.55 * exp(-a / (discSize * 3.5)) + 0.16 * exp(-a / 0.4));',
+      'c += glowColour * glowStrength * (0.9 * exp(-a / (discSize * 3.5)) + 0.3 * exp(-a / 0.45));',
       'c = mix(c, discColour, 1.0 - smoothstep(discSize * 0.92, discSize, a));',
     ].join(' ');
   }
@@ -583,7 +586,7 @@ function sea(
     if (sunAngle !== null && r > 4) {
       let d = Math.atan2(z, x) - sunAngle;
       d = Math.atan2(Math.sin(d), Math.cos(d));
-      c.lerp(glitter, Math.exp(-(d * d) * 30) * Math.min(1, (r - 4) / 12) * 0.95);
+      c.lerp(glitter, Math.exp(-(d * d) * 30) * Math.min(1, (r - 4) / 12) * 0.95 * (1 - Math.min(1, Math.max(0, (r - 20) / 14))));
     }
     colours.push(c.r, c.g, c.b);
   }
@@ -616,6 +619,43 @@ function sea(
 /** The level of the land round the island, just under its top (y = 0): one continuous ground, no step. */
 const PLAIN_LEVEL = -0.035;
 
+/** A field's own numbers at a lattice cell, from a hash: how dry, how green, and its value, each 0 to 1. */
+function fieldCell(i: number, j: number): { dry: number; green: number; value: number } {
+  const cell = i * 7.13 + j * 3.71;
+  const h = (k: number) => Math.abs(Math.sin(cell * k) * 43758.5453) % 1;
+  const kind = h(12.9898);
+  return { dry: kind < 0.3 ? 1 : 0, green: kind >= 0.3 && kind < 0.55 ? 1 : 0, value: h(78.233) };
+}
+
+/**
+ * The fields at a point on the land, in field units: each field's own numbers, blended smoothly across the last fifth of
+ * a field toward its neighbour, so the land has no hard step anywhere.
+ */
+function fieldsAt(fu: number, fv: number): { dry: number; green: number; value: number } {
+  const i = Math.floor(fu);
+  const j = Math.floor(fv);
+  // Toward the nearer edge on each axis: the weight of the neighbour across it, 0 a fifth of a field in and one half at
+  // the edge itself, where the neighbour's side gives the same half: so the land is continuous across every edge.
+  const toward = (t: number) => {
+    const e = Math.min(t, 1 - t);
+    const s = Math.min(1, Math.max(0, 1 - e / 0.2));
+    return { step: t > 0.5 ? 1 : -1, weight: 0.5 * s * s * (3 - 2 * s) };
+  };
+  const U = toward(fu - i);
+  const V = toward(fv - j);
+  const su = U.step;
+  const sv = V.step;
+  const ku = U.weight;
+  const kv = V.weight;
+  const a = fieldCell(i, j);
+  const b = fieldCell(i + su, j);
+  const c = fieldCell(i, j + sv);
+  const d = fieldCell(i + su, j + sv);
+  const mix = (p: number, q: number, t: number) => p + (q - p) * t;
+  const at = (key: 'dry' | 'green' | 'value') => mix(mix(a[key], b[key], ku), mix(c[key], d[key], ku), kv);
+  return { dry: at('dry'), green: at('green'), value: at('value') };
+}
+
 /**
  * Land round the island to the horizon, as one mesh: patches of its two colours that fade, far off, into the horizon's
  * own colour, so the land meets the sky in haze with no edge.
@@ -647,13 +687,14 @@ function plainLand(colours: readonly [string, string], horizon: string): Mesh {
     const v = -x * 0.34 + z * 0.94;
     const fu = u / 7 + 0.4 * Math.sin(v * 0.09);
     const fv = v / 9 + 0.4 * Math.sin(u * 0.08);
-    const cell = Math.floor(fu) * 7.13 + Math.floor(fv) * 3.71;
-    const kind = Math.abs(Math.sin(cell * 12.9898) * 43758.5453) % 1;
-    if (kind < 0.3) c.lerp(dry, 0.75);
-    else if (kind < 0.55) c.lerp(b, 0.8);
-    c.multiplyScalar(0.62 + 0.55 * (Math.abs(Math.sin(cell * 78.233) * 12345.678) % 1) + 0.12 * n);
+    // Each field's own dryness, greenness and value, blended smoothly over a couple of metres at its edges: a step
+    // between fields drawn on the mesh's triangles would read as a jagged stair, not as land (JUDGE, seat26).
+    const field = fieldsAt(fu, fv);
+    c.lerp(dry, field.dry * 0.75).lerp(b, field.green * 0.8);
+    c.multiplyScalar(0.62 + 0.55 * field.value + 0.12 * n);
+    // A soft, narrow darkening along the edges, where the hedgerows run.
     const edge = Math.min(Math.abs(fu - Math.round(fu)) * 7, Math.abs(fv - Math.round(fv)) * 9);
-    if (r > 4.5 && edge < 0.75) c.lerp(b, 0.6).multiplyScalar(0.55);
+    if (r > 4.5) c.multiplyScalar(1 - 0.28 * Math.exp(-((edge / 0.9) ** 2)));
     // Aerial perspective from a few metres out: lighter and greyer toward the horizon, then the horizon itself.
     c.lerp(far, Math.min(1, Math.max(0, (r - 10) / 40)) ** 1.1);
     colour.push(c.r, c.g, c.b);

@@ -1619,8 +1619,18 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       fields,
-      /if \(r > 4\.5 && edge < 0\.75\) c\.lerp\(b, 0\.6\)\.multiplyScalar\(0\.55\);/,
+      /if \(r > 4\.5\) c\.multiplyScalar\(1 - 0\.28 \* Math\.exp\(-\(\(edge \/ 0\.9\) \*\* 2\)\)\);/,
       'hedgerows between the fields',
+    );
+    assert.match(
+      look(),
+      /const field = fieldsAt\(fu, fv\);/,
+      'each field blends into the next, no stair-stepped edge',
+    );
+    assert.match(
+      look(),
+      /'c \*= mix\(0\.8, 1\.0, exp\(-a \/ 0\.75\)\);',/,
+      'the sky deepens away from the sun, so its halo shows',
     );
   });
 
@@ -1666,7 +1676,7 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       look(),
-      /c \+= glowColour \* glowStrength \* \(0\.55 \* exp\(-a \/ \(discSize \* 3\.5\)\) \+ 0\.16 \* exp\(-a \/ 0\.4\)\)/,
+      /c \+= glowColour \* glowStrength \* \(0\.9 \* exp\(-a \/ \(discSize \* 3\.5\)\) \+ 0\.3 \* exp\(-a \/ 0\.45\)\)/,
       'the sun has a halo as the moon does',
     );
   });
