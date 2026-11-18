@@ -25,12 +25,12 @@ public class CaptureNamesTests
         var (state, work, execution, runtime) = Running();
 
         // A face names what the app is in every build (RuntimeFaces), the extra or not; a model's id stays on the details.
-        Assert.That(KitPresenter.AgentOf(runtime, execution), Is.EqualTo("Local Models"), "the Agent chip");
-        Assert.That(KitPresenter.AgentOf(runtime, execution, "qwen3.6:35b-a3b-nvfp4"), Is.EqualTo("Local Models"), "the Agent chip's model");
+        Assert.That(KitPresenter.AgentOf(runtime, execution), Is.EqualTo("Coding Agent"), "the Agent chip");
+        Assert.That(KitPresenter.AgentOf(runtime, execution, "qwen3.6:35b-a3b-nvfp4"), Is.EqualTo("Coding Agent"), "the Agent chip's model");
         var screen = WorkspacePresentationState.ScreenOf(state.Projects.Values.Single(), state, barOpen: false);
         Assert.That(typeof(KitScreenModel).GetProperties().Where(property => property.PropertyType == typeof(string)).Select(property => (string?)property.GetValue(screen)),
             Has.None.Contains(CaptureNames.Agent), "the screen's title chip names no agent app, not even the generic one");
-        Assert.That(EntryText.RuntimeName(runtime), Is.EqualTo("Local Models"), "Create's faces say what the app is");
+        Assert.That(EntryText.RuntimeName(runtime), Is.EqualTo("Coding Agent"), "Create's faces say what the app is");
         Assert.That(EntryText.RuntimeOwnNameRuns(runtime).Text, Is.EqualTo(CaptureNames.Agent), "Create's picker: the generic app under the extra");
         Assert.That(KitMomentWords.ThisMac, Is.EqualTo("This Computer"), "the Host chip");
         Assert.That(KitMomentWords.YourComputer, Is.EqualTo("Observed on This Computer"));
@@ -38,7 +38,7 @@ public class CaptureNamesTests
         var words = Words(state, work, execution);
         foreach (var name in new[] { "Codex", "qwen", "Mac", "Salidium", "Seorak" })
             Assert.That(words, Does.Not.Contain(name), "the moments and Activity name " + name);
-        Assert.That(words, Does.Contain("Local Models"));
+        Assert.That(words, Does.Contain("Coding Agent"));
     }
 
     [Test]
@@ -48,11 +48,11 @@ public class CaptureNamesTests
 
         Assert.That(CaptureNames.Generic, Is.False, "off by default");
         // Real names stay on the picker and the details alone; every face says what the app is (RuntimeFaces).
-        Assert.That(KitPresenter.AgentOf(runtime, execution), Is.EqualTo("Local Models"));
-        Assert.That(KitPresenter.AgentOf(runtime, execution, "qwen3.6:35b-a3b-nvfp4"), Is.EqualTo("Local Models"));
+        Assert.That(KitPresenter.AgentOf(runtime, execution), Is.EqualTo("Coding Agent"));
+        Assert.That(KitPresenter.AgentOf(runtime, execution, "qwen3.6:35b-a3b-nvfp4"), Is.EqualTo("Coding Agent"));
         Assert.That(EntryText.RuntimeOwnNameRuns(runtime).Text, Is.EqualTo("Codex"), "the picker keeps the app's own name");
         Assert.That(KitMomentWords.ThisMac, Is.EqualTo("This Computer"));
-        Assert.That(Words(state, work, execution), Does.Contain("Local Models").And.Not.Contain("Codex"));
+        Assert.That(Words(state, work, execution), Does.Contain("Coding Agent").And.Not.Contain("Codex"));
     }
 
     /// <summary>What the task's moments and Activity say, gathered as text.</summary>

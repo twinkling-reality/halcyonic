@@ -810,7 +810,7 @@ public class WorkspacePresentationStateTests
 
         var step6 = presentation.CycleAgent(runtimes);
         Assert.That((step6?.Runtime.RuntimeId, step6?.Model?.ModelRef), Is.EqualTo(("codex", (string?)null)));
-        Assert.That(KitPresenter.AgentOf(step6?.Runtime, null, presentation.SelectedModelDisplay(step6?.Runtime)), Is.EqualTo("Local Models"));
+        Assert.That(KitPresenter.AgentOf(step6?.Runtime, null, presentation.SelectedModelDisplay(step6?.Runtime)), Is.EqualTo("Coding Agent"));
     }
 
     [Test]

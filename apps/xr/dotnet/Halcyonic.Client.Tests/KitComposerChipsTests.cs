@@ -129,7 +129,7 @@ public class KitComposerChipsTests
         Assert.That(KitPresenter.NewRunOf(composer.Work, new RunChoice("opencode", null, false)), Is.Null);
         Assert.That(Send(composer, new RunChoice("opencode", null, false)), Is.InstanceOf<ExecutionSendInstructionCommand>());
         var chips = KitPresenter.ChipsOf(composer.Work, null, OpenCode(), null, composer.Registered);
-        Assert.That((chips.Agent, chips.EnvironmentChangeable, chips.AgentChangeable), Is.EqualTo(("Local Models", false, false)), "the execution's own, locked");
+        Assert.That((chips.Agent, chips.EnvironmentChangeable, chips.AgentChangeable), Is.EqualTo(("Coding Agent", false, false)), "the execution's own, locked");
     }
 
     [Test]

@@ -72,7 +72,7 @@ namespace Halcyonic.Client
                 title,
                 // Each fact its own value, never joined on a dot (AUDIT's MUST 4, 2026-11-12): a simulated app says so after its name.
                 runtime.Synthetic && live ? LineWords.Ours(EntryText.PracticeRun)
-                    : LineWords.Ours(RuntimeFaces.Head(runtime)),
+                    : LineWords.Ours(RuntimeFaces.Head(runtime.Kind, runtime.Synthetic, model?.Served)),
                 model == null ? LineWords.Ours("App's Choice") : Raw(CaptureNames.ModelName(model.DisplayName)),
                 LineWords.Written(model == null ? "App's Choice" : EntryText.ServedInSentence(model.Served)),
                 model?.ModelRef is string modelRef ? Raw(CaptureNames.ModelName(modelRef)) : LineWords.Ours("none"),

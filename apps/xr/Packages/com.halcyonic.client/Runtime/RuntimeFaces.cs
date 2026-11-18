@@ -14,11 +14,16 @@ namespace Halcyonic.Client
         /// <summary>The head for an agent app of a kind this does not name: what it is, and no more.</summary>
         public const string Unnamed = "Coding Agent";
 
-        /// <summary>The face's head for <paramref name="kind"/>: a synthetic runtime (the mock adapter's) is the practice run whatever its kind.</summary>
-        public static string Head(string? kind, bool synthetic = false) => synthetic ? "Practice Run" : kind switch
+        /// <summary>
+        /// The face's head for <paramref name="kind"/>: a synthetic runtime (the mock adapter's) is the practice run whatever its kind. Codex
+        /// runs local models and gated providers' remote ones (AUDIT3's FC2), so its head follows the chosen model's own
+        /// <paramref name="served"/>: "Local Models" only where the model is served on this computer, "Hosted Models" where it is remote,
+        /// and where neither is known, words true of both.
+        /// </summary>
+        public static string Head(string? kind, bool synthetic = false, ModelServed? served = null) => synthetic ? "Practice Run" : kind switch
         {
             "claude-agent" => "Hosted Models",
-            "codex" => "Local Models",
+            "codex" => served == ModelServed.ThisMac ? "Local Models" : served == ModelServed.Remote ? "Hosted Models" : Unnamed,
             "opencode" => "Your Model Setup",
             "antigravity" or "kiro" or "cursor" => "Signed-In App",
             _ => Unnamed,
@@ -31,10 +36,12 @@ namespace Halcyonic.Client
         public static string Head(RuntimeRef runtime) => Head(runtime.Kind, runtime.Synthetic);
 
         /// <summary>The picker's line under the head, one plain sentence each (AUDIT2's words); null where it has none.</summary>
-        public static string? Line(string? kind, bool synthetic = false) => synthetic ? "Pretends to work; nothing real is done." : kind switch
+        public static string? Line(string? kind, bool synthetic = false, ModelServed? served = null) => synthetic ? "Pretends to work; nothing real is done." : kind switch
         {
             "claude-agent" => "Runs on models its maker or your cloud provider serves, with your own key.",
-            "codex" => "Runs only on models served on this computer.",
+            "codex" => served == ModelServed.ThisMac ? "Runs only on models served on this computer."
+                : served == ModelServed.Remote ? "Runs on a model a provider serves online."
+                : "Runs on the models it lists, on this computer or online.",
             "opencode" => "Runs on the models your own setup lists, on this computer or online.",
             "antigravity" or "kiro" or "cursor" => "Uses its own sign-in and its own models.",
             _ => null,

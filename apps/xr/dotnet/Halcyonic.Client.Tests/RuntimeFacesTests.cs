@@ -21,7 +21,7 @@ public class RuntimeFacesTests
     private static readonly (string Kind, string Name, string Head)[] Apps =
     {
         ("claude-agent", "Claude Code 1.0", "Hosted Models"),
-        ("codex", "Codex 0.157.0", "Local Models"),
+        ("codex", "Codex 0.157.0", "Coding Agent"),
         ("opencode", "OpenCode 1.2", "Your Model Setup"),
         ("kiro", "Kiro 3.4.0", "Signed-In App"),
         ("antigravity", "Antigravity 1.0", "Signed-In App"),
@@ -109,5 +109,26 @@ public class RuntimeFacesTests
 
         CaptureNames.UseGeneric(true);
         Assert.That(EntryText.RuntimeOwnNameRuns(Runtime("codex", "Codex 0.157.0")).Text, Is.EqualTo(CaptureNames.Agent), "under the capture extra the picker is generic");
+    }
+
+    /// <summary>
+    /// AUDIT3's FC2: Codex also runs gated providers' models, served remote, so its face says "Local Models" and "on this computer" only
+    /// where the chosen model is served on this computer; a remote one reads hosted; with no model known, words true of both.
+    /// </summary>
+    [Test]
+    public void ACodexFaceNeverSaysOnThisComputerForAModelServedRemote()
+    {
+        Assert.That(RuntimeFaces.Head("codex", served: ModelServed.Remote), Is.EqualTo("Hosted Models"), "a gated provider's remote model");
+        Assert.That(RuntimeFaces.Line("codex", served: ModelServed.Remote), Does.Not.Contain("this computer"), "never told it stays here");
+        Assert.That(RuntimeFaces.Head("codex", served: ModelServed.ThisMac), Is.EqualTo("Local Models"));
+        Assert.That(RuntimeFaces.Line("codex", served: ModelServed.ThisMac), Does.Contain("this computer"));
+        foreach (var unknown in new ModelServed?[] { null, ModelServed.Unknown })
+        {
+            Assert.That(RuntimeFaces.Head("codex", served: unknown), Is.EqualTo(RuntimeFaces.Unnamed), "neither claimed where it is not known");
+            Assert.That(RuntimeFaces.Line("codex", served: unknown), Does.Contain("on this computer or online"), "true of both");
+        }
+        // The review knows the chosen model: a gated remote one on Codex reads hosted, never local.
+        var codex = Runtime("codex", "Codex 0.157.0");
+        Assert.That(RuntimeFaces.Head(codex.Kind, codex.Synthetic, ModelServed.Remote), Is.EqualTo("Hosted Models"));
     }
 }

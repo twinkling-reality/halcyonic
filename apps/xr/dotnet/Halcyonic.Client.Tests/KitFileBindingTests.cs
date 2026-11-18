@@ -193,7 +193,7 @@ public class KitFileBindingTests
     public void TheComposersChipsAreTheExecutionsOwnAndLocked()
     {
         // The composer's Send instructs the task's own execution (WorkspaceSteering.SendInstruction), so its chips are that
-        // execution's runtime's: a Codex task's composer says This Computer and Local Models, neither taking a press, as does a binding
+        // execution's runtime's: a Codex task's composer says This Computer and Coding Agent (no model served where it is known), neither taking a press, as does a binding
         // given no chips (AUDIT, 2026-11-03).
         var running = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
         var codex = new RuntimeDescriptor
@@ -213,10 +213,10 @@ public class KitFileBindingTests
         var chips = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine,
             selectors: KitPresenter.ChipsOf(workspace))!;
         Assert.That((chips.Model.Environment, chips.Model.EnvironmentChangeable, chips.Model.Agent, chips.Model.AgentChangeable),
-            Is.EqualTo(("This Computer", false, "Local Models", false)));
+            Is.EqualTo(("This Computer", false, "Coding Agent", false)));
         var given = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine)!;
         Assert.That((given.Model.Environment, given.Model.EnvironmentChangeable, given.Model.Agent, given.Model.AgentChangeable),
-            Is.EqualTo(("This Computer", false, "Local Models", false)), "given no chips, the workspace's own runtime's, locked");
+            Is.EqualTo(("This Computer", false, "Coding Agent", false)), "given no chips, the workspace's own runtime's, locked");
     }
 
     [Test]
@@ -287,7 +287,7 @@ public class KitFileBindingTests
 
         presentation.SelectRuntime("codex");
         var initial = Rebind();
-        Assert.That((initial.Model.Environment, initial.Model.Agent, initial.Model.Draft), Is.EqualTo(("This Computer", "Local Models", draftWords)));
+        Assert.That((initial.Model.Environment, initial.Model.Agent, initial.Model.Draft), Is.EqualTo(("This Computer", "Coding Agent", draftWords)));
 
         presentation.CycleEnvironment(runtimes);
         var sandboxed = Rebind();
