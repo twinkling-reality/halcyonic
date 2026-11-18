@@ -350,6 +350,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     // 2026-11-18: a person never sees an answer that refuses their pinch).
                     if (!bar.PanelBuilt)
                     {
+                        // Each painted at the walk's clock first: the Editor runs no Update, so an answer stands only as last painted.
+                        foreach (var answer in bar.Answers) if (answer.gameObject.activeInHierarchy) answer.Draw();
                         var early = bar.Answers.Where(each => each.gameObject.activeInHierarchy && each.ArrivalShown > 0.01f).Select(each => each.name).ToList();
                         if (early.Count > 0) failures.Add(name + ": an answer stands before the panel stands whole: " + string.Join(", ", early));
                     }
