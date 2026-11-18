@@ -1741,7 +1741,7 @@ namespace Halcyonic.XR.Workspace.Editor
             holder.SetPositionAndRotation(pose.position, pose.rotation);
             var shelf = Surface.Create(holder, "Placed agent shelf", 0);
             shelf.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            shelf.Draw(new Vector2(AgentShelfDraft.Width(1), AgentShelfDraft.Depth), 0.025f, new Color(0.12f, 0.19f, 0.22f, 1f));
+            shelf.Draw(new Vector2(AgentShelfDraft.Width(1), AgentShelfDraft.Depth), 0.025f, new Color(0.18f, 0.18f, 0.18f, 1f));
             var view = CharacterView.Create(holder, shown.WorkstreamId);
             view.Grounded = true;
             view.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);

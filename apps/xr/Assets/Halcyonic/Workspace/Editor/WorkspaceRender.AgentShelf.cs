@@ -138,7 +138,7 @@ namespace Halcyonic.XR.Workspace.Editor
                 holder.SetParent(root.transform, false); holder.SetPositionAndRotation(pose.position, pose.rotation);
                 var shelf = Surface.Create(holder, "Placed agent shelf", 0);
                 shelf.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-                shelf.Draw(new Vector2(AgentShelfDraft.Width(count), AgentShelfDraft.Depth), 0.025f, new Color(0.12f, 0.19f, 0.22f, 1f));
+                shelf.Draw(new Vector2(AgentShelfDraft.Width(count), AgentShelfDraft.Depth), 0.025f, new Color(0.18f, 0.18f, 0.18f, 1f));
                 for (var slot = 0; slot < count; slot++)
                 {
                     // One journal task drives the real file; the other explicitly synthetic presentations exercise the whole shelf's geometry.

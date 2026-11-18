@@ -401,10 +401,10 @@ namespace Halcyonic.XR
             arc.SetParent(transform, false);
             arc.gameObject.SetActive(false);
 
-            shelfSurface = MakeShelf(arc, "Agent shelf", new Color(0.12f, 0.19f, 0.22f, 1f));
+            shelfSurface = MakeShelf(arc, "Agent shelf", ShelfColour);
             preview = new GameObject("Shelf preview").transform;
             preview.SetParent(transform, false);
-            previewSurface = MakeShelf(preview, "Shelf preview surface", new Color(0.16f, 0.4f, 0.48f, 0.7f));
+            previewSurface = MakeShelf(preview, "Shelf preview surface", ShelfPreviewColour);
             surfacePlaces = ShelfPlaces;
             preview.gameObject.SetActive(false);
         }
@@ -731,8 +731,8 @@ namespace Halcyonic.XR
             if (surfacePlaces != ShelfPlaces)
             {
                 surfacePlaces = ShelfPlaces;
-                DrawShelf(shelfSurface, new Color(0.12f, 0.19f, 0.22f, 1f));
-                DrawShelf(previewSurface, new Color(0.16f, 0.4f, 0.48f, 0.7f));
+                DrawShelf(shelfSurface, ShelfColour);
+                DrawShelf(previewSurface, ShelfPreviewColour);
             }
             Refresh();
         }
@@ -776,6 +776,13 @@ namespace Halcyonic.XR
             arc.SetPositionAndRotation(pose.position, pose.rotation);
         }
 
+        /// <summary>
+        /// The older shelf's slab, its placement preview and its edge: each the true grey of the teal it was, at the same luminance, since chrome
+        /// takes no hue (the lead's 2026-11-18 rulings; the judge room's no-hue read of the placed shelf).
+        /// </summary>
+        private static readonly Color ShelfColour = new Color(0.18f, 0.18f, 0.18f, 1f), ShelfPreviewColour = new Color(0.372f, 0.372f, 0.372f, 0.7f),
+            ShelfEdgeColour = new Color(0.618f, 0.618f, 0.618f, 1f);
+
         private Surface MakeShelf(Transform parent, string name, Color color)
         {
             var surface = Surface.Create(parent, name, 0);
@@ -787,7 +794,7 @@ namespace Halcyonic.XR
         private void DrawShelf(Surface? surface, Color color)
         {
             if (surface == null) return;
-            surface.Draw(new Vector2(ShelfWidth, AgentShelfDraft.Depth), 0.025f, color, new Color(0.45f, 0.65f, 0.7f, 1f), 0.002f);
+            surface.Draw(new Vector2(ShelfWidth, AgentShelfDraft.Depth), 0.025f, color, ShelfEdgeColour, 0.002f);
         }
 
         /// <summary>Where the shelf's place <paramref name="place"/> stands, in the shelf's own space: New Project's first, then the characters'.</summary>
