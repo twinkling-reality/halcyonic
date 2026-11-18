@@ -677,6 +677,10 @@ namespace Halcyonic.XR.UI
                 Gap(BlockGapDp);
                 down = LayResults(card.Results, width, down);
             }
+            Anchors.Clear();
+            if (card.Place is DiagramPlace place) down = LayPlace(place, width, down);
+            if (card.Strip.Count > 0) down = LayStrip(card.Strip, card.StripNotes, width, down);
+            if (card.Story is StoryPlace story) down = LayStory(story, card.StoryForm, card.StoryLinesShown, width, down);
             if (card.More != null)
             {
                 // A block's own gap, as between every other block (the critic, 2026-11-11: the foot sat tight).
@@ -1602,6 +1606,275 @@ namespace Halcyonic.XR.UI
                 }
             }
             return down + S(StepDp) + nameGap + tallest + Mathf.Max(0f, notRunTall);
+        }
+
+        /// <summary>The tree's measures (plan v2 row 3): the head bar's height and corner, the bracket's inset, the nodes' indent, a tick's length, the line's width, the gap between nodes.</summary>
+        public const float TreeHeadDp = 34f, TreeHeadCornerDp = 6f, TreeBracketDp = 12f, TreeIndentDp = 30f, TreeTickDp = 12f, TreeLineDp = 1.5f, TreeGapDp = 14f;
+
+        /// <summary>Where each node of the shown place stands, in this view's own space: its tick's end on the bracket (left) and its row's right edge.</summary>
+        public Dictionary<string, (Vector3 Left, Vector3 Right)> Anchors { get; } = new Dictionary<string, (Vector3, Vector3)>(System.StringComparer.Ordinal);
+
+        /// <summary>
+        /// A place of the evidence diagram as its tree (plan v2 row 3, AUDIT's 02:21Z after progress-detroit-objectives.jpg): the head a
+        /// full white bar with dark words in the label role; under it the place's state in words where the read gave none, and a part
+        /// not read yet with its own state; then the nodes hanging one step indented on a thin bracket line, a tick at each. A node is
+        /// its words (a path or a command in mono), its value plain on the right edge with its mark beside it, each fact its own quiet
+        /// line, and how the source knows it as a word (Observed, Reported, Inferred, Planned, Explained): once under the head where
+        /// every node shares it, else under each node, so no class is ever shown by a mark alone (AUDIT2's 02:25Z). A stale run dims.
+        /// </summary>
+        private float LayPlace(DiagramPlace place, float width, float down)
+        {
+            var ink = new Color(0.06f, 0.06f, 0.07f, 1f);
+            Plate(new Vector2(width, S(TreeHeadDp)), S(TreeHeadCornerDp), Color.white, new Vector2(width / 2f, -(down + S(TreeHeadDp) / 2f)), "tree head");
+            var (head, headTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, ink, LineWords.HostPlain(place.Head), S(12f), 0f, width - S(24f), 1, labelRole: true);
+            head.transform.localPosition = new Vector3(S(12f), -(down + (S(TreeHeadDp) - headTall) / 2f), -RoomType.Units(0.7f));
+            down += S(TreeHeadDp) + S(TreeGapDp);
+            var classes = place.Nodes.Select(node => node.Class).Distinct().ToList();
+            var shared = classes.Count == 1 ? EvidenceDiagram.WordOf(classes[0]) : null;
+            if (shared != null)
+            {
+                var (_, tall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha), LineWords.HostPlain(shared), 0f, -down, width, 1, labelRole: true);
+                down += tall + S(TreeGapDp) / 2f;
+            }
+            if (place.State != null)
+            {
+                var (_, tall) = Text(KitRole.Body, RowNameDp, RowNameLineDp, White(0.85f), LineWords.HostPlain(place.State), 0f, -down, width, 2);
+                down += tall + S(TreeGapDp);
+            }
+            foreach (var (apartHead, apartState) in place.Apart)
+            {
+                var (_, headLine) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha), LineWords.HostPlain(apartHead), 0f, -down, width, 1, labelRole: true);
+                down += headLine + S(2f);
+                var (_, stateLine) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), LineWords.HostPlain(apartState), 0f, -down, width, 1);
+                down += stateLine + S(TreeGapDp);
+            }
+            if (place.Nodes.Count == 0) return down;
+            var bracketX = S(TreeBracketDp);
+            var indent = S(TreeIndentDp);
+            var top = down;
+            var lastMiddle = down;
+            foreach (var node in place.Nodes)
+            {
+                var alpha = node.Stale ? 0.55f : 1f;
+                var valueWidth = 0f;
+                TextMeshPro? value = null;
+                if (node.Value != null)
+                {
+                    (value, _) = Text(KitRole.Body, RowNameDp, RowNameLineDp, White(0.90f * alpha), LineWords.HostPlain(node.Value), 0f, 0f, width / 2f, 1);
+                    valueWidth = RoomCursor.WordsWidth(value, 0f);
+                }
+                var markRoom = node.Mark != RoomKind.None ? S(RowGlyphDp + RowGapDp) : 0f;
+                var nameWidth = width - indent - (valueWidth > 0f ? valueWidth + S(RowGapDp) : 0f) - markRoom;
+                var (name, nameTall) = node.Mono
+                    ? Text(KitRole.Mono, RowNameDp - 3f, RowNameLineDp, White(alpha), node.Words, indent, -down, nameWidth, RowMostLines)
+                    : Text(KitRole.Body, RowNameDp, RowNameLineDp, White(alpha), node.Words, indent, -down, nameWidth, RowMostLines, holdLastTwo: true);
+                if (node.Mono) nameTall = LayCommand(name, node.Words, nameWidth, nameTall);
+                var middle = down + S(RowNameLineDp) / 2f;
+                var below = down + nameTall;
+                foreach (var fact in node.Lines)
+                {
+                    // A fact is never cut: the source's reason under a verdict runs as many lines as it needs (RowMostLines).
+                    var (_, factTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha * alpha), LineWords.HostPlain(fact), indent, -(below + S(2f)), nameWidth, RowMostLines);
+                    below += S(2f) + factTall;
+                }
+                if (shared == null && EvidenceDiagram.WordOf(node.Class) is string word)
+                {
+                    var (_, wordTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha * alpha), LineWords.HostPlain(word), indent, -(below + S(2f)), nameWidth, 1, labelRole: true);
+                    below += S(2f) + wordTall;
+                }
+                if (value != null) value.transform.localPosition = new Vector3(width - valueWidth, -down, -RoomType.Units(0.5f));
+                if (node.Mark != RoomKind.None)
+                    Glyph(GlyphOf(node.Mark), RowGlyphDp, White(alpha), new Vector2(width - valueWidth - (valueWidth > 0f ? S(RowGapDp) : 0f) - S(RowGlyphDp) / 2f, -middle), "node " + node.Mark);
+                // The tick from the bracket to the node, at its first line.
+                Plate(new Vector2(S(TreeTickDp), S(TreeLineDp)), 0f, White(0.55f), new Vector2(bracketX + S(TreeTickDp) / 2f, -middle), "tree tick");
+                Anchors[node.Id] = (new Vector3(bracketX + S(TreeTickDp), -middle, 0f), new Vector3(width, -middle, 0f));
+                lastMiddle = middle;
+                down = below + S(TreeGapDp);
+            }
+            // The bracket from under the head to the last node's tick.
+            Plate(new Vector2(S(TreeLineDp), lastMiddle - top), 0f, White(0.55f), new Vector2(bracketX, -(top + (lastMiddle - top) / 2f)), "tree bracket");
+            return down - S(TreeGapDp);
+        }
+
+        /// <summary>The story slab's measures: its question, its answer in display type, a step pill, the gaps, the hero mark.</summary>
+        public const float StoryHeadDp = 22f, StoryHeadLineDp = 28f, StoryAnswerDp = 25f, StoryAnswerLineDp = 32f, StoryStepDp = 17f, StoryStepLineDp = 22f,
+            StoryStepPadDp = 14f, StoryStepGapDp = 26f, StoryGapDp = 16f, StoryTeachDp = 16f, StoryTeachLineDp = 21f, StoryMarkDp = 56f;
+
+        /// <summary>The hero's answer size and line (Did the Checks Pass?), larger than every other place's.</summary>
+        public const float StoryHeroDp = 54f, StoryHeroLineDp = 62f;
+
+
+
+        /// <summary>Where each step pill of the shown story stands, in this view's own space, for the flow's light between them.</summary>
+        public List<(Vector3 Left, Vector3 Right)> StorySteps { get; } = new List<(Vector3, Vector3)>();
+
+        /// <summary>
+        /// A place of the story (the owner's 2026-11-18 direction: anyone can follow it, and it is beautiful): its plain question
+        /// quiet over the answer; the answer large in display type, the source's own sentence or our plain word on whether it
+        /// worked; where it worked or failed, a hero mark beside it; its steps as glass pills, one under the next, joined by a thin
+        /// light (the flow draws the light); a plain fact and where the answer comes from, quiet; and at its foot, over a hairline,
+        /// one line that teaches the idea. No paths, no commands, no source classes on the face.
+        /// </summary>
+        /// <summary>
+        /// A story card in the Cluely frame's forms (cluely-ad-suggestion.png): the pill, its mark in a ring at its left and one short
+        /// status ("Listening..."); the instruction, the person's own words in large bold type ("Compliment her"); the answer card, a
+        /// small centred title over lines that build one under another, each older line dim, the newest white and bold. Only the
+        /// frame's whites and the kit's glass; nothing overlaps, nothing is cut.
+        /// </summary>
+        private float LayStory(StoryPlace place, StoryForm form, int? linesShown, float width, float down)
+        {
+            StorySteps.Clear();
+            switch (form)
+            {
+                case StoryForm.Pill:
+                {
+                    // The kit's check where the run is done (AUDIT's 03:44Z: a speech bubble read as "message"); no mark for any other state.
+                    var done = place.Answer.Text == EvidenceStory.Words.Done;
+                    var ring = done ? S(StoryPillIconDp) : 0f;
+                    var centre = new Vector2(ring / 2f, -(down + ring / 2f));
+                    if (done)
+                    {
+                        Plate(new Vector2(ring, ring), ring / 2f, White(0.06f), centre, "story pill mark ring", White(0.45f), S(1.5f));
+                        Glyph(RoomGlyph.Check, StoryPillIconDp * 0.5f, Color.white, centre, "story pill mark");
+                    }
+                    var gap = done ? S(14f) : 0f;
+                    var (_, tall) = Text(KitRole.Body, StoryPillDp, StoryPillLineDp, White(0.85f), place.Answer, ring + gap, -(down + Mathf.Max(0f, (ring - S(StoryPillLineDp)) / 2f)), width - ring - gap, 1);
+                    return down + Mathf.Max(ring, tall);
+                }
+                case StoryForm.Lead:
+                {
+                    var (_, headTall) = Text(KitRole.Body, StoryHeadDp, StoryHeadLineDp, White(StoryTitleAlpha), LineWords.HostPlain(place.Head), 0f, -down, width, 1);
+                    down += headTall + S(12f);
+                    var (_, tall) = Text(KitRole.Title, StoryLeadDp, StoryLeadLineDp, Color.white, place.Answer, 0f, -down, width, RowMostLines, holdLastTwo: true);
+                    return down + tall;
+                }
+                case StoryForm.Result:
+                {
+                    // The checks' own result: its question, a large plain answer with its mark, and the source's count, plain white.
+                    var (_, headTall) = Text(KitRole.Body, StoryHeadDp, StoryHeadLineDp, White(StoryTitleAlpha), LineWords.HostPlain(place.Head), 0f, -down, width, 1);
+                    down += headTall + S(12f);
+                    var mark = place.Answer.Text == EvidenceStory.Words.Yes ? RoomGlyph.Check : place.Answer.Text == EvidenceStory.Words.No ? RoomGlyph.Cross : (RoomGlyph?)null;
+                    var markRoom = mark != null ? S(StoryMarkDp + 18f) : 0f;
+                    var (_, answerTall) = Text(KitRole.Title, StoryHeroDp, StoryHeroLineDp, Color.white, place.Answer, markRoom, -down, width - markRoom, 2);
+                    if (mark is RoomGlyph sign)
+                    {
+                        var centre = new Vector2(S(StoryMarkDp) / 2f, -(down + Mathf.Max(answerTall, S(StoryMarkDp)) / 2f));
+                        Plate(new Vector2(S(StoryMarkDp), S(StoryMarkDp)), S(StoryMarkDp) / 2f, White(0.06f), centre, "story mark ring", White(0.85f), S(1.5f));
+                        Glyph(sign, StoryMarkDp * 0.56f, Color.white, centre, "story mark", RoomGlyphs.Stroke * 1.2f);
+                        answerTall = Mathf.Max(answerTall, S(StoryMarkDp));
+                    }
+                    down += answerTall;
+                    if (place.Note != null)
+                    {
+                        var (_, noteTall) = Text(KitRole.Body, RowNameDp, RowNameLineDp, White(StoryTitleAlpha), LineWords.HostPlain(place.Note), markRoom, -(down + S(8f)), width - markRoom, 2);
+                        down += S(8f) + noteTall;
+                    }
+                    return down;
+                }
+                default:
+                {
+                    // On the lines' own left edge, as every other card (AUDIT's 03:44Z): one edge per card.
+                    var (_, headTall) = Text(KitRole.Body, StoryHeadDp, StoryHeadLineDp, White(StoryTitleAlpha), LineWords.HostPlain(place.Head), 0f, -down, width, 1);
+                    down += headTall;
+                    if (place.From != null)
+                    {
+                        var (_, fromTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha), LineWords.HostPlain(place.From), 0f, -(down + S(4f)), width, 1, labelRole: true);
+                        down += S(4f) + fromTall;
+                    }
+                    down += S(18f);
+                    var count = Mathf.Min(place.Steps.Count, linesShown ?? place.Steps.Count);
+                    for (var index = 0; index < count; index++)
+                    {
+                        var newest = index == count - 1;
+                        var (_, tall) = newest
+                            ? Text(KitRole.Title, StoryLineDp, StoryLineLineDp, Color.white, place.Steps[index], 0f, -down, width, RowMostLines, holdLastTwo: true)
+                            : Text(KitRole.Body, StoryLineDp, StoryLineLineDp, White(StoryOlderAlpha), place.Steps[index], 0f, -down, width, RowMostLines, holdLastTwo: true);
+                        down += tall + (newest ? 0f : S(StoryLineGapDp));
+                    }
+                    return down;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The frame's type, read from cluely-ad-suggestion.png: the pill's mark and status; the instruction in large bold; the answer's
+        /// lines; the small centred title and the older lines at the whites the frame shows them in (its title about 0.65 of white, its
+        /// older lines about 0.45), the newest line full white.
+        /// </summary>
+        public const float StoryPillIconDp = 40f, StoryPillDp = 20f, StoryPillLineDp = 26f, StoryLeadDp = 30f, StoryLeadLineDp = 38f, StoryLineDp = 23f,
+            StoryLineLineDp = 30f, StoryLineGapDp = 12f, StoryTitleAlpha = 0.65f, StoryOlderAlpha = 0.45f;
+
+        /// <summary>The strip's measures: the gap between readouts, the figure's size and line, the band's fade.</summary>
+        public const float StripGapDp = 44f, StripFigureDp = 34f, StripFigureLineDp = 40f, StripBandFadeDp = 18f;
+
+        /// <summary>
+        /// Seorak's strip (plan v2 row 1; AUDIT's 02:25Z after hud-titanfall-2-pilot-hud.jpg and question-death-stranding-codec.png):
+        /// a soft band with no edge, fading at its top and foot, and on it a row of readouts with no boxes, each its head in the label
+        /// role over its figure, plain and large, its kind word (ESTIMATED, a check's kind) on its own line under, a rate as a white
+        /// fill on a quiet track; CHOOSE the row's last quiet item; the strip's notes (Partly Measured, Out of Date) on a quiet line
+        /// under the row. Never a direction, a grade or a colour.
+        /// </summary>
+        private float LayStrip(IReadOnlyList<EvidenceStrip.Stat> stats, IReadOnlyList<string> notes, float width, float down)
+        {
+            var top = down;
+            var x = 0f;
+            var tallest = 0f;
+            foreach (var stat in stats)
+            {
+                var (head, headTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha), LineWords.HostPlain(stat.Head), x, -down, width, 1, labelRole: true);
+                var (figure, figureTall) = Text(KitRole.Title, StripFigureDp, StripFigureLineDp, Color.white, LineWords.HostPlain(stat.Figure), x, -(down + headTall + S(4f)), width, 1);
+                var column = Mathf.Max(RoomCursor.WordsWidth(head, 0f), RoomCursor.WordsWidth(figure, 0f));
+                var below = down + headTall + S(4f) + figureTall;
+                if (stat.Rate is double rate)
+                {
+                    var track = RoomCursor.WordsWidth(figure, 0f);
+                    Plate(new Vector2(track, S(ResultsTrackDp)), S(ResultsTrackDp) / 2f, White(0.10f), new Vector2(x + track / 2f, -(below + S(4f))), "strip track");
+                    var filled = track * (float)rate;
+                    if (filled > 1e-4f) Plate(new Vector2(filled, S(ResultsTrackDp)), Mathf.Min(S(ResultsTrackDp) / 2f, filled / 2f), White(0.62f), new Vector2(x + filled / 2f, -(below + S(4f))), "strip fill");
+                    below += S(8f) + S(ResultsTrackDp);
+                }
+                if (stat.Kind != null)
+                {
+                    var (kind, kindTall) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(RoomType.LabelAlpha), LineWords.HostPlain(stat.Kind), x, -(below + S(2f)), width, 1, labelRole: true);
+                    column = Mathf.Max(column, RoomCursor.WordsWidth(kind, 0f));
+                    below += S(2f) + kindTall;
+                }
+                tallest = Mathf.Max(tallest, below - down);
+                x += column + S(StripGapDp);
+            }
+            var (choose, _) = Text(KitRole.Body, RoomType.LabelDp, RowNoteLineDp, White(0.40f), LineWords.HostPlain("Choose"), x, -down, width, 1, labelRole: true);
+            StripChoose = choose;
+            down += tallest;
+            if (notes.Count > 0)
+            {
+                foreach (var note in notes)
+                {
+                    var (_, noteTall) = Text(KitRole.Body, RowNoteDp, RowNoteLineDp, White(NoteAlpha), LineWords.HostPlain(note), 0f, -(down + S(8f)), width, 1);
+                    down += S(8f) + noteTall;
+                }
+            }
+            // The band under it all: dark and soft, fading out on every side with no edge or outline (the codec's band; AUDIT's
+            // 03:00Z): rounded layers, each a little larger and fainter, so the middle is dark and the rim melts into the room.
+            var face = AskGlassFace();
+            var middle = new Vector2(width / 2f, -(top + (down - top) / 2f));
+            var core = new Vector2(width, down - top);
+            const int layers = 9;
+            for (var layer = 0; layer < layers; layer++)
+            {
+                var grow = S(StripBandFadeDp) * 2f * layer / (layers - 1);
+                var size = core + new Vector2(2f * grow, 2f * grow);
+                Plate(size, Mathf.Min(size.y / 2f, S(24f) + grow), new Color(face.r, face.g, face.b, 0.16f), middle, "strip band", under: true);
+            }
+            return down;
+        }
+
+        /// <summary>The strip's Choose, as last drawn; null before.</summary>
+        public TextMeshPro? StripChoose { get; private set; }
+
+        private static Color AskGlassFace()
+        {
+            var rgb = AskGlass.FaceColour;
+            return new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
         }
 
         /// <summary>The gap between one section of results and the next head, and the rate's track: thinner than a gauge's.</summary>

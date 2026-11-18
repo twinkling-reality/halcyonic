@@ -891,8 +891,9 @@ namespace Halcyonic.Client
             {
                 understanding.Show(execution?.ExecutionId, execution?.UpdatedAt, clock, TimeSpan.FromSeconds(2));
             }
-            if (ResultEvidenceShown?.Invoke() == RoomResultPage.Reasoning) understanding.Show(execution?.ExecutionId, execution?.UpdatedAt, clock, TimeSpan.FromSeconds(2));
-            if (Screen.Section == FileSection.Checks || ResultEvidenceShown?.Invoke() == RoomResultPage.Outcome) evaluation.Show(execution?.ExecutionId, execution?.UpdatedAt, clock);
+            var flow = EvidenceFlowShown?.Invoke() == true;
+            if (flow || ResultEvidenceShown?.Invoke() == RoomResultPage.Reasoning) understanding.Show(execution?.ExecutionId, execution?.UpdatedAt, clock, TimeSpan.FromSeconds(2));
+            if (Screen.Section == FileSection.Checks || flow || ResultEvidenceShown?.Invoke() == RoomResultPage.Outcome) evaluation.Show(execution?.ExecutionId, execution?.UpdatedAt, clock);
             var read = understanding.Poll() | evaluation.Poll();
             // A text size changed in Settings packs the page again at once, so it never stands taller than fits; a
             // connection lost or back does too, so Send is never offered while nothing can be sent.
@@ -1172,6 +1173,17 @@ namespace Halcyonic.Client
         /// page's source while it shows, as its Checks and Changes sections do; null while neither shows.
         /// </summary>
         public Func<RoomResultPage?>? ResultEvidenceShown { get; set; }
+
+        /// <summary>Set by the layer that shows the evidence view in the room: while true, the file reads both its run's understanding and its evaluation.</summary>
+        public Func<bool>? EvidenceFlowShown { get; set; }
+
+        /// <summary>This file's newest understanding answer, and how many times its feed changed (a new read, an error, a new run).</summary>
+        public UnderstandingResponse? Understanding => understanding.Last?.Response;
+        public int UnderstandingVersion => understanding.Version;
+
+        /// <summary>This file's newest evaluation answer, and how many times its feed changed.</summary>
+        public EvaluationResponse? Evaluation => evaluation.Last?.Response;
+        public int EvaluationVersion => evaluation.Version;
 
         /// <summary>The Outcome page from this file's own evaluation read, or its honest state (<see cref="EvidencePage"/>).</summary>
         public EvidencePage OutcomePage() => EvidencePage.Of(evaluation);

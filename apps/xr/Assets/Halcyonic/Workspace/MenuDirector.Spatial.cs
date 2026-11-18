@@ -952,6 +952,7 @@ namespace Halcyonic.XR.Workspace
             if (Away || drag != null || plane.Repositioning || plane.Sliding) return;
             if (action == KitScreenAction.Close)
             {
+                CloseEvidence();
                 CloseProjectScreen();
                 return;
             }
@@ -960,11 +961,11 @@ namespace Halcyonic.XR.Workspace
             var primaryWork = WorkspacePresentationState.PrimaryWorkstreamOf(project.ProjectId, State);
             // The evidence doors (the lead's 20:50Z): the task's file opens on its activity with the result's Outcome or Reasoning
             // page over it, read for its newest run, as the one Changes opens its page.
-            if (primaryWork != null && WorkspacePresentationState.EvidencePageFor(action, RoomDesign.Enabled) is RoomResultPage evidence)
+            // The evidence doors (plan v2, the lead's go at 02:4xZ): both open the evidence view in the room, Seorak's strip over
+            // Salidium's places, for this task's newest run; the same door again puts it away.
+            if (primaryWork != null && WorkspacePresentationState.EvidencePageFor(action, RoomDesign.Enabled) is RoomResultPage)
             {
-                OpenFile(primaryWork.WorkstreamId, FileSection.Activity);
-                setup.Presentation.ShowResultPage(primaryWork.WorkstreamId, primaryWork.CurrentExecutionId, evidence);
-                dirty = true;
+                ToggleEvidence(primaryWork);
                 return;
             }
             if (WorkspacePresentationState.SectionForScreenAction(action) is FileSection section)

@@ -16,11 +16,20 @@ namespace Halcyonic.XR.Workspace.Editor
     public static partial class KitRender
     {
         /// <summary>The recorded answers the states take: the demonstration's third run, its answer with a failing test and one item left.</summary>
-        private const string EvidenceRun = "01a0ec64-84c4-7213-b98a-e6deb68246e6";
+        private const string EvidenceRun = "01a0ec64-84c4-77e7-b126-e2175ffbb13f";
         private const int EvidenceUnderstood = 15, EvidenceMeasured = 14;
 
-        private static JToken EvidenceRecorded(string source, int at) =>
-            JObject.Parse(Resources.Load<TextAsset>("HalcyonicDemonstration").text)[source]![EvidenceRun]![at]!["response"]!;
+        /// <summary>
+        /// The run's recorded answer at <paramref name="at"/> where the recording still holds it there, else its last available one: a
+        /// recording made again (CORE's 2026-11-18) may hold the run's answers at other places, never a stand-in of ours.
+        /// </summary>
+        private static JToken EvidenceRecorded(string source, int at)
+        {
+            var answers = (JArray)JObject.Parse(Resources.Load<TextAsset>("HalcyonicDemonstration").text)[source]![EvidenceRun]!;
+            bool Available(JToken answer) => (string?)answer["response"]?["result"]?["availability"] == "available";
+            var chosen = at < answers.Count && Available(answers[at]) ? answers[at] : answers.Last(Available);
+            return chosen["response"]!;
+        }
 
         private static T EvidenceWithout<T>(string availability, string code) where T : class => HalcyonicJson.Deserialize<T>(new JObject
         {

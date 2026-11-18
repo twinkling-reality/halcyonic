@@ -744,6 +744,7 @@ namespace Halcyonic.XR.Workspace
             RecoverWorkspace(FollowNow);
             placement?.Tick();
             TickWatch();
+            TickEvidence();
             // The controller's Menu button, and the left hand's palm-up pinch, which Meta gives the app as Start; the Meta button
             // and the dominant hand's gesture stay the system's (docs/internal/validation/xr-menu-input.md).
             if (OVRInput.GetDown(OVRInput.Button.Start)) MenuFromAnywhere();

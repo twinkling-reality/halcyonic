@@ -515,6 +515,12 @@ namespace Halcyonic.Client
         {
             Still = from.Still;
             Results = from.Results;
+            Place = from.Place;
+            Strip = from.Strip;
+            Story = from.Story;
+            StoryForm = from.StoryForm;
+            StoryLinesShown = from.StoryLinesShown;
+            StripNotes = from.StripNotes;
             Eyebrow = from.Eyebrow;
             Says = from.Says;
             SaysAll = from.SaysAll;
@@ -537,6 +543,36 @@ namespace Halcyonic.Client
         /// every other card.
         /// </summary>
         public IReadOnlyList<RoomResultsSection> Results { get; private set; } = new RoomResultsSection[0];
+
+        /// <summary>
+        /// A place of the evidence diagram as a tree (plan v2 row 3, progress-detroit-objectives.jpg): its head a white bar with
+        /// dark words, its nodes hanging one step indented on a bracket line with a tick at each; null on every other card.
+        /// </summary>
+        public DiagramPlace? Place { get; private set; }
+
+        /// <summary>A place of the evidence story (the owner's 2026-11-18 direction); null on every other card.</summary>
+        public StoryPlace? Story { get; private set; }
+
+        /// <summary>The story card's form (the Cluely ad's pill, fan card, overview card or suggestion card).</summary>
+        public StoryForm StoryForm { get; private set; } = StoryForm.Lead;
+
+        /// <summary>The answer card's lines to draw (its Steps), the rest still to arrive; all where null.</summary>
+        public int? StoryLinesShown { get; private set; }
+
+        /// <summary>This card as <paramref name="place"/> of the story, in <paramref name="form"/>.</summary>
+        public RoomCard WithStory(StoryPlace place, StoryForm form = StoryForm.Lead, int? linesShown = null) => new RoomCard(this) { Story = place, StoryForm = form, StoryLinesShown = linesShown };
+
+        /// <summary>Seorak's readouts as the evidence view's strip (plan v2 row 1), in the person's chosen order; empty on every other card.</summary>
+        public IReadOnlyList<EvidenceStrip.Stat> Strip { get; private set; } = new EvidenceStrip.Stat[0];
+
+        /// <summary>The strip's own quiet line where a part is partial or stale; empty where neither.</summary>
+        public IReadOnlyList<string> StripNotes { get; private set; } = new string[0];
+
+        /// <summary>This card as a strip of <paramref name="stats"/>.</summary>
+        public RoomCard WithStrip(IReadOnlyList<EvidenceStrip.Stat> stats, IReadOnlyList<string> notes) => new RoomCard(this) { Strip = stats, StripNotes = notes };
+
+        /// <summary>This card as <paramref name="place"/>'s tree.</summary>
+        public RoomCard WithPlace(DiagramPlace place) => new RoomCard(this) { Place = place };
 
         /// <summary>This card with <paramref name="results"/> as its sections of results.</summary>
         public RoomCard WithResults(IReadOnlyList<RoomResultsSection> results) => new RoomCard(this) { Results = results };
