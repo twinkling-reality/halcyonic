@@ -202,8 +202,8 @@ const night: WorldLook = {
     sunAt: [-3.2, 4.6, 3.0],
     sunStrength: 2.6,
     exposure: 0.72,
-    rim: '#A684FF',
-    rimStrength: 1.0,
+    rim: '#B8C6FF',
+    rimStrength: 1.6,
   },
   ground: {
     top: '#2FA590',

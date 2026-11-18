@@ -435,11 +435,12 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
   }
   for (const [i, [x, z, size]] of LAYOUT.bushes.slice(0, bushes).entries()) {
     const parts = [
-      part(new IcosahedronGeometry(0.16, 0), '#A19FA8', [0, 0.08, 0], [1.2, 0.7, 1]),
-      part(new IcosahedronGeometry(0.1, 0), '#8B8994', [0.17, 0.05, 0.05], [1, 0.75, 1], [0.4, i, 0]),
-      part(new IcosahedronGeometry(0.07, 0), '#B4B2BA', [-0.14, 0.035, 0.08], [1, 0.8, 1], [0, i * 2, 0.3]),
+      part(foliage(0.16, i * 3 + 1), '#9C988F', [0, 0.06, 0], [1.25, 0.62, 1]),
+      part(foliage(0.1, i * 3 + 2), '#857F76', [0.17, 0.04, 0.05], [1, 0.7, 1], [0.4, i, 0]),
+      part(foliage(0.07, i * 3 + 3), '#AFA99E', [-0.14, 0.03, 0.08], [1, 0.75, 1], [0, i * 2, 0.3]),
     ];
-    const rock = prop(parts, { roughness: 0.8, clearcoat: 0 });
+    // Weathered stone: lumpy, matte, with the relief of rock, settled into the sand.
+    const rock = prop(parts, { natural: true, roughness: 0.92 });
     rock.position.set(x, 0, z);
     rock.scale.setScalar(size * 1.2);
     rock.add(contactShadow(0.3));
@@ -525,10 +526,10 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
     const tree = new Group();
     const parts = [part(new CylinderGeometry(0.05, 0.08, 0.6, 16), '#4A3B6B', [0, 0.3, 0])];
     for (const [a, b, c, r, colour] of [
-      [0, 0.86, 0, 0.3, '#4A6AD0'],
-      [0.18, 0.66, 0.04, 0.22, '#3F5CC0'],
-      [-0.17, 0.7, -0.02, 0.23, '#5672DA'],
-      [0.02, 1.1, 0, 0.17, '#5C7CE0'],
+      [0, 0.86, 0, 0.3, '#24305A'],
+      [0.18, 0.66, 0.04, 0.22, '#1E2A50'],
+      [-0.17, 0.7, -0.02, 0.23, '#283664'],
+      [0.02, 1.1, 0, 0.17, '#2C3A6C'],
     ] as const)
       parts.push(part(foliage(r, x * 3.1 + a * 7 + z), colour, [a, b, c]));
     const swaying = prop(parts, { natural: true, roughness: 0.6 });

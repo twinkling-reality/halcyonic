@@ -1600,6 +1600,37 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(look(), /const turf = new Mesh\(lipOfTurf, /);
   });
 
+  test('the land is one ground: flush with the island, mottled, hazed toward the horizon, with far clumps on it', () => {
+    assert.match(look(), /const PLAIN_LEVEL = -0\.035;/);
+    const land = look().slice(
+      look().indexOf('function plainLand('),
+      look().indexOf('function farClumps('),
+    );
+    assert.match(
+      land,
+      /c\.lerp\(far, Math\.min\(1, Math\.max\(0, \(r - 6\) \/ 28\)\) \*\* 0\.9\);/,
+    );
+    const clumps = look().slice(
+      look().indexOf('function farClumps('),
+      look().indexOf('function hills('),
+    );
+    assert.match(
+      clumps,
+      /new InstancedMesh\(crown, material, count\)/,
+      'far clumps cost one draw call',
+    );
+    assert.match(
+      look(),
+      /if \(ground\.grass === undefined\) \{\n\s+\(worn\.material/,
+      'no pale mat under the grass',
+    );
+    assert.match(
+      look(),
+      /min\(0\.45, glowStrength \* 0\.22 \* exp\(-a \/ 0\.55\)\)/,
+      'the sun has a halo as the moon does',
+    );
+  });
+
   test('clouds are soft cards lit by the sky, and the night is lit by its moon over little fill', () => {
     const clouds = look().slice(
       look().indexOf('function cloud('),

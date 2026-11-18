@@ -11,12 +11,14 @@ import {
   BufferGeometry,
   Group,
   HemisphereLight,
+  InstancedMesh,
   LatheGeometry,
   Mesh,
   MeshBasicMaterial,
   MeshPhysicalMaterial,
   NeutralToneMapping,
   NoToneMapping,
+  Object3D,
   PCFSoftShadowMap,
   PlaneGeometry,
   PMREMGenerator,
@@ -244,7 +246,7 @@ function island(): Group {
   }
   // One raised tier at the back: a stage for a sign or a goal.
   const tier = new Mesh(
-    new CylinderGeometry(FLOOR.tier.radius, FLOOR.tier.radius + 0.08, FLOOR.tier.height, 64),
+    new CylinderGeometry(FLOOR.tier.radius, FLOOR.tier.radius + 0.26, FLOOR.tier.height, 64),
     [
       toyMaterial(ground.side, { ground: true }),
       toyMaterial(ground.top, { ground: true }),
@@ -254,8 +256,8 @@ function island(): Group {
   tier.position.set(0, FLOOR.tier.height / 2, FLOOR.tier.z);
   tier.castShadow = true;
   tier.receiveShadow = true;
-  // Its side is soil with the relief of soil, not a painted band, under a lip of the island's own turf.
-  const soil = withGrain(toyMaterial(ground.side, { ground: true }), 5, 0.6);
+  // Its side is a bank of the island's own turf (or sand) sloping into the ground, not a painted plinth.
+  const soil = withGrain(toyMaterial(ground.grass === undefined ? ground.top : ground.rim, { ground: true }), 5, 0.5);
   tier.material = [soil, toyMaterial(ground.top, { ground: true }), soil];
   group.add(tier);
   const lipOfTurf = new TorusGeometry(FLOOR.tier.radius + 0.01, 0.035, 10, 96);
@@ -348,7 +350,11 @@ function island(): Group {
   worn.scale.set(1.5, 0.75, 1);
   worn.position.set(0.1, 0.004, 1.55);
   worn.receiveShadow = true;
-  group.add(worn);
+  // Where grass grows, the blades cover the play area; a pale disc under them would read as a mat.
+  if (ground.grass === undefined) {
+    (worn.material as MeshPhysicalMaterial).color.lerp(new Color(ground.top), 0.7);
+    group.add(worn);
+  }
   return group;
 }
 
@@ -487,6 +493,8 @@ function skyDome(sky: WorldLook['sky']): Mesh {
     disc = [
       'float a = acos(clamp(dot(normalize(vP), discAt), -1.0, 1.0));',
       'c = mix(c, glowColour, glowStrength * 0.55 * exp(-a / (discSize * 2.2)));',
+      // A wide soft halo round it, as light scatters near the sun or the moon.
+      'c = mix(c, glowColour, min(0.45, glowStrength * 0.22 * exp(-a / 0.55)));',
       'c = mix(c, discColour, 1.0 - smoothstep(discSize * 0.92, discSize, a));',
     ].join(' ');
   }
@@ -620,8 +628,8 @@ function sea(
   return group;
 }
 
-/** The level of the land round the island, below its top (y = 0), so the island stands as a raised green. */
-const PLAIN_LEVEL = -0.32;
+/** The level of the land round the island, just under its top (y = 0): one continuous ground, no step. */
+const PLAIN_LEVEL = -0.035;
 
 /**
  * Land round the island to the horizon, as one mesh: patches of its two colours that fade, far off, into the horizon's
@@ -639,8 +647,15 @@ function plainLand(colours: readonly [string, string], horizon: string): Mesh {
     const x = position.getX(i);
     const z = position.getZ(i);
     const r = Math.hypot(x, z);
-    const n = 0.5 + 0.5 * Math.sin(x * 0.37 + Math.sin(z * 0.23) * 2.1) * Math.sin(z * 0.31 + Math.sin(x * 0.19) * 1.7);
-    const c = a.clone().lerp(b, n).lerp(far, Math.min(1, Math.max(0, (r - 14) / 22)) ** 1.4);
+    // Large soft mottling, meadow and shade, so the land never reads as one floor.
+    const n =
+      0.5 +
+      0.32 * Math.sin(x * 0.21 + Math.sin(z * 0.13) * 2.1) * Math.sin(z * 0.17 + Math.sin(x * 0.11) * 1.7) +
+      0.18 * Math.sin(x * 0.53 + z * 0.41) * Math.sin(z * 0.61 - x * 0.27);
+    const c = a.clone().lerp(b, Math.min(1, Math.max(0, n)));
+    c.multiplyScalar(0.86 + 0.28 * n);
+    // Aerial perspective from a few metres out: lighter and greyer toward the horizon, then the horizon itself.
+    c.lerp(far, Math.min(1, Math.max(0, (r - 6) / 28)) ** 0.9);
     colour.push(c.r, c.g, c.b);
   }
   geometry.setAttribute('color', new Float32BufferAttribute(colour, 3));
@@ -651,6 +666,47 @@ function plainLand(colours: readonly [string, string], horizon: string): Mesh {
   land.position.y = PLAIN_LEVEL;
   land.receiveShadow = true;
   return land;
+}
+
+/**
+ * Far clumps of trees on the land between the island and the hills, as one instanced mesh (one draw call): each a
+ * leafy crown low on the land, darker and hazed with distance like the hills, so the eye reads the land's depth.
+ */
+function farClumps(colour: string, horizon: string): InstancedMesh {
+  const random = seeded(31);
+  const crown = new SphereGeometry(1, 14, 9);
+  const position = crown.getAttribute('position');
+  for (let i = 0; i < position.count; i++) {
+    const px = position.getX(i);
+    const py = position.getY(i);
+    const pz = position.getZ(i);
+    const k = 1 + 0.16 * Math.sin(5 * px + 1) * Math.sin(4 * py + 2) * Math.sin(5 * pz);
+    position.setXYZ(i, px * k, Math.max(-0.2, py) * k, pz * k);
+  }
+  crown.computeVertexNormals();
+  const material = new MeshPhysicalMaterial({ color: '#FFFFFF', roughness: 0.95, metalness: 0 });
+  const count = 90;
+  const clumps = new InstancedMesh(crown, material, count);
+  const place = new Object3D();
+  const base = new Color(colour);
+  const sky = new Color(horizon);
+  for (let i = 0; i < count; i++) {
+    const a = random() * Math.PI * 2;
+    // Never between the player and the game: none in the cone in front of the island.
+    const d = 14 + random() * 17;
+    const x = Math.cos(a) * d;
+    const z = Math.sin(a) * d;
+    const s = 0.22 + random() * 0.4;
+    place.position.set(x, PLAIN_LEVEL + s * 0.45, z);
+    place.scale.set(s * (1 + random() * 0.8), s * (0.8 + random() * 0.5), s);
+    place.rotation.set(0, random() * 6.28, 0);
+    place.updateMatrix();
+    clumps.setMatrixAt(i, place.matrix);
+    clumps.setColorAt(i, base.clone().multiplyScalar(0.7 + random() * 0.3).lerp(sky, Math.min(0.6, (d - 12) / 26)));
+  }
+  clumps.instanceMatrix.needsUpdate = true;
+  clumps.computeBoundingSphere();
+  return clumps;
 }
 
 /** Low hills far off round the horizon, as one mesh: one draw call. */
@@ -667,7 +723,8 @@ function hills(colours: readonly [string, string]): Mesh {
     hill.rotateY(-a);
     // Rooted below the plain round the island, so each rises out of the land, never floats over it.
     hill.translate(Math.cos(a) * d, PLAIN_LEVEL - 0.9, Math.sin(a) * d);
-    const shade = shades[i % 2] ?? new Color('#88AA55');
+    // Far off, the hills take on the sky's colour: their edges soften into the haze.
+    const shade = (shades[i % 2] ?? new Color('#88AA55')).clone().lerp(new Color(currentWorld().sky.horizon), 0.38);
     const count = hill.getAttribute('position').count;
     hill.setAttribute('color', new Float32BufferAttribute(new Array(count).fill([shade.r, shade.g, shade.b]).flat(), 3));
     pieces.push(hill);
@@ -763,7 +820,10 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   stage.add(plain ? meadowSky(look.sky) : skyDome(look.sky));
   if ((look.sky.stars ?? 0) > 0) stage.add(stars(look.sky.stars ?? 0));
   if (look.ground.sea !== undefined) stage.add(sea(look.ground.sea, look.sky.disc?.at, look.sky.horizon));
-  if (look.ground.plain !== undefined && look.ground.sea === undefined) stage.add(plainLand(look.ground.plain, look.sky.horizon));
+  if (look.ground.plain !== undefined && look.ground.sea === undefined) {
+    stage.add(plainLand(look.ground.plain, look.sky.horizon));
+    stage.add(farClumps(look.ground.hills?.[1] ?? look.ground.plain[1], look.sky.horizon));
+  }
   if (look.ground.hills !== undefined) stage.add(hills(look.ground.hills));
   const clouds = look.sky.clouds;
   if (clouds !== null)
