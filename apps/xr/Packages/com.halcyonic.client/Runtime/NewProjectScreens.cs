@@ -990,7 +990,7 @@ namespace Halcyonic.Client
                 {
                     var fact = runtime.Synthetic ? (live ? EntryText.PracticeDetail : EntryText.Practice)
                         : runtime.ModelChoice == ModelChoice.Listed ? EntryText.ListsModels : EntryText.ChoosesModel;
-                    lines.Add(new PageLine(EntryText.RuntimeNameRuns(runtime, live), fact: fact == null ? null : LineWords.Written(fact),
+                    lines.Add(new PageLine(EntryText.RuntimeOwnNameRuns(runtime, live), fact: fact == null ? null : LineWords.Written(fact),
                         action: ChooseRuntime, key: runtime.RuntimeId, choice: true, chosen: draft.Runtime?.RuntimeId == runtime.RuntimeId));
                 }
             }

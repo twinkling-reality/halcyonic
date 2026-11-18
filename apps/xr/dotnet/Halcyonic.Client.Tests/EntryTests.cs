@@ -1047,7 +1047,8 @@ public class EntryWordsTests
         Assert.That(EntryText.ModelLine(draft), Is.EqualTo(EntryText.ChooseHowItRuns), "a plain line, no dot");
 
         draft.ChooseRuntime(Samples.MockRuntime());
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Simulated: Mock runtime"), "the recorded demonstration keeps its names");
+        // The recap is a face: a synthetic app is the practice run in every build; its own name stays on the picker.
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo(EntryText.PracticeRun), "the recap names what the app is");
         Assert.That(EntryText.RunsWith(draft, live: true), Is.EqualTo(EntryText.PracticeRun));
         Assert.That(EntryText.ModelLine(draft), Is.EqualTo("A practice run: no agent and no files"));
 
@@ -1075,10 +1076,11 @@ public class EntryWordsTests
         Assert.That(EntryText.RunsWith(draft), Is.EqualTo("On Your Computer"));
         Assert.That(EntryText.ModelLine(draft), Is.EqualTo(EntryText.ModelChosenForYou), "chosen for the person, and said so");
 
-        // An agent app that picks its own model is named, by the one rule, since where its model runs isn't known here.
+        // An agent app that picks its own model is named by what it is (RuntimeFaces), since where its model runs isn't known here;
+        // a kind the faces don't name is a coding agent, and its own name stays on the picker.
         listed.ModelChoice = ModelChoice.None;
         draft.ChooseRuntime(listed);
-        Assert.That(EntryText.RunsWith(draft), Is.EqualTo("Local‹U+202E› agent"));
+        Assert.That(EntryText.RunsWith(draft), Is.EqualTo(RuntimeFaces.Unnamed));
         Assert.That(EntryText.ModelLine(draft), Is.EqualTo(EntryText.UnknownMayLeave));
     }
 
@@ -1096,8 +1098,11 @@ public class EntryWordsTests
         cannotStart.Capabilities.StartExecution = false;
         // The fifth headset session: "Mock runtime (development fixture)" beside OpenCode was taken for a real one.
         Assert.That(EntryText.RuntimeName(mock, live: true), Is.EqualTo("Practice Run"));
-        Assert.That(EntryText.RuntimeName(mock), Does.StartWith("Simulated: "), "the demonstration is unaffected");
-        Assert.That(EntryText.RuntimeName(real, live: true), Is.EqualTo("OpenCode 2.0.18"));
+        // Every face says what the app is (RuntimeFaces); the picker alone keeps the demonstration's and the real app's own names.
+        Assert.That(EntryText.RuntimeName(mock), Is.EqualTo("Practice Run"), "a synthetic app is the practice run on every face");
+        Assert.That(EntryText.RuntimeOwnNameRuns(mock).Text, Does.StartWith("Simulated: "), "the demonstration's picker is unaffected");
+        Assert.That(EntryText.RuntimeName(real, live: true), Is.EqualTo(RuntimeFaces.Head(real)));
+        Assert.That(EntryText.RuntimeOwnNameRuns(real, live: true).Text, Is.EqualTo("OpenCode 2.0.18"), "the picker keeps the app's own name");
         Assert.That(EntryText.RuntimeChoices(new[] { mock, cannotStart, real }).Select(runtime => runtime.RuntimeId),
             Is.EqualTo(new[] { "opencode", mock.RuntimeId }), "real runtimes first, a simulated one last, and none that cannot start work");
     }

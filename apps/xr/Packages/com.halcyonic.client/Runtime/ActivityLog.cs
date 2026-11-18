@@ -241,13 +241,14 @@ namespace Halcyonic.Client
             {
                 case ExecutionCreatedEvent created:
                     // Recorded when the control plane accepts the start, before the runtime has started anything.
-                    if (e.ExecutionId != null) runtimeNames[e.ExecutionId] = CaptureNames.AgentName(created.Payload.Runtime.DisplayName);
+                    if (e.ExecutionId != null) runtimeNames[e.ExecutionId] = RuntimeFaces.Head(created.Payload.Runtime);
                     // Theirs last, so a name never stands where Halcyonic's words do (settled 2026-10-08).
-                    return Parts(ActivityKind.Lifecycle, "Start Requested", LineWords.TheirName(CaptureNames.AgentName(created.Payload.Runtime.DisplayName)));
+                    // What the app is, in Halcyonic's words, never its maker's name (AUDIT2, rule 182): the name stays on its details.
+                    return Parts(ActivityKind.Lifecycle, "Start Requested", LineWords.Ours(RuntimeFaces.Head(created.Payload.Runtime)));
                 case RuntimeExecutionStartedEvent _:
                     // Started only once the runtime says so.
                     return Parts(ActivityKind.Lifecycle, "Started", e.ExecutionId != null && runtimeNames.TryGetValue(e.ExecutionId, out var runtime)
-                        ? LineWords.TheirName(runtime) : (LineWords?)null);
+                        ? LineWords.Ours(runtime) : (LineWords?)null);
                 case ExecutionStartFailedEvent failed:
                     // The message is the agent app's or the control plane's own; a folder's problem is said by its code.
                     return Entry(ActivityKind.Lifecycle, WorkspaceText.WhyFailed(failed.Payload.Error.Code, running: false) is string why

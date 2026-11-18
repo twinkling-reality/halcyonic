@@ -92,7 +92,10 @@ public class ProjectFolderTests
         var idea = new ProjectIdea();
         idea.UseIdea("something for my running club");
         Assert.That(() => NewProjectScreens.RecapFolder(idea, startReached: false, listing, problem: null, notice: null), Throws.Nothing);
-        Assert.That(EntryText.RuntimeName(new RuntimeDescriptor { RuntimeId = "blank", DisplayName = " " }), Is.EqualTo("\u2039U+0020\u203A"));
+        // A face says what the app is, so it is never blank; the picker keeps the app's own name, shown by its code points.
+        var blank = new RuntimeDescriptor { RuntimeId = "blank", DisplayName = " " };
+        Assert.That(EntryText.RuntimeName(blank), Is.EqualTo(RuntimeFaces.Unnamed));
+        Assert.That(EntryText.RuntimeOwnNameRuns(blank).Text, Is.EqualTo("\u2039U+0020\u203A"));
     }
 
     [Test]

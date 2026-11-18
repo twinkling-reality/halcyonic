@@ -534,9 +534,17 @@ namespace Halcyonic.Client
         /// where nothing starts, keeps its runtimes' names.
         /// </summary>
         /// <param name="plain">Shows the runtime's own name through <see cref="LabelText.Name"/>, which never leaves it empty; false leaves it as it is, for a review that spells it itself.</param>
-        /// <summary>An agent app's name as runs: "Simulated: " upright first, its name leaning; the practice run Halcyonic's own words.</summary>
-        public static LineWords RuntimeNameRuns(RuntimeDescriptor runtime, bool live = false) =>
+        /// <summary>
+        /// An agent app as a choice on the picker, by its own name (the lead's 2026-11-18 ruling: a person tells their signed-in apps apart
+        /// by their true names; the picker is never in the film's frame): "Simulated: " upright first, its name leaning; the practice run
+        /// Halcyonic's own words.
+        /// </summary>
+        public static LineWords RuntimeOwnNameRuns(RuntimeDescriptor runtime, bool live = false) =>
             runtime.Synthetic && live ? LineWords.Ours(PracticeRun) : (runtime.Synthetic ? LineWords.Ours("Simulated: ") : LineWords.None) + LineWords.TheirName(CaptureNames.AgentName(runtime.DisplayName));
+
+        /// <summary>An agent app on every face but the picker: what it is (<see cref="RuntimeFaces"/>), never its maker's name; the practice run Halcyonic's own words.</summary>
+        public static LineWords RuntimeNameRuns(RuntimeDescriptor runtime, bool live = false) =>
+            runtime.Synthetic && live ? LineWords.Ours(PracticeRun) : LineWords.Ours(RuntimeFaces.Head(runtime));
 
         /// <summary>How it runs as runs (<see cref="RunsWith"/>): an agent app's name leaning.</summary>
         public static LineWords RunsWithRuns(NewWorkDraft draft, bool live = false) =>
@@ -548,7 +556,7 @@ namespace Halcyonic.Client
         public static LineWords NewFolderInRuns(LocationRoot root) => ProjectFolder.NewFolderRuns(root);
 
         public static string RuntimeName(RuntimeDescriptor runtime, bool live = false, bool plain = true) =>
-            runtime.Synthetic && live ? PracticeRun : (runtime.Synthetic ? "Simulated: " : "") + (plain ? LabelText.Name(CaptureNames.AgentName(runtime.DisplayName)) : CaptureNames.AgentName(runtime.DisplayName));
+            runtime.Synthetic && live ? PracticeRun : RuntimeFaces.Head(runtime);
 
         /// <summary>The runtimes offered in Create: real ones first, by name, and simulated ones after them.</summary>
         public static List<RuntimeDescriptor> RuntimeChoices(IEnumerable<RuntimeDescriptor> runtimes) =>

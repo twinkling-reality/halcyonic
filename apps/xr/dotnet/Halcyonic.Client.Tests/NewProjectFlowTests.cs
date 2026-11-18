@@ -894,7 +894,8 @@ public class NewProjectFlowTests
         Press(still, NewProjectScreens.UseIdea, null);
         Press(still, NewProjectScreens.StartBuilding, null);
         Assert.That(still.Review, Is.Not.Null, "a real app was taken, so the review opens");
-        Assert.That(still.Review!.Items.Any(item => item.ValueRuns.Text.Contains("Agent app codex")), Is.True,
+        // The review is a face, so it says what the app is (RuntimeFaces): the real one is a coding agent, never the practice run.
+        Assert.That(still.Review!.Items.Single(item => item.Label == "Agent App").ValueRuns.Text, Is.EqualTo(RuntimeFaces.Head(codex)).And.Not.EqualTo(RuntimeFaces.Head(practice)),
             "the real app, never the practice run last used");
 
         var two = new Host { State = WithRuntimes(Runtime("one"), Runtime("other")) };

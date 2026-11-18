@@ -202,7 +202,7 @@ public class KitPresenterTests
         var spine = new[] { new KitSpineSection(new KitRowModel[0]) };
         var live = KitPresenter.WorkOf(Waiting(), "Storefront", "Run the tests again.", voiceOffered: true, new ConnectionStatus(ConnectionPhase.Live), spine);
         Assert.That((live.ProjectName, live.TaskTitle, live.Draft, live.VoiceOffered), Is.EqualTo(("Storefront", "Fix the sign-in rate limit", "Run the tests again.", true)));
-        Assert.That((live.Environment, live.Agent), Is.EqualTo(("This Mac", "Synthetic agent app")));
+        Assert.That((live.Environment, live.Agent), Is.EqualTo(("This Computer", "Practice Run")), "a synthetic app is the practice run on every face");
         Assert.That(KitPresenter.EnvironmentOf(new RuntimeDescriptor { RuntimeId = "r1", Kind = "codex", DisplayName = "Codex", ApprovalMayLeaveSandbox = false, Capabilities = new RuntimeCapabilities() }),
             Is.EqualTo("Sandbox"));
         Assert.That(KitPresenter.EnvironmentOf(new RuntimeDescriptor { RuntimeId = "r2", Kind = "opencode", DisplayName = "OpenCode", ApprovalMayLeaveSandbox = null, Capabilities = new RuntimeCapabilities() }),
@@ -212,7 +212,7 @@ public class KitPresenterTests
             new RuntimeDescriptor { RuntimeId = "opencode", Kind = "opencode", DisplayName = "OpenCode", Capabilities = new RuntimeCapabilities() },
             null,
             "muse-glimmer:30b-mlx (Ollama)"),
-            Is.EqualTo("muse-glimmer:30b-mlx"));
+            Is.EqualTo("Your Model Setup"), "the face says what the app is; the model's id stays on its details");
         Assert.That(KitPresenter.ShortModelName("ollama/llama3.3:70b"), Is.EqualTo("llama3.3:70b"));
         Assert.That(live.Badge.Text, Is.EqualTo(StateLanguage.BadgeOf(Waiting().Character).Text));
         Assert.That((live.Sendable, live.WhyNotSend), Is.EqualTo((true, (string?)null)));

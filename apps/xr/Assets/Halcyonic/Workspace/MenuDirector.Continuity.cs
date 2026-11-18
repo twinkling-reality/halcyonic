@@ -270,7 +270,7 @@ namespace Halcyonic.XR.Workspace
             var session = setup.Session(); var api = setup.Api();
             TaskResultsColumn? view = null;
             view = new TaskResultsColumn(Bound(), original, file.Now.Execution.Runtime.RuntimeId,
-                CaptureNames.AgentName(file.Now.Runtime?.DisplayName ?? file.Now.Execution.Runtime.DisplayName), () => ReferenceEquals(navigator.Beside, view)
+                file.Now.Runtime is RuntimeDescriptor ran ? RuntimeFaces.Head(ran) : RuntimeFaces.Head(file.Now.Execution.Runtime), () => ReferenceEquals(navigator.Beside, view)
                     && navigator.BesideTask == original.WorkstreamId && navigator.ShowsAnything && !navigator.IsCompact && !navigator.BesideAside
                     && !setup.Presentation.Minimized && placement == null && !Away && drag == null
                     && ReferenceEquals(setup.Session(), session) && ReferenceEquals(setup.Api(), api) && IsCurrent(original));

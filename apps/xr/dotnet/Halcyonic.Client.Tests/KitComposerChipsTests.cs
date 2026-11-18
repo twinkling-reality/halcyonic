@@ -114,7 +114,7 @@ public class KitComposerChipsTests
         var composer = new Composer(Codex(), new[] { Codex(), OpenCode() }, ExecutionStatus.Completed);
         Assert.That(KitPresenter.AtRest(composer.Work), Is.True);
         var chips = KitPresenter.ChipsOf(composer.Work, null, OpenCode(), null, composer.Registered);
-        Assert.That((chips.Environment, chips.Agent, chips.EnvironmentChangeable, chips.AgentChangeable), Is.EqualTo(("Sandbox", "OpenCode", true, true)),
+        Assert.That((chips.Environment, chips.Agent, chips.EnvironmentChangeable, chips.AgentChangeable), Is.EqualTo(("Sandbox", "Your Model Setup", true, true)),
             "at rest the chips are the choice, and both can change");
         var start = Send(composer, new RunChoice("opencode", null, false)) as ExecutionStartCommand;
         Assert.That(start, Is.Not.Null, "Send starts the next run");
@@ -129,7 +129,7 @@ public class KitComposerChipsTests
         Assert.That(KitPresenter.NewRunOf(composer.Work, new RunChoice("opencode", null, false)), Is.Null);
         Assert.That(Send(composer, new RunChoice("opencode", null, false)), Is.InstanceOf<ExecutionSendInstructionCommand>());
         var chips = KitPresenter.ChipsOf(composer.Work, null, OpenCode(), null, composer.Registered);
-        Assert.That((chips.Agent, chips.EnvironmentChangeable, chips.AgentChangeable), Is.EqualTo(("Codex", false, false)), "the execution's own, locked");
+        Assert.That((chips.Agent, chips.EnvironmentChangeable, chips.AgentChangeable), Is.EqualTo(("Local Models", false, false)), "the execution's own, locked");
     }
 
     [Test]
@@ -237,8 +237,8 @@ public class KitComposerChipsTests
     {
         var composer = new Composer(Codex(), new[] { Codex(), ClaudeAgent() });
         composer.ChooseNextAgent();
-        composer.ChipsNameWhatRuns("the Host chip stays This Mac: the Codex execution is what runs");
-        Assert.That(composer.Bind().Model.Environment, Is.EqualTo("This Mac"));
+        composer.ChipsNameWhatRuns("the Host chip stays This Computer: the Codex execution is what runs");
+        Assert.That(composer.Bind().Model.Environment, Is.EqualTo("This Computer"));
     }
 
     [Test]
@@ -247,6 +247,6 @@ public class KitComposerChipsTests
         var composer = new Composer(ClaudeAgent(), new[] { ClaudeAgent(), Codex() });
         composer.ChooseNextAgent();
         composer.ChipsNameWhatRuns("never an environment the runtime that runs did not declare");
-        Assert.That((composer.Bind().Model.Environment, composer.Bind().Model.Agent), Is.EqualTo(((string?)null, "Claude Agent")));
+        Assert.That((composer.Bind().Model.Environment, composer.Bind().Model.Agent), Is.EqualTo(((string?)null, RuntimeFaces.Unnamed)), "a kind the faces don't name is a coding agent");
     }
 }

@@ -507,8 +507,11 @@ namespace Halcyonic.Client
         /// <summary>"+14 −3 Lines" from a checkpoint diff.</summary>
         public static string Counts(KitCheckpointDiff diff) => "+" + Number(diff.Added) + " −" + Number(diff.Removed) + " Lines";
 
-        /// <summary>The host where an approved command may leave the sandbox, as the owner named the Host chip (2026-11-03).</summary>
-        public static string ThisMac => CaptureNames.Generic ? CaptureNames.Host : "This Mac";
+        /// <summary>
+        /// The host where an approved command may leave the sandbox: "This Computer" on every face in every build, never the maker's name
+        /// for it (the lead's 2026-11-18 ruling on FILM's sweep; it was "This Mac", as the owner named the Host chip on 2026-11-03).
+        /// </summary>
+        public static string ThisMac => CaptureNames.Host;
 
         /// <summary>The host where an approved command stays inside the agent app's sandbox.</summary>
         public const string InSandbox = "Sandbox";
@@ -516,7 +519,7 @@ namespace Halcyonic.Client
         /// <summary>The Host chip's category, before the environment's word.</summary>
         public const string HostPrefix = "Host: ";
 
-        /// <summary>The Agent chip's category, before the agent app's or the model's own name.</summary>
+        /// <summary>The Agent chip's category, before what the agent app is (never its maker's name nor a model's id: both one press deeper).</summary>
         public const string AgentPrefix = "Agent: ";
 
         /// <summary>The environment selector label for a declared <see cref="KitSandbox"/>; none where it declared nothing.</summary>

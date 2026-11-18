@@ -193,7 +193,7 @@ public class KitFileBindingTests
     public void TheComposersChipsAreTheExecutionsOwnAndLocked()
     {
         // The composer's Send instructs the task's own execution (WorkspaceSteering.SendInstruction), so its chips are that
-        // execution's runtime's: a Codex task's composer says This Mac and Codex, neither taking a press, as does a binding
+        // execution's runtime's: a Codex task's composer says This Computer and Local Models, neither taking a press, as does a binding
         // given no chips (AUDIT, 2026-11-03).
         var running = Running(new WaitingWork(), WorkspaceAction.Instruct, WorkspaceAction.Interrupt);
         var codex = new RuntimeDescriptor
@@ -213,10 +213,10 @@ public class KitFileBindingTests
         var chips = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine,
             selectors: KitPresenter.ChipsOf(workspace))!;
         Assert.That((chips.Model.Environment, chips.Model.EnvironmentChangeable, chips.Model.Agent, chips.Model.AgentChangeable),
-            Is.EqualTo(("This Mac", false, "Codex", false)));
+            Is.EqualTo(("This Computer", false, "Local Models", false)));
         var given = KitFileBinding.Of(frame, steering.Armed, workspace, screen.Instruction.Words, Live, "Storefront", Spine)!;
         Assert.That((given.Model.Environment, given.Model.EnvironmentChangeable, given.Model.Agent, given.Model.AgentChangeable),
-            Is.EqualTo(("This Mac", false, "Codex", false)), "given no chips, the workspace's own runtime's, locked");
+            Is.EqualTo(("This Computer", false, "Local Models", false)), "given no chips, the workspace's own runtime's, locked");
     }
 
     [Test]
@@ -287,19 +287,24 @@ public class KitFileBindingTests
 
         presentation.SelectRuntime("codex");
         var initial = Rebind();
-        Assert.That((initial.Model.Environment, initial.Model.Agent, initial.Model.Draft), Is.EqualTo(("This Mac", "Codex", draftWords)));
+        Assert.That((initial.Model.Environment, initial.Model.Agent, initial.Model.Draft), Is.EqualTo(("This Computer", "Local Models", draftWords)));
 
         presentation.CycleEnvironment(runtimes);
         var sandboxed = Rebind();
-        Assert.That((sandboxed.Model.Environment, sandboxed.Model.Agent, sandboxed.Model.Draft), Is.EqualTo(("Sandbox", "OpenCode", draftWords)));
+        Assert.That((sandboxed.Model.Environment, sandboxed.Model.Agent, sandboxed.Model.Draft), Is.EqualTo(("Sandbox", "Your Model Setup", draftWords)));
+        var appsChoice = presentation.SelectedModelDisplay(openCode, workspace.Execution);
 
         presentation.CycleAgent(runtimes);
         var glimmerBound = Rebind();
-        Assert.That((glimmerBound.Model.Environment, glimmerBound.Model.Agent, glimmerBound.Model.Draft), Is.EqualTo(("Sandbox", "muse-glimmer:30b-mlx", draftWords)));
+        Assert.That((glimmerBound.Model.Environment, glimmerBound.Model.Agent, glimmerBound.Model.Draft), Is.EqualTo(("Sandbox", "Your Model Setup", draftWords)),
+            "the face says what the app is, never a model's id");
+        // The model's id is one press deeper now, so both choices share a face: the choice itself still differs.
+        Assert.That(presentation.SelectedModelDisplay(openCode, workspace.Execution), Does.StartWith("muse-glimmer:30b-mlx").And.Not.EqualTo(appsChoice),
+            "the agent press chose the listed model, told apart by its key");
 
         presentation.CycleAgent(runtimes);
         var claudeBound = Rebind();
-        Assert.That((claudeBound.Model.Environment, claudeBound.Model.Agent, claudeBound.Model.Draft), Is.EqualTo(((string?)null, "Claude Agent", draftWords)),
+        Assert.That((claudeBound.Model.Environment, claudeBound.Model.Agent, claudeBound.Model.Draft), Is.EqualTo(((string?)null, RuntimeFaces.Unnamed, draftWords)),
             "a runtime that declares nothing shows no Host chip");
     }
 

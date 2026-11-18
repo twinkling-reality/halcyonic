@@ -93,7 +93,8 @@ public class EntryScreensTests
             "Folder Now: shop",
             "Folder Next: storefront-v2, a new folder in Projects",
             "Task Name: Add a search page.",
-            "Agent App: Local‹U+200B› agent",
+            // The review is a face: it says what the app is (RuntimeFaces), never its own name; the picker keeps that.
+            "Agent App: Coding Agent",
             // The level the start will use, after the model (a real runtime; this draft asks).
             "Model: ollama/qwen",
             "Level: Ask Me First",

@@ -767,7 +767,8 @@ namespace Halcyonic.Client
 
             var execution = state.CurrentExecution(work);
             var runtimeDescriptor = execution != null ? state.RuntimeOf(execution) : null;
-            var runtime = CaptureNames.AgentName(runtimeDescriptor?.DisplayName ?? execution?.Runtime.DisplayName ?? "Agent");
+            // What the app is, never its maker's name (AUDIT2, rule 182): the name stays on the agent's details.
+            var runtime = runtimeDescriptor != null ? RuntimeFaces.Head(runtimeDescriptor) : execution != null ? RuntimeFaces.Head(execution.Runtime) : RuntimeFaces.Unnamed;
             var working = work.Status == WorkstreamStatus.Starting
                 || work.Status == WorkstreamStatus.Running
                 || work.Status == WorkstreamStatus.Verifying
@@ -836,7 +837,7 @@ namespace Halcyonic.Client
             var work = OrderWorkstreams(state.Workstreams.Values.Where(item => item.ProjectId == project.ProjectId)).FirstOrDefault();
             var execution = work != null ? state.CurrentExecution(work) : null;
             // The primary task's own run's app, or none (AUDIT2's 19:23Z MUST): only a check the run itself reported is credited to it.
-            var runtime = execution != null ? CaptureNames.AgentName(state.RuntimeOf(execution)?.DisplayName ?? execution.Runtime.DisplayName) : null;
+            var runtime = execution != null ? (state.RuntimeOf(execution) is RuntimeDescriptor ran ? RuntimeFaces.Head(ran) : RuntimeFaces.Head(execution.Runtime)) : null;
             var stateWords = work != null
                 ? StateLanguage.LineWordOf(CharacterPresenter.Present(work, state, isLive))
                 : StateLanguage.WordOf(WorkState.NotStarted);
@@ -897,7 +898,7 @@ namespace Halcyonic.Client
             {
                 var execution = state.CurrentExecution(task);
                 // The task's own run's app, or none: never another runtime's name or a stand-in for a task with no run (AUDIT2's 19:23Z MUST).
-                var agent = execution != null ? CaptureNames.AgentName(state.RuntimeOf(execution)?.DisplayName ?? execution.Runtime.DisplayName) : null;
+                var agent = execution != null ? (state.RuntimeOf(execution) is RuntimeDescriptor ran ? RuntimeFaces.Head(ran) : RuntimeFaces.Head(execution.Runtime)) : null;
                 var presented = CharacterPresenter.Present(task, state, isLive);
                 return new KitScreenAgent(task.WorkstreamId, LineWords.TheirName(task.Title), agent, CharacterPresenter.TagWord(presented),
                     task.Attention.Level == AttentionLevel.ActionRequired);

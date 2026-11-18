@@ -164,13 +164,10 @@ namespace Halcyonic.Client
         /// </summary>
         public static string? AgentOf(RuntimeDescriptor? runtime, ExecutionView? execution, string? modelDisplay)
         {
-            if (ShortModelName(modelDisplay) is string selectedModel)
-            {
-                return CaptureNames.ModelName(selectedModel);
-            }
-            return (runtime?.DisplayName ?? execution?.Runtime.DisplayName) is string raw && WorkspaceText.OneLine(raw) is { Length: > 0 } name
-                ? CaptureNames.AgentName(name)
-                : null;
+            // A face names what the agent app is, never its maker's name nor a model's id, which is a maker's name too (AUDIT2's
+            // 2026-11-18T02:52Z words, rule 182): both stay one press deeper, on the agent's details.
+            if (runtime != null) return RuntimeFaces.Head(runtime);
+            return execution != null ? RuntimeFaces.Head(execution.Runtime) : null;
         }
 
         /// <summary>The plain one-line display name of <paramref name="workspace"/>'s runtime, or null.</summary>

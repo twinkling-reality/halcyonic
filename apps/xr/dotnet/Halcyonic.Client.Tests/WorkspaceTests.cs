@@ -32,8 +32,9 @@ public class ActivityLogTests
         log.Record(events);
 
         var texts = log.For(ExecutionOf(events, "Move sessions to their own table")).Select(entry => entry.Text).ToList();
-        Assert.That(texts[0], Is.EqualTo("Start Requested: Mock runtime (development fixture)"), "accepted is not started");
-        Assert.That(texts[1], Is.EqualTo("Started: Mock runtime (development fixture)"), "started once the runtime says so");
+        // A face names what the agent app is, never its own name (RuntimeFaces): the fixture's mock is the practice run.
+        Assert.That(texts[0], Is.EqualTo("Start Requested: Practice Run"), "accepted is not started");
+        Assert.That(texts[1], Is.EqualTo("Started: Practice Run"), "started once the runtime says so");
         Assert.That(texts.Any(text => text.StartsWith("Approval Requested: bash, ", StringComparison.Ordinal)), Is.True);
         Assert.That(texts, Does.Contain("Approval Sent"), "a client's name is never shown as a person's");
         Assert.That(texts, Has.None.Contains("halcyonic"));
@@ -41,7 +42,9 @@ public class ActivityLogTests
         Assert.That(texts, Does.Contain("Tool Succeeded: bash"));
         // Halcyonic's words first and upright, the agent app's names leaning last (settled 2026-10-08).
         var entries = log.For(ExecutionOf(events, "Move sessions to their own table"));
-        Assert.That(entries[0].Words.ToString(), Is.EqualTo("Start Requested: [Mock runtime (development fixture)]"));
+        // What the app is is Halcyonic's own words, upright: no outside name leans on the line.
+        Assert.That(entries[0].Words.ToString(), Is.EqualTo("Start Requested: Practice Run"));
+        Assert.That(entries[1].Words.ToString(), Is.EqualTo("Started: Practice Run"), "the head stands upright once started too");
         var succeeded = entries.Single(entry => entry.Text == "Tool Succeeded: bash");
         Assert.That(succeeded.Words.ToString(), Is.EqualTo("Tool Succeeded: [bash]"));
         Assert.That(succeeded.Reported, Is.True, "the agent's report of its tool is a claim, by its flag, never a word");
@@ -414,7 +417,7 @@ public class WorkspacePresenterTests
     [Test]
     public void AnApprovedCommandSaysWhereItRunsOnlyAsItsAgentAppDeclares()
     {
-        const string mayLeave = "Runs on This Mac";
+        const string mayLeave = "Runs on This Computer";
         const string staysInside = "Runs in Sandbox";
         var workstream = Samples.Workstream("w1", WorkstreamStatus.WaitingForHuman, "e1");
         NeedAnswer Asking(bool? declared, string tool = "commandExecution", bool approvable = true)

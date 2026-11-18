@@ -678,7 +678,7 @@ public class WorkspacePresentationStateTests
         var toSandbox = WorkspacePresentationState.SelectRuntimeForEnvironment(runtimes, "claude", sandbox: true);
         Assert.That(toSandbox?.RuntimeId, Is.EqualTo("codex"));
 
-        // Toggling back to This Mac (sandbox: false) selects the available runtime with ApprovalMayLeaveSandbox == true.
+        // Toggling back to This Computer (sandbox: false) selects the available runtime with ApprovalMayLeaveSandbox == true.
         var toMac = WorkspacePresentationState.SelectRuntimeForEnvironment(runtimes, "codex", sandbox: false);
         Assert.That(toMac?.RuntimeId, Is.EqualTo("claude"));
 
@@ -776,39 +776,41 @@ public class WorkspacePresentationStateTests
             "anthropic/claude-sonnet-4-5",
         }));
 
-        // Cycling Environment toggles This Mac <-> Sandbox and selects matching runtimes.
+        // Cycling Environment toggles This Computer <-> Sandbox and selects matching runtimes.
         var env1 = presentation.CycleEnvironment(runtimes, "claude");
         Assert.That(env1, Is.EqualTo(("codex", true)));
         Assert.That(KitPresenter.EnvironmentOf(codex), Is.EqualTo("Sandbox"));
 
         var env2 = presentation.CycleEnvironment(runtimes, presentation.SelectedRuntimeId);
         Assert.That(env2, Is.EqualTo(("claude", false)));
-        Assert.That(KitPresenter.EnvironmentOf(claude), Is.EqualTo("This Mac"));
+        Assert.That(KitPresenter.EnvironmentOf(claude), Is.EqualTo("This Computer"));
 
         // Cycling Agent steps through Codex -> OpenCode -> muse-glimmer:30b-mlx -> llama3.3:70b -> remote -> Claude Agent -> Codex.
+        // The Agent chip says what each app is (RuntimeFaces), never a model's id: OpenCode's steps share one face, so each step's
+        // key, its runtime and model, is asserted to differ instead.
         presentation.SelectRuntime("codex");
         var step1 = presentation.CycleAgent(runtimes);
         Assert.That((step1?.Runtime.RuntimeId, step1?.Model?.ModelRef), Is.EqualTo(("opencode", (string?)null)));
-        Assert.That(KitPresenter.AgentOf(step1?.Runtime, null, presentation.SelectedModelDisplay(step1?.Runtime)), Is.EqualTo("OpenCode"));
+        Assert.That(KitPresenter.AgentOf(step1?.Runtime, null, presentation.SelectedModelDisplay(step1?.Runtime)), Is.EqualTo("Your Model Setup"));
 
         var step2 = presentation.CycleAgent(runtimes);
         Assert.That((step2?.Runtime.RuntimeId, step2?.Model?.ModelRef), Is.EqualTo(("opencode", "ollama/muse-glimmer:30b-mlx")));
-        Assert.That(KitPresenter.AgentOf(step2?.Runtime, null, presentation.SelectedModelDisplay(step2?.Runtime)), Is.EqualTo("muse-glimmer:30b-mlx"));
+        Assert.That(KitPresenter.AgentOf(step2?.Runtime, null, presentation.SelectedModelDisplay(step2?.Runtime)), Is.EqualTo("Your Model Setup"));
 
         var step3 = presentation.CycleAgent(runtimes);
         Assert.That((step3?.Runtime.RuntimeId, step3?.Model?.ModelRef), Is.EqualTo(("opencode", "ollama/llama3.3:70b")));
-        Assert.That(KitPresenter.AgentOf(step3?.Runtime, null, presentation.SelectedModelDisplay(step3?.Runtime)), Is.EqualTo("llama3.3:70b"));
+        Assert.That(KitPresenter.AgentOf(step3?.Runtime, null, presentation.SelectedModelDisplay(step3?.Runtime)), Is.EqualTo("Your Model Setup"));
 
         var step4 = presentation.CycleAgent(runtimes);
         Assert.That((step4?.Runtime.RuntimeId, step4?.Model?.ModelRef), Is.EqualTo(("opencode", "anthropic/claude-sonnet-4-5")));
 
         var step5 = presentation.CycleAgent(runtimes);
         Assert.That((step5?.Runtime.RuntimeId, step5?.Model?.ModelRef), Is.EqualTo(("claude", (string?)null)));
-        Assert.That(KitPresenter.AgentOf(step5?.Runtime, null, presentation.SelectedModelDisplay(step5?.Runtime)), Is.EqualTo("Claude Agent"));
+        Assert.That(KitPresenter.AgentOf(step5?.Runtime, null, presentation.SelectedModelDisplay(step5?.Runtime)), Is.EqualTo(RuntimeFaces.Unnamed), "a kind the faces don't name is a coding agent");
 
         var step6 = presentation.CycleAgent(runtimes);
         Assert.That((step6?.Runtime.RuntimeId, step6?.Model?.ModelRef), Is.EqualTo(("codex", (string?)null)));
-        Assert.That(KitPresenter.AgentOf(step6?.Runtime, null, presentation.SelectedModelDisplay(step6?.Runtime)), Is.EqualTo("Codex"));
+        Assert.That(KitPresenter.AgentOf(step6?.Runtime, null, presentation.SelectedModelDisplay(step6?.Runtime)), Is.EqualTo("Local Models"));
     }
 
     [Test]
@@ -836,7 +838,7 @@ public class WorkspacePresentationStateTests
         Assert.That(presentation.CycleEnvironment(runtimes, "leaves"), Is.Null, "no registered runtime declares the other environment");
 
         var current = System.Array.Find(runtimes, runtime => runtime.RuntimeId == presentation.SelectedRuntimeId);
-        Assert.That(KitPresenter.EnvironmentOf(current), Is.EqualTo("This Mac"),
+        Assert.That(KitPresenter.EnvironmentOf(current), Is.EqualTo("This Computer"),
             "it declares it may leave the sandbox and no registered runtime stays inside one: Sandbox does not exist here");
         Assert.That((presentation.SelectedRuntimeId, changed), Is.EqualTo(("leaves", 0)), "with nothing to switch to, nothing changes");
         Assert.That(WorkspacePresentationState.EnvironmentCanChange(runtimes, leaves), Is.False, "so the Host chip stands locked");

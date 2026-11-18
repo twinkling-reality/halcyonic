@@ -925,7 +925,9 @@ public class NewProjectStartTests
         Assert.That(review.Items.Single(item => item.Label == "Model").Runs.ToString(), Is.EqualTo("Model: App's Choice"));
         Assert.That(review.Items.Single(item => item.Kind == ReviewItemKind.Level).Runs.ToString(), Is.EqualTo("Level: Ask Me First"), "the level its own row");
         Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ProjectLabel).Runs.ToString(), Is.EqualTo("Project: [App's Choice]"));
-        Assert.That(review.Items.Single(item => item.Label == "Agent App").Runs.Runs.Last().Theirs, Is.True, "the agent app's name leans");
+        // The review is a face: what the app is is Halcyonic's own words (RuntimeFaces), upright, never its own name leaning.
+        Assert.That(review.Items.Single(item => item.Label == "Agent App").Runs.ToString(), Is.EqualTo("Agent App: " + RuntimeFaces.Unnamed),
+            "the agent app's head stands upright");
         Assert.That(review.Items.Single(item => item.Label == NewWorkReview.ModelIdLabel).Runs.ToString(), Is.EqualTo("Model ID: none"),
             "no model id: Halcyonic's word, upright, unlike a model whose id is \"none\"");
     }

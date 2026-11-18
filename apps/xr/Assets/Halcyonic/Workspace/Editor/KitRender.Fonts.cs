@@ -34,7 +34,7 @@ namespace Halcyonic.XR.Workspace.Editor
         {
             (KitRole.Display, "Tower Toss", ""),
             (KitRole.Title, "Run Command?", ""),
-            (KitRole.Body, "Codex asks \u00B7 10:42 \u00B7 ", "\u201CYes\u201D \u2014 run it 0123456789"),
+            (KitRole.Body, "Kite Run asks \u00B7 10:42 \u00B7 ", "\u201CYes\u201D \u2014 run it 0123456789"),
             (KitRole.Strong, "Run \u00B7 Read Command \u00B7 ", "Tower Toss"),
             (KitRole.Label, "Agent \u00B7 Tower Toss \u00B7 Reported", ""),
             (KitRole.Mono, "", "npm install matter-js --save-dev # 0O 1lI \u2026"),
