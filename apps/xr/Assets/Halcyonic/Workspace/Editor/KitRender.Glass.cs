@@ -58,7 +58,7 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 var (roomName, ground) = GlassRooms[row];
                 var y = (1 - row) * GlassRowDp;
-                var plate = Surface.Create(view, "Ground: " + roomName, KitType.Order.Carrier - 4);
+                var plate = Surface.Create(view, RoomGroundPrefix + roomName, KitType.Order.Carrier - 4);
                 plate.Draw(new Vector2(rowWidth, GlassRowDp) * unit, 0f, KitType.Colour(ground));
                 plate.transform.localPosition = new Vector3(0f, y * unit, 0.002f);
                 for (var index = 0; index < GlassPanels.Length; index++)

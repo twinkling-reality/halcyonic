@@ -319,8 +319,8 @@ namespace Halcyonic.XR.UI
             var left = -width / 2f + pad;
             var y = -pad;
             // No hue in the chrome (the lead's 19:15Z; AUDIT's 26-receipt eye, 2026-11-18): the glass is the kit's dark glass, never lit in the
-            // moment's tone; the tone is said by its mark's sign and its words.
-            lightTone = null;
+            // moment's tone; the tone is said by its mark's sign and its words, and an answer lights the glass white, as light, never hue.
+            lightTone = ToneOf(moment.Tone) != null ? SpatialKit.Text : (GlazeColor?)null;
             MomentTone = ToneOf(moment.Tone);
 
             // The eyebrow: the mark, then who says it. A ring for the runtime's report, a disc for what the computer saw.

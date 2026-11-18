@@ -11,6 +11,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>How many parts of the redesign's chrome the no-hue check read in this run; none fails the run.</summary>
         private static int chromePartsRead;
 
+        /// <summary>The name a glass sheet's room ground begins with (KitRender.Glass): the room behind the panels, never chrome.</summary>
+        internal const string RoomGroundPrefix = "Ground: ";
+
         /// <summary>The old kit's control sheet (KitRender.Scenes), drawn with the redesign off.</summary>
         internal const string ControlSheetName = "Control kit";
 
@@ -51,11 +54,14 @@ namespace Halcyonic.XR.Workspace.Editor
             foreach (var glass in root.GetComponentsInChildren<KitGlass>(false))
             {
                 if (Exempt(glass)) continue;
-                if (glass.Tone is GlazeColor tone) yield return what + ": the glass " + Path(glass.transform) + " is lit in a tone, #" + ColorUtility.ToHtmlStringRGB(KitType.Colour(tone));
+                // Lit white is light, not hue (an answer's pulse); lit in a hue is a tone on the chrome.
+                if (glass.Tone is GlazeColor tone && Hued(KitType.Colour(tone)) is string toned) yield return what + ": the glass " + Path(glass.transform) + " is lit in a tone, " + toned;
                 if (glass.Tint is GlazeColor tint) yield return what + ": the glass " + Path(glass.transform) + " carries a tint, #" + ColorUtility.ToHtmlStringRGB(KitType.Colour(tint));
             }
             foreach (var surface in root.GetComponentsInChildren<Surface>(false))
             {
+                // The room a glass sheet stands its panels on (KitRender.Glass's "Ground: " plates) is the room, not chrome.
+                if (surface.name.StartsWith(RoomGroundPrefix, System.StringComparison.Ordinal)) continue;
                 if (Exempt(surface) || surface.GetComponent<Renderer>() is Renderer drawn && !drawn.enabled) continue;
                 if (Hued(surface.Fill) is string fill) yield return what + ": " + Path(surface.transform) + " is filled with a hue, " + fill;
                 if (Hued(surface.Edge) is string edge) yield return what + ": " + Path(surface.transform) + " is edged with a hue, " + edge;
