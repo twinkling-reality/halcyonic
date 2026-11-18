@@ -246,7 +246,8 @@ function island(): Group {
   }
   // One raised tier at the back: a stage for a sign or a goal.
   const tier = new Mesh(
-    new CylinderGeometry(FLOOR.tier.radius, FLOOR.tier.radius + 0.26, FLOOR.tier.height, 64),
+    // On grass a bank; on sand a low dune with a long foot, never a dish.
+    new CylinderGeometry(FLOOR.tier.radius, FLOOR.tier.radius + (current.ground.grass === undefined ? 0.75 : 0.26), FLOOR.tier.height, 64),
     [
       toyMaterial(ground.side, { ground: true }),
       toyMaterial(ground.top, { ground: true }),
@@ -482,7 +483,7 @@ function skyDome(sky: WorldLook['sky']): Mesh {
       'c = mix(c, glowColour, glowStrength * 0.55 * exp(-a / (discSize * 2.2)));',
       // A wide soft halo round it, as light scatters near the sun or the moon.
       'c += glowColour * glowStrength * (0.9 * exp(-a / (discSize * 3.5)) + 0.3 * exp(-a / 0.45));',
-      'c = mix(c, discColour, 1.0 - smoothstep(discSize * 0.92, discSize, a));',
+      'c = mix(c, discColour, 1.0 - smoothstep(discSize * 0.72, discSize * 1.05, a));',
     ].join(' ');
   }
   return new Mesh(
@@ -763,21 +764,43 @@ function farClumps(colour: string, horizon: string, onHills: boolean): Instanced
   trunk.setAttribute('color', new Float32BufferAttribute(new Array(trunk.getAttribute('position').count).fill([0.32, 0.24, 0.2]).flat(), 3));
   const tree = mergeGeometries([crown.toNonIndexed(), trunk.toNonIndexed()]) ?? crown;
   const material = new MeshPhysicalMaterial({ color: '#FFFFFF', vertexColors: true, roughness: 0.95, metalness: 0 });
-  const count = 140;
+  const count = 150;
   const clumps = new InstancedMesh(tree, material, count + 30);
   const place = new Object3D();
   const base = new Color(colour);
   const sky = new Color(horizon);
-  for (let i = 0; i < count; i++) {
+  // Trees gather as people plant and woods grow: copses of a few, and hedgerow lines along the folds, with open
+  // ground between; never an even scatter. Only on the near faces of the hills, where their feet are seen.
+  const spots: { x: number; z: number; size: number }[] = [];
+  for (let copse = 0; copse < 16; copse++) {
     const a = random() * Math.PI * 2;
-    // Never between the player and the game: none in the cone in front of the island.
-    const d = 14 + random() * 22;
-    const x = Math.cos(a) * d;
-    const z = Math.sin(a) * d;
-    const s = 0.22 + random() * 0.4;
-    // Settled a little into the ground, so none floats where the mesh between its vertices lies lower.
-    place.position.set(x, PLAIN_LEVEL + (onHills ? hillHeight(x, z) : 0) - 0.12 * s, z);
-    place.scale.set(s * (1 + random() * 0.8), s * (0.8 + random() * 0.5), s);
+    const d = 13 + random() * 13;
+    const many = 4 + Math.floor(random() * 7);
+    for (let k = 0; k < many; k++) {
+      const spread = 0.8 + random() * 2.2;
+      const t = random() * Math.PI * 2;
+      spots.push({ x: Math.cos(a) * d + Math.cos(t) * spread, z: Math.sin(a) * d + Math.sin(t) * spread, size: 0.75 + random() * 0.7 });
+    }
+  }
+  for (let line = 0; line < 5; line++) {
+    // A hedgerow line running round the land at its own distance, a tree every metre or so along it.
+    const a0 = random() * Math.PI * 2;
+    const d = 12 + random() * 10;
+    const length = 4 + Math.floor(random() * 9);
+    for (let k = 0; k < length; k++) {
+      const a = a0 + (k * 1.1) / d;
+      spots.push({ x: Math.cos(a) * (d + 0.4 * Math.sin(k)), z: Math.sin(a) * (d + 0.4 * Math.sin(k)), size: 0.55 + random() * 0.35 });
+    }
+  }
+  for (let i = 0; i < count; i++) {
+    const spot = spots[i % spots.length] ?? { x: 20, z: 0, size: 1 };
+    const x = spot.x;
+    const z = spot.z;
+    const d = Math.hypot(x, z);
+    const s = (0.24 + random() * 0.22) * spot.size;
+    // Its foot sunk into the ground: on a slope the mesh between its vertices can lie below the hill's true height.
+    place.position.set(x, PLAIN_LEVEL + (onHills ? hillHeight(x, z) : 0) - 0.35 * s, z);
+    place.scale.set(s * (1 + random() * 0.6), s * (0.85 + random() * 0.45), s);
     place.rotation.set(0, random() * 6.28, 0);
     place.updateMatrix();
     clumps.setMatrixAt(i, place.matrix);

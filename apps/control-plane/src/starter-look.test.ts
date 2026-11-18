@@ -1648,8 +1648,14 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(height, /Math\.sin\(a \* 3 \+ 1\.3\)/, 'ridges vary round the horizon');
     assert.match(
       look(),
-      /PLAIN_LEVEL \+ \(onHills \? hillHeight\(x, z\) : 0\) - 0\.12 \* s/,
+      /PLAIN_LEVEL \+ \(onHills \? hillHeight\(x, z\) : 0\) - 0\.35 \* s/,
       'far trees stand on the hills',
+    );
+    assert.match(look(), /for \(let copse = 0; copse < 16; copse\+\+\)/, 'trees gather in copses');
+    assert.match(
+      look(),
+      /for \(let line = 0; line < 5; line\+\+\)/,
+      'and in hedgerow lines, never an even scatter',
     );
   });
 
