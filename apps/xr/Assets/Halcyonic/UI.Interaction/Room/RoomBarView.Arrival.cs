@@ -59,6 +59,9 @@ namespace Halcyonic.XR.UI
         /// <summary>The panel's own answers (its column), which take a press only once it stands whole (<see cref="PanelBuilt"/>).</summary>
         public IEnumerable<KitPress> AnswerPresses => column.Select(button => button.Press);
 
+        /// <summary>The panel's own answers as drawn, which stand only once it stands whole (<see cref="RoomButton.HeldBack"/>).</summary>
+        public IEnumerable<RoomButton> Answers => column;
+
         private bool builtBefore = true;
 
         private readonly List<RoomShape> panelShapes = new List<RoomShape>();

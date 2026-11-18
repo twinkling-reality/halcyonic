@@ -527,6 +527,12 @@ namespace Halcyonic.XR.UI
 
         private void Update() => Paint(immediately: false);
 
+        /// <summary>
+        /// While this says so, it stands gone, and it arrives from the moment it stops saying so: a panel's answers are held back until the
+        /// panel stands whole (the lead's 2026-11-18: no answer is seen while it refuses a press). A render's settle draws it whole.
+        /// </summary>
+        public Func<bool>? HeldBack { get; set; }
+
         /// <summary>The seconds its arrival and its easing are timed by; a check fixes it.</summary>
         public Func<float> Clock { get; set; } = () => Time.unscaledTime;
 
@@ -641,8 +647,11 @@ namespace Halcyonic.XR.UI
             haloNow = Vector4.Lerp(haloFrom, haloTo, eased);
             glyphNow = Color.Lerp(glyphFrom, glyphTo, eased);
             scaleNow = Mathf.Lerp(scaleFrom, scaleTo, eased);
-            // It arrives rising 8 dp and fading in, after the actions shown before it in the same moment.
-            var move = settled ? RoomMove.Settled : RoomMotion.LineArrives(now - arriveSince, arriveIndex);
+            // It arrives rising 8 dp and fading in, after the actions shown before it in the same moment; held back, it stands gone and
+            // arrives from its release (a panel's answers wait for the panel to stand whole, so none is seen while it refuses a press).
+            var holding = !settled && HeldBack?.Invoke() == true;
+            if (holding) arriveSince = now;
+            var move = settled ? RoomMove.Settled : holding ? RoomMove.Gone : RoomMotion.LineArrives(now - arriveSince, arriveIndex);
             var state = (chipNow, haloNow.w, glyphNow, scaleNow, move.Shown, move.LowerDp, LockProgress ?? -1f);
             if (pushed is { } last && last.Chip == state.Item1 && last.Halo == state.Item2 && last.Glyph == state.Item3 && last.Scale == state.Item4
                 && last.Shown == state.Item5 && last.Lower == state.Item6 && last.Lock == state.Item7) return;

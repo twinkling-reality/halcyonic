@@ -140,6 +140,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 var plane = menu.Plane;
                 var bar = plane.Kit.Bar;
                 bar.PanelClock = () => clock;
+                // The answers arrive on the walk's clock too, so a frame inside the panel's arrival sees them as a person would.
+                foreach (var answer in bar.Answers) answer.Clock = () => clock;
                 // When the panel's moment arrived, kept so the render's settling never moves it (the product's frames run no settle).
                 float? momentAt = null;
                 void Draw()
@@ -344,6 +346,13 @@ namespace Halcyonic.XR.Workspace.Editor
                     }
                     // The ring stays on the floor where it stood, never flying, and is gone once the lift-off breath is over.
                     if (stage.FlightNow.Along >= 1f && view.Labels.gameObject.activeInHierarchy) tagAngle.Most = Mathf.Max(tagAngle.Most, TagSpan());
+                    // No answer stands while the panel is still arriving, as none takes a press until it stands whole (the lead's
+                    // 2026-11-18: a person never sees an answer that refuses their pinch).
+                    if (!bar.PanelBuilt)
+                    {
+                        var early = bar.Answers.Where(each => each.gameObject.activeInHierarchy && each.ArrivalShown > 0.01f).Select(each => each.name).ToList();
+                        if (early.Count > 0) failures.Add(name + ": an answer stands before the panel stands whole: " + string.Join(", ", early));
+                    }
                     // Before the panel arrives nothing of it stands in the room: no mark, no divider (AUDIT's 20:25Z MUST 2).
                     if (bar.PanelArrival.Shown < 0.01f)
                     {

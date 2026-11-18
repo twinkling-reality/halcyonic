@@ -387,6 +387,8 @@ namespace Halcyonic.XR.UI
             for (var index = 0; index < ColumnMost + 1; index++)
             {
                 var button = RoomButton.Create(go.transform, "Action " + index);
+                // A panel's answers stand only once it stands whole, as they take a press only from then (FL1).
+                button.HeldBack = () => !view.PanelBuilt;
                 button.Pressed += () => view.Raise(button);
                 button.Press.Target.Released += cancelled =>
                 {
