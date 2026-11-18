@@ -87,7 +87,7 @@ describe("a read into another task's copy is refused by the host, narrowly (AUDI
   test('the words say why and that the agent can go on in its own copy, never a product path', () => {
     assert.match(
       INTRUSION_WORDS.another_task_copy,
-      /another task's copy, which this task cannot read/,
+      /another task's copy, which this task may not use, so the request was not carried out/,
     );
     for (const words of Object.values(INTRUSION_WORDS)) {
       assert.match(words, /Work in this task's own copy\.$/);

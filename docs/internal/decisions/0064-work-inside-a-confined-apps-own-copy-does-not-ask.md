@@ -114,8 +114,9 @@ long to show, and never allows anything new.
   folder or a `.halcyonic*` folder in the person's home (`host_folder`); and at least one is the latter. A request that
   names any other place (the person's own folders, another project) reaches the person whole.
 - Recorded first as `execution.approval.denied_by_host` with that reason and `delivered`, then denied through the same
-  command a press sends, with words the agent can act on: "This file is in another task's copy, which this task cannot
-  read, so it was not done. Work in this task's own copy." It is the host's decision, not an observation of the agent.
+  command a press sends, with words the agent can act on: "This path is in another task's copy, which this task may
+  not use, so the request was not carried out. Work in this task's own copy." It is the host's decision, not an
+  observation of the agent.
 - The host answers first where it answers (`requestOutcome`: answer, then this denial, then a denial for length), so the
   two never both act on one request.
 - Hiding the siblings from a task (a per-task parent it cannot list) remains a good addition on top, never instead: an

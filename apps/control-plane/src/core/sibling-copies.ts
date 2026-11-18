@@ -22,13 +22,13 @@ export type Intrusion = 'another_task_copy' | 'host_folder';
 
 /**
  * What the agent is told, where its app carries a denial's words, for each refusal: why, and that it can go on.
- * AUDIT3's words for the reason (2026-11-18 03:02Z), AUDIT2 to rule the rest.
+ * AUDIT2's words (2026-11-18 03:13Z): true for a write as for a read, and for a folder as for a file.
  */
 export const INTRUSION_WORDS: Readonly<Record<Intrusion, string>> = {
   another_task_copy:
-    "This file is in another task's copy, which this task cannot read, so it was not done. Work in this task's own copy.",
+    "This path is in another task's copy, which this task may not use, so the request was not carried out. Work in this task's own copy.",
   host_folder:
-    "This file is in a folder this task cannot read, so it was not done. Work in this task's own copy.",
+    "This path is in a folder this task may not use, so the request was not carried out. Work in this task's own copy.",
 };
 
 /**
