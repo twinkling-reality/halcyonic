@@ -8,6 +8,12 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     public static partial class KitRender
     {
+        /// <summary>How many parts of the redesign's chrome the no-hue check read in this run; none fails the run.</summary>
+        private static int chromePartsRead;
+
+        /// <summary>The old kit's control sheet (KitRender.Scenes), drawn with the redesign off.</summary>
+        internal const string ControlSheetName = "Control kit";
+
         /// <summary>The most saturation a drawn chrome colour may carry and still read as no hue (a grey's rounding, never a tint).</summary>
         private const float ChromeSaturationMost = 0.12f;
 
@@ -19,7 +25,17 @@ namespace Halcyonic.XR.Workspace.Editor
         /// </summary>
         private static IEnumerable<string> ChromeTakesNoHue(GameObject root, string what)
         {
-            bool Exempt(Component part) => part.GetComponentInParent<CharacterView>() != null || part.GetComponentInParent<KitFigure>() != null;
+            // The old kit's views never ship (KitRender draws them with the redesign off until ON-2 removes them; the lead's 2026-11-18 ruling
+            // 1): Focused work, Overview, Compact presence and the control sheet are not read.
+            bool OldKit(Component part) => part.GetComponentInParent<KitWorkView>() != null || part.GetComponentInParent<KitOverviewView>() != null
+                || part.GetComponentInParent<KitPresenceView>() != null || InControlSheet(part.transform);
+            static bool InControlSheet(Transform part) { for (var at = part; at != null; at = at.parent) if (at.name == ControlSheetName) return true; return false; }
+            bool Exempt(Component part)
+            {
+                if (part.GetComponentInParent<CharacterView>() != null || part.GetComponentInParent<KitFigure>() != null || OldKit(part)) return true;
+                chromePartsRead++;
+                return false;
+            }
             string Path(Transform part) => part.parent != null && part.parent != root.transform ? Path(part.parent) + "/" + part.name : part.name;
             string? Hued(Color colour)
             {

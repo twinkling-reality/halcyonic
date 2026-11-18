@@ -64,6 +64,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var designWas = RoomDesign.Enabled;
             RoomDesign.Enabled = false;
             failures.AddRange(InkBoxHolds());
+            chromePartsRead = 0;
             var only = Environment.GetEnvironmentVariable("HALCYONIC_KIT_ONLY");
             var narrowed = !string.IsNullOrWhiteSpace(only);
             // The panels' Light glass, for its captures only (HALCYONIC_KIT_THEME=Light, the lead's 13:33Z): never a gate run.
@@ -99,6 +100,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     if (shown == 0) found.Add("HALCYONIC_KIT_ONLY=" + only + " matched no state");
                     return found;
                 }));
+                // The no-hue check reads the redesign's chrome alone (the lead's 2026-11-18 ruling 1), so it must have read some.
+                if (chromePartsRead == 0) failures.Add("the no-hue check read no part of the redesign's chrome in any state");
             }
             catch (Exception error) { failures.Add("the kit render threw " + error); }
             finally

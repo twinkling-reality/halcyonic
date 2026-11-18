@@ -165,7 +165,7 @@ namespace Halcyonic.XR.Workspace.Editor
         private static Shot ControlKit(Transform root, Vector3 eyes)
         {
             var shot = new Shot { Caption = "Control kit specimen, synthetic data" };
-            var sheet = new GameObject("Control kit").transform;
+            var sheet = new GameObject(ControlSheetName).transform;
             sheet.SetParent(root, false);
             var carrier = KitCarrier.Create(sheet, "Sheet", KitType.Order.Carrier + 3);
             var pad = KitType.Units(SpatialKit.PaddingDegrees);
