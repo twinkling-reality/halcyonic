@@ -480,19 +480,41 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
     const tree = new Group();
     const parts: Mesh[] = [];
     if (i === 2) {
-      // A beach umbrella, its stripes alternating, in the back corner.
-      parts.push(part(new CylinderGeometry(0.018, 0.018, 1.0, 10), '#FFF8EC', [0, 0.5, 0], [1, 1, 1], [0, 0, 0.12]));
-      const canopy = new ConeGeometry(0.55, 0.2, 16, 1, true).toNonIndexed();
+      // A beach umbrella in the back corner, built as one is: a jointed pole leaning a little, a canopy of eight panels
+      // in alternating stripes, each hem scalloped where the cloth sags between two ribs, and a finial on top. The
+      // pole's pieces lie along one axis through (0, 0.5), turned 0.12 about the forward axis.
+      const pole = (t: number): [number, number, number] => [-Math.sin(0.12) * t, 0.5 + Math.cos(0.12) * t, 0];
+      parts.push(
+        part(new CylinderGeometry(0.016, 0.019, 0.55, 12), '#FFF8EC', pole(-0.225), [1, 1, 1], [0, 0, 0.12]),
+        part(new CylinderGeometry(0.024, 0.024, 0.05, 12), '#9A8A78', pole(0.05), [1, 1, 1], [0, 0, 0.12]),
+        part(new CylinderGeometry(0.014, 0.016, 0.45, 12), '#FFF8EC', pole(0.275), [1, 1, 1], [0, 0, 0.12]),
+      );
+      const canopy = new ConeGeometry(0.55, 0.2, 64, 3, true);
+      const rim = canopy.getAttribute('position');
+      for (let v = 0; v < rim.count; v++) {
+        // From 0 at the top to 1 at the hem: the cloth sags between the ribs, most at the hem.
+        const down = (0.1 - rim.getY(v)) / 0.2;
+        const between = Math.abs(Math.sin(Math.atan2(rim.getZ(v), rim.getX(v)) * 4));
+        rim.setY(v, rim.getY(v) + 0.04 * down * down * between - 0.015 * down * between);
+      }
+      canopy.computeVertexNormals();
+      const cloth = canopy.toNonIndexed();
       const colours: number[] = [];
       const stripe = [new Color(palette.berry), new Color('#FFF8EC')];
-      const per = canopy.getAttribute('position').count / 16;
-      for (let v = 0; v < canopy.getAttribute('position').count; v++) {
-        const c = stripe[Math.floor(v / per) % 2] ?? stripe[0];
-        if (c !== undefined) colours.push(c.r, c.g, c.b);
+      const corner = cloth.getAttribute('position');
+      for (let v = 0; v < corner.count; v += 3) {
+        // Each triangle takes its panel's stripe from its middle, so the stripes' edges run straight down the ribs.
+        const cx = corner.getX(v) + corner.getX(v + 1) + corner.getX(v + 2);
+        const cz = corner.getZ(v) + corner.getZ(v + 1) + corner.getZ(v + 2);
+        const panel = Math.floor(((Math.atan2(cz, cx) + Math.PI) / (Math.PI * 2)) * 8) % 2;
+        const c = stripe[panel] ?? stripe[0];
+        if (c !== undefined) for (let k = 0; k < 3; k++) colours.push(c.r, c.g, c.b);
       }
-      canopy.setAttribute('color', new Float32BufferAttribute(colours, 3));
+      cloth.setAttribute('color', new Float32BufferAttribute(colours, 3));
+      // The finial above the canopy's crown.
+      parts.push(part(new SphereGeometry(0.026, 12, 8), '#FFF8EC', [-0.072, 1.115, 0]));
       const umbrella = prop(parts);
-      const top = new Mesh(canopy, toyMaterial('#FFFFFF', { roughness: 0.5 }));
+      const top = new Mesh(cloth, toyMaterial('#FFFFFF', { roughness: 0.5 }));
       (top.material as MeshPhysicalMaterial).vertexColors = true;
       (top.material as MeshPhysicalMaterial).side = DoubleSide;
       top.position.set(-0.06, 1.0, 0);
@@ -511,23 +533,25 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
       [0, 0.4, 0.8, 1.2].map((y) => new Vector3(lean * 0.18 * (y / 1.2) ** 2, y, 0)),
     );
     const tip = curve.getPoint(1);
-    // One smooth trunk, its rings alternating in two browns along its length.
-    const trunk = new TubeGeometry(curve, 24, 0.055, 12, false);
-    const rings = [new Color('#B9875A'), new Color('#9A6A42')];
+    // One trunk of stacked rings: each ring pale where it swells at its base and dark in the scar above it, as a
+    // palm's old leaf bases leave them (CAST, seat42: one flat colour read as a tube).
+    const trunk = new TubeGeometry(curve, 48, 0.055, 12, false);
     const ringColours: number[] = [];
-    for (let k = 0; k <= 24; k++)
+    const pale = new Color('#C89A68');
+    const scar = new Color('#6E4A2E');
+    for (let k = 0; k <= 48; k++)
       for (let v = 0; v <= 12; v++) {
-        const c = rings[Math.floor(k / 3) % 2] ?? rings[0];
-        if (c !== undefined) ringColours.push(c.r, c.g, c.b);
+        const c = pale.clone().lerp(scar, (k % 4) / 3);
+        ringColours.push(c.r, c.g, c.b);
       }
     trunk.setAttribute('color', new Float32BufferAttribute(ringColours, 3));
-    // Each ring of the palm's bark swells a little at its base, so the trunk reads as stacked rings, not a tube.
+    // Each ring of the palm's bark swells at its base and narrows into its scar, so the trunk reads as stacked rings.
     const swell = trunk.getAttribute('position');
     const along = trunk.getAttribute('normal');
-    for (let k = 0; k <= 24; k++)
+    for (let k = 0; k <= 48; k++)
       for (let v = 0; v <= 12; v++) {
         const i = k * 13 + v;
-        const bump = 0.012 * (1 - (k % 3) / 3) + 0.003 * Math.sin(v * 2.1 + k);
+        const bump = 0.016 * (1 - (k % 4) / 3) - 0.004 + 0.003 * Math.sin(v * 2.1 + k);
         swell.setXYZ(i, swell.getX(i) + along.getX(i) * bump, swell.getY(i) + along.getY(i) * bump, swell.getZ(i) + along.getZ(i) * bump);
       }
     trunk.computeVertexNormals();

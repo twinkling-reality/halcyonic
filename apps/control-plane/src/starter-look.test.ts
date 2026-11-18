@@ -1983,6 +1983,28 @@ describe("the starter's skies and nature models are free files of its own (the l
     assert.match(look(), /\(tier\.material as MeshPhysicalMaterial\)\.sheen = 0;/);
   });
 
+  test("the seaside's umbrella and palms are built as the fence is, not bare shapes (CAST, seat42)", () => {
+    const decor = read('src/decor.ts');
+    const seaside = decor.slice(
+      decor.indexOf('function seasideDressing('),
+      decor.indexOf('function nightDressing('),
+    );
+    // The umbrella: a jointed pole along one axis, a scalloped canopy striped by panel, a finial.
+    assert.match(
+      seaside,
+      /const pole = \(t: number\): \[number, number, number\] => \[-Math\.sin\(0\.12\) \* t, 0\.5 \+ Math\.cos\(0\.12\) \* t, 0\];/,
+    );
+    assert.match(seaside, /new ConeGeometry\(0\.55, 0\.2, 64, 3, true\)/);
+    assert.match(
+      seaside,
+      /const panel = Math\.floor\(\(\(Math\.atan2\(cz, cx\) \+ Math\.PI\) \/ \(Math\.PI \* 2\)\) \* 8\) % 2;/,
+    );
+    assert.match(seaside, /new SphereGeometry\(0\.026, 12, 8\), '#FFF8EC', \[-0\.072, 1\.115, 0\]/);
+    // The palm: stacked rings, pale where each swells and dark in its scar.
+    assert.match(seaside, /new TubeGeometry\(curve, 48, 0\.055, 12, false\)/);
+    assert.match(seaside, /const c = pale\.clone\(\)\.lerp\(scar, \(k % 4\) \/ 3\);/);
+  });
+
   test('the dressing places the models, each with a drawn one standing in if the files cannot be read', () => {
     const decor = read('src/decor.ts');
     assert.match(
