@@ -1445,8 +1445,8 @@ describe('tasks add to one app in parts of their own (VRIFY)', () => {
     // The loading colours combine only when every task writes the same ones: the world's own top and horizon (AUDIT2).
     const night = read('src/worlds.ts');
     assert.match(night, /top: '#0D1240'/);
-    assert.match(night, /horizon: '#5A3E8E'/);
-    assert.match(agents, /`linear-gradient\(#0D1240, #5A3E8E\)` for `night`/);
+    assert.match(night, /horizon: '#3E3A86'/);
+    assert.match(agents, /`linear-gradient\(#0D1240, #3E3A86\)` for `night`/);
     assert.match(
       agents.replace(/\s+/g, ' '),
       /A part added to a game leaves the name, the card and the title as they are\./,
@@ -1502,6 +1502,8 @@ describe('?seat shows the laptop view as the headset will see it (VRIFY)', () =>
       look.indexOf('export function setupScene('),
     );
     assert.ok(lookSetup.includes('seatOnFirstFrame(world);'), 'setupLook asks for the seat');
+  });
+});
 
 describe("the starter's worlds are lit and finished like a shipped scene (the lead's starter look, 2026-11-18)", () => {
   // JUDGE's bar (.private references, not shipped): light with a key, a tone-mapped image and sky light on materials;

@@ -41,7 +41,7 @@ How the app is put together:
 - When the person's words name a time of day or a world for what you add (at night, by the sea), choose that world
   in `src/index.ts` yourself as the whole app's look, for example `setupLook(world, 'night')`, and put that world's
   own sky colours from `src/worlds.ts` in `index.html`'s `background`, its `top` then its `horizon`
-  (`linear-gradient(#0D1240, #5A3E8E)` for `night`); never rename the app for it. It is the same change any other task
+  (`linear-gradient(#0D1240, #3E3A86)` for `night`); never rename the app for it. It is the same change any other task
   naming that world makes, so the two combine.
 - Import everything the starter gives an app from `./kit.js` (the look, the toy kit, motion, the palette, input,
   the worlds and `addParts`), so no import names the wrong file; only `PanelSystem` comes from `./panel.js`.
