@@ -1619,10 +1619,21 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
       /new InstancedMesh\(crown, material, count\)/,
       'far clumps cost one draw call',
     );
-    assert.match(
+    assert.doesNotMatch(
       look(),
-      /if \(ground\.grass === undefined\) \{\n\s+\(worn\.material/,
-      'no pale mat under the grass',
+      /new CircleGeometry\(0\.9, 48\)/,
+      'no pale worn mat in front of the player',
+    );
+    const decor = read('src/decor.ts');
+    assert.match(
+      decor,
+      /const bark = new Mesh\(trunk, withGrain\(toyMaterial\('#FFFFFF', \{ ground: true/,
+      'bark, not a tube',
+    );
+    assert.match(
+      decor,
+      /\{ natural: true, roughness: 0\.78 \}\);/,
+      'a starfish is matte with relief',
     );
     assert.match(
       look(),

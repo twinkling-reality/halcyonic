@@ -341,20 +341,7 @@ function island(): Group {
   // On a grass world the blades fringe the edge; a tube there reads as plastic. Bare ground keeps a low, soft lip.
   rim.scale.y = 0.4;
   if (ground.grass === undefined) group.add(rim);
-  // A worn patch in front of the play area.
-  const worn = new Mesh(
-    new CircleGeometry(0.9, 48),
-    toyMaterial(ground.worn, { ground: true, roughness: 0.9 }),
-  );
-  worn.rotation.x = -Math.PI / 2;
-  worn.scale.set(1.5, 0.75, 1);
-  worn.position.set(0.1, 0.004, 1.55);
-  worn.receiveShadow = true;
-  // Where grass grows, the blades cover the play area; a pale disc under them would read as a mat.
-  if (ground.grass === undefined) {
-    (worn.material as MeshPhysicalMaterial).color.lerp(new Color(ground.top), 0.7);
-    group.add(worn);
-  }
+  // No worn patch is laid: on grass the blades cover the play area, and on sand a paler disc read as a mat (AUDIT).
   return group;
 }
 
@@ -594,7 +581,7 @@ function sea(
     const r = Math.hypot(x, z);
     const c = near.clone().lerp(far, Math.min(1, (r / 30) ** 0.7));
     // Far out the sea takes the horizon's own colour, so it meets the sky in haze, not along a hard line.
-    c.lerp(sky, Math.min(1, Math.max(0, (r - 22) / 15)) ** 1.3);
+    c.lerp(sky, Math.min(1, Math.max(0, (r - 14) / 20)) ** 1.15);
     if (sunAngle !== null && r > 4) {
       let d = Math.atan2(z, x) - sunAngle;
       d = Math.atan2(Math.sin(d), Math.cos(d));

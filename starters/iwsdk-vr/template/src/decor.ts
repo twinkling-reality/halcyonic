@@ -31,6 +31,7 @@ import {
 } from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { bothSidesUp, grassBlade } from './grass.js';
+import { withGrain } from './surface.js';
 import { wordsOn } from './legible.js';
 import { ambientMotion, contactShadow, currentWorld, gameIsland, gameTime, ISLAND_CENTRE, TIER } from './look.js';
 import { ambient, confettiPiece, flap, flight, juice, pulse, sway } from './motion.js';
@@ -405,7 +406,8 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
         if (c !== undefined) ringColours.push(c.r, c.g, c.b);
       }
     trunk.setAttribute('color', new Float32BufferAttribute(ringColours, 3));
-    const bark = new Mesh(trunk, toyMaterial('#FFFFFF', { roughness: 0.7 }));
+    // Bark with the relief of bark, ringed, matte: not a smooth tube.
+    const bark = new Mesh(trunk, withGrain(toyMaterial('#FFFFFF', { ground: true, roughness: 0.88 }), 2, 0.9));
     (bark.material as MeshPhysicalMaterial).vertexColors = true;
     bark.castShadow = true;
     // Fronds arching out all round and drooping, each a rib with leaflets down both sides: a palm, not paper.
@@ -464,7 +466,20 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
         bevelSegments: 2,
       });
       shape.rotateX(-Math.PI / 2);
-      thing = prop([part(shape, i % 4 === 0 ? 'tangerine' : 'berry', [0, 0.012, 0])], { roughness: 0.5 });
+      // Each arm rises along its middle and is studded with small bumps, as a starfish is; matte, never plastic.
+      const top = shape.getAttribute('position');
+      for (let k = 0; k < top.count; k++) {
+        const px = top.getX(k);
+        const pz = top.getZ(k);
+        if (top.getY(k) <= 0.01) continue;
+        const r = Math.hypot(px, pz);
+        const a = Math.atan2(pz, px) - Math.PI / 2;
+        const ridge = Math.max(0, Math.cos(a * 5)) ** 3;
+        const bumps = 0.5 + 0.5 * Math.sin(px * 260) * Math.sin(pz * 260);
+        top.setY(k, top.getY(k) + 0.012 * ridge * (1 - r / 0.08) + 0.003 * bumps);
+      }
+      shape.computeVertexNormals();
+      thing = prop([part(shape, i % 4 === 0 ? '#D9783A' : '#C8506A', [0, 0.012, 0])], { natural: true, roughness: 0.78 });
       thing.rotation.y = i * 0.7;
     } else {
       const parts = [part(new SphereGeometry(0.06, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), '#FFE3D3', [0, 0, 0], [1, 0.8, 1.2])];
@@ -476,7 +491,7 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
             1,
           ], [Math.PI / 2, 0, k * 0.25]),
         );
-      thing = prop(parts, { roughness: 0.35 });
+      thing = prop(parts, { natural: true, roughness: 0.6 });
       thing.rotation.y = i;
     }
     thing.scale.setScalar(1.6);
