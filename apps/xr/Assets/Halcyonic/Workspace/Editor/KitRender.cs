@@ -249,6 +249,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var eye = image.GetPixels32();
                     failures.AddRange(Opaque(shot.Faces, camera, eye, name, shot.Seen));
                     failures.AddRange(JoinsClosed(shot, camera, eye, name));
+                    failures.AddRange(ChromeTakesNoHue(root, name));
                     if (shot.Witness is (Surface witnessFace, Vector3 witnessLocal, GlazeColor witnessColour))
                         failures.AddRange(StoredAsTheHeadsetStores(witnessFace, witnessLocal, witnessColour, camera, eye, name, shot.Seen));
                     if (shot.AfterEye != null)
