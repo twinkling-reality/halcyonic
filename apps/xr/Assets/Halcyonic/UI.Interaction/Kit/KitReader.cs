@@ -146,7 +146,8 @@ namespace Halcyonic.XR.UI
             risk = moment.Lines.FirstOrDefault();
             unlocked = false;
             var (w, h) = (Size.x, Size.y);
-            carrier.DrawGlass(Size, Dp(SpatialKit.PanelRadiusDp), KitGlassMaterial.RimDp, KitMomentCard.ToneOf(moment.Tone));
+            // The kit's dark glass, never lit in the moment's tone (no hue in the chrome, the lead's 19:15Z and 2026-11-18 MUST).
+            carrier.DrawGlass(Size, Dp(SpatialKit.PanelRadiusDp), KitGlassMaterial.RimDp);
             carrier.transform.localPosition = Vector3.zero;
             var pad = KitType.Units(SpatialKit.PaddingDegrees);
             var left = -w / 2f + pad;
@@ -157,8 +158,8 @@ namespace Halcyonic.XR.UI
             // The card's mark: a ring for the runtime's report, a disc for what the computer saw, in the tone, with its sign.
             var top = h / 2f - pad;
             var markSize = Scaled(SpatialKit.MarkDp);
-            var toneColour = KitMomentCard.ToneOf(moment.Tone);
-            var markColour = KitType.Colour(toneColour ?? SpatialKit.TextSecondary);
+            // The mark is white whatever the tone, as the card's (the lead's 2026-11-18 MUST).
+            var markColour = KitType.Colour(SpatialKit.Text);
             var disc = moment.Provenance == KitProvenance.Observed;
             mark.Draw(new Vector2(markSize, markSize), markSize / 2f, disc ? markColour : Color.clear, disc ? Color.clear : markColour, disc ? 0f : Scaled(2f));
             mark.transform.localPosition = new Vector3(left + markSize / 2f, top - markSize / 2f, -0.0004f);
@@ -169,7 +170,7 @@ namespace Halcyonic.XR.UI
                 KitType.Size(symbol, KitRole.Strong);
                 GlazeText.SetLiteral(symbol, sign);
                 symbol.rectTransform.sizeDelta = new Vector2(markSize, markSize);
-                symbol.color = disc ? KitType.Colour(SpatialKit.Well) : KitType.Colour(KitMomentCard.SignOf(moment.Tone) ?? toneColour ?? SpatialKit.TextSecondary);
+                symbol.color = disc ? KitType.Colour(SpatialKit.Well) : markColour;
                 symbol.transform.localPosition = new Vector3(left + markSize / 2f, top - markSize / 2f, -0.0006f);
             }
             var eyebrowLeft = left + markSize + Scaled(SpatialKit.MarkGapDp);

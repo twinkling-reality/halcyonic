@@ -50,6 +50,9 @@ namespace Halcyonic.XR.UI
         private float radius;
         private GlazeColor? lightTone;
 
+        /// <summary>The moment's tone (<see cref="ToneOf"/>), which its arrival sounds; never drawn on the chrome, which takes no hue.</summary>
+        public GlazeColor? MomentTone { get; private set; }
+
         public Vector2 Size { get; private set; }
 
         /// <summary>The glass as drawn now: <see cref="Size"/> at rest, shorter while the card shrinks to its receipt.</summary>
@@ -154,8 +157,11 @@ namespace Halcyonic.XR.UI
         /// <summary>The card grows from its lower-left corner, for a character standing to its left; from its lower-right otherwise.</summary>
         public bool GrowsFromLeft { get; set; }
 
-        /// <summary>The avatar's left-edge wash colour on the card's glass (<see cref="SpatialKit.AvatarTint"/> by default).</summary>
-        public GlazeColor? Tint { get; set; } = SpatialKit.AvatarTint;
+        /// <summary>
+        /// A wash colour on the card's glass: none, the kit's own dark glass, since chrome takes no hue (the lead's 2026-11-17T19:15Z; AUDIT's
+        /// eye on 26-receipt, 2026-11-18: the avatar's blue wash was a hue).
+        /// </summary>
+        public GlazeColor? Tint { get; set; }
 
         public static KitMomentCard Create(Transform parent)
         {
@@ -312,12 +318,15 @@ namespace Halcyonic.XR.UI
             var inner = width - 2f * pad;
             var left = -width / 2f + pad;
             var y = -pad;
-            var toneColour = ToneOf(moment.Tone);
-            lightTone = toneColour;
+            // No hue in the chrome (the lead's 19:15Z; AUDIT's 26-receipt eye, 2026-11-18): the glass is the kit's dark glass, never lit in the
+            // moment's tone; the tone is said by its mark's sign and its words.
+            lightTone = null;
+            MomentTone = ToneOf(moment.Tone);
 
             // The eyebrow: the mark, then who says it. A ring for the runtime's report, a disc for what the computer saw.
             var markSize = Dp(SpatialKit.MarkDp);
-            var markColour = KitType.Colour(toneColour ?? SpatialKit.TextSecondary);
+            // The mark is white whatever the tone (the lead's 2026-11-18 MUST): a white ring, or a white disc with its sign in the well's dark.
+            var markColour = KitType.Colour(SpatialKit.Text);
             var disc = moment.Provenance == KitProvenance.Observed;
             mark.Draw(new Vector2(markSize, markSize), markSize / 2f, disc ? markColour : Color.clear, disc ? Color.clear : markColour, disc ? 0f : Dp(2f));
             mark.transform.localPosition = new Vector3(left + markSize / 2f, y - markSize / 2f, -0.0004f);
@@ -341,7 +350,7 @@ namespace Halcyonic.XR.UI
                 symbol.rectTransform.sizeDelta = new Vector2(markSize, markSize);
                 symbol.ForceMeshUpdate(true);
                 if (symbol.isTextTruncated) cut.Add("mark sign");
-                symbol.color = disc ? KitType.Colour(SpatialKit.Well) : KitType.Colour(SignOf(moment.Tone) ?? toneColour ?? SpatialKit.TextSecondary);
+                symbol.color = disc ? KitType.Colour(SpatialKit.Well) : markColour;
                 symbol.transform.localPosition = new Vector3(left + markSize / 2f, y - markSize / 2f, -0.0006f);
             }
             var eyebrowLeft = left + markSize + Dp(SpatialKit.MarkGapDp);
@@ -541,7 +550,7 @@ namespace Halcyonic.XR.UI
             Size = new Vector2(width, height);
             Drawn = Size;
             radius = KitType.Units(SpatialKit.Degrees(SpatialKit.PanelRadiusDp));
-            carrier.DrawGlass(Size, radius, KitGlassMaterial.RimDp, toneColour, tint: Tint);
+            carrier.DrawGlass(Size, radius, KitGlassMaterial.RimDp, null, tint: Tint);
             carrier.transform.localPosition = new Vector3(0f, -height / 2f, 0f);
 
             // The moments behind it: one edge of the same glass, narrower, rising above the card.

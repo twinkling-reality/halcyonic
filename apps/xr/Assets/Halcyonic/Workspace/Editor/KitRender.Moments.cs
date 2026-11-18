@@ -119,7 +119,7 @@ namespace Halcyonic.XR.Workspace.Editor
             var panels = new List<(KitCarrier, IEnumerable<TMP_Text>)> { (card.Carrier, card.Words.Cast<TMP_Text>().ToList()) };
             if (card.Earlier.gameObject.activeSelf) panels.Add((card.Earlier, new TMP_Text[0]));
             foreach (var failure in GlassTruth(panels)) shot.Failures.Add(failure);
-            Require((card.Carrier.Glass?.Tone).Equals(KitMomentCard.ToneOf(moment.Tone)), "the glass is lit in a tone the moment does not carry");
+            Require(card.Carrier.Glass?.Tone == null, "the glass is lit in a tone, where chrome takes no hue");
             Require((card.Carrier.Glass?.Tint).Equals(card.Tint), "the card's glass does not carry the avatar's side tint");
             shot.AfterEye = (camera, eye, found) =>
             {

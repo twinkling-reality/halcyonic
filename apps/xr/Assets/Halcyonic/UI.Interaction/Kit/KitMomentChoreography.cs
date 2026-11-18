@@ -96,8 +96,7 @@ namespace Halcyonic.XR.UI
             retiring = false;
             card.Pop(1f);
             sounded = false;
-            var tone = card.Carrier.Glass?.Tone;
-            Cue = CueOf(tone);
+            Cue = CueOf(card.MomentTone);
             bodyAt = card.Body.localPosition;
             parts = card.ReceiptLead.gameObject.activeSelf ? card.ReceiptParts : card.Parts;
             placed.Clear();
