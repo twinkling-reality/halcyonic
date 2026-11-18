@@ -32,7 +32,7 @@ namespace Halcyonic.XR.Workspace.Editor
         /// keep their identity hue, and a code row's syntax spans are content: they are not chrome. Read from what each part is drawn with,
         /// in every kit state.
         /// </summary>
-        private static IEnumerable<string> ChromeTakesNoHue(GameObject root, string what)
+        internal static IEnumerable<string> ChromeTakesNoHue(GameObject root, string what)
         {
             // The old kit's views never ship (KitRender draws them with the redesign off until ON-2 removes them; the lead's 2026-11-18 ruling
             // 1): Focused work, Overview, Compact presence and the control sheet are not read.

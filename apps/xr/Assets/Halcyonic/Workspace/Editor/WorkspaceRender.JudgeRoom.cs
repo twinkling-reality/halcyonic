@@ -610,6 +610,9 @@ namespace Halcyonic.XR.Workspace.Editor
                     foreach (var cursor in root.GetComponentsInChildren<RoomCursor>(false)) cursor.Settle();
                     foreach (var field in root.GetComponentsInChildren<RoomField>(false)) field.Settle();
                     ForceMeshes(root);
+                    // No hue in the chrome the shipped room draws, a frame no redesign reader takes (the MenuPlane's older columns) included
+                    // (the lead's 2026-11-18 rulings): the kit's own check, read on the walk's every moment.
+                    failures.AddRange(KitRender.ChromeTakesNoHue(root, "judge room: " + name));
                     // The character's tag reads the task's state from the one projection, as the bar does (the lead's 19:40Z (6)): its drawn
                     // state word is the presenter's word for the task now, and Needs You while any ask of the task waits.
                     if (stoodView != null && stoodWorkstream != null && State() is ClientProjection tagState
