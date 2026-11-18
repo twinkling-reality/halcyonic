@@ -310,6 +310,8 @@ function island(): Group {
       extent: R,
       colour: ground.grass.colour,
       tip: ground.grass.tip,
+      dry: ground.grass.dry,
+      light: [current.light.sunAt[0], current.light.sunAt[2]],
       grows: (x, z) => {
         const r = Math.hypot(x, z);
         if (r > (R - 0.06) * lobe(Math.atan2(z, x))) return false;
@@ -443,7 +445,7 @@ function meadowSky(sky: WorldLook['sky']): Mesh {
         'uniform vec3 top; uniform vec3 horizon; varying vec3 vP;',
         'void main(){ float t = smoothstep(-0.02, 0.32, vP.y); vec3 c = mix(horizon, top, t);',
         // A band of light haze where the sky meets the land, and a dither so the gradient never bands on a headset.
-        'c = mix(c, horizon * 1.08, (1.0 - smoothstep(0.0, 0.12, abs(vP.y))) * 0.35);',
+        'c = mix(c, horizon * 1.1, (1.0 - smoothstep(0.0, 0.2, abs(vP.y))) * 0.6);',
         'c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;',
         'gl_FragColor = vec4(c, 1.0);',
         '#include <colorspace_fragment>',
@@ -481,7 +483,7 @@ function skyDome(sky: WorldLook['sky']): Mesh {
       'float a = acos(clamp(dot(normalize(vP), discAt), -1.0, 1.0));',
       'c = mix(c, glowColour, glowStrength * 0.55 * exp(-a / (discSize * 2.2)));',
       // A wide soft halo round it, as light scatters near the sun or the moon.
-      'c = mix(c, glowColour, min(0.45, glowStrength * 0.22 * exp(-a / 0.55)));',
+      'c += glowColour * glowStrength * (0.55 * exp(-a / (discSize * 3.5)) + 0.16 * exp(-a / 0.4));',
       'c = mix(c, discColour, 1.0 - smoothstep(discSize * 0.92, discSize, a));',
     ].join(' ');
   }
@@ -499,7 +501,7 @@ function skyDome(sky: WorldLook['sky']): Mesh {
         ...lines,
         `void main(){ float t = smoothstep(-0.02, 0.32, vP.y); ${colour} ${disc}`,
         // A band of light haze where the sky meets the land, and a dither so the gradient never bands on a headset.
-        'c = mix(c, horizon * 1.08, (1.0 - smoothstep(0.0, 0.12, abs(vP.y))) * 0.35);',
+        'c = mix(c, horizon * 1.1, (1.0 - smoothstep(0.0, 0.2, abs(vP.y))) * 0.6);',
         'c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;',
         'gl_FragColor = vec4(c, 1.0);',
         '#include <colorspace_fragment>',
@@ -628,6 +630,8 @@ function plainLand(colours: readonly [string, string], horizon: string): Mesh {
   geometry.rotateX(-Math.PI / 2);
   const [a, b] = colours.map((c) => new Color(c)) as [Color, Color];
   const far = new Color(horizon);
+  // The third hue: the land's own colour gone dry and pale.
+  const dry = a.clone().offsetHSL(-0.04, -0.18, 0.08);
   const colour: number[] = [];
   const position = geometry.getAttribute('position');
   for (let i = 0; i < position.count; i++) {
@@ -640,7 +644,10 @@ function plainLand(colours: readonly [string, string], horizon: string): Mesh {
       0.32 * Math.sin(x * 0.21 + Math.sin(z * 0.13) * 2.1) * Math.sin(z * 0.17 + Math.sin(x * 0.11) * 1.7) +
       0.18 * Math.sin(x * 0.53 + z * 0.41) * Math.sin(z * 0.61 - x * 0.27);
     const c = a.clone().lerp(b, Math.min(1, Math.max(0, n)));
-    c.multiplyScalar(0.86 + 0.28 * n);
+    // Dry fields among the green, in patches tens of metres across.
+    const field = 0.5 + 0.5 * Math.sin(x * 0.24 + 1.3) * Math.sin(z * 0.27 + Math.sin(x * 0.12) * 2);
+    c.lerp(dry, Math.min(0.8, Math.max(0, field - 0.45) * 1.8));
+    c.multiplyScalar(0.72 + 0.46 * n);
     // Aerial perspective from a few metres out: lighter and greyer toward the horizon, then the horizon itself.
     c.lerp(far, Math.min(1, Math.max(0, (r - 6) / 28)) ** 0.9);
     colour.push(c.r, c.g, c.b);
@@ -671,9 +678,23 @@ function farClumps(colour: string, horizon: string): InstancedMesh {
     position.setXYZ(i, px * k, Math.max(-0.2, py) * k, pz * k);
   }
   crown.computeVertexNormals();
-  const material = new MeshPhysicalMaterial({ color: '#FFFFFF', roughness: 0.95, metalness: 0 });
+  // A tree at a distance: the crown lifted on a short dark trunk, darker underneath where it shades itself.
+  crown.scale(1, 1.1, 1).translate(0, 1.15, 0);
+  const crownShade: number[] = [];
+  const lifted = crown.getAttribute('position');
+  for (let i = 0; i < lifted.count; i++) {
+    const s = 0.45 + 0.55 * Math.min(1, Math.max(0, (lifted.getY(i) - 0.35) / 1.4));
+    crownShade.push(s, s, s);
+  }
+  crown.setAttribute('color', new Float32BufferAttribute(crownShade, 3));
+  crown.deleteAttribute('uv');
+  const trunk = new CylinderGeometry(0.08, 0.12, 0.7, 6).translate(0, 0.35, 0);
+  trunk.deleteAttribute('uv');
+  trunk.setAttribute('color', new Float32BufferAttribute(new Array(trunk.getAttribute('position').count).fill([0.32, 0.24, 0.2]).flat(), 3));
+  const tree = mergeGeometries([crown.toNonIndexed(), trunk.toNonIndexed()]) ?? crown;
+  const material = new MeshPhysicalMaterial({ color: '#FFFFFF', vertexColors: true, roughness: 0.95, metalness: 0 });
   const count = 90;
-  const clumps = new InstancedMesh(crown, material, count);
+  const clumps = new InstancedMesh(tree, material, count);
   const place = new Object3D();
   const base = new Color(colour);
   const sky = new Color(horizon);
@@ -684,7 +705,7 @@ function farClumps(colour: string, horizon: string): InstancedMesh {
     const x = Math.cos(a) * d;
     const z = Math.sin(a) * d;
     const s = 0.22 + random() * 0.4;
-    place.position.set(x, PLAIN_LEVEL + s * 0.45, z);
+    place.position.set(x, PLAIN_LEVEL, z);
     place.scale.set(s * (1 + random() * 0.8), s * (0.8 + random() * 0.5), s);
     place.rotation.set(0, random() * 6.28, 0);
     place.updateMatrix();

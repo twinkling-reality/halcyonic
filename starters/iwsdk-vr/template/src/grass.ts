@@ -27,7 +27,7 @@ export function grassBlade(width = 0.014): BufferGeometry {
     position.setX(i, position.getX(i) * (1 - y * 0.85));
     position.setZ(i, 0.1 * y * y);
     // The root sits in the shade of the blades round it; the tip catches the light.
-    const s = 0.66 + 0.34 * y;
+    const s = 0.42 + 0.58 * y ** 0.8;
     shade.push(s, s, s);
   }
   blade.setAttribute('color', new Float32BufferAttribute(shade, 3));
@@ -111,12 +111,21 @@ export function grassCarpet(options: {
   height: (x: number, z: number) => number;
   colour: string;
   tip: string;
+  /** A third hue for large dry patches among the green, and where the key light comes from (x, z), to shade away from it. */
+  dry?: string;
+  light?: readonly [number, number];
   seed?: number;
 }): { mesh: InstancedMesh; move(time: number): void } {
   const random = seeded(options.seed ?? 5);
   const material = swayingGrass();
   const mesh = new InstancedMesh(grassBlade(), material, options.count);
   const base = new Color(options.colour);
+  const dry = options.dry === undefined ? null : new Color(options.dry);
+  const toward = options.light === undefined ? null : Math.hypot(options.light[0], options.light[1]);
+  const light =
+    options.light === undefined || toward === null || toward === 0
+      ? null
+      : ([options.light[0] / toward, options.light[1] / toward] as const);
   const tip = new Color(options.tip);
   const colours = new Float32Array(options.count * 3);
   const place = new Object3D();
@@ -132,7 +141,14 @@ export function grassCarpet(options: {
     place.updateMatrix();
     mesh.setMatrixAt(placed, place.matrix);
     const c = base.clone().lerp(tip, random() * 0.7);
-    c.offsetHSL((random() - 0.5) * 0.02, 0, (random() - 0.5) * 0.06);
+    // Large patches, metres across: lusher and drier ground, lighter and darker, so the lawn never reads as paint.
+    const patch = 0.5 + 0.5 * Math.sin(x * 0.9 + Math.sin(z * 0.7) * 1.8) * Math.sin(z * 1.1 + Math.sin(x * 0.5) * 1.4);
+    if (dry !== null) c.lerp(dry, Math.min(0.85, Math.max(0, patch - 0.4) * 1.9));
+    const value = 0.66 + 0.52 * (0.5 + 0.5 * Math.sin(x * 1.7 + z * 0.6) * Math.sin(z * 1.3 - x * 0.4));
+    // Toward the key light the lawn is brighter, away from it darker.
+    const lit = light === null ? 1 : 0.86 + 0.14 * ((x * light[0] + z * light[1]) / options.extent);
+    c.multiplyScalar(value * lit);
+    c.offsetHSL((random() - 0.5) * 0.02, 0, (random() - 0.5) * 0.04);
     colours.set([c.r, c.g, c.b], placed * 3);
     placed++;
   }

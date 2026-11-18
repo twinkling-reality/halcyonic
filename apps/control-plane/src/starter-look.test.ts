@@ -1558,7 +1558,11 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
         worlds.indexOf(`name: '${name}'`),
         worlds.indexOf('dressing:', worlds.indexOf(`name: '${name}'`)),
       );
-      assert.match(world, /grass: \{ colour: '#[0-9A-F]{6}', tip: '#[0-9A-F]{6}' \}/, name);
+      assert.match(
+        world,
+        /grass: \{ colour: '#[0-9A-F]{6}', tip: '#[0-9A-F]{6}', dry: '#[0-9A-F]{6}' \}/,
+        name,
+      );
     }
     const seaside = worlds.slice(
       worlds.indexOf("name: 'seaside'"),
@@ -1618,8 +1622,13 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       clumps,
-      /new InstancedMesh\(crown, material, count\)/,
+      /new InstancedMesh\(tree, material, count\)/,
       'far clumps cost one draw call',
+    );
+    assert.match(
+      clumps,
+      /new CylinderGeometry\(0\.08, 0\.12, 0\.7, 6\)/,
+      'each clump stands on a trunk',
     );
     assert.doesNotMatch(
       look(),
@@ -1639,7 +1648,7 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       look(),
-      /min\(0\.45, glowStrength \* 0\.22 \* exp\(-a \/ 0\.55\)\)/,
+      /c \+= glowColour \* glowStrength \* \(0\.55 \* exp\(-a \/ \(discSize \* 3\.5\)\) \+ 0\.16 \* exp\(-a \/ 0\.4\)\)/,
       'the sun has a halo as the moon does',
     );
   });

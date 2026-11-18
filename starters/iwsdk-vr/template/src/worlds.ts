@@ -58,8 +58,11 @@ export interface WorldLook {
     readonly sea?: { readonly near: string; readonly far: string; readonly glitter: string; readonly level: number };
     /** Low hills far off round the horizon, in these colours, or none. */
     readonly hills?: readonly [string, string];
-    /** A carpet of grass blades over the island's top, from `colour` at the root to `tip`, or none (sand, stone). */
-    readonly grass?: { readonly colour: string; readonly tip: string };
+    /**
+     * A carpet of grass blades over the island's top, from `colour` at the root to `tip`, in large patches of `dry`
+     * where given, or none (sand, stone).
+     */
+    readonly grass?: { readonly colour: string; readonly tip: string; readonly dry?: string };
     /** Land round the island to the horizon in these two colours, fading into the haze, or none (the sea, or open sky). */
     readonly plain?: readonly [string, string];
   };
@@ -96,7 +99,7 @@ const meadow: WorldLook = {
   ground: {
     top: palette.leaf,
     patch: groundPatch,
-    grass: { colour: '#5FAE3E', tip: '#B4E36E' },
+    grass: { colour: '#4E9A36', tip: '#B4E36E', dry: '#A8B65A' },
     plain: ['#6DB548', '#559E3A'],
     hills: ['#6AAE47', '#58993C'],
     worn: '#A9DE6E',
@@ -133,7 +136,7 @@ const garden: WorldLook = {
   ground: {
     top: '#A3CC52',
     patch: '#88B443',
-    grass: { colour: '#7A9E3A', tip: '#D2DC7A' },
+    grass: { colour: '#6E9636', tip: '#D2DC7A', dry: '#C2A65A' },
     plain: ['#93B65A', '#7EA34C'],
     worn: '#C9DD7E',
     rim: '#98C24C',
@@ -206,14 +209,14 @@ const night: WorldLook = {
     rimStrength: 1.6,
   },
   ground: {
-    top: '#2FA590',
-    patch: '#22887A',
-    grass: { colour: '#16564E', tip: '#3A9A86' },
-    plain: ['#1A5A55', '#144A48'],
+    top: '#1A4A4A',
+    patch: '#14383C',
+    grass: { colour: '#123A3C', tip: '#2E6A62', dry: '#2A3E52' },
+    plain: ['#163E40', '#102E36'],
     hills: ['#1C5552', '#173F4A'],
-    worn: '#46B9A2',
-    rim: '#2C9A86',
-    sheen: '#B8C8FF',
+    worn: '#22585A',
+    rim: '#1C4E4C',
+    sheen: '#8C9CD8',
     side: '#5B4A86',
     lip: '#3F3360',
     steps: ['#4D3F75', '#3D3262'],

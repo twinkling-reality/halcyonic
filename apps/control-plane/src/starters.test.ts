@@ -813,6 +813,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       'decor.ts',
       // SHOW: light for apps of music and light: soft glows, sparks, a keyboard of light (2026-11-14).
       'glow.ts',
+      // SCREENS: grass as blades, one instanced mesh swayed on the GPU (the lead's starter look, 2026-11-18).
+      'grass.ts',
       'index.ts',
       // SHOW: a piano, a bell and a pad made in the browser, and a score player on the audio clock (2026-11-14).
       'instruments.ts',
@@ -846,6 +848,8 @@ describe("which folder may be a VR version's original (AUDIT M18C1-M1, M18C1-S2)
       // SHOW: music as data and when each note sounds (2026-11-14).
       'score.ts',
       'sound.ts',
+      // SCREENS: surfaces made in the browser, the relief of grass, soil and bark, and water (2026-11-18).
+      'surface.ts',
       // SHOW: the sound of a struck string or bar, as numbers, and the worker that makes it (2026-11-14).
       'tone-worker.ts',
       'tone.ts',

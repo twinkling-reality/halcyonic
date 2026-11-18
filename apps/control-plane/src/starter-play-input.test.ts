@@ -269,13 +269,18 @@ describe("the IWSDK starter's input layer", () => {
     const look = read('src/look.ts');
     assert.match(look, /NoToneMapping/);
     assert.match(look, /world\.scene\.environment = null;/);
-    // Since W1 the light is the world's: look.ts builds it from the world, and the meadow, the default, keeps ART7's.
+    // Since W1 the light is the world's: look.ts builds it from the world, and the meadow, the default, keeps ART7's
+    // colours. Since the lead's starter look (2026-11-18) the world's own sky lights most of the shade, so the hemisphere
+    // fill is a third of the world's value, the sun a little stronger over it, and its shadow sharper.
     assert.match(
       look,
-      /world\.scene\.add\(new HemisphereLight\(look\.light\.sky, look\.light\.ground, look\.light\.fill\)\);/,
+      /world\.scene\.add\(new HemisphereLight\(look\.light\.sky, look\.light\.ground, look\.light\.fill \* 0\.35\)\);/,
     );
-    assert.match(look, /new DirectionalLight\(look\.light\.sun, look\.light\.sunStrength\)/);
-    assert.match(look, /mapSize\.set\(1024, 1024\)/);
+    assert.match(
+      look,
+      /new DirectionalLight\(look\.light\.sun, look\.light\.sunStrength \* 1\.3\)/,
+    );
+    assert.match(look, /mapSize\.set\(2048, 2048\)/);
     assert.match(look, /new DirectionalLight\(look\.light\.rim, look\.light\.rimStrength\)/);
     const worlds = read('src/worlds.ts');
     const meadow = worlds.slice(
