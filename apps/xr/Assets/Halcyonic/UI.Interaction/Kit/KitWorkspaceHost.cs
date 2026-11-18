@@ -113,6 +113,9 @@ namespace Halcyonic.XR.UI
 
         public KitWorkView View => view;
 
+        /// <summary>Whether the host was last shown under the redesign, which never draws the old kit's work view or presence (ON-1).</summary>
+        public bool UnderRedesign { get; private set; }
+
         /// <summary>The compact presence, shown by <see cref="ShowCompact"/> where the closed bar stands.</summary>
         public KitPresenceView Presence => presence;
 
@@ -342,6 +345,7 @@ namespace Halcyonic.XR.UI
             this.column = column;
             this.owner = owner;
             compact = false;
+            UnderRedesign = RoomDesign.Enabled;
             gameObject.SetActive(true);
             presence.gameObject.SetActive(false);
             var zoom = GlazeText.Scale;
@@ -757,6 +761,7 @@ namespace Halcyonic.XR.UI
             binding = null;
             drawn = null;
             compact = true;
+            UnderRedesign = RoomDesign.Enabled;
             band.Hide();
             field.Hide();
             cursor.Hide();

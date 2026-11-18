@@ -11,6 +11,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>How many parts of the redesign's chrome the no-hue check read in this run; none fails the run.</summary>
         private static int chromePartsRead;
 
+        /// <summary>How many workspace hosts shown under the redesign the old-kit guard read in this run; none fails a whole run.</summary>
+        private static int redesignHostsRead;
+
         /// <summary>The name a glass sheet's room ground begins with (KitRender.Glass): the room behind the panels, never chrome.</summary>
         internal const string RoomGroundPrefix = "Ground: ";
 
@@ -51,6 +54,11 @@ namespace Halcyonic.XR.Workspace.Editor
                 // gives it a saturation, is let through.
                 return saturation > ChromeSaturationMost && value > ChromeValueLeast ? "#" + ColorUtility.ToHtmlStringRGB(colour) : null;
             }
+            // The old kit's views are exempt only because the redesign never draws them (the lead's 2026-11-18 ruling 1; AUDIT3's NH3): a host
+            // shown under the redesign that stands either of them is a fallback that ships, and fails here.
+            foreach (var host in root.GetComponentsInChildren<KitWorkspaceHost>(false))
+                if (host.UnderRedesign && ++redesignHostsRead > 0 && (host.View.gameObject.activeInHierarchy || host.Presence.gameObject.activeInHierarchy))
+                    yield return what + ": " + Path(host.transform) + " shown under the redesign stands the old kit's " + (host.View.gameObject.activeInHierarchy ? "work view" : "presence");
             foreach (var glass in root.GetComponentsInChildren<KitGlass>(false))
             {
                 if (Exempt(glass)) continue;

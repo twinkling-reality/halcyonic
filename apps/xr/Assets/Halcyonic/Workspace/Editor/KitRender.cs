@@ -65,6 +65,7 @@ namespace Halcyonic.XR.Workspace.Editor
             RoomDesign.Enabled = false;
             failures.AddRange(InkBoxHolds());
             chromePartsRead = 0;
+            redesignHostsRead = 0;
             var only = Environment.GetEnvironmentVariable("HALCYONIC_KIT_ONLY");
             var narrowed = !string.IsNullOrWhiteSpace(only);
             // The panels' Light glass, for its captures only (HALCYONIC_KIT_THEME=Light, the lead's 13:33Z): never a gate run.
@@ -102,6 +103,8 @@ namespace Halcyonic.XR.Workspace.Editor
                 }));
                 // The no-hue check reads the redesign's chrome alone (the lead's 2026-11-18 ruling 1), so it must have read some.
                 if (chromePartsRead == 0) failures.Add("the no-hue check read no part of the redesign's chrome in any state");
+                // And the old kit's views stand in no host the redesign shows (AUDIT3's NH3), read in at least one such host.
+                if (!narrowed && redesignHostsRead == 0) failures.Add("the old-kit guard read no workspace host shown under the redesign");
             }
             catch (Exception error) { failures.Add("the kit render threw " + error); }
             finally
