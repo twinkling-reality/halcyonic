@@ -155,6 +155,23 @@ function atHome(pose: ViewPose): boolean {
   return near(pose.position, VIEW_CAMERA.position) && near(pose.lookAt, VIEW_CAMERA.lookAt);
 }
 
+/**
+ * Where the person's eyes are as a headset session starts: standing at the player's place, the origin, 1.6 m up, facing
+ * -z. The laptop view's own camera stands a step behind it; `?seat` on the preview's address shows the laptop view from
+ * here instead, as the headset will see it.
+ */
+export const SEAT: ViewPose = { position: [0, 1.6, 0], lookAt: [0, 1.6, -1] };
+
+/**
+ * The laptop view's pose when the page was opened with `?seat` (`search`, the address's query), on a laptop: the
+ * person's own place, `SEAT`, over the app's own camera. Null without `?seat`, and in a presenting session, whose head
+ * pose is the headset's own.
+ */
+export function seatPose(search: string, presenting: boolean): ViewPose | null {
+  if (presenting) return null;
+  return new URLSearchParams(search).has('seat') ? SEAT : null;
+}
+
 /** The laptop view's one drift: `setupScene` steps it, the input layer stops it and reads at its rest pose. */
 export const viewDrift = new ViewDrift();
 

@@ -27,7 +27,7 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { VIEW_CAMERA, type ViewPose, viewDrift } from './legible.js';
+import { seatPose, VIEW_CAMERA, type ViewPose, viewDrift } from './legible.js';
 import { drift } from './motion.js';
 import { toyMaterial } from './palette.js';
 import { startAmbience } from './sound.js';
@@ -129,6 +129,26 @@ export function ambientMotion(move: (time: number) => void): void {
 }
 
 let latest = 0;
+
+/**
+ * `?seat` on the preview's address: on the first frame, once the app's own setup has run (its own laptop camera
+ * included), the laptop view is moved to the person's own place, as the headset will see it (`seatPose`). A drag turns
+ * it as before; without `?seat`, or in a headset, nothing changes.
+ */
+function seatOnFirstFrame(world: World): void {
+  let first = true;
+  ambientMotion(() => {
+    if (!first) return;
+    first = false;
+    const pose = seatPose(
+      typeof location === 'undefined' ? '' : location.search,
+      inHeadset() || world.renderer.xr.isPresenting,
+    );
+    if (pose === null) return;
+    world.camera.position.set(...pose.position);
+    world.camera.lookAt(...pose.lookAt);
+  });
+}
 
 /**
  * The game's time in seconds: the `time` the starter's system was last given. For a press handler of `onSelect` or
@@ -508,6 +528,7 @@ function hills(colours: readonly [string, string]): Mesh {
 export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow'): { island: Group } {
   current = typeof setting === 'string' ? (worlds[setting] ?? worlds.meadow) : setting;
   session = world;
+  seatOnFirstFrame(world);
   const look = current;
   const renderer = world.renderer;
   // No tone mapping: ACES turns yellows to mustard and washes out greens; keep colours true.
@@ -597,6 +618,8 @@ export function setupScene(world: World, background = '#000000'): { root: Group 
   // until the person's first drag, key or press stops it where it is; in a headset it never moves.
   // A game that places its own laptop camera after this (a piano seen from inside its curve) keeps it: the drift
   // stands down when its first frame finds the camera away from VIEW_CAMERA.
+  // ?seat moves it to the person's own place first, so the drift then stands down there too.
+  seatOnFirstFrame(world);
   let first = true;
   ambientMotion((time) => {
     let placed: ViewPose | undefined;

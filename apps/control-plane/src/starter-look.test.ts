@@ -1441,3 +1441,54 @@ describe('tasks add to one app in parts of their own (VRIFY)', () => {
     );
   });
 });
+
+describe('?seat shows the laptop view as the headset will see it (VRIFY)', () => {
+  // The owner judged a piano from the app's own laptop camera, a step behind the bench, and it did not feel like VR
+  // (2026-11-18). ?seat on the preview's address puts the laptop view at the person's own place, over the app's own camera.
+  test('the seat is the person standing at the origin, 1.6 m up, facing -z; only ?seat asks for it, never in a headset', async () => {
+    const { SEAT, seatPose, ViewDrift } = await import(
+      '../../../starters/iwsdk-vr/template/src/legible.ts'
+    );
+    assert.deepEqual(SEAT, { position: [0, 1.6, 0], lookAt: [0, 1.6, -1] });
+    assert.deepEqual(seatPose('?seat', false), SEAT);
+    assert.deepEqual(seatPose('?check&seat=1', false), SEAT);
+    assert.equal(seatPose('', false), null);
+    assert.equal(seatPose('?seats', false), null);
+    assert.equal(
+      seatPose('?seat', true),
+      null,
+      "a presenting session's head pose is the headset's own",
+    );
+    // Placed at the seat before the drift's first frame, the drift stands down there, as for any app's own camera.
+    assert.equal(new ViewDrift().step(0, false, SEAT), null);
+  });
+
+  test("both setups move the camera to the seat on the first frame, after the app's own setup and before the drift", () => {
+    const look = read('src/look.ts');
+    const hook = look.slice(
+      look.indexOf('function seatOnFirstFrame('),
+      look.indexOf('\n}\n', look.indexOf('function seatOnFirstFrame(')),
+    );
+    assert.match(
+      hook,
+      /ambientMotion\(/,
+      'it runs on a frame, so after the app placed its own camera',
+    );
+    assert.match(hook, /seatPose\(\s*typeof location === 'undefined' \? '' : location\.search,/);
+    assert.match(
+      hook,
+      /world\.camera\.position\.set\(\.\.\.pose\.position\);\s*world\.camera\.lookAt\(\.\.\.pose\.lookAt\);/,
+    );
+    const scene = look.slice(look.indexOf('export function setupScene('));
+    assert.ok(scene.indexOf('seatOnFirstFrame(world);') > 0, 'setupScene asks for the seat');
+    assert.ok(
+      scene.indexOf('seatOnFirstFrame(world);') < scene.indexOf('let first = true;'),
+      "the seat's hook runs before the drift's first frame, so the drift stands down at the seat",
+    );
+    const lookSetup = look.slice(
+      look.indexOf('export function setupLook('),
+      look.indexOf('export function setupScene('),
+    );
+    assert.ok(lookSetup.includes('seatOnFirstFrame(world);'), 'setupLook asks for the seat');
+  });
+});
