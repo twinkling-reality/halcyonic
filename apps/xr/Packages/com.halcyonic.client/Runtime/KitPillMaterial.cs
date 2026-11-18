@@ -28,9 +28,9 @@ namespace Halcyonic.Client
     /// <summary>
     /// The room's unified glass-capsule material (2026-10-31): every capsule and round button shares the same five-stop
     /// vertical glass depth ramp, subtle bottom rim bounce, continuous curved upper specular crown inset from the top and sides,
-    /// crisp 1 dp top rim catch-light, and 1.5 dp darker outer rim, differing only by glass body hue and specular intensity
-    /// (<see cref="KitPillMeaning.Green"/>, <see cref="KitPillMeaning.Red"/> and <see cref="KitPillMeaning.Blue"/> saturated
-    /// glass vs <see cref="KitPillMeaning.Neutral"/> smoked-slate glass). Every layer mixes in sRGB inside the shader
+    /// crisp 1 dp top rim catch-light, and 1.5 dp darker outer rim, in a true grey (the owner's no-hue order); the prominent ones
+    /// (<see cref="Prominent"/>: <see cref="KitPillMeaning.Blue"/> and <see cref="KitPillMeaning.Green"/>) are RoomButton's flat
+    /// main-action plate instead, and <see cref="KitPillMeaning.Red"/> is the neutral glass. Every layer mixes in sRGB inside the shader
     /// (<c>Halcyonic/Kit Pill</c>), and white words hold at least 4.8:1 across the middle band in every state.
     /// </summary>
     public static class KitPillMaterial
@@ -54,35 +54,22 @@ namespace Halcyonic.Client
         public const double PointedLift = 0.05, PressedDarken = 0.12;
 
         /// <summary>
-        /// The primary press, as the redesign's main action (the lead's ruling 2a, the owner's no-hue order; visionos-button-prominent.jpg:
-        /// the main action stands out as lighter glass, never by colour): the neutral ramp lifted so its middle is RoomButton's main plate,
-        /// #474747, white words on it.
+        /// The prominent press (the primary, and Approve's green): exactly RoomButton's main-action plate, #474747 flat with white words, and
+        /// #555555 pointed (the lead's ruling 2a, the owner's visionOS-style prominent plate, 2026-11-17; visionos-button-prominent.jpg): no gloss,
+        /// no catch-light, no bounce and no rim of its own, so a primary pill and the redesign's main action are one plate.
         /// </summary>
+        public const int ProminentPlate = 0x474747, ProminentPointedPlate = 0x555555;
+
+        /// <summary>Whether <paramref name="meaning"/> draws the prominent plate: the primary and Approve's green; Decline's red is the neutral glass.</summary>
+        public static bool Prominent(KitPillMeaning meaning) => meaning != KitPillMeaning.Neutral && meaning != KitPillMeaning.Red;
+
         private static readonly KitGlassMaterial.Stop[] BlueStops =
         {
-            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0x5F5F5F), 1),
-            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x4A4A4A), 1),
-            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x474747), 1),
-            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x3A3A3A), 1),
-            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0x515151), 1),
-        };
-
-        private static readonly KitGlassMaterial.Stop[] GreenStops =
-        {
-            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0x34A856), 1),
-            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x116228), 1),
-            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x0F5A24), 1),
-            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x0C4B1D), 1),
-            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0x208840), 1),
-        };
-
-        private static readonly KitGlassMaterial.Stop[] RedStops =
-        {
-            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0xD84840), 1),
-            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x941F1B), 1),
-            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x881C18), 1),
-            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x741714), 1),
-            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0xBC342E), 1),
+            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(ProminentPlate), 1),
+            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(ProminentPlate), 1),
+            new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(ProminentPlate), 1),
+            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(ProminentPlate), 1),
+            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(ProminentPlate), 1),
         };
 
         private static readonly KitGlassMaterial.Stop[] NeutralStops =
@@ -97,54 +84,47 @@ namespace Halcyonic.Client
         /// <summary>The five vertical gradient stops from top (0) to bottom (1) for <paramref name="meaning"/>.</summary>
         public static KitGlassMaterial.Stop[] Stops(KitPillMeaning meaning) => meaning switch
         {
-            KitPillMeaning.Green => GreenStops,
-            KitPillMeaning.Red => RedStops,
+            KitPillMeaning.Red => NeutralStops,
             KitPillMeaning.Neutral => NeutralStops,
             _ => BlueStops,
         };
 
         /// <summary>The upper specular crown's top and bottom white alpha for <paramref name="meaning"/>.</summary>
         public static (double Top, double Bottom) CrownAlpha(KitPillMeaning meaning) =>
-            meaning == KitPillMeaning.Neutral ? (NeutralGlossTopAlpha, NeutralGlossBottomAlpha) : (GlossTopAlpha, GlossBottomAlpha);
+            !Prominent(meaning) ? (NeutralGlossTopAlpha, NeutralGlossBottomAlpha) : (0.0, 0.0);
 
         /// <summary>The 1 dp top rim catch-light white alpha for <paramref name="meaning"/>.</summary>
         public static double TopCatchAlpha(KitPillMeaning meaning) =>
-            meaning == KitPillMeaning.Neutral ? NeutralTopCatchAlpha : SaturatedTopCatchAlpha;
+            !Prominent(meaning) ? NeutralTopCatchAlpha : 0.0;
 
         /// <summary>The bottom rim bounce alpha for <paramref name="meaning"/>.</summary>
         public static double GlowAlphaOf(KitPillMeaning meaning) =>
-            meaning == KitPillMeaning.Neutral ? NeutralGlowAlpha : GlowAlpha;
+            !Prominent(meaning) ? NeutralGlowAlpha : 0.0;
 
         /// <summary>The thin darker outer rim colour for <paramref name="meaning"/>.</summary>
         public static GlazeColor Rim(KitPillMeaning meaning) => meaning switch
         {
-            KitPillMeaning.Green => GlazeColor.Hex(0x09441A),
-            KitPillMeaning.Red => GlazeColor.Hex(0x6C1411),
-            KitPillMeaning.Neutral => GlazeColor.Hex(0x222222),
-            _ => GlazeColor.Hex(0x2C2C2C),
+            KitPillMeaning.Red or KitPillMeaning.Neutral => GlazeColor.Hex(0x222222),
+            _ => GlazeColor.Hex(ProminentPlate),
         };
 
         /// <summary>The bottom inner bounce / glow colour for <paramref name="meaning"/>.</summary>
         public static GlazeColor Glow(KitPillMeaning meaning) => meaning switch
         {
-            KitPillMeaning.Green => GlazeColor.Hex(0x6EF58C),
-            KitPillMeaning.Red => GlazeColor.Hex(0xFF826E),
-            KitPillMeaning.Neutral => GlazeColor.Hex(0x797979),
-            _ => GlazeColor.Hex(0x8A8A8A),
+            KitPillMeaning.Red or KitPillMeaning.Neutral => GlazeColor.Hex(0x797979),
+            _ => GlazeColor.Hex(ProminentPlate),
         };
 
         /// <summary>The deep middle fill of <paramref name="meaning"/> at rest, where its white word stands.</summary>
         public static GlazeColor Middle(KitPillMeaning meaning) => meaning switch
         {
-            KitPillMeaning.Green => GlazeColor.Hex(0x0F5A24),
-            KitPillMeaning.Red => GlazeColor.Hex(0x881C18),
-            KitPillMeaning.Neutral => GlazeColor.Hex(0x3D3D3D),
-            _ => GlazeColor.Hex(0x474747),
+            KitPillMeaning.Red or KitPillMeaning.Neutral => GlazeColor.Hex(0x3D3D3D),
+            _ => GlazeColor.Hex(ProminentPlate),
         };
 
         /// <summary>The middle fill of <paramref name="meaning"/> when pointed.</summary>
-        public static GlazeColor PointedMiddle(KitPillMeaning meaning) =>
-            KitGlassMaterial.ToColour(Blend(new double[] { 1, 1, 1 }, PointedLift, KitGlassMaterial.Channels(Middle(meaning))));
+        public static GlazeColor PointedMiddle(KitPillMeaning meaning) => Prominent(meaning) ? GlazeColor.Hex(ProminentPointedPlate)
+            : KitGlassMaterial.ToColour(Blend(new double[] { 1, 1, 1 }, PointedLift, KitGlassMaterial.Channels(Middle(meaning))));
 
         /// <summary>The deep middle fill of <paramref name="meaning"/> when pressed.</summary>
         public static GlazeColor PressedMiddle(KitPillMeaning meaning) =>
@@ -154,6 +134,7 @@ namespace Halcyonic.Client
         public static double[] At(KitPillMeaning meaning, double t, KitPillState state = KitPillState.Rest)
         {
             var (colour, _) = KitGlassMaterial.At(Stops(meaning), t);
+            if (Prominent(meaning) && state == KitPillState.Pointed) return KitGlassMaterial.Channels(GlazeColor.Hex(ProminentPointedPlate));
             return state switch
             {
                 KitPillState.Pointed => Blend(new double[] { 1, 1, 1 }, PointedLift, colour),

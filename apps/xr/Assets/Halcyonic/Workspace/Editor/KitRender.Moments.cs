@@ -146,18 +146,14 @@ namespace Halcyonic.XR.Workspace.Editor
                     var bodySample = KitPillMaterial.Sample(meaning, 0.0, -18.0, widthDp, heightDp);
                     var glossDrift = KitGlassMaterial.Deviation(new[] { glossPixel.r / 255.0, glossPixel.g / 255.0, glossPixel.b / 255.0 }, glossSample);
                     var bodyDrift = KitGlassMaterial.Deviation(new[] { bodyPixel.r / 255.0, bodyPixel.g / 255.0, bodyPixel.b / 255.0 }, bodySample);
-                    if (glossColour.Luminance <= bodyColour.Luminance * 1.5 || glossDrift > GlassTolerance)
+                    // The prominent plate (KitPillMaterial.Prominent: RoomButton's main-action plate) is flat, with no crown to shine.
+                    if ((!KitPillMaterial.Prominent(meaning) && glossColour.Luminance <= bodyColour.Luminance * 1.5) || glossDrift > GlassTolerance)
                         found.Add(KitMomentWords.Action(action) + " pill top gloss (" + glossColour + ") does not shine above its middle body (" + bodyColour + ")");
-                    var hueHolds = meaning switch
-                    {
-                        KitPillMeaning.Green => bodyColour.G > Math.Max(bodyColour.R, bodyColour.B),
-                        KitPillMeaning.Red => bodyColour.R > Math.Max(bodyColour.G, bodyColour.B),
-                        KitPillMeaning.Blue => bodyColour.B > Math.Max(bodyColour.R, bodyColour.G),
-                        KitPillMeaning.Neutral => Math.Max(bodyColour.R, Math.Max(bodyColour.G, bodyColour.B)) - Math.Min(bodyColour.R, Math.Min(bodyColour.G, bodyColour.B)) <= 28,
-                        _ => false,
-                    };
+                    // Every meaning reads as no hue (the owner's no-hue order; the lead's ruling 2a: state by form, weight and white): a grey
+                    // within a byte's rounding, the prominent ones RoomButton's main-action plate.
+                    var hueHolds = Math.Max(bodyColour.R, Math.Max(bodyColour.G, bodyColour.B)) - Math.Min(bodyColour.R, Math.Min(bodyColour.G, bodyColour.B)) <= 2;
                     if (!hueHolds || bodyDrift > GlassTolerance)
-                        found.Add(KitMomentWords.Action(action) + " pill body (" + bodyColour + ") does not carry its " + meaning + " hue");
+                        found.Add(KitMomentWords.Action(action) + " pill body (" + bodyColour + ") carries a hue, as " + meaning);
                 }
             };
 

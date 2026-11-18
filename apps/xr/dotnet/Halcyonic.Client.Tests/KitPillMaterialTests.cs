@@ -43,11 +43,11 @@ public class KitPillMaterialTests
     public void TheTopGlossBandShinesAboveTheMiddleBody()
     {
         Assert.That((KitPillMaterial.GlossMidShare, KitPillMaterial.GlossEndShare, KitPillMaterial.GlossHeightShare), Is.EqualTo((0.36f, 0.50f, 0.50)));
-        Assert.That(KitPillMaterial.CrownAlpha(KitPillMeaning.Blue), Is.EqualTo((0.34, 0.10)));
+        Assert.That(KitPillMaterial.CrownAlpha(KitPillMeaning.Blue), Is.EqualTo((0.0, 0.0)), "the prominent plate is flat");
         Assert.That(KitPillMaterial.CrownAlpha(KitPillMeaning.Neutral), Is.EqualTo((0.22, 0.06)));
-        Assert.That(KitPillMaterial.TopCatchAlpha(KitPillMeaning.Blue), Is.EqualTo(0.42));
+        Assert.That(KitPillMaterial.TopCatchAlpha(KitPillMeaning.Blue), Is.EqualTo(0.0));
         Assert.That(KitPillMaterial.TopCatchAlpha(KitPillMeaning.Neutral), Is.EqualTo(0.28));
-        foreach (var meaning in Meanings)
+        foreach (var meaning in Meanings.Where(meaning => !KitPillMaterial.Prominent(meaning)))
         {
             var catchLight = KitGlassMaterial.ToColour(KitPillMaterial.Sample(meaning, 0, 30 - 2.0, 240, 60));
             var glossTop = KitGlassMaterial.ToColour(KitPillMaterial.Sample(meaning, 0, 20, 240, 60));
@@ -56,12 +56,7 @@ public class KitPillMaterialTests
             Assert.That(glossTop.Luminance, Is.GreaterThan(glossMid.Luminance), $"{meaning} continuous crown fades smoothly downward");
             Assert.That(glossTop.Luminance, Is.GreaterThan(bodyBelow.Luminance * 1.5), $"{meaning} gloss crown shines above middle body");
             Assert.That(catchLight.Luminance, Is.GreaterThan(glossTop.Luminance), $"{meaning} 1.2 dp top catch-light shines inside top rim");
-            if (meaning == KitPillMeaning.Green)
-                Assert.That(glossTop.G, Is.GreaterThan(Math.Max(glossTop.R, glossTop.B)), "emerald body hue shines through the translucent top crown");
-            else if (meaning == KitPillMeaning.Red)
-                Assert.That(glossTop.R, Is.GreaterThan(Math.Max(glossTop.G, glossTop.B)), "crimson body hue shines through the translucent top crown");
-            else if (meaning == KitPillMeaning.Blue)
-                Assert.That((glossTop.G, glossTop.B), Is.EqualTo((glossTop.R, glossTop.R)), "the primary's crown is a true grey: no hue (the lead's ruling 2a)");
+            Assert.That((glossTop.G, glossTop.B), Is.EqualTo((glossTop.R, glossTop.R)), $"{meaning} crown is a true grey: no hue");
         }
     }
 
@@ -71,6 +66,14 @@ public class KitPillMaterialTests
         Assert.That(KitPillMaterial.RimDp, Is.EqualTo(1.5f));
         foreach (var meaning in Meanings)
         {
+            if (KitPillMaterial.Prominent(meaning))
+            {
+                // The prominent plate is RoomButton's main-action plate exactly: #474747 everywhere at rest, #555555 pointed, white words.
+                foreach (var (x, y) in new[] { (0.0, 0.0), (0.0, 20.0), (0.0, 28.5), (0.0, 29.5), (0.0, -25.0), (100.0, 0.0) })
+                    Assert.That(KitGlassMaterial.ToColour(KitPillMaterial.Sample(meaning, x, y, 240, 60)), Is.EqualTo(GlazeColor.Hex(KitPillMaterial.ProminentPlate)), $"{meaning} at {x}, {y} is the main plate");
+                Assert.That(KitGlassMaterial.ToColour(KitPillMaterial.Sample(meaning, 0, 0, 240, 60, KitPillState.Pointed)), Is.EqualTo(GlazeColor.Hex(KitPillMaterial.ProminentPointedPlate)), $"{meaning} pointed is the main plate pointed");
+                continue;
+            }
             var rim = KitPillMaterial.Rim(meaning);
             var middle = KitPillMaterial.Middle(meaning);
             Assert.That(rim.Luminance, Is.LessThan(middle.Luminance), $"{meaning} rim is darker than its middle fill");
@@ -80,18 +83,7 @@ public class KitPillMaterialTests
             var baseBottom = KitGlassMaterial.ToColour(KitPillMaterial.At(meaning, (30.0 - (-25.0)) / 60.0));
             var glowedBottom = KitGlassMaterial.ToColour(KitPillMaterial.Sample(meaning, 0, -25.0, 240, 60));
             Assert.That(glowedBottom.Luminance, Is.GreaterThan(baseBottom.Luminance), $"{meaning} bottom inner bounce lifts the lower edge");
-            if (meaning == KitPillMeaning.Green)
-                Assert.That(middle.G, Is.GreaterThan(Math.Max(middle.R, middle.B)), "green pill is green");
-            else if (meaning == KitPillMeaning.Red)
-                Assert.That(middle.R, Is.GreaterThan(Math.Max(middle.G, middle.B)), "red pill is red");
-            else if (meaning == KitPillMeaning.Blue)
-            {
-                // The primary press is the main action's lighter glass, never a colour (the lead's ruling 2a; visionos-button-prominent.jpg).
-                Assert.That((middle.G, middle.B), Is.EqualTo((middle.R, middle.R)), "the primary pill is a true grey");
-                Assert.That(middle.Luminance, Is.GreaterThan(KitPillMaterial.Middle(KitPillMeaning.Neutral).Luminance), "the primary stands lighter than the neutral");
-            }
-            else
-                Assert.That((middle.G, middle.B), Is.EqualTo((middle.R, middle.R)), "the neutral pill is a true grey (the owner's no-hue order)");
+            Assert.That((middle.G, middle.B), Is.EqualTo((middle.R, middle.R)), $"{meaning} pill is a true grey (the owner's no-hue order)");
         }
     }
 }

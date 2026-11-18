@@ -52,7 +52,7 @@ carries meaning. The figure (`KitFigureLook`) keeps its own neutral and state to
 | n6 | #E1E2E3 | Secondary words (white at 82 percent) |
 | n7 | #FFFFFF | Primary words, and a glossy capsule's word (`OnFill`) |
 | Primary | #006ADB | The fallback flat primary fill (5.14 under n7), pressed #0058B8 (6.80); in the room, every capsule and round button uses `KitPillMaterial` |
-| Pill Blue | #474747 | The primary capsule, the main action's lighter grey glass (the owner's no-hue order, the lead's ruling 2a; stops `#5F5F5F`, `#4A4A4A`, `#474747`, `#3A3A3A`, `#515151`; rim `#2C2C2C`, bottom bounce `#8A8A8A`) |
+| Pill Blue | #474747 | The prominent capsule (the primary, and Approve's green): exactly RoomButton's main-action plate, `#474747` flat, `#555555` pointed, white words, no gloss, catch-light, bounce or rim (the owner's no-hue order, the lead's ruling 2a). Decline's red is the neutral glass |
 | Pill Green | #0F5A24 | A green glossy capsule's middle band (`#34A856`, `#116228`, `#0F5A24`, `#0C4B1D`, `#208840`; rim `#09441A`, bottom bounce `#6EF58C`) |
 | Pill Red | #881C18 | A red glossy capsule's middle band (`#D84840`, `#941F1B`, `#881C18`, `#741714`, `#BC342E`; rim `#6C1411`, bottom bounce `#FF826E`) |
 | Pill Neutral | #42464D | A smoked-slate secondary or round glass capsule's middle band (`#5C626C`, `#444850`, `#42464D`, `#32363D`, `#4A5059`; rim `#24282E`, bottom bounce `#7A8088`) |
