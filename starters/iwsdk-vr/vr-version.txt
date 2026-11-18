@@ -8,8 +8,8 @@ start from the whole small game at the end of this project's AGENTS.md and chang
 Keep to the main play and its score: leave out title, end and pause screens, menus and best scores.
 Set it in the world from src/worlds.ts that fits the original, and keep its feel.
 If it is not a game, first work out from its own code (its routes, its main screen, what its data is) what the app is for and the few things at its centre, the things a person works with in it.
-Then write a short plan headed "What this app is in VR": what each of those things becomes in the space around the person, and what the person does with it with their hands. Then build it without waiting.
-Build those things as things in the space around the person, never as pictures of the app's pages: for example a sky app's stars in the sky all around, a lesson's call stack as frames that stack up in front of you, a map's land at your feet.
+Then write a short plan headed "What this app is in VR": what each of those things becomes in the space around the person, and what the person does with it by hand. Then build it without waiting.
+Build those things as things in the space around the person, never as pictures of the app's pages: for example a sky app's stars in the sky all around, a lesson's call stack as frames that stack up in front of the person, a map's land at the person's feet.
 Never make cards or a row of panels the main layout. Text appears only to show a thing's details, when the person points at the thing or presses it.
 Never show a keyboard of letters on screen: the person points and presses. Where the app needs typed words, name that among what this version leaves out.
 Make this VR version look and feel like this app alone, in its own colours, pictures, shapes and motion, never like a layout shared with other apps.
@@ -25,7 +25,7 @@ If it is not a game, let its own look (its colours, pictures and effects) dress 
 Read every input through src/play-input.ts.
 Copy pictures and sounds you need from the original into public/ and name them in src/assets.ts.
 Its welcome card and page title already hold this project's name; keep it, and put one line on what to do on the card.
-If it is not a game, put what of the app this version does not carry yet, or that it carries all of it, in a small panel the person opens with a press labelled "Not Here Yet", never in the main view; never call anything in it a stand-in or a demo.
+If it is not a game and this version leaves something out, put what it leaves out in a small panel the person opens with a press labelled "Not Here Yet", never in the main view; when it carries all of the app, show no such press. Never call anything in it a stand-in or a demo.
 If it is not a game, rewrite the card's laptop line (laptop-help in public/ui/welcome.uikitml) to say only what a mouse and keyboard really do in it: the starter's game keys do nothing there unless the app reads them.
 Keep addParts(world) as the last call of the setup in src/index.ts, as every example at the end of AGENTS.md has it, so later tasks can each add to this app in a file of their own in src/parts/ without touching yours.
 Run npx tsc --noEmit and fix every error it reports before you finish.

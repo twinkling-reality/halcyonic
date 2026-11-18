@@ -731,7 +731,7 @@ describe("an app's use comes whole, read to its end and readable (the lead, 2026
     has(/a title never runs into the words beside\s+or below it/);
     // What is not carried yet is honest but out of the main view, in a panel the person opens (the lead, 2026-11-18).
     has(
-      /goes in a small panel the person opens with a\s+press labelled "Not Here Yet", never in the main view, and in your closing words; a code comment is not saying it\.\s+Never call anything in it a stand-in or a demo\./,
+      /When this version leaves something out, what it leaves out goes in a small panel the person opens with a press\s+labelled "Not Here Yet", never in the main view, and in your closing words; a code comment is not saying it\. When it\s+carries all of the app, show no such press\. Never call anything in it a stand-in or a demo\./,
     );
     has(/pass all of them/);
     assert.doesNotMatch(agents, /pass up to six/);

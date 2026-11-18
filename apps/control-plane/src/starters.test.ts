@@ -422,7 +422,7 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     // The host now writes the project's own name on the card and in the title (namedFile); the instruction keeps it.
     assert.match(
       instruction,
-      /Its welcome card and page title already hold this project's name; keep it, and put one line on what to do on the card\. If it is not a game, put what of the app this version does not carry yet, or that it carries all of it, in a small panel the person opens with a press labelled "Not Here Yet", never in the main view; never call anything in it a stand-in or a demo\./,
+      /Its welcome card and page title already hold this project's name; keep it, and put one line on what to do on the card\. If it is not a game and this version leaves something out, put what it leaves out in a small panel the person opens with a press labelled "Not Here Yet", never in the main view; when it carries all of the app, show no such press\. Never call anything in it a stand-in or a demo\./,
     );
     // Run (b4)'s model put its plan to the person before building (the lead, 2026-11-13T19:47Z item 3); a question an
     // agent does ask still reaches the person.
@@ -610,7 +610,8 @@ describe('making a VR version of a project (M1.8c-1)', () => {
     assert.equal(instruction.includes('Show only cards'), false);
     assert.equal(/stand-in of the same kind/.test(instruction), false);
     // The honest note on what is not carried stays, in a panel the person opens.
-    assert.ok(instruction.includes('what of the app this version does not carry yet'));
+    assert.ok(instruction.includes('put what it leaves out in a small panel'));
+    assert.ok(instruction.includes('when it carries all of the app, show no such press'));
   });
 
   test('the VR instruction keeps addParts, so later tasks add to the VR version in parts of their own', () => {

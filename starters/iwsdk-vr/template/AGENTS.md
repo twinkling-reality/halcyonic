@@ -131,8 +131,8 @@ An app's use, not a game (a guide, a log, a list, a form, a tool):
 - First work out what the app is for and the few things at its centre, the things a person works with in it, and
   write a short plan headed "What this app is in VR": what each becomes in the space around the person and what they
   do with it. Then build those things as things around the person, never as pictures of the app's pages: a sky app's
-  stars in the sky all around, a lesson's call stack as frames that stack up in front of you, a map's land at your
-  feet. Cards or a row of panels are never the main layout: text shows a thing's details when the person points at it
+  stars in the sky all around, a lesson's call stack as frames that stack up in front of the person, a map's land at
+  the person's feet. Cards or a row of panels are never the main layout: text shows a thing's details when the person points at it
   or presses it. Each VR version looks and feels like its own app, in its own colours, pictures, shapes and motion.
 - Nothing of the use is dropped without a word. Each way it finds things (a search, a filter, a sort) and each choice
   it asks for gets a way that works with a hand and with a mouse, all through `onSelect`: the app's own choices to
@@ -155,7 +155,8 @@ An app's use, not a game (a guide, a log, a list, a form, a tool):
   the pages, spaced by the kit, inside what a laptop shows and clear of a page while it is pressed. Never place a row
   of your own. The person's computer checks the laptop view at 1280 by 800 and holds it back when part of a panel is
   off its screen or covers another.
-  A row is as wide as its buttons' words: fewer with longer words; split a long row into two.
+  A row is as wide as its buttons' words, so it holds fewer buttons when their words are longer; split a long row into
+  two.
   Pass every row, top first, each a list of `{ label, onSelect }`:
   `const bar = rows(world, [[{ label: 'Back', onSelect: () => book.turn(-1) }, { label: 'Next', onSelect: () => book.turn(1) }]])`.
   `bar.rename(row, i, words)` changes a button's words (where the person is, a letter's case), and `bar.light(row, i)`
@@ -169,9 +170,9 @@ An app's use, not a game (a guide, a log, a list, a form, a tool):
   where it is. An app that places its own camera keeps it: the drift stands down. In a headset it never moves.
   Measure each line with `measureText` and start the next thing after it, so a title never runs into the words beside
   or below it. The welcome card keeps its own sizes.
-- What this version does not carry yet, or that it carries all of it, goes in a small panel the person opens with a
-  press labelled "Not Here Yet", never in the main view, and in your closing words; a code comment is not saying it.
-  Never call anything in it a stand-in or a demo.
+- When this version leaves something out, what it leaves out goes in a small panel the person opens with a press
+  labelled "Not Here Yet", never in the main view, and in your closing words; a code comment is not saying it. When it
+  carries all of the app, show no such press. Never call anything in it a stand-in or a demo.
 - Build it in `setupScene(world, colour)` with the app's own page colour, not the island, as for a view below.
 
 A view from another app, not a game:
@@ -202,9 +203,9 @@ A view from another app, not a game:
   colours are codes. It takes the planet's place in the whole small view.
 - For pages (a lesson, a set of cards or steps, slides, a page of sections, rather than one picture to stand in), the
   subject is what the pages are about, built as things around the person (the lesson's call stack as frames stacking
-  up in front of you); a page's own words are its details, shown when the person presses the thing they belong to.
+  up in front of the person); a page's own words are its details, shown when the person presses the thing they belong to.
   For those words, `pages(list, options)` from `./kit.js` draws each as a readable panel 1.6 m in front of the
-  person. Read the cards' own words from the original's files (its HTML, Markdown, JSON or the
+  person. Read the pages' own words from the original's files (its HTML, Markdown, JSON or the
   component that renders them, never the share image or the landing page's banner) and pass all of them, each
   `{ title, text, picture }`, in the original's order (six stand at a time in the headset, three on a laptop; give a
   Next and a Back, in a row of `rows(...)`, that call `book.turn(1)` and `book.turn(-1)`), with `picture` the card's
