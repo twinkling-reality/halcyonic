@@ -186,8 +186,9 @@ public class SpatialKitTests
     {
         // No hue in the chrome (the lead's 2026-11-17T19:15Z, and the b224 hue sweep): the kit's well, carrier, raised step and hairline, and
         // a neutral pill's face and rim, are true greys, each at its slate's own relative luminance, so every contrast holds.
-        var greys = new[] { SpatialKit.Well, SpatialKit.Carrier, SpatialKit.Raised, SpatialKit.Hairline,
-            KitPillMaterial.Middle(KitPillMeaning.Neutral), KitPillMaterial.Rim(KitPillMeaning.Neutral) };
+        var greys = new[] { SpatialKit.Well, SpatialKit.Carrier, SpatialKit.Raised, SpatialKit.Control, SpatialKit.Hairline, SpatialKit.Thumb,
+            SpatialKit.FaceTop, SpatialKit.FaceBottom, KitPillMaterial.Middle(KitPillMeaning.Neutral), KitPillMaterial.Rim(KitPillMeaning.Neutral),
+            KitPillMaterial.Glow(KitPillMeaning.Neutral) };
         foreach (var grey in greys)
             Assert.That((grey.G, grey.B), Is.EqualTo((grey.R, grey.R)), grey + " carries a hue");
     }
@@ -198,11 +199,11 @@ public class SpatialKitTests
         // Cool obsidian-slate window glass: steps of cool dark slate by role under white words at 100,
         // 82 and 78 percent, the bright state tones, and sapphire blue for the one primary.
         var ramp = new[] { SpatialKit.Well, SpatialKit.Carrier, SpatialKit.Raised, SpatialKit.Control, SpatialKit.Hairline, SpatialKit.TextTertiary, SpatialKit.TextSecondary, SpatialKit.Text };
-        Assert.That(ramp, Is.EqualTo(new uint[] { 0x202020, 0x313131, 0x383838, 0x394152, 0x969696, 0xDBDCDC, 0xE1E2E3, 0xFFFFFF }.Select(GlazeColor.Hex)));
+        Assert.That(ramp, Is.EqualTo(new uint[] { 0x202020, 0x313131, 0x383838, 0x414141, 0x969696, 0xDBDCDC, 0xE1E2E3, 0xFFFFFF }.Select(GlazeColor.Hex)));
         Assert.That(new[] { SpatialKit.Accent, SpatialKit.Attention, SpatialKit.Failure, SpatialKit.Passed },
             Is.EqualTo(new uint[] { 0x7ADCF7, 0xFABA59, 0xFFAAA3, 0x69D98D }.Select(GlazeColor.Hex)), "live, needs, failed, passed");
         Assert.That((SpatialKit.OnFill, SpatialKit.PrimaryFill), Is.EqualTo((GlazeColor.Hex(0xFFFFFF), GlazeColor.Hex(0x006ADB))), "white words on the blue primary");
-        Assert.That((SpatialKit.FaceTop, SpatialKit.FaceBottom), Is.EqualTo((GlazeColor.Hex(0x333A4A), GlazeColor.Hex(0x242936))), "the window's cool slate, lit from above");
+        Assert.That((SpatialKit.FaceTop, SpatialKit.FaceBottom), Is.EqualTo((GlazeColor.Hex(0x3A3A3A), GlazeColor.Hex(0x292929))), "the window's cool slate, lit from above");
         Assert.That(GlazeColor.Contrast(SpatialKit.Thumb, SpatialKit.Well), Is.GreaterThanOrEqualTo(1.5), "the switch's thumb stands off its track");
     }
 

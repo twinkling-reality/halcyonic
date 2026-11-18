@@ -183,7 +183,7 @@ namespace Halcyonic.Client
         /// The switch's thumb, raised above its n0 track: ART's n3, a step over the kit's <see cref="Control"/> so it stands off
         /// the track at 1.5:1. It carries only primary and secondary words.
         /// </summary>
-        public static GlazeColor Thumb => GlazeColor.Hex(0x373F50);
+        public static GlazeColor Thumb => GlazeColor.Hex(0x3F3F3F);
 
         /// <summary>
         /// A quiet control's outline, an unavailable control's, and the trail's line: drawn opaque so it blends the same
@@ -208,7 +208,7 @@ namespace Halcyonic.Client
         public static GlazeColor Carrier => GlazeColor.Hex(0x313131);
 
         /// <summary>n3: a button's fill; what the pointer rests on. The lightest step on which every word holds 4.5.</summary>
-        public static GlazeColor Control => GlazeColor.Hex(0x394152);
+        public static GlazeColor Control => GlazeColor.Hex(0x414141);
 
         /// <summary>n4: a locked answer's ring, a hairline and the dotted gutter of code still only reported: at least 3:1 on every surface a locked control sits on.</summary>
         public static GlazeColor Hairline => GlazeColor.Hex(0x969696);
@@ -277,9 +277,9 @@ namespace Halcyonic.Client
         private static GlazeColor Over(GlazeColor top, double alpha, GlazeColor under) => top.Over(under, alpha);
 
         /// <summary>The face's light from above: its top, with <see cref="Carrier"/> at the middle and <see cref="FaceBottom"/> below.</summary>
-        public static GlazeColor FaceTop => GlazeColor.Hex(0x333A4A);
+        public static GlazeColor FaceTop => GlazeColor.Hex(0x3A3A3A);
 
-        public static GlazeColor FaceBottom => GlazeColor.Hex(0x242936);
+        public static GlazeColor FaceBottom => GlazeColor.Hex(0x292929);
 
         /// <summary>
         /// An avatar's side tint on the glass panel beside it (2026-10-31): its blue hue deepened so the 28-to-0 percent left

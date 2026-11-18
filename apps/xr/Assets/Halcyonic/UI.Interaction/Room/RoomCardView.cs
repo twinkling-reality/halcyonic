@@ -89,7 +89,7 @@ namespace Halcyonic.XR.UI
         public const float SlotLevelDp = 21f;
         public const float SlotLevelCheckDp = 13f;
 
-        /// <summary>A chosen answer's disc at rest, neutral: the accent stays the main action's (#E2E7EA, its check #172024).</summary>
+        /// <summary>A chosen answer's disc at rest, neutral: the accent stays the main action's (#E2E7EA, its check #1F1F1F).</summary>
         public const int ChosenAtRest = 0xE2E7EA;
         public const float CaptionTypeDp = 16f;
         public const float CaptionLineDp = 20f;
@@ -169,11 +169,11 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public const float CodeDp = 400f;
         public const int CodeGround = 0xF4F7F8;
-        public const int CodeInk = 0x0E1214;
+        public const int CodeInk = 0x111111;
         public const float CodeCornerCells = 2f;
 
         /// <summary>The page of reading's well: the panel's darkest, near solid, its rows 8 dp in from its top and foot.</summary>
-        public const int ReadingWell = 0x0E1214;
+        public const int ReadingWell = 0x111111;
 
         /// <summary>A changed run's band, the hue a fifth over the well, solid; the removed rule a lighter red so it weighs as the green.</summary>
         public const int AddedBand = 0x203A2C;
@@ -192,26 +192,26 @@ namespace Halcyonic.XR.UI
         /// </summary>
         public const int Passed = 0xFFFFFF;
         public const int PassedInk = 0xFFFFFF;
-        public const int PassedGround = 0x3C4448;
+        public const int PassedGround = 0x434343;
         public const int PassedNote = 0xE6EAEC;
         public const int Failed = 0xFFFFFF;
         public const int FailedInk = 0xFFFFFF;
-        public const int FailedGround = 0x3C4448;
+        public const int FailedGround = 0x434343;
         public const int FailedNote = 0xE6EAEC;
         public const int Accent = 0xFFFFFF;
         public const int AccentNote = 0xE6EAEC;
-        public const int Dark = 0x172024;
+        public const int Dark = 0x1F1F1F;
 
         /// <summary>The attention colour (a task or the assistant needs the person): white, its call carried by motion and sound, never hue.</summary>
         public const int Attention = 0xFFFFFF;
         public const int AttentionNote = 0xE6EAEC;
-        public const int StepGround = 0x2F3539;
+        public const int StepGround = 0x343434;
 
         /// <summary>The deep grounds of the accent and of attention, as the passed and failed ones, and how solid a status mark stands.</summary>
-        public const int AccentGround = 0x3C4448;
-        public const int AttentionGround = 0x3C4448;
-        public const int AttentionInk = 0x172024;
-        public const int QuietGround = 0x3C4448;
+        public const int AccentGround = 0x434343;
+        public const int AttentionGround = 0x434343;
+        public const int AttentionInk = 0x1F1F1F;
+        public const int QuietGround = 0x434343;
 
         /// <summary>A status mark stands solid, so nothing of the room shows through it (the critic, 2026-11-11).</summary>
         public const float StatusGroundAlpha = 1f;
@@ -223,7 +223,7 @@ namespace Halcyonic.XR.UI
         public const int GoodFill = 0x2FA65A;
         public const int BadFill = 0xD4463B;
         public const int WorkingFill = 0x1F98C2;
-        public const int QuietFill = 0x4A535A;
+        public const int QuietFill = 0x525252;
 
         /// <summary>A mark's glyph stroke, heavier than a row's, so it reads at a glance on a solid fill.</summary>
         public const float MarkStroke = 3.4f;
@@ -239,7 +239,7 @@ namespace Halcyonic.XR.UI
         /// 2026-11-14T02:28Z reader: the brighter 0x3F8FB0 pulled the eye nearly as much as Start Task). Its white glyph reads about 8:1 on it.
         /// </summary>
         public const int ProjectTile = 0x2E5566;
-        public const int TileInk = 0xE8F6FB;
+        public const int TileInk = 0xF3F3F3;
 
         private readonly Dictionary<KitRole, List<TextMeshPro>> texts = new Dictionary<KitRole, List<TextMeshPro>>();
         private readonly Dictionary<KitRole, int> textsUsed = new Dictionary<KitRole, int>();

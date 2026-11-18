@@ -11,7 +11,7 @@ namespace Halcyonic.XR.Workspace.Editor
 {
     /// <summary>
     /// DESIGN's glyph set (BUILD-SPEC-v4 1.4's table) drawn from its geometry: every glyph in an action's chip at rest
-    /// (white on the neutral chip) and in the main action's accent chip (#172024), 20 dp across, with the two home-size
+    /// (white on the neutral chip) and in the main action's accent chip (#1F1F1F), 20 dp across, with the two home-size
     /// actions at 24 dp; every glyph alone at 96 dp, for holding against the design's own path data; and the card's kind
     /// marks alone at 96 dp, which stand in tiles and before list rows and never on an action (the addendum's A17). Each glyph is
     /// read in the pixels: its colour on the middle of every one of its shapes and wherever its geometry says ink, and no

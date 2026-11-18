@@ -207,10 +207,10 @@ namespace Halcyonic.XR.UI
 
         /// <summary>
         /// The hairline's top and foot (the one language: visionos-glass-window.png's glass catches light along its top edge): a thin
-        /// white highlight at the top, #8E9199, easing to #2B2C33 at the foot (the lead's 19:41Z, AUDIT's kit pass at 9 (6)).
+        /// white highlight at the top, #919191, easing to #2C2C2C at the foot (the lead's 19:41Z, AUDIT's kit pass at 9 (6)).
         /// </summary>
-        public const int LitEdgeTop = 0x8E9199;
-        public const int LitEdgeFoot = 0x2B2C33;
+        public const int LitEdgeTop = 0x919191;
+        public const int LitEdgeFoot = 0x2C2C2C;
 
         /// <summary>
         /// Halcyonic's own Light, not the owner's reference (it has none; the lead's 13:33Z marks it ours): the same structure

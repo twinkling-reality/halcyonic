@@ -82,11 +82,11 @@ namespace Halcyonic.Client
 
         private static readonly KitGlassMaterial.Stop[] NeutralStops =
         {
-            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0x4C5568), 1),
-            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x384050), 1),
+            new KitGlassMaterial.Stop(0.00, GlazeColor.Hex(0x555555), 1),
+            new KitGlassMaterial.Stop(0.30, GlazeColor.Hex(0x404040), 1),
             new KitGlassMaterial.Stop(0.68, GlazeColor.Hex(0x3D3D3D), 1),
-            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x29303E), 1),
-            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0x3E4759), 1),
+            new KitGlassMaterial.Stop(0.88, GlazeColor.Hex(0x303030), 1),
+            new KitGlassMaterial.Stop(1.00, GlazeColor.Hex(0x474747), 1),
         };
 
         /// <summary>The five vertical gradient stops from top (0) to bottom (1) for <paramref name="meaning"/>.</summary>
@@ -124,7 +124,7 @@ namespace Halcyonic.Client
         {
             KitPillMeaning.Green => GlazeColor.Hex(0x6EF58C),
             KitPillMeaning.Red => GlazeColor.Hex(0xFF826E),
-            KitPillMeaning.Neutral => GlazeColor.Hex(0x6E7A90),
+            KitPillMeaning.Neutral => GlazeColor.Hex(0x797979),
             _ => GlazeColor.Hex(0x6ED7FF),
         };
 

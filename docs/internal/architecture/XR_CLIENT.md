@@ -2900,7 +2900,7 @@ in order, as before.
   (`UI.Interaction/Room`). The surface follows the owner's glass reference (the lead's 2026-11-16 13:33Z: equipped-test's
   ask panel): the shader `Halcyonic/Room Glass` (material `Resources/HalcyonicUI/RoomGlass`) draws black glass, a flat face
   #0F111E at 0.918 (the kit's one glass token, `AskGlass`, which the band's ground and the agent's plate take too), a 1 dp
-  hairline lit along its top (#5A5D66 easing to #2B2C33 at the foot: the one language of 2026-11-17, visionOS's glass catching
+  hairline lit along its top (#5A5D66 easing to #2C2C2C at the foot: the one language of 2026-11-17, visionOS's glass catching
   light), its long soft shadow held back for now (the reference's 0 24 60 at 0.35, scaled to the panel's 440 dp, stands
   ready in the looks; `RoomSurface.DrawsShadow` is false until the shadow has a renderer of its own that the measures of what
   a panel draws leave out), no sheen, squircle corners (exponent 4; panels 32 dp, visionOS's large round corners; a bar 22), and the panel's one sentence under a
@@ -2917,7 +2917,7 @@ in order, as before.
 - **The actions** (BUILD-SPEC-v4 1.4; FIELD's F6, 2026-11-10; the one language, the lead's 2026-11-17 00:54Z) are
   `RoomButton`: every action stands on a crisp thin-glass capsule (`Halcyonic/Room Halo`, material `RoomHalo`), the
   owner's glass with the page's white lift solved as one colour so its white words hold over a panel and over the room
-  (#25272E, #3A3C43 pointed, #303239 held, opaque), its glyph straight on it. The moment's one main
+  (#272727, #3C3C3C pointed, #323232 held, opaque), its glyph straight on it. The moment's one main
   action carries the accent as light, never a fill: a 1.5 dp lit rim on the capsule's edge and a soft glow 12 dp out in the
   kingfisher orange (#F39552), its glyph in the same orange, its words white, on a capsule a step lighter (#2A2C33, #3C3E45
   pointed); Confirm behind its lock keeps the rim; a destructive main action takes the warning red (#F7857D) instead
@@ -2926,7 +2926,7 @@ in order, as before.
   stemDp). What follows describes the sizes, motion and marks, which stand; where it names the old chip colours,
   the paragraph above holds. Two sizes: the column's (a 48 dp core, 32 dp chip, 20 dp glyph) and
   the row's at home (the 60.8 dp hand target itself as the core, a 44 dp chip, a 24 dp glyph). The one main action
-  carries the accent: a #59CFF1 chip with a #172024 glyph on the accent's own dark backing (#22586A), so it reads
+  carries the accent: a #59CFF1 chip with a #1F1F1F glyph on the accent's own dark backing (#22586A), so it reads
   coloured whole; every other action is neutral (a #4A5258 chip, white glyph). Pointed, a neutral chip turns light
   (#D5DADE), a main backing brightens and the action grows 6 percent, eased over 150 ms (`RoomMotion`); held, 96
   percent and a dimmed chip at once; actions shown in the same moment arrive 60 ms apart. The drawing scales, never

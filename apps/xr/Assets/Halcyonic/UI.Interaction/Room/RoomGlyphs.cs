@@ -172,7 +172,7 @@ namespace Halcyonic.XR.UI
         public const float ChipDp = 20f;
         public const float HomeDp = 24f;
 
-        /// <summary>The glyph's colour on a chip at rest, and on the main action's light chip: white, and #172024.</summary>
+        /// <summary>The glyph's colour on a chip at rest, and on the main action's light chip: white, and #1F1F1F.</summary>
         public static readonly Color OnRest = Color.white;
         public static readonly Color OnMain = new Color(0x17 / 255f, 0x20 / 255f, 0x24 / 255f, 1f);
 

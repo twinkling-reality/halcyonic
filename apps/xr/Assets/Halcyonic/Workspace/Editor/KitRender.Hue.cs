@@ -17,6 +17,9 @@ namespace Halcyonic.XR.Workspace.Editor
         /// <summary>The most saturation a drawn chrome colour may carry and still read as no hue (a grey's rounding, never a tint).</summary>
         private const float ChromeSaturationMost = 0.12f;
 
+        /// <summary>The least value a chrome colour is read at for hue: under it, a near black, whose channels round apart.</summary>
+        private const float ChromeValueLeast = 0.04f;
+
         /// <summary>
         /// No hue in the chrome (the lead's 2026-11-17T19:15Z; the lead's 2026-11-18 MUST after AUDIT's eye on 26-receipt): every glass of
         /// the kit draws no tone and no tint, and every plate, ring, disc and word it draws is a grey or white. A character's body and a figure
@@ -41,7 +44,9 @@ namespace Halcyonic.XR.Workspace.Editor
             {
                 if (colour.a < 0.05f) return null;
                 Color.RGBToHSV(colour, out _, out var saturation, out var value);
-                return saturation > ChromeSaturationMost && value > 0.15f ? "#" + ColorUtility.ToHtmlStringRGB(colour) : null;
+                // Down to the darkest chrome (#172024 read navy at a value of 0.14, F305): only a near black, whose rounding alone
+                // gives it a saturation, is let through.
+                return saturation > ChromeSaturationMost && value > ChromeValueLeast ? "#" + ColorUtility.ToHtmlStringRGB(colour) : null;
             }
             foreach (var glass in root.GetComponentsInChildren<KitGlass>(false))
             {

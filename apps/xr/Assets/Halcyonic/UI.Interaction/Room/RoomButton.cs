@@ -63,7 +63,7 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// An answer's mark in the chip's place (DESIGN 1.4): 22 dp, a circle for one of several, a squircle box of corner 7
         /// where any number may be chosen; a 2 dp line, white at the page's 80 percent (0.66 in Unity's linear blend over the
-        /// halo); chosen, a #D5DADE disc or box with a #172024 check 15 dp.
+        /// halo); chosen, a #D5DADE disc or box with a #1F1F1F check 15 dp.
         /// </summary>
         public const float MarkDp = 22f;
         public const float MarkBoxCornerDp = 7f;
@@ -88,7 +88,7 @@ namespace Halcyonic.XR.UI
         public const int AccentColour = 0xFFFFFF;
 
         /// <summary>The ink of a chosen answer's check on its mark.</summary>
-        public const int InkColour = 0x172024;
+        public const int InkColour = 0x1F1F1F;
 
         /// <summary>
         /// No hue in the chrome (the lead's 2026-11-17 19:15Z and 19:18Z (2); visionos-window-example.png's thin control and
@@ -202,7 +202,7 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// A fact of the action's own, as a chip of its own floating beside the action (the addendum's A17: the agent's
         /// level after its name), never inside its plate and never joined to its words on a dot: 10 dp after the core, on
-        /// its middle line, its word in the label face 17 dp on a 21 dp line (15 read under the 14 dp floor as seen, 16 at 0.870 degrees under the 0.875 floor; the lead, 2026-11-17), white on its own backing (#282E33 at 78
+        /// its middle line, its word in the label face 17 dp on a 21 dp line (15 read under the 14 dp floor as seen, 16 at 0.870 degrees under the 0.875 floor; the lead, 2026-11-17), white on its own backing (#2D2D2D at 78
         /// percent, a 1 dp edge of white at 6 percent), 10 dp of room beside it and 3 dp above and below, its corner 10 dp.
         /// It takes no press: the action's target is its core alone.
         /// </summary>
@@ -212,7 +212,7 @@ namespace Halcyonic.XR.UI
         public const float AsideTypeDp = 17f;
         public const float AsideLineDp = 21f;
         public const float AsideCornerDp = 10f;
-        public const int AsideGround = 0x282E33;
+        public const int AsideGround = 0x2D2D2D;
         public const float AsideAlpha = 0.78f;
         public const float AsideEdgeDp = 1f;
         public const float AsideEdgeAlpha = 0.06f;
@@ -561,15 +561,15 @@ namespace Halcyonic.XR.UI
         /// <summary>
         /// The plate every action stands on (the one language: visionOS's thin glass for a control): the owner's Ask glass with the
         /// page's white lift over it, solved as one colour, so on a panel it reads as the sheet's thin glass (8 percent white,
-        /// #25272E; 16 pointed, #3A3C43; held, #303239) and over the room it is still a dark capsule its white words hold on.
-        /// The main action's plate is visionOS's thin material: a clearly lighter glass (#45474E; pointed, #53555C), set apart by material, not hue. Opaque, so the glyph's well, drawn in the
+        /// #272727; 16 pointed, #3C3C3C; held, #323232) and over the room it is still a dark capsule its white words hold on.
+        /// The main action's plate is visionOS's thin material: a clearly lighter glass (#474747; pointed, #555555), set apart by material, not hue. Opaque, so the glyph's well, drawn in the
         /// plate's own colour, never shows as a square of its own over a bright room (F265's heard draft, 2026-11-17).
         /// </summary>
-        public const int PlateColour = 0x25272E;
-        public const int PlatePointedColour = 0x3A3C43;
-        public const int PlateHeldColour = 0x303239;
-        public const int MainPlateColour = 0x45474E;
-        public const int MainPlatePointedColour = 0x53555C;
+        public const int PlateColour = 0x272727;
+        public const int PlatePointedColour = 0x3C3C3C;
+        public const int PlateHeldColour = 0x323232;
+        public const int MainPlateColour = 0x474747;
+        public const int MainPlatePointedColour = 0x555555;
         public const float PlateAlpha = 1f;
 
         /// <summary>How far the plate's edge feathers each way, in dp: a crisp capsule.</summary>
