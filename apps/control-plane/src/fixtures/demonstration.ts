@@ -745,6 +745,8 @@ function begin(scenarios: ReadonlyMap<string, Scenario>, plan: DemonstrationPlan
     new MockRuntimeAdapter({ scenarios, runtimeId, displayName, clock: time, scheduler: time });
   const controlPlane = new ControlPlane({
     journal,
+    // As on the Mac: every start and instruction ends with the closing request.
+    closingRequest: true,
     adapters: [
       mock(DIRECTED_RUNTIME_ID, DIRECTED_RUNTIME_NAME),
       new WatchOnlyRuntime(mock(WATCHED_RUNTIME_ID, WATCHED_RUNTIME_NAME)),

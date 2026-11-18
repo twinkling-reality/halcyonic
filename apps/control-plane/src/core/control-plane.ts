@@ -167,6 +167,11 @@ export interface ControlPlaneOptions {
    */
   readonly hostFolders?: HostFolders;
   /**
+   * Whether every start and instruction ends with Halcyonic's closing request (`CLOSING_REQUEST`); off by default, so
+   * a test that pins what a runtime gets is unchanged. On in the Mac's own control plane and the demonstration.
+   */
+  readonly closingRequest?: boolean;
+  /**
    * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's text is
    * journaled or read through to a device, since some change (redaction.ts). None by default;
    * credential shapes still go from error text.
@@ -474,6 +479,7 @@ export class ControlPlane {
       registry: this.registry,
       // The queue below runs only on the person's own journal (ADR 0056).
       queuesInstructions: this.journal.info.origin === 'live',
+      closingRequest: options.closingRequest === true,
       locations: this.locations,
       protectedFolders: this.protectedFolders,
       givenPictures: this.givenPictures,

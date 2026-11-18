@@ -257,6 +257,8 @@ async function main(): Promise<void> {
     // A run in its task's own copy asking only into another task's copy or a host folder is denied by the host with its
     // reason (AUDIT3 HR1 to HR5, 2026-11-18): the sandbox refuses those anyway. A Claude Agent run's own confined
     // folder (its temporary and settings folders, in the data folder) stays its own.
+    // Every start and instruction ends with the closing request (the lead, 2026-11-18).
+    closingRequest: true,
     hostFolders: {
       tasks: config.taskCopies ? config.tasksDir : null,
       data: config.dataDir,

@@ -171,6 +171,11 @@ export interface CommandServiceDeps {
   readonly recorder: Recorder;
   /** Whether the instruction queue runs, so an instruction during a turn may wait for it (ADR 0056). */
   readonly queuesInstructions?: boolean;
+  /**
+   * Whether every start and instruction ends with the closing request (`CLOSING_REQUEST`, the lead, 2026-11-18): on
+   * for the Mac's own control plane and the recorded demonstration; off where a test pins the words a runtime gets.
+   */
+  readonly closingRequest?: boolean;
   readonly registry: RuntimeRegistry;
   /** Where projects may live on the host, and the directory policy runtimes ask. */
   readonly locations: HostLocations;
@@ -2760,7 +2765,15 @@ export class CommandService {
           if (pictures !== undefined)
             this.#recordPicturesRead(command, execution, pictures, cause, media?.attachments);
           if (media !== null) this.#recordMediaGiven(command, execution, media, cause);
-          const action = actionFor(command, adapter, execution, checked, pictures, media);
+          const action = actionFor(
+            command,
+            adapter,
+            execution,
+            checked,
+            pictures,
+            media,
+            this.#deps.closingRequest === true,
+          );
           const outcome: ActionOutcome = {
             succeeded: () => {
               this.#recordCheckOutput(execution, checked, cause);
@@ -2941,7 +2954,7 @@ export class CommandService {
               execution,
               instruction: (() => {
                 // The closing request last of the Mac's own lines, so the agent's last message can answer it.
-                const words = withClosingRequest(
+                const words = this.#closing(
                   withCheckOutput(
                     withMediaNote(
                       withVersionNote(command.payload.instruction, firstFromVersion),
@@ -3626,6 +3639,11 @@ export class CommandService {
     return view;
   }
 
+  /** The words a runtime is given, with the closing request after them where it is on. */
+  #closing(words: string): string {
+    return this.#deps.closingRequest === true ? withClosingRequest(words) : words;
+  }
+
   #now(): Timestamp {
     return this.#deps.clock.now().toISOString();
   }
@@ -3638,13 +3656,13 @@ function actionFor(
   checked: Checked | null,
   pictures: readonly InstructionPicture[] | undefined,
   media: MediaGiven | null = null,
+  closing = false,
 ): (() => Promise<void>) | undefined {
   switch (command.command_type) {
     case 'execution.send_instruction': {
       const send = adapter.sendInstruction;
-      const text = withClosingRequest(
-        withCheckOutput(withMediaNote(command.payload.text, media), checked),
-      );
+      const given = withCheckOutput(withMediaNote(command.payload.text, media), checked);
+      const text = closing ? withClosingRequest(given) : given;
       const leave = command.payload.leave_plan === true;
       return (
         send &&

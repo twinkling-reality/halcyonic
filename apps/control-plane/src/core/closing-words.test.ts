@@ -228,7 +228,10 @@ describe("a turn that ends with the closing lines records them as the agent's cl
 describe("the closing request is sent after the person's words", () => {
   test("a start sends the person's words, then the request", async () => {
     const sent: string[] = [];
-    const harness = createTestControlPlane({ adapters: () => [runtime(sent)] });
+    const harness = createTestControlPlane({
+      adapters: () => [runtime(sent)],
+      closingRequest: true,
+    });
     const { controlPlane, commands, time } = harness;
     const project = controlPlane.commands.submit(commands.createProject('Garden'), 'internal');
     if (project.command?.result?.kind !== 'project_created') throw new Error('no project');
@@ -248,5 +251,27 @@ describe("the closing request is sent after the person's words", () => {
     assert.equal(sent.length, 1);
     assert.ok(sent[0]?.startsWith(start.payload.instruction));
     assert.ok(sent[0]?.endsWith(`\n\n${CLOSING_REQUEST}`));
+  });
+
+  test('a control plane without it sends the words as they are', async () => {
+    const sent: string[] = [];
+    const harness = createTestControlPlane({ adapters: () => [runtime(sent)] });
+    const { controlPlane, commands, time } = harness;
+    const project = controlPlane.commands.submit(commands.createProject('Garden'), 'internal');
+    if (project.command?.result?.kind !== 'project_created') throw new Error('no project');
+    const feature = DEMO_WORKSTREAMS[0] as (typeof DEMO_WORKSTREAMS)[number];
+    const workstream = controlPlane.commands.submit(
+      commands.createWorkstream(project.command.result.project_id, feature),
+      'internal',
+    );
+    if (workstream.command?.result?.kind !== 'workstream_created') throw new Error('no workstream');
+    const start = commands.startExecution(workstream.command.result.workstream_id, feature);
+    controlPlane.commands.submit(
+      { ...start, payload: { ...start.payload, runtime_id: 'app' as RuntimeId, options: {} } },
+      'internal',
+    );
+    await time.runUntilIdle();
+    await controlPlane.close();
+    assert.deepEqual(sent, [start.payload.instruction]);
   });
 });
