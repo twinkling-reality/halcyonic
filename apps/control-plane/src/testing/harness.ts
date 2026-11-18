@@ -107,6 +107,8 @@ export interface TestControlPlaneOptions {
   readonly media?: ControlPlaneOptions['media'];
   /** A confined app's reads besides its folder, for the host's own answers; off by default. */
   readonly confinedReads?: ControlPlaneOptions['confinedReads'];
+  /** The host's own folders, for its denials of reads into another task's copy; none by default. */
+  readonly hostFolders?: ControlPlaneOptions['hostFolders'];
 }
 
 /** A control plane on virtual time with the mock runtime, so tests decide when work progresses. */
@@ -138,6 +140,7 @@ export function createTestControlPlane(options: TestControlPlaneOptions = {}) {
     ...(options.givenPictures !== undefined && { givenPictures: options.givenPictures }),
     ...(options.media !== undefined && { media: options.media }),
     ...(options.confinedReads !== undefined && { confinedReads: options.confinedReads }),
+    ...(options.hostFolders !== undefined && { hostFolders: options.hostFolders }),
     ...(options.catalogLinks !== undefined && { catalogLinks: options.catalogLinks }),
     ...(options.providers !== undefined && { providers: options.providers }),
     ...(options.keyChecks !== undefined && { keyChecks: options.keyChecks }),

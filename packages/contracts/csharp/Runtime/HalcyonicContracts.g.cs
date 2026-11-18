@@ -5274,6 +5274,8 @@ namespace Halcyonic.Contracts
     {
         [global::System.Runtime.Serialization.EnumMember(Value = "too_long_to_show")] TooLongToShow,
         [global::System.Runtime.Serialization.EnumMember(Value = "not_recorded")] NotRecorded,
+        [global::System.Runtime.Serialization.EnumMember(Value = "another_task_copy")] AnotherTaskCopy,
+        [global::System.Runtime.Serialization.EnumMember(Value = "host_folder")] HostFolder,
     }
 
     public sealed class ExecutionApprovalDeniedByHostPayload

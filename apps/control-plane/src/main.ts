@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { chmod, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { confinedTempFolder } from '@halcyonic/integration-claude-code';
 import { CODEX_KEY_READER } from '@halcyonic/integration-codex';
@@ -254,6 +254,16 @@ async function main(): Promise<void> {
     // A confined app's requests inside its own copy are answered by the host (the lead's ruling, 2026-11-13): the same
     // reads its sandbox is given (`folderReads`), for a starter's project; and for a task's copy of a folder the person
     // connected, under the closed profile only (AUDIT3 H1 to H5, the lead's 15:17Z ruling), never the folder itself.
+    // A run in its task's own copy asking only into another task's copy or a host folder is denied by the host with its
+    // reason (AUDIT3 HR1 to HR5, 2026-11-18): the sandbox refuses those anyway. A Claude Agent run's own confined
+    // folder (its temporary and settings folders, in the data folder) stays its own.
+    hostFolders: {
+      tasks: config.taskCopies ? config.tasksDir : null,
+      data: config.dataDir,
+      home: homedir(),
+      runOwn: (kind, directory) =>
+        kind === 'claude-agent' ? [dirname(confinedTempFolder(config.dataDir, directory))] : [],
+    },
     confinedReads: (directory) =>
       starterOf(directory) !== null
         ? {

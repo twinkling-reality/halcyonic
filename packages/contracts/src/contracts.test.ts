@@ -1501,6 +1501,14 @@ describe("the host's own denial of a request (ADR 0065)", () => {
     );
     assert.equal(denial({ approval_id: 'a', because: 'not_recorded', delivered: false }), true);
     assert.equal(denial({ approval_id: 'a', because: 'bored', delivered: false }), false);
+    // A read into another task's copy or a host folder, denied with its reason (AUDIT3 HR3, 2026-11-18).
+    for (const because of ['another_task_copy', 'host_folder'])
+      assert.equal(denial({ approval_id: 'a', because, delivered: true }), true, because);
+    assert.equal(
+      denial({ approval_id: 'a', because: 'another_task_copy', delivered: true, path: '/x' }),
+      false,
+      'never the place itself',
+    );
     assert.equal(denial({ approval_id: '', because: 'not_recorded', delivered: false }), false);
     assert.equal(
       denial({ approval_id: 'a', because: 'not_recorded', delivered: false, text: 'rm -rf /' }),

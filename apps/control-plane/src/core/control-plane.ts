@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import {
   COMMAND_SCHEMA_VERSION,
   type CommandId,
+  type EventEnvelope,
   type ProjectId,
   type Snapshot,
   type Timestamp,
@@ -50,6 +51,7 @@ import { Reattacher } from './reattach.ts';
 import { Recorder } from './recorder.ts';
 import { type HeldSecret, type Redaction, redaction } from './redaction.ts';
 import { RuntimeRegistry } from './runtime-registry.ts';
+import { type HostFolders, type Intrusion, intrusionOf } from './sibling-copies.ts';
 
 /** The key of a project's own folder among the folders that need an automatic check. */
 const PROJECT_FOLDER = '';
@@ -158,6 +160,12 @@ export interface ControlPlaneOptions {
    */
   readonly confinedReads?: (directory: string) => ConfinedReads | null;
   /**
+   * The host's own folders (`HostFolders`): with them, a request of a run in its task's own copy that reaches only
+   * into another task's copy or a host folder is denied by the host with its reason (AUDIT3 HR1 to HR5). Absent,
+   * every such request reaches the person.
+   */
+  readonly hostFolders?: HostFolders;
+  /**
    * Every secret Halcyonic holds or passes to a runtime, asked for each time a runtime's text is
    * journaled or read through to a device, since some change (redaction.ts). None by default;
    * credential shapes still go from error text.
@@ -259,6 +267,7 @@ export class ControlPlane {
   readonly #autoFix: AutoFix | null;
   readonly #hostAnswers: HostAnswers | null;
   readonly #confinedReads: NonNullable<ControlPlaneOptions['confinedReads']> | null;
+  readonly #hostFolders: HostFolders | null;
   readonly #hostDenials: HostDenials;
   #closed = false;
   readonly #closeWaitMs: number;
@@ -527,6 +536,7 @@ export class ControlPlane {
           });
     this.#autoFix?.attach();
     this.#confinedReads = options.confinedReads ?? null;
+    this.#hostFolders = options.hostFolders ?? null;
     this.#hostAnswers =
       options.confinedReads === undefined
         ? null
@@ -549,7 +559,13 @@ export class ControlPlane {
       publisher: this.publisher,
       commands: this.commands,
       delivers: (runtimeId) => this.registry.get(runtimeId)?.delivers_denial_message === true,
-      outcome: (event) => requestOutcome(event, this.#hostAnswers?.wouldAnswer(event) === true),
+      outcome: (event) =>
+        requestOutcome(
+          event,
+          this.#hostAnswers?.wouldAnswer(event) === true,
+          this.#intrusion(event),
+        ),
+      intrusion: (event) => this.#intrusion(event),
       ids: options.ids,
       clock: options.clock,
       logger: options.logger,
@@ -599,6 +615,29 @@ export class ControlPlane {
           'execution started',
         );
     });
+  }
+
+  /**
+   * Where a request of a run in its task's own copy reaches only into another task's copy or a host folder, why
+   * (`intrusionOf`, AUDIT3 HR1 to HR4); else null. Only a run working in its own task's copy is judged.
+   */
+  #intrusion(event: EventEnvelope): Intrusion | null {
+    const folders = this.#hostFolders;
+    if (folders === null || event.event_type !== 'runtime.approval.requested') return null;
+    const executionId = event.execution_id;
+    if (executionId === null) return null;
+    const view = this.projection.execution(executionId);
+    if (view === undefined || view.directory === null) return null;
+    const copy = this.projection.workstream(view.workstream_id)?.copy;
+    if (copy?.state !== 'own' || copy.directory !== view.directory) return null;
+    const runOwn = folders.runOwn?.(view.runtime.kind, view.directory) ?? [];
+    const { subject, complete, too_long: tooLong } = event.payload;
+    return intrusionOf(
+      { paths: subject.paths, complete, cut: tooLong !== undefined },
+      view.directory,
+      folders,
+      runOwn,
+    );
   }
 
   /**

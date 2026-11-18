@@ -97,3 +97,26 @@ link in its place (seen by LOOP's probe under the profile), so the host takes th
 directory and resolves its parent alone. Residual, as for every answered read: between the host's answer and the
 runtime's read the run could swap the folder for a link; the read then goes where the link points, still bounded by
 the profile fixed at launch, while the journal says `run_temp_read`.
+
+## Amended 2026-11-18: a read into another task's copy is denied by the host, never asked
+
+A swarm task's agent asked to read a sibling task's copy (`<tasks>/<project>/<sibling>/src/index.ts`) and the swarm
+stalled on "waiting on a person" (VRIFY, 2026-11-17). The sandbox already refuses every other task's copy (the copy
+profile and the closed profile's copy rules), so a person's Approve would only make the run fail: the ask was no real
+choice. AUDIT3's ruling (HR1 to HR5): the host DENIES such a request itself, narrowly, as ADR 0065 denies a request too
+long to show, and never allows anything new.
+- Judged only for a run working in its task's own copy (the folder `workstream.copy_made` recorded), confined or not,
+  and only a complete request that was not cut for length, whose places the app gives as structure
+  (`ApprovalSubject.paths`). A shell command, whose places are not given, still reaches the person.
+- Every place is resolved through links and compared case folded on the Mac. The request is denied only where each
+  place is inside the task's own copy or the run's own host folders (a Claude Agent run's confined folder, its
+  temporary and settings folders), or else in the task copies' folder (`another_task_copy`) or a host folder: the data
+  folder or a `.halcyonic*` folder in the person's home (`host_folder`); and at least one is the latter. A request that
+  names any other place (the person's own folders, another project) reaches the person whole.
+- Recorded first as `execution.approval.denied_by_host` with that reason and `delivered`, then denied through the same
+  command a press sends, with words the agent can act on: "This file is in another task's copy, which this task cannot
+  read, so it was not done. Work in this task's own copy." It is the host's decision, not an observation of the agent.
+- The host answers first where it answers (`requestOutcome`: answer, then this denial, then a denial for length), so the
+  two never both act on one request.
+- Hiding the siblings from a task (a per-task parent it cannot list) remains a good addition on top, never instead: an
+  agent can name a path it guessed or saw in a log.

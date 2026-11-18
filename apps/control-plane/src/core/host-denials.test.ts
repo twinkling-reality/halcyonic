@@ -180,6 +180,10 @@ describe('one decision for each request (AUDIT3 M1)', () => {
     assert.equal(requestOutcome(request(true), false), 'deny');
     assert.equal(requestOutcome(request(false), false), 'person');
     assert.equal(requestOutcome({ event_type: 'runtime.turn.started' } as never, false), 'person');
+    // A read into another task's copy is denied, unless the host answers the request itself (AUDIT3 HR1, M1).
+    assert.equal(requestOutcome(request(false), false, 'another_task_copy'), 'deny');
+    assert.equal(requestOutcome(request(false), true, 'another_task_copy'), 'answer');
+    assert.equal(requestOutcome(request(false), false, null), 'person');
   });
 });
 

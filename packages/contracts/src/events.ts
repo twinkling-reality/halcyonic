@@ -1140,7 +1140,10 @@ export const ApprovalToolName = Text(128);
  * The host denied a request of this execution itself, recorded before the denial is sent: a request longer than a
  * person can be shown whole (`too_long_to_show`, with its length), for every run, so no card that can only be denied
  * is left waiting; or a request the journal could not record (`not_recorded`, with no length: the request itself
- * was never kept), denied through the agent's app at once, so no agent waits on a request nobody can see (ADR 0065).
+ * was never kept), denied through the agent's app at once, so no agent waits on a request nobody can see (ADR 0065);
+ * or a request of a run in its task's own copy that reaches only into another task's copy (`another_task_copy`) or
+ * a host folder (`host_folder`: the data folder or a `.halcyonic*` home), which the sandbox refuses anyway, so no
+ * person is asked a choice that is none (AUDIT3 HR1 to HR5, 2026-11-18; ADR 0064).
  * `delivered` is whether the agent app declares that a denial's words reach its agent (`delivers_denial_message`):
  * where false, the words are recorded and shown, and the agent was never told them. `tool_name`, for `not_recorded`
  * only, is the tool the refused request named, where it is one the contract keeps (`ApprovalToolName`): the agent
@@ -1151,7 +1154,12 @@ export const ExecutionApprovalDeniedByHost = executionEvent(
   Type.Object(
     {
       approval_id: NativeId,
-      because: Type.Union([Type.Literal('too_long_to_show'), Type.Literal('not_recorded')]),
+      because: Type.Union([
+        Type.Literal('too_long_to_show'),
+        Type.Literal('not_recorded'),
+        Type.Literal('another_task_copy'),
+        Type.Literal('host_folder'),
+      ]),
       /** The request's length, for `too_long_to_show`; absent for `not_recorded`. */
       length: Type.Optional(Type.Integer({ minimum: 0 })),
       delivered: Type.Boolean(),

@@ -9389,6 +9389,14 @@
                     {
                       "type": "string",
                       "const": "not_recorded"
+                    },
+                    {
+                      "type": "string",
+                      "const": "another_task_copy"
+                    },
+                    {
+                      "type": "string",
+                      "const": "host_folder"
                     }
                   ]
                 },

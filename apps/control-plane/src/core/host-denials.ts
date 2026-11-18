@@ -21,6 +21,7 @@ import type { CommandService } from './command-service.ts';
 import { APPROVABLE_LIMIT, type Cause, controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 import type { EventPublisher } from './publisher.ts';
 import type { Recorder } from './recorder.ts';
+import { INTRUSION_WORDS, type Intrusion } from './sibling-copies.ts';
 
 const CLIENT = { name: 'halcyonic-control-plane', version: null, device_label: null } as const;
 
@@ -256,9 +257,14 @@ export type RequestOutcome = 'answer' | 'deny' | 'person';
  * request that would reach a person and is too long to show whole is denied with its reason (`deny`); anything else
  * reaches the person.
  */
-export function requestOutcome(event: EventEnvelope, hostAnswers: boolean): RequestOutcome {
+export function requestOutcome(
+  event: EventEnvelope,
+  hostAnswers: boolean,
+  intrusion: Intrusion | null = null,
+): RequestOutcome {
   if (event.event_type !== 'runtime.approval.requested') return 'person';
   if (hostAnswers) return 'answer';
+  if (intrusion !== null) return 'deny';
   return event.payload.too_long === undefined ? 'person' : 'deny';
 }
 
@@ -271,6 +277,11 @@ export interface HostDenialsDeps {
   readonly delivers: (runtimeId: string) => boolean;
   /** The one decision for a request (`requestOutcome`); this acts only on `deny`. */
   readonly outcome: (event: EventEnvelope) => RequestOutcome;
+  /**
+   * Whether a run in its task's own copy asks only into another task's copy or a host folder (`intrusionOf`), the
+   * same judgement `outcome` was given; absent, never.
+   */
+  readonly intrusion?: (event: EventEnvelope) => Intrusion | null;
   readonly ids: IdGenerator;
   readonly clock: Clock;
   readonly logger: Logger;
@@ -306,15 +317,20 @@ export class HostDenials {
 
   #on(event: EventEnvelope): void {
     if (this.#closed || event.event_type !== 'runtime.approval.requested') return;
+    if (event.execution_id === null) return;
     const tooLong = event.payload.too_long;
-    if (tooLong === undefined || event.execution_id === null) return;
+    // A request cut for length is never judged for where it reaches (HR4): it is denied for its length.
+    const intrusion = tooLong === undefined ? (this.#deps.intrusion?.(event) ?? null) : null;
+    if (tooLong === undefined && intrusion === null) return;
     if (this.#deps.outcome(event) !== 'deny') return;
     const approvalId = event.payload.approval_id;
     // After the request is projected, so the denial finds it pending.
     queueMicrotask(() => {
       if (this.#closed) return;
       try {
-        this.#deny(event, approvalId, tooLong.length);
+        if (tooLong !== undefined)
+          this.#deny(event, approvalId, { because: 'too_long_to_show', length: tooLong.length });
+        else if (intrusion !== null) this.#deny(event, approvalId, { because: intrusion });
       } catch {
         // Not the error itself: it can hold the request. The card stays for the person.
         this.#deps.logger.error({ execution_id: event.execution_id }, 'host denial failed');
@@ -322,7 +338,13 @@ export class HostDenials {
     });
   }
 
-  #deny(event: EventEnvelope, approvalId: string, length: number): void {
+  #deny(
+    event: EventEnvelope,
+    approvalId: string,
+    reason:
+      | { readonly because: 'too_long_to_show'; readonly length: number }
+      | { readonly because: Intrusion },
+  ): void {
     const executionId = event.execution_id;
     if (executionId === null) return;
     const view = this.#deps.projection.execution(executionId);
@@ -341,7 +363,7 @@ export class HostDenials {
       controlPlaneDraft(
         'execution.approval.denied_by_host',
         scope as never,
-        { approval_id: approvalId, because: 'too_long_to_show', length, delivered },
+        { approval_id: approvalId, ...reason, delivered },
         this.#now(),
         cause,
       ),
@@ -358,21 +380,36 @@ export class HostDenials {
           execution_id: executionId,
           approval_id: approvalId,
           decision: 'deny',
-          message: tooLongWords(length),
+          message:
+            reason.because === 'too_long_to_show'
+              ? tooLongWords(reason.length)
+              : INTRUSION_WORDS[reason.because],
         },
       },
       'internal',
       null,
     );
-    this.#deps.logger.info(
-      {
-        execution_id: executionId,
-        command_id: commandId,
-        delivered,
-        disposition: outcome.disposition,
-      },
-      'denied a request too long to show',
-    );
+    if (reason.because === 'too_long_to_show')
+      this.#deps.logger.info(
+        {
+          execution_id: executionId,
+          command_id: commandId,
+          delivered,
+          disposition: outcome.disposition,
+        },
+        'denied a request too long to show',
+      );
+    else
+      this.#deps.logger.info(
+        {
+          execution_id: executionId,
+          command_id: commandId,
+          delivered,
+          because: reason.because,
+          disposition: outcome.disposition,
+        },
+        'denied a request outside the task copy',
+      );
   }
 
   #now(): Timestamp {
