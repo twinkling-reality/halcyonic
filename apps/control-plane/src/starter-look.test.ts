@@ -1603,7 +1603,25 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
       look(),
       /hill\.translate\(Math\.cos\(a\) \* d, PLAIN_LEVEL - 0\.9, Math\.sin\(a\) \* d\);/,
     );
-    assert.match(look(), /const turf = new Mesh\(lipOfTurf, /);
+    assert.doesNotMatch(
+      look(),
+      /lipOfTurf/,
+      'the tier has no dish lip; its bank rounds over into the lawn',
+    );
+    const fields = look().slice(
+      look().indexOf('function plainLand('),
+      look().indexOf('function farClumps('),
+    );
+    assert.match(
+      fields,
+      /new RingGeometry\(0\.5, 38, 160, 120\)/,
+      'a dense mesh, so the fields are drawn where they lie',
+    );
+    assert.match(
+      fields,
+      /if \(r > 4\.5 && edge < 0\.75\) c\.lerp\(b, 0\.6\)\.multiplyScalar\(0\.55\);/,
+      'hedgerows between the fields',
+    );
   });
 
   test('the land is one ground: flush with the island, mottled, hazed toward the horizon, with far clumps on it', () => {
@@ -1614,7 +1632,7 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       land,
-      /c\.lerp\(far, Math\.min\(1, Math\.max\(0, \(r - 6\) \/ 28\)\) \*\* 0\.9\);/,
+      /c\.lerp\(far, Math\.min\(1, Math\.max\(0, \(r - 10\) \/ 40\)\) \*\* 1\.1\);/,
     );
     const clumps = look().slice(
       look().indexOf('function farClumps('),
@@ -1622,7 +1640,7 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       clumps,
-      /new InstancedMesh\(tree, material, count\)/,
+      /new InstancedMesh\(tree, material, count \+ 30\)/,
       'far clumps cost one draw call',
     );
     assert.match(

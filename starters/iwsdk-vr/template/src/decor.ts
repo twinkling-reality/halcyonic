@@ -111,7 +111,7 @@ function meadowDressing(decor: Group, counts: DecorCounts): void {
   const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
   for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
     const tree = new Group();
-    const parts = [part(new CylinderGeometry(0.06, 0.08, 0.5, 16), 'cocoa', [0, 0.25, 0])];
+    const parts = [part(barkTrunk(0.06, 0.08, 0.5, x + z), 'cocoa', [0, 0, 0])];
     for (const [a, b, c, r] of [
       [0, 0.72, 0, 0.36],
       [0.2, 0.6, 0.05, 0.26],
@@ -276,7 +276,7 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
   const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
   for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
     const tree = new Group();
-    const parts = [part(new CylinderGeometry(0.06, 0.085, 0.55, 16), '#8A5232', [0, 0.27, 0])];
+    const parts = [part(barkTrunk(0.06, 0.085, 0.55, x + z), '#8A5232', [0, 0, 0])];
     for (const [a, b, c, r] of [
       [0, 0.78, 0, 0.38],
       [0.22, 0.64, 0.06, 0.27],
@@ -406,6 +406,16 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
         if (c !== undefined) ringColours.push(c.r, c.g, c.b);
       }
     trunk.setAttribute('color', new Float32BufferAttribute(ringColours, 3));
+    // Each ring of the palm's bark swells a little at its base, so the trunk reads as stacked rings, not a tube.
+    const swell = trunk.getAttribute('position');
+    const along = trunk.getAttribute('normal');
+    for (let k = 0; k <= 24; k++)
+      for (let v = 0; v <= 12; v++) {
+        const i = k * 13 + v;
+        const bump = 0.012 * (1 - (k % 3) / 3) + 0.003 * Math.sin(v * 2.1 + k);
+        swell.setXYZ(i, swell.getX(i) + along.getX(i) * bump, swell.getY(i) + along.getY(i) * bump, swell.getZ(i) + along.getZ(i) * bump);
+      }
+    trunk.computeVertexNormals();
     // Bark with the relief of bark, ringed, matte: not a smooth tube.
     const bark = new Mesh(trunk, withGrain(toyMaterial('#FFFFFF', { ground: true, roughness: 0.88 }), 2, 0.9));
     (bark.material as MeshPhysicalMaterial).vertexColors = true;
@@ -539,7 +549,7 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
   const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
   for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
     const tree = new Group();
-    const parts = [part(new CylinderGeometry(0.05, 0.08, 0.6, 16), '#4A3B6B', [0, 0.3, 0])];
+    const parts = [part(barkTrunk(0.05, 0.08, 0.6, x + z), '#4A3B6B', [0, 0, 0])];
     for (const [a, b, c, r, colour] of [
       [0, 0.86, 0, 0.3, '#24305A'],
       [0.18, 0.66, 0.04, 0.22, '#1E2A50'],
@@ -750,6 +760,28 @@ function frond(length: number): BufferGeometry {
   geometry.setAttribute('shade', new Float32BufferAttribute(shade, 1));
   geometry.computeVertexNormals();
   return geometry;
+}
+
+/**
+ * A trunk with the bark of one: a tapering column ridged up its length and knotted here and there, `rt` and `rb` its
+ * radii at the top and the base, `h` its height, standing on y = 0.
+ */
+function barkTrunk(rt: number, rb: number, h: number, seed: number): BufferGeometry {
+  const trunk = new CylinderGeometry(rt, rb, h, 20, 8).translate(0, h / 2, 0);
+  const position = trunk.getAttribute('position');
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-6) continue;
+    const a = Math.atan2(z, x);
+    const ridges = 0.1 * Math.sin(a * 9 + seed + y * 2) + 0.05 * Math.sin(a * 23 + seed * 2) + 0.06 * Math.sin(y * 31 + a * 3 + seed);
+    position.setX(i, x * (1 + ridges));
+    position.setZ(i, z * (1 + ridges));
+  }
+  trunk.computeVertexNormals();
+  return trunk;
 }
 
 /** One part of a prop: a geometry in its own colour, placed in the prop. */

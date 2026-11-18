@@ -260,12 +260,7 @@ function island(): Group {
   const soil = withGrain(toyMaterial(ground.grass === undefined ? ground.top : ground.rim, { ground: true }), 5, 0.5);
   tier.material = [soil, toyMaterial(ground.top, { ground: true }), soil];
   group.add(tier);
-  const lipOfTurf = new TorusGeometry(FLOOR.tier.radius + 0.01, 0.035, 10, 96);
-  lipOfTurf.rotateX(Math.PI / 2);
-  const turf = new Mesh(lipOfTurf, toyMaterial(ground.rim, { ground: true, roughness: 0.85 }));
-  turf.position.set(0, FLOOR.tier.height - 0.012, FLOOR.tier.z);
-  turf.receiveShadow = true;
-  group.add(turf);
+  // No lip round its top: the bank's own turf rounds over into the lawn on top, as a bank does.
   // The top: leaf, a touch lighter at the centre, mixed toward the second green by a smooth noise.
   const topGeometry = new RingGeometry(0.001, R - 0.01, 128, 24);
   topGeometry.rotateX(-Math.PI / 2);
@@ -445,7 +440,7 @@ function meadowSky(sky: WorldLook['sky']): Mesh {
         'uniform vec3 top; uniform vec3 horizon; varying vec3 vP;',
         'void main(){ float t = smoothstep(-0.02, 0.32, vP.y); vec3 c = mix(horizon, top, t);',
         // A band of light haze where the sky meets the land, and a dither so the gradient never bands on a headset.
-        'c = mix(c, horizon * 1.1, (1.0 - smoothstep(0.0, 0.2, abs(vP.y))) * 0.6);',
+        'c = mix(c, horizon * 1.12, (1.0 - smoothstep(0.0, 0.24, abs(vP.y))) * 0.72);',
         'c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;',
         'gl_FragColor = vec4(c, 1.0);',
         '#include <colorspace_fragment>',
@@ -501,7 +496,7 @@ function skyDome(sky: WorldLook['sky']): Mesh {
         ...lines,
         `void main(){ float t = smoothstep(-0.02, 0.32, vP.y); ${colour} ${disc}`,
         // A band of light haze where the sky meets the land, and a dither so the gradient never bands on a headset.
-        'c = mix(c, horizon * 1.1, (1.0 - smoothstep(0.0, 0.2, abs(vP.y))) * 0.6);',
+        'c = mix(c, horizon * 1.12, (1.0 - smoothstep(0.0, 0.24, abs(vP.y))) * 0.72);',
         'c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;',
         'gl_FragColor = vec4(c, 1.0);',
         '#include <colorspace_fragment>',
@@ -568,7 +563,8 @@ function sea(
   horizon: string,
 ): Group {
   const group = new Group();
-  const geometry = new CircleGeometry(38, 96, 0, Math.PI * 2);
+  // A dense ring mesh, so the fade to the horizon and the sun's path are drawn where they fall.
+  const geometry = new RingGeometry(0.5, 38, 128, 64);
   geometry.rotateX(-Math.PI / 2);
   const near = new Color(water.near);
   const far = new Color(water.far);
@@ -625,7 +621,8 @@ const PLAIN_LEVEL = -0.035;
  * own colour, so the land meets the sky in haze with no edge.
  */
 function plainLand(colours: readonly [string, string], horizon: string): Mesh {
-  const geometry = new CircleGeometry(38, 96, 0, Math.PI * 2);
+  // A dense ring mesh: a circle has vertices only at its centre and rim, so colour drawn per vertex would blur away.
+  const geometry = new RingGeometry(0.5, 38, 160, 120);
   // More rings near the island, where the eye is, than far off.
   geometry.rotateX(-Math.PI / 2);
   const [a, b] = colours.map((c) => new Color(c)) as [Color, Color];
@@ -644,12 +641,21 @@ function plainLand(colours: readonly [string, string], horizon: string): Mesh {
       0.32 * Math.sin(x * 0.21 + Math.sin(z * 0.13) * 2.1) * Math.sin(z * 0.17 + Math.sin(x * 0.11) * 1.7) +
       0.18 * Math.sin(x * 0.53 + z * 0.41) * Math.sin(z * 0.61 - x * 0.27);
     const c = a.clone().lerp(b, Math.min(1, Math.max(0, n)));
-    // Dry fields among the green, in patches tens of metres across.
-    const field = 0.5 + 0.5 * Math.sin(x * 0.24 + 1.3) * Math.sin(z * 0.27 + Math.sin(x * 0.12) * 2);
-    c.lerp(dry, Math.min(0.8, Math.max(0, field - 0.45) * 1.8));
-    c.multiplyScalar(0.72 + 0.46 * n);
+    // Fields tens of metres across, each its own hue and value, with a dark hedgerow along their edges, so the
+    // middle ground steps away from the eye instead of lying as one floor.
+    const u = x * 0.94 + z * 0.34;
+    const v = -x * 0.34 + z * 0.94;
+    const fu = u / 7 + 0.4 * Math.sin(v * 0.09);
+    const fv = v / 9 + 0.4 * Math.sin(u * 0.08);
+    const cell = Math.floor(fu) * 7.13 + Math.floor(fv) * 3.71;
+    const kind = Math.abs(Math.sin(cell * 12.9898) * 43758.5453) % 1;
+    if (kind < 0.3) c.lerp(dry, 0.75);
+    else if (kind < 0.55) c.lerp(b, 0.8);
+    c.multiplyScalar(0.62 + 0.55 * (Math.abs(Math.sin(cell * 78.233) * 12345.678) % 1) + 0.12 * n);
+    const edge = Math.min(Math.abs(fu - Math.round(fu)) * 7, Math.abs(fv - Math.round(fv)) * 9);
+    if (r > 4.5 && edge < 0.75) c.lerp(b, 0.6).multiplyScalar(0.55);
     // Aerial perspective from a few metres out: lighter and greyer toward the horizon, then the horizon itself.
-    c.lerp(far, Math.min(1, Math.max(0, (r - 6) / 28)) ** 0.9);
+    c.lerp(far, Math.min(1, Math.max(0, (r - 10) / 40)) ** 1.1);
     colour.push(c.r, c.g, c.b);
   }
   geometry.setAttribute('color', new Float32BufferAttribute(colour, 3));
@@ -694,7 +700,7 @@ function farClumps(colour: string, horizon: string): InstancedMesh {
   const tree = mergeGeometries([crown.toNonIndexed(), trunk.toNonIndexed()]) ?? crown;
   const material = new MeshPhysicalMaterial({ color: '#FFFFFF', vertexColors: true, roughness: 0.95, metalness: 0 });
   const count = 90;
-  const clumps = new InstancedMesh(tree, material, count);
+  const clumps = new InstancedMesh(tree, material, count + 30);
   const place = new Object3D();
   const base = new Color(colour);
   const sky = new Color(horizon);
@@ -711,6 +717,20 @@ function farClumps(colour: string, horizon: string): InstancedMesh {
     place.updateMatrix();
     clumps.setMatrixAt(i, place.matrix);
     clumps.setColorAt(i, base.clone().multiplyScalar(0.7 + random() * 0.3).lerp(sky, Math.min(0.6, (d - 12) / 26)));
+  }
+  // Nearer, between the island and the far trees: bushes low on the land and a few lone trees, so the eye steps
+  // from the island to the hills.
+  for (let i = count; i < count + 30; i++) {
+    const a = random() * Math.PI * 2;
+    const d = 5 + random() * 9;
+    const lone = i % 6 === 0;
+    const s = lone ? 0.55 + random() * 0.3 : 0.22 + random() * 0.18;
+    place.position.set(Math.cos(a) * d, PLAIN_LEVEL - (lone ? 0 : 0.55 * s), Math.sin(a) * d);
+    place.scale.set(s * (1.1 + random() * 0.6), s * (lone ? 1 : 0.6), s);
+    place.rotation.set(0, random() * 6.28, 0);
+    place.updateMatrix();
+    clumps.setMatrixAt(i, place.matrix);
+    clumps.setColorAt(i, base.clone().multiplyScalar(0.62 + random() * 0.25).lerp(sky, Math.min(0.35, (d - 5) / 30)));
   }
   clumps.instanceMatrix.needsUpdate = true;
   clumps.computeBoundingSphere();
