@@ -1,7 +1,12 @@
 # Product
 
-Canonical product definition. "Halcyonic" is a working name and has not been legally or
-commercially cleared; no technical decision depends on it.
+Canonical product definition for **Halora** ([BRAND.md](BRAND.md)). The repository, internal
+packages (`@halcyonic/*`), C# namespaces (`Halcyonic.*`), CLI and environment identifiers
+(`HALCYONIC_*`) and data directory (`~/.halcyonic`) keep the working name `halcyonic`; neither name
+has been legally or commercially cleared, and no technical decision depends on it.
+
+A statement in this document is product intent unless [SYSTEM.md](../architecture/SYSTEM.md) or the
+source code establishes that the behavior exists today.
 
 ## Thesis
 
@@ -9,7 +14,7 @@ Software development is moving from a person continuously editing code toward a 
 initiates, supervises, understands, evaluates and redirects autonomous coding work. Today's
 interfaces for that work are still workstation interfaces.
 
-Halcyonic is a spatial interface for directing and understanding software work. Projects and tasks
+Halora is a spatial interface for directing and understanding software work. Projects and tasks
 retain their identity while the person moves between a focused workspace, a compact dock and a
 native panel beside other apps. Characters are optional representations of tasks, not prerequisites
 for finding or controlling them. Runtimes remain interchangeable executors.
@@ -22,11 +27,11 @@ resting in bed. The first moment should bring wonder, and directing work should 
 alive, never like a workstation carried into a headset. The brand holds the same feeling
 ([BRAND.md](BRAND.md)).
 
-## The interaction to prove
+## The mechanic to prove
 
 1. Open directly into understandable project and task context, with actual status and supported
    next actions. A person must be able to find existing work without learning what a character means.
-2. Inspect activity, changes, tests and source evidence while keeping the selected project and task
+2. Inspect activity, changes, checks and source evidence while keeping the selected project and task
    clear. Ask for or direct work through the capabilities the runtime actually supports.
 3. Minimize the entire workspace or move to another app, then return to the same task and ordinary
    unsent draft. Hidden controls and remembered approvals never remain authorized to act.
@@ -52,11 +57,11 @@ with an interaction model that benefits from space. Judge it using actual work a
 not a single empty or idealized screen. A successful build, layout check or installation is technical
 evidence, not evidence that the experience meets this bar. Wearer review remains required.
 
-## What Halcyonic is not
+## What Halora is not
 
 VS Code in VR; a floating terminal; virtual monitors; a mascot for Claude, Codex or any vendor; a
 3D agent dashboard; a generic chat avatar; Salidium or Seorak rendered in VR; a notification
-system; a coding model; a replacement for Claude Code, Codex, OpenCode or similar runtimes; an
+system; a coding model; a replacement for Claude Code, Codex, OpenCode or ACP agent apps; an
 excuse to make charts 3D; a tutor with a VR skin. VR editors, multi-agent dashboards and 3D views
 of agent sessions already exist, so none of these alone is differentiation.
 
@@ -71,44 +76,46 @@ keeps its identity across executions and runtimes. Details: [DOMAIN_MODEL.md](..
 
 This section states intent.
 
-Halcyonic explores VR as a working environment for agentic software development. A person should be
+Halora explores VR as a working environment for agentic software development. A person should be
 able to see and move among multiple projects and repositories, work with actual native VR or
 desktop outputs, direct agents, and understand changes and performance without repeatedly losing
 context. Salidium contributes understanding and evidence. Seorak contributes performance
-measurements. Those belong in the same working experience. Context should hold when focus changes.
+measurements. Omnorium contributes the person's project catalog. Those belong in the same working
+experience, and context should hold when focus changes.
 
 ## Entry and navigation
 
-The workspace is the front door, including return visits. Projects and Tasks remain discoverable
-before the first task exists. Existing projects, Connect project and New project lead to the same
-ordinary Project and Workstream model; creation does not require an introductory questionnaire.
-The local companion may help develop an idea, but is an optional creation path.
-Before a person connects a computer, the headset shows what directing an agent looks like: a
-recorded real run, labeled Recorded, then a demonstration they can answer, both saying that nothing
-in them reaches an agent ([ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md)).
+The workspace is the front door, including return visits. `Projects` and `Tasks` remain discoverable
+before the first task exists. Existing projects, connecting a folder and `New Project` lead to the
+same ordinary Project and Workstream model; creation does not require an introductory questionnaire.
+The local companion may help develop an idea, as an optional creation path. Before a person connects
+a computer, the headset shows what directing an agent looks like: a recorded real run, labeled
+`Recorded`, then a demonstration they can answer, both saying that nothing in them reaches an agent
+([ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md)).
 
-The home is meant to be a gallery of every project the person has, across their accounts and
-organisations, grouped as products, with the ones that need the person first and the ones being worked
-on beside their character; a newcomer's gallery starts from what they make in Halcyonic. Halcyonic's own
-projects are always there, and the rest come from Omnorium's catalog when it runs on the same
-computer ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)).
+The home is meant to be a gallery of every project the person has across their accounts and
+organisations, grouped as products, with the ones that need the person first and the ones being
+worked on beside their character; a newcomer's gallery starts from what they make in Halora.
+Halora's own projects are always there, and the rest come from Omnorium's catalog when it runs on
+the same computer ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)).
 
-Each task has a readable state and project context. Its detail exposes relevant Activity, Changes,
-Tests, requests and supported actions. An approval or question receives enough room to read it
-fully. Provider names identify evidence inside the relevant view; they are not the primary menu.
-Unavailable evidence explains what is missing, without filler or invented features. A run ending
-is not a claim that the task is accepted, correct or complete.
+Each task has a readable state and project context. Its detail exposes relevant `Activity`,
+`Changes`, `Checks`, `Reasoning`, `Outcome`, requests and supported actions. An approval or
+question receives enough room to read it fully. Unavailable evidence explains what is missing,
+without filler or invented features. A run ending is not a claim that the task is accepted, correct
+or complete.
 
 The composition follows the recorded design references through disciplined hierarchy, a coherent
 frame, attached contextual controls and a clear reading field. The references supply visual and
 interaction principles, not copied assets or fictional capabilities. Type, hand targets, source
-provenance and complete request reading remain measurable constraints.
+provenance and complete request reading remain measurable constraints ([STYLE.md](STYLE.md),
+[WORDS.md](WORDS.md)).
 
 ## Presentation and continuity
 
-The focused workspace functions without characters, room scanning or a stage slot. Minimize
-workspace clears its panels, peeks and optional agents into one dock. Restore retains selected
-work and ordinary drafts, then obtains fresh state and input authority. Move workspace changes
+The focused workspace functions without characters, room scanning or a stage slot. `Minimize
+Workspace` clears its panels, peeks and optional agents into one dock. Restore retains selected
+work and ordinary drafts, then obtains fresh state and input authority. `Move Workspace` changes
 that workspace; moving agents changes their confirmed placement. Neither guesses the location of
 another app's window.
 
@@ -117,11 +124,12 @@ with a preview and explicit confirmation. Scene-derived placement must use actua
 geometry. A manually chosen point is identified as user placement. If placement is lost, the app
 asks for a place instead of silently recreating a floating arc. Hiding agents does not hide tasks.
 
-Other apps opens the native hybrid panel, with an explicit route back to the Unity workspace.
-The native surface needs independent control-plane connectivity while Unity is paused. Its commands
-use existing capabilities and the same acceptance-versus-completion rules. One immersive app at a
-time remains the platform constraint; an Android panel is not a claim that Unity characters render
-inside another immersive scene. A failed transition cannot be displayed as a successful mode switch.
+`Other Apps` opens the native hybrid panel, with an explicit route back (`Open Halora`) to the Unity
+workspace. The native surface maintains independent control-plane connectivity while Unity is
+paused. Its commands use existing capabilities and the same acceptance-versus-completion rules. One
+immersive app at a time remains the platform constraint; an Android panel is not a claim that Unity
+characters render inside another immersive scene. A failed transition cannot be displayed as a
+successful mode switch.
 
 The versioned app-private continuation carries only connection-bound selection and an ordinary
 unsent instruction draft. Changed pairing, journal or current execution invalidates foreign state.
@@ -129,84 +137,88 @@ No read proof, armed approval, secret answer or automatic send survives a handof
 current command checks are required before acting. Details: [XR_CLIENT.md](../architecture/XR_CLIENT.md).
 
 These are the accepted experience requirements. A successful build or installation alone does not
-establish their usability. The installed character-first build was rejected in use; the complete
-workspace, optional placement and native control journey require fresh end-to-end validation.
+establish their usability. The complete workspace, optional placement and native control journey
+require fresh end-to-end wearer validation.
 
 ## Voice and contextual interaction
 
-Voice is a primary input direction requested on 2026-10-12. The workspace remains complete with
-hands and text. A person should be able to ask for an outcome in ordinary language while keeping
+Voice is a primary input direction alongside hands and text. A person should be able to ask for an outcome in ordinary language while keeping
 the current project, task and relevant evidence in view. The interface must show when it listens,
 what it understood and what happened, with a clear way to correct or cancel.
 
-The owner clarified that this must be a general agent for the VR workspace, capable of understanding
-open-ended requests and carrying them through. It is not a fixed voice-command menu or a catalogue
-of supported request phrases. The agent assembles relevant context, chooses and sequences available
-tools, observes their results, revises its approach and continues until the requested outcome is
-verified or a real decision or limitation requires the person. Rephrasing a request must not require
-a new intent branch. A tool's validated schema defines what it can do; it does not prescribe the
-person's goals or the sequence used to fulfil them.
+This direction targets a general agent for the VR workspace, capable of understanding open-ended
+requests and carrying them through rather than matching a fixed voice-command menu. The agent
+assembles relevant context, chooses and sequences available tools, observes their results, revises
+its approach and continues until the requested outcome is verified or a real decision or limitation
+requires the person. Rephrasing a request must not require a new intent branch. A tool's validated
+schema defines what it can do; it does not prescribe the person's goals or the sequence used to
+fulfil them.
 
 The stable workspace makes that ongoing work inspectable. Contextual panels show relevant evidence,
-results, progress and decisions, with supported controls when useful. Their contents follow the work
-and the person's request; they are not the extent of the agent's ability to reason. Reusable visual
-components keep text, input and placement predictable without hardcoding a layout for each request.
-Opening a new view preserves ordinary drafts and gives a clear return path. Characters appear only
-when enabled or explicitly requested and never become a requirement for voice interaction.
+results, progress and decisions, with supported controls when useful. Reusable visual components
+keep text, input and placement predictable without hardcoding a layout for each request. Opening a
+new view preserves ordinary drafts and gives a clear return path. Characters appear only when
+enabled or explicitly requested and never become a requirement for voice interaction.
 
 Context must be explicit: the selected project and task, the current execution and the item the
 person deliberately selected or pointed at. Looking near a character does not authorize an action.
-An ambiguous reference asks which item was meant. Halcyonic cannot assume access to another app's
+An ambiguous reference asks which item was meant. Halora cannot assume access to another app's
 screen merely because its own native panel is visible beside it.
 
 Requests to direct work use the existing authorized action path. Where an action requires human
-review, its complete request becomes visible and editable before confirmation. The agent may perform
-authorized steps within the approved scope without requiring the person to navigate each panel.
-Voice never bypasses required whole-request reading, capability checks, current execution binding or confirmation.
-Agent text, task titles and quoted content remain data, never spoken instructions from the person.
-A delayed interpretation cannot act on a new selection or a new connection. Failure leaves the
+review, its complete request becomes visible and editable before confirmation. Voice never bypasses
+required whole-request reading, capability checks, current execution binding or confirmation. Agent
+text, task titles and quoted content remain data, never spoken instructions from the person. A
+delayed interpretation cannot act on a new selection or a new connection. Failure leaves the
 person's words available to correct without silently retrying a command.
 
-**Current status (2026-10-15):** the implemented workspace request loop binds a request to one
-selected project, task and current execution. Its local model can choose scoped reads, send supported
-instructions through the existing command path and inspect recorded outcomes. Unity and native
-panels expose the request, reported reply and recorded actions. This is task-scoped assistance;
-global workspace navigation, project creation and arbitrary other-app control are not tools of this
-loop. The separate creation companion's ask/propose exchange still has no tools.
+**What is built today ([SYSTEM.md](../architecture/SYSTEM.md)):**
 
-Development builds transcribe held speech locally on the Mac into a particular field, under
-[ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md), including explicit
-native-panel [held dictation](../validation/native-panel-voice.md). Losing focus or leaving the
-editor cancels capture; continuous listening through background or Unity/native transitions is not
-implemented. Release microphone input is not enabled. The journaled loop and its current evidence
-are recorded in [ADR 0030](../decisions/0030-workspace-requests-use-a-journaled-agent-tool-loop.md)
-and [workspace request verification](../validation/workspace-requests.md). Deterministic runtime
-witnesses and synthetic local-model probes do not establish reliable open-ended execution with a
-real model or acceptance on a headset. Real speech target selection, ambiguity recovery,
-interruption, correction, return behavior and end-to-end latency remain acceptance work.
-Product references and their limits are recorded in
-[contextual-voice.md](../validation/contextual-voice.md).
+- **Workspace request loop (`Ask`):** [ADR 0030](../decisions/0030-workspace-requests-use-a-journaled-agent-tool-loop.md)
+  and [workspace-requests.md](../validation/workspace-requests.md) implement a journaled tool loop
+  scoped to one task and execution, to one project, or to all of the person's work (`HereScope`).
+  Running on the configured local model or a chosen hosted provider model (`Use Model`), it can read
+  scoped state and lists, continue a bound task through the existing command path, navigate to
+  workspace places (`go_to`), and propose supported commands (`propose_command`, executed only on
+  the person's press). Arbitrary control of external apps is outside its scope. The creation
+  companion in `New Project` remains a separate tool-free ask/propose exchange
+  ([ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)).
+- **Held speech (`Hold to Talk`):** under
+  [ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md), Unity XR builds
+  (release builds included) offer `Hold to Talk` whenever a computer is connected and local Whisper
+  (`whisper.cpp`) is configured on the Mac ([voice-transcription.md](../validation/voice-transcription.md)).
+  Native Android panel [held dictation](../validation/native-panel-voice.md) is restricted to
+  debuggable development builds. Losing focus or leaving the editor cancels capture; continuous
+  background listening is not implemented.
+- **Remaining acceptance work:** deterministic witnesses and synthetic local-model probes do not
+  establish open-ended reliability or wearer acceptance. Real speech target selection, ambiguity
+  recovery, interruption, correction, return behavior and end-to-end latency on a headset remain
+  open ([contextual-voice.md](../validation/contextual-voice.md)).
 
 ## Understanding and outputs
 
 Project understanding, real outputs and feedback are part of directing software work. The person
 must be able to relate an explanation to evidence, understand its limits and retain the relevant
-project/task context while asking for a change. A source import map alone does not explain runtime
-behavior or prove security.
+project and task context while asking for a change. A source import map alone does not explain
+runtime behavior or prove security.
 
-Halcyonic currently reads per-execution understanding and evaluation. Project architecture
-exploration is not yet connected. Salidium's experimental project-map v0 describes committed files,
-declared modules and imports, with C# at assembly/project membership level; it does not describe
-component purpose or data flow ([source validation](../validation/salidium-project-map.md)). Optional
-Why and How content is explanation, distinct from observed structure. Multi-repository explanation,
-full source/diff inspection and output capture/feedback require separate source and access proof.
+Halora reads per-execution understanding and briefs from Salidium, per-execution evaluation and
+account-wide usage limits from Seorak, project catalogs from Omnorium, and host-observed turn diffs,
+checkpoint diffs and bounded project files from the control plane ([SYSTEM.md](../architecture/SYSTEM.md)).
+Project-wide architecture exploration across repositories is not connected: Salidium's experimental
+project-map v0 describes committed files, declared modules and imports (with C# at assembly/project
+membership level), not component purpose or runtime data flow
+([salidium-project-map.md](../validation/salidium-project-map.md)). Optional Why and How content is
+reported explanation, distinct from observed structure.
 
-Capture from another app requires the platform's explicit consent, a permitted purpose, a preview
-and an actual supported attachment path. A screenshot is not proof of source identity. Do not show
-an active share/capture control until its full permission, review, delivery and return path works.
+Capture from another app on the headset requires the platform's explicit consent, a permitted
+purpose, a preview and a verified attachment path; do not show an active headset screen-capture
+control until that full path holds. Photos and videos added on the Mac (`Photos and Videos`) are
+copied without location metadata into the project's folder for confined tasks
+([ADR 0066](../decisions/0066-a-persons-photo-or-video-goes-into-the-projects-folder-as-a-copy-without-its-place.md)).
 
 Usage is secondary work context. Provider limits retain source, observation time, account identity
-when known and reset information. An unknown account or unavailable source cannot become a guessed
+when known and reset information. An unknown account or unavailable source never becomes a guessed
 remaining budget.
 
 ## Collaboration policies (future)
@@ -218,54 +230,58 @@ model reasoning. It is not part of the first vertical slice.
 
 ## Neighbouring products
 
-Halcyonic consumes their intelligence without absorbing their ownership. The dated integration
-facts and checks are in the validation records.
+Halora consumes their intelligence without absorbing their ownership, and never draws a sibling
+product's name on a headset screen (`tooling/sibling-names.test.ts`; [WORDS.md](WORDS.md)). Dated
+integration checks live in `docs/internal/validation/`.
 
-- **Salidium** provides per-execution evidence, changed files, verification state and optional
-  model-written Why and How explanation. It observes Claude Code and Codex; it does not control
-  them. Halcyonic reads its versioned consumer contract v1 through the control plane
-  ([validation](../validation/salidium-consumer-contract.md)). Its separate experimental map and
-  execution links describe committed repository structure and exact-path change relationships;
-  Halcyonic does not consume them, and they do not establish application behavior or security.
-- **Seorak** tracks the performance of agentic development: usage, cost estimates, reliability
-  and outcomes. It deliberately does not grade quality. Halcyonic reads per-execution cost,
-  outcome and verification through Seorak's versioned integration API, joined to sessions
-  Halcyonic launched. Its provider usage limits read was observed live once on 2026-09-30 from an
-  unreleased build; that historical check does not establish current service availability or
-  headset rendering ([validation](../validation/seorak-integration-api.md#provider-usage-limits-2026-09-30)).
-- **Halcyonic** owns spatial representation, workstream navigation, runtime control, the
-  compressed and expanded interaction, permissions and connectivity.
+- **Salidium** provides per-execution evidence, changed files, verification state, optional
+  model-written Why and How explanation, and an execution brief. It observes agent sessions without
+  controlling them. Halora reads Salidium's versioned consumer contract v1 (`understanding`, plus
+  the `1.2` `brief` reader) through the control plane
+  ([salidium-consumer-contract.md](../validation/salidium-consumer-contract.md)); Salidium's
+  experimental repository map and execution links v0 are not consumed
+  ([salidium-project-map.md](../validation/salidium-project-map.md)).
+- **Seorak** tracks the performance of agentic development: usage, cost estimates, activity,
+  reliability and outcomes. It deliberately does not grade code quality. Halora reads per-execution
+  `evaluation` (cost, activity, outcome, verification, tool-mix and cadence) and account-wide
+  provider `usage-limits` through Seorak's versioned integration API v1, joined to sessions Halora
+  launched ([seorak-integration-api.md](../validation/seorak-integration-api.md)).
+- **Omnorium** provides the person's project catalog across accounts and repositories. Halora reads
+  Omnorium's catalog contract v1 over loopback (`GET /api/catalog`) when configured
+  ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md),
+  [omnorium-catalog.md](../validation/omnorium-catalog.md)).
+- **Halora** owns spatial representation, workstream navigation, runtime control, compressed and
+  expanded continuity, permissions and connectivity.
 
-## First milestones
+## Architecture milestones
 
-The foundation was built before the XR prototype, so headset presentation does not dictate the
-provider-neutral backend.
+The provider-neutral foundation precedes the XR layer so headset presentation never dictates backend
+truth. Component-by-component status lives in [SYSTEM.md](../architecture/SYSTEM.md).
 
 1. **Truth layer (built).** Contracts, domain, journal, projection, command lifecycle, mock
    runtime, fixture replay, REST and WebSocket.
-2. **XR shell (built, device refinement ongoing).** A Unity client consumes the realtime stream
-   and renders workstream characters that react to status and attention, hands first.
-3. **The defining interaction (built, device refinement ongoing).** Open a character into its
-   workspace, act, collapse it back. On 2026-09-29 a Quest session opened a workspace and completed
-   an approval through the control plane
-   ([quest-3-device.md](../validation/quest-3-device.md), second session). Later interface revisions
-   have their own notes in that record. That session is dated evidence, and it is not proof the
-   current build is finished.
-4. **Real work (partly built).** OpenCode, Claude Code and Codex adapters exist; Salidium and
-   Seorak read-through exists. A real Codex execution was read through both local daemons. The
-   control plane can bind a project to one folder the host approves, and tests have started
-   OpenCode and Codex on a local model in a new folder
-   ([project-location.md](../validation/project-location.md)). A complete live start on a headset is
-   not closed by the fifth session in [quest-3-device.md](../validation/quest-3-device.md), which
-   that record calls partly.
+2. **XR shell (built, device refinement ongoing).** Unity client consuming the realtime stream,
+   focused workspace, room characters and native Android continuation panel.
+3. **The defining interaction (built, device refinement ongoing).** Open work into its workspace,
+   inspect evidence, act with runtime confirmation, minimize or switch apps, and return
+   ([quest-3-device.md](../validation/quest-3-device.md)).
+4. **Real work (built on host, headset verification ongoing).** Adapters for OpenCode, Claude Code,
+   Codex, and ACP agent apps (Antigravity, Kiro and Cursor profiles,
+   [ADR 0067](../decisions/0067-agent-apps-that-speak-acp-are-directed-through-one-adapter.md));
+   headset pairing over pinned TLS on local Wi-Fi from the Mac pairing page (`Your Computer`,
+   [ADR 0017](../decisions/0017-pair-a-headset-over-the-local-network.md),
+   [ADR 0047](../decisions/0047-pairing-starts-from-a-page-on-the-mac.md)); per-task folder copies
+   ([ADR 0045](../decisions/0045-each-task-works-in-a-copy-of-its-own.md)), vetted starters and
+   headless checks/previews ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md));
+   and Salidium, Seorak and Omnorium read-through ([project-location.md](../validation/project-location.md),
+   [SYSTEM.md](../architecture/SYSTEM.md)). Live end-to-end Quest sessions across the full current
+   flow remain open.
 
-The minimum viable product needs understandable project/task entry, hands-only interaction,
-whole-workspace minimize/return, one real runtime, one supported action with a runtime-confirmed
-result, and useful evidence from Salidium and Seorak. It also needs a simple path to create a project and begin its first
-work in the headset. This does not require open-ended idea generation, a full IDE, multiplayer,
-full learning, a cloud relay, every runtime, elaborate customization, autonomous merge or deploy,
-or a complex voice assistant. How much of the new-project path fits in the first competition
-release remains open.
+The minimum viable product needs understandable project and task entry, hands-only interaction,
+whole-workspace minimize and return, a real runtime with runtime-confirmed actions, useful evidence
+from Salidium and Seorak, and a clear path to create a project and start its first work in the
+headset. It does not require a full IDE, multiplayer, full learning, a cloud relay, every vendor
+runtime, autonomous merge or deploy, or continuous background voice listening.
 
 ## Principles
 
@@ -300,10 +316,3 @@ Take these seriously and do not hide them:
 - runtime differences make normalized control impossible;
 - multitasking fails on real hardware (networking, rendering, background behavior);
 - target developers do not wear a headset when the work matters.
-
-The current isolated spatial composition candidate puts global organization behind one Workspace
-control. Its local page includes existing destinations, placement, minimize, other apps and task
-portrait visibility; it grants no runtime capability. Move is an explicit local mode with a real
-hold target and Done moving return. The unselected Projects chooser has no redundant Close, while
-a task keeps the existing context-closing behavior. This candidate remains subject to actual
-rendering and wearer evaluation; earlier composition checks do not establish its acceptance.

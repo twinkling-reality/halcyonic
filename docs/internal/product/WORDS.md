@@ -1,668 +1,434 @@
-# How Halcyonic speaks
+# How Halora speaks
 
-Halcyonic's own words on the headset: how they sound, the word for each state of a task, and what
-a person never reads. Every word lives in the client core (`apps/xr/Packages/com.halcyonic.client`),
-in `StateLanguage`, `EntryText`, `WorkspaceText`, `ConnectionText`, `VoiceText`, `HostText` and their kin, so
-tests hold them to these rules and the Unity layer only lays them out
-([ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)).
-Text from outside (titles, agent messages, tool output, server errors) is not ours: it shows as
-written, by `LabelText`'s rule, and only where a person needs it, and it leans, on a ground only
-Halcyonic draws where it meets our words (the owner, 2026-10-08; ADR 0026). Amended 2026-10-16 for
-the independent workspace candidate (ADR 0026): agent prose attributed whole, by its chip and
-Halcyonic's quote mark, and the person's instruction in its input stand upright; a line mixing our
-words with theirs keeps the lean and the ground.
-
-## Starting a task
-
-The current action is **Start task**, confirmed by **Yes, start task**. It starts the selected
-runtime execution; it does not promise a software build, APK, deployment or working output.
-The wizard’s final visible step is **Start**, including its review and waiting states. Its internal
-Build enum/navigation key remains an implementation detail.
-Older wording examples below that call this action Start building are superseded by this name.
-The selected-project Tasks view offers **New task** as a literal action, keeping the project's
-outside name out of the fixed button label. Opening it only opens that existing project's draft;
-no project or execution is created until the full existing review and explicit confirmation.
-
-## Photos and videos given to a task (protocol 3)
-
-A photo or video the Mac's page adds (ADR 0066) is refused in sentences, never the dot cadence: "That photo or video
-is no longer kept on this computer. Add it again." and "That photo or video is already in this project. Nothing was
-added." (the host's own); a project at its most, "This project already holds as many photos and videos as it can
-keep. Add it to another project." (`WorkspaceText`, AUDIT2's words). On the task, each is its file's own name, as the person's, with the
-still the host made of it where it made one (`TaskMedia`).
-
-## Result pages, 2026-11-16 (AUDIT2's reader 4)
-
-Changes says under its title "What this task changed in the project." (the title already names the task). A failed
-check's line names the step it stopped at by the row's own word ("The check stopped at Build."), else "The
-computer's check stopped on a step". The project's kept versions are "Earlier Versions" (History until 2026-11-16:
-a newcomer could not tell history of what). The computer's check rows are "Code Check", "Builds", "Starts and
-Shows" and "Has VR Mode" (Type Check, Build, Page Drawn and VR Offered until 2026-11-16; meanings unchanged: "Has VR
-Mode" says the page offers one, never that it was tried in a headset); a project's own check is "Own Checks". While
-the agent fixes a failed check by itself the card reads "Fixing" over "The agent tries again on its own.", the failed
-rows red under it, never the rows' names joined in a sentence. Check rows after the step a check stopped at read "Not Run", never an empty box
-(FIELD's RoomCardView.NotRun; AUDIT2's W5).
-
-"Before It Acts" stands over those choices, on the agent page and New Project's change page, so the chosen one's
-tick reads as the answer, never as a switch (AUDIT2; the lead's yes, 2026-11-16). How often the agent asks reads "Ask
-Me First", "Don't Ask Me" and "Show Plan First" (Ask First, Never Ask and Plan
-First until 2026-11-16, AUDIT2's words: what each does for the person, "Show Plan First" apart from asking). The kit
-picks the agent's glyph from its action, never from these words, so they can move (FIELD's 3a7b25527); the host's own
-labels for the same choice move with them (CORE).
-
-## Usage, the stage's banner and a fix that ran out (AUDIT2, 2026-11-16)
-
-The usage gauges are the "5-Hour Limit" and the "Weekly Limit" (Session and Week until 2026-11-16: a reader could not
-tell what a session is), each figure with its own word, "62% Left". The stage's banner beside a window says "6 more
-tasks not shown here" ("1 more task not shown here") and "Still Open: <the panel's name>", the name whole, never cut,
-the banner wrapping it (both were dot-joined and the name cut before). Where the agent's tries at a failed check ran
-out, the line says how many from the run's own cap: "The agent tried twice and could not fix it."
-
-## The worker by its role
-
-On the headset's own surfaces the worker is named by its role, "Agent": on the agent action at rest, on the plate
-while it works and on New Project's recap card (the lead's product rule, 2026-11-16). A character stands for the
-work and the agent app is an interchangeable executor (AGENTS.md), so the agent app's and the model's own names
-stand one level down, where a person chooses them (the run settings, Use Model) and on the review that names what a
-start sends. A practice run still says Practice Run. The recap card names its first task under the name unless the
-two are the same words, which it says once.
+Canonical specification for Halora's on-screen copy on the headset and companion Mac pages: voice
+principles, state badges, action titles, provenance rules, refusal patterns, and how outside text is
+marked. Headset copy lives in `apps/xr/Packages/com.halcyonic.client` (`StateLanguage`, `EntryText`,
+`WorkspaceText`, `ConnectionText`, `VoiceText`, `RuntimeFaces`, `SpendingLimit`, `EvidencePage`,
+`FileChangeText`, `RoomBar`, `GalleryText` and their kin,
+[ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)), and
+command titles live in `packages/domain/src/policy.ts` (`COMMAND_SAYING`). Visual tokens and layout
+live in [STYLE.md](STYLE.md).
 
 ## The voice
 
-Calm and plain, like a capable colleague who says what is true now, how sure it is, and what you
-can do next.
+Calm and plain, like a capable colleague who states what is true now, how certain it is, and what
+the person can do next.
 
 1. **Controls, headers and stages are 1 to 3 words in Title Case.** Each names the exact system
-   concept ("Needs You", "Read Command", "Activity"), never a conversational clause (the owner's
-   voice standard, 2026-10-30).
-2. **Metadata reads in the " · " cadence.** Segments are joined by " · " without chatty
-   prepositions ("Codex · 0.9 s · Observed"). Words from outside (names, paths, commands, the
-   agent's text) stay exactly as written. Stages are parallel, and a sentence that only explains
-   the control beside it is deleted; a sentence that carries a truth stays, in the cadence. A
-   line that breaks does so between two segments, and the dot is dropped there: no line starts or
-   ends with one (2026-11-03).
-3. **Only what is true now, and how sure.** Sending, Sent. Waiting for the agent., Confirmed only when
-   the agent confirmed, Refused, Unconfirmed, Not Sent wherever a press sent nothing. A finished round says nothing
-   about whether the work is right, so nothing celebrates it.
-4. **Lead with the state or the action**, then the cause, then the way on, as one plain sentence, never facts on a dot ("Nothing was sent: your answer changed. Read it again."; the owner's ban, 2026-11-11, on every panel and page).
-5. **Buttons** begin with a verb, in Title Case, in one to three words. A confirmation is
-   "Confirm" beside Cancel, under the question that names the action ("Approve Request?"). An icon may
-   stand before a button's words, never in their place.
-6. **Use familiar names for the work and its actor.** Projects, Tasks, Approvals, Activity, Changes,
-   Tests and Send Instruction say what the person can do. Agent and assistant are ordinary nouns;
-   avoid forced pronouns and invented circumlocutions. Your computer identifies the connected host.
-   Halora identifies this workspace. Brands supplied as data remain outside text.
-7. **No blame, and a next step.** Every refusal ends with what to do: "Start Failed · No Folder ·
-   Choose Folder".
-8. **The agent's words are its own**, marked as theirs and never restated as fact: tagged by their
-   claim's chip ("Agent · Reported" in a section) and leaning. Since 2026-10-08 (the owner, ADR 0026)
-   Halcyonic adds no quotes or leads such as "It says:" around them: they lean on a ground only
-   Halcyonic draws wherever they meet our words, and they are cut first. The same holds for all text
-   Halcyonic didn't write, a title, a name, a label, a source's sentence and the person's own typed or
-   heard words included (lane V's ruling, 2026-10-08): it leans, never quoted, and where we can word it
-   so it comes after our words. Applied by lane W's batch B (the table "Words from outside" below).
-   Amended 2026-10-16 for the independent workspace candidate (ADR 0026): an agent's words attributed
-   whole, every run theirs beside the chip and Halcyonic's quote mark, stand upright, and so does the
-   person's ordinary instruction in its input, whose label says whose words they are. A line where
-   Halcyonic's words lead into theirs, as "Failing: {x}", keeps its lean and ground beside the chip,
-   so the chip is never the only mark.
-9. **No exclamation marks, emoji, em dashes or capitals for emphasis.** Numerals for numbers.
-10. **Practice, Demo, Recorded and Last known** are said wherever they apply, beside a state and
-    never inside its word.
-11. **No brands in our words.** App and model names arrive as data; Salidium and Seorak appear
-    only in a provenance line. One exception, the owner's own words (2026-11-03): the composer's Host
-    chip names the Mac, "Host: This Mac" or "Host: Sandbox", and the kit names the host the same way
-    wherever it names it as a place ("Observed on This Mac", "Runs on This Mac", "Runs in Sandbox";
-    `KitMomentWords.ThisMac` and `InSandbox`). Everywhere else, the demonstration included, the host
-    is "your computer" (`HostText`), and `JudgeWordsTests` keeps every brand, "Mac" among them, off
-    the demonstration's paths.
+   concept (`Needs You`, `Read Command`, `Activity`, `Send`), never a conversational clause.
+2. **No facts strung on dots where a person reads rows, buttons or pages.** On Mac pages and in host
+   strings (`tooling/no-dot-rows.test.ts`), on buttons (`RoomButton` splits any `" · "` onto
+   separate lines), in `Nothing was sent:` notices (`DotJoinedWordsTests`), and on result and
+   evidence cards, facts stand as separate labels, slots or plain sentences. The `" · "` cadence is
+   used only on compact headset metadata flows (`KitFlow` on `KitMoment` and legacy `Glaze` lines),
+   where line breaks occur between segments with the dot dropped so no line starts or ends with a
+   dot.
+3. **Only what is true now, and how sure.** `Sending`, `Sent` (`Waiting for the agent to start.` or
+   `Waiting for the agent.`), `Confirmed` only once the runtime confirms, `Refused`, `Unconfirmed`,
+   and `Not Sent` wherever a press sent nothing. A finished round says nothing about whether the
+   software is right, so nothing celebrates it.
+4. **Lead with the state or action, then the cause, then the next step.** Refusal and cancellation
+   notices use plain sentences (`Nothing was sent: your answer changed. Read it again.`), blaming
+   neither the person nor the agent.
+5. **Buttons begin with a verb in Title Case.** Confirmations use `Confirm` beside `Cancel` under a
+   question naming the exact action (`Approve Request?`, `Deny Request?`, `Send Instruction?`,
+   `Send This?`, `Stop Task?`), or name the reviewed action directly on a single-press review card
+   (`Add to Project`). An icon may stand before a button's words, never in their place.
+6. **Familiar names for the work and its actor.** `Projects`, `Tasks`, `Activity`, `Changes`,
+   `Checks`, `Reasoning`, `Outcome` and `Send` say what the person can do. `Agent` and `assistant`
+   are ordinary nouns. `Halora` (`WorkspaceText.Product`) names the workspace; `your computer` or
+   `This Computer` names the connected host.
+7. **Outside text is never presented as Halora's own words.** Titles, paths, commands, agent prose,
+   tool output, source reasons and the person's typed or transcribed words pass through `LabelText`
+   (`Plain`, `Exact`, `ForTextMeshPro`): rich-text markup is disabled, backslashes are escaped, and
+   control, format, default-ignorable, noncharacter and Private Use Area code points render
+   literally as `‹U+XXXX›` (with `⇥` and `↵` in command/code wells,
+   [ADR 0065](../decisions/0065-a-request-too-long-to-show-whole-is-denied-by-the-host-with-its-reason.md)).
+   See [Words from outside](#words-from-outside).
+8. **No exclamation marks, emoji, em dashes or all-caps emphasis in prose.** Use numerals for
+   numbers. Eyebrow labels in the room's `Label` role render in spaced uppercase through
+   `RoomType.Label`, while the underlying strings stay in Title Case.
+9. **Source modes stay explicit beside the state.** `Practice`, `Demo`, `Recorded` and `Last Known`
+   appear beside a state badge, never inside the state word itself.
+10. **No vendor or sibling brand names on headset faces.** Sibling products (`Salidium`, `Seorak`)
+    are never drawn in any headset build (`tooling/sibling-names.test.ts`; see
+    [A provenance line](#a-provenance-line)). Agent apps and the host are named on faces by what
+    they are (`RuntimeFaces`, `CaptureNames.Host`), while real runtime and model names stay one
+    press deeper on pickers and details.
+
+## Agent faces and host naming
+
+A character in XR represents a Workstream, never a vendor session. Across headset faces (tags,
+moment cards, project screens, `Activity` lifecycle entries, `New Project` recap/review summaries,
+and `KitComposer` chips), Halora names an agent app by what it is (`RuntimeFaces.Head`) and names
+the host `This Computer` (`KitMomentWords.ThisMac` / `CaptureNames.Host`):
+
+| Runtime / host | Face label (`RuntimeFaces.Head`) | Picker subtitle (`RuntimeFaces.Line` / `SecondLine`) |
+| --- | --- | --- |
+| Synthetic (`mock`) | `Practice Run` | `Pretends to work; nothing real is done.` |
+| `codex` on `ModelServed.ThisMac` | `Local Models` | `Runs only on models served on this computer.` |
+| `claude-agent` | `Hosted Models` | `Runs on models its maker or your cloud provider serves, with your own key.` |
+| `codex` on `ModelServed.Remote` | `Hosted Models` | `Runs on a model a provider serves online.` |
+| `opencode` | `Your Model Setup` | `Runs on the models your own setup lists, on this computer or online.` |
+| `antigravity`, `kiro`, `cursor` | `Signed-In App` | `Uses its own sign-in and its own models.` (`Always asks before it acts.` on Kiro; `Asks before it reads outside the project.` on Antigravity) |
+| Unknown kind or mixed Codex | `Coding Agent` | `Runs on the models it lists, on this computer or online.` (Codex) |
+| Host environment (`MayLeave` / `StaysInside`) | `Host: This Computer` / `Host: Sandbox` | Moment eyebrow: `Observed on This Computer` |
+
+On the worker button at rest, on the working plate and on `New Project`'s recap card, the worker is
+titled `Agent` (`Practice Run` when synthetic). The runtime's actual display name and model id
+appear one press deeper where the person chooses or inspects them (`How It Runs`, `Use Model`, and
+agent details via `RuntimeFaces.DetailsName`), unless development capture mode (`CaptureNames.Generic`)
+substitutes `Coding Agent` and `AI Model` for footage capture.
+
+## Starting a task and approval levels
+
+- **Starting:** `New Task` opens an existing project's task draft without embedding outside project
+  names into the button label. In `New Project`, the final step is `Start` / `Start Task`, confirmed
+  by `Confirm` (or `Yes, start task` on legacy menus). Starting launches the selected runtime
+  execution; it never claims a finished build or deployment.
+- **Before It Acts (`PlanStart`, `AgentColumn`):** over the start-policy choices on the agent page
+  and `New Project`'s change page stands `Before It Acts`, with three person-facing options:
+  - `Ask Me First` (default supervised mode)
+  - `Don't Ask Me` (`never_ask`, offered only where the runtime holds its bounds,
+    [ADR 0043](../decisions/0043-a-person-may-let-a-tasks-agent-work-without-asking-where-its-runtime-keeps-it-in-bounds.md))
+  - `Show Plan First` (`offers_plan`, where the agent plans first and rests at `Plan Ready` with
+    `Carry Out Plan` as its main action)
+- **Command titles (`COMMAND_SAYING` in `packages/domain/src/policy.ts`):** every command uses a
+  1-to-3-word Title Case verb phrase with no brand name: `New Project`, `Change Folder`, `Project
+  Rules`, `Make VR Copy`, `Restore`, `Check Project`, `Choose Check`, `Play`, `Stop Playing`,
+  `Play on Computer`, `Show Folder`, `Save a Copy`, `Share`, `Stop Sharing`, `Add Secret`, `Remove
+  Secret`, `Add Media`, `Send for Review`, `Publish`, `Take Down`, `Make Private`, `Link
+  Repository`, `Unlink Repository`, `Remove From List`, `New Task`, `Add to Project`, `Fit to
+  Project`, `Start`, `Send`, `Approve`, `Answer`, `Stop`, `Drop`, `Ask`, `Cancel` and `Use Model`.
 
 ## The word for each state
 
-One word per state, the same on the badge, in the peek, in the workspace and in every list
-(`StateLanguage.WordOf`). A sentence says the same state in full.
+One word per state across badges, peeks, workspace headers and lists (`StateLanguage.WordOf`):
 
 | State | Badge | In a line |
 | --- | --- | --- |
-| No run yet | Not Started | Not Started |
-| Asked to start, not yet confirmed | Starting | Starting · Unconfirmed |
-| The agent is at work | Working | Working · 2 Tasks |
-| A test run in progress | Checking | Checking · Reported |
-| An approval or a question waits | Needs You | Needs You · 1 Task; Needs You · {title} |
-| The round ended | Round Ended | Round Ended · Ready to Review |
-| The round ended and its checks did not pass | Checks Failed | Checks · 1 Failed · 23 Passed · Observed or Reported |
-| The run failed | Failed | Round Failed · Write Instruction; where nothing can be told to it, Round Failed · Re-Add Task in Projects (the way on, never the agent app's error) |
-| Stopped, as the agent confirmed | Stopped | Stopped · Confirmed |
-| Halcyonic cannot see the work | Unknown | Status Unknown; with a known cause, Status Unknown · Agent App Unreachable |
+| No run yet | `Not Started` | `Not Started` |
+| Asked to start, not yet confirmed | `Starting` | `Starting · Unconfirmed` |
+| The agent is at work | `Working` | `Working · 2 Tasks` |
+| Agent-reported test run in progress | `Checking` | `Checking · Reported` |
+| Approval or question pending | `Needs You` | `Needs You · 1 Task`; `Needs You · {title}`; `Needs You · 2` when multiple items wait |
+| Round ended without failing checks | `Round Ended` | `Round Ended · Ready to Review` |
+| Round ended with failing checks | `Checks Failed` | `Checks · 1 Failed · 23 Passed · Observed` (or `Reported`) |
+| Execution failed | `Failed` | `Round Failed · Write Instruction`, or `Round Failed · Re-Add Task in Projects` when unsteerable |
+| Stopped and runtime-confirmed | `Stopped` | `Stopped · Confirmed` |
+| State cannot be verified | `Unknown` | `Status Unknown`; `Status Unknown · Agent App Unreachable`; `Status Unknown · Computer Restarted`; `Status Unknown · Start Unconfirmed` |
 
-The badges and lines follow the owner's voice standard (2026-10-30). The file and the workspace say
-Round Failed, Status Unknown and, in Latest, Checking · Reported so; the menu's counts, lists and
-sentences still read "2 tasks running" and the like until the menu's words move. The state's word was Running until 2026-11-16, when it became Working everywhere a person reads the state (AUDIT2: "Working" is what a child says of a person at work; "Running" is a computer's word); "Running Tests" and "Running Command" stay the steps' verbs. A finished round never says Done or Complete. Checking is the agent's
-report: wherever its line stands it says Reported, so it never reads as your computer's own check.
-
-The state badge also counts what waits when more than one thing does ("Needs You · 2"). In
-counts, "paused" covers tasks that ran and rest, neither running nor waiting for you; tasks never
-started are "not started", the badge's own word ("3 tasks not started", "1 task paused, 2 not
-started").
+A finished round never says `Done` or `Complete`. `Running Tests` and `Running Command` remain tool
+step descriptions while `Working` names the task state. In summary counts, `paused` covers tasks
+that ran previously and now rest, while tasks with no execution read `not started`.
 
 ## What is happening, in steps
 
-A task's panel lists its steps in plain words a child can follow (`TaskSteps`; the lead's ruling of
-2026-11-16 and AUDIT2's words), each from a fact the journal holds and nothing else. Each step has a mark (done,
-now, not yet) and at most one line under it.
+A task's panel lists its lifecycle steps from journal facts alone (`TaskSteps`), each marked done,
+current or upcoming with at most one subtitle line:
 
-| Step | When | Its line |
+| Step | When shown | Subtitle line |
 | --- | --- | --- |
-| Your Request | the task has an instruction | none; the person's words stand in the file, never again in the steps |
-| Planning | only in plan mode, until the plan is left | none; a plan made leaves Working not yet with the result's own action, "Carry Out Plan" |
-| Working | the agent's turn; the agent's own test run is still Working | the step under way ("Editing index.html"); once done, "Changed 3 Files" as the computer saw them, never a count it did not read |
-| Check | the turn ended and no check of the computer's own covers the files as they are | what the project's check does: a starter's app, "Builds the app and opens it."; a project of its own, "Runs the project's own checks."; one with no check chosen yet, "Choose a check for this project first." (the host's own words) |
-| Checking | a Check Project the person sent is under way | none |
-| Ready | only after that check passed on the files as they are | none |
+| `Your Request` | Task has an instruction | None (the instruction stands in the file, not repeated here) |
+| `Planning` | Started with `Show Plan First`, until leaving plan mode | None; a finished plan rests before `Working` with `Carry Out Plan` |
+| `Working` | Active agent turn (including agent-run tests) | Live step (`Editing index.html`, `Reading src/main.ts`, `Running Tests`, `Running Command`); once ended, `Changed 3 Files` from host observation |
+| `Check` | Turn ended and no current host check covers the files | Starter app: `Builds the app and opens it.`; custom check: `Runs the project's own checks.`; none configured: `Choose a check for this project first.` |
+| `Checking` | Host `Check Project` under way | None |
+| `Ready` | Host check passed on current files | None |
 
-Where no check exists (a world, or a starter that declares no build) there is no Check and no Ready step: the list
-ends at Working, never at a step nobody can reach (AUDIT2, 2026-11-16).
+Projects with no host check (such as `world` projects) omit `Check` and `Ready` so the list ends at
+`Working`. A pending approval or question marks the active step with `Needs You: Run Command?` (for
+commands) or `Needs You` (never a raw tool identifier). Tasks ending short of `Ready` end on `Checks
+Failed`, `Partly Checked`, `Starter Only`, `Stopped`, `Failed`, or `Can't Tell` with its known
+cause.
 
-Once the turn ended, what the task used stands under the list (`TaskUsage`, the same rules as the Mac's Usage page):
-"Tokens Used" with the agent app's own count in whole digits ("210,700"), "At least this much" and why where it is
-short ("Some parts not reported", "2 of 3 turns reported"), "Not Reported Yet" or "Not Reported by This App" where
-there is none, never 0; and "Cost" only where the agent gave its own estimate, "By the agent's count" under it, money
-under a cent keeping its first figures. No agent app's name stands beside it.
+`Watch It Work` (`WorkspaceText.WatchCount`) reports host-observed file counts in matching words:
+`No Files Changed Yet` or `Changed 3 Files So Far` (`Changed 1 File So Far`) during a turn, and
+`Changed 3 Files` after a turn that changed files.
 
-An approval or a question marks the step that is now, which keeps its word: its line is "Needs You: Run Command?"
-for a command and "Needs You" for anything else (never a tool's own name). A task that ends short of Ready ends the
-list where it stood: Checks Failed, Partly Checked (the check's verdict is not known), Stopped, Failed, or Can't Tell
-with why where it is known; Can't Tell is never read as Failed.
+Under the steps at rest, `TaskUsage` shows `Tokens Used` in whole digits (`210,700`, with `At least
+this much` and `Some parts not reported` or `2 of 3 turns reported` when partial, or `Not Reported
+Yet` / `Not Reported by This App`, never `0`) and `Cost` only when the agent app supplied an
+estimate (`By the agent's count`, preserving significant digits below one cent).
 
-Watch It Work (`WorkspaceText.WatchCount`, AUDIT2 03:06Z and 03:07Z) counts the files the turn changed in the same
-words: "Changed 3 Files So Far" while the turn is at work ("Changed 1 File So Far" for one), "Changed 3 Files" once it
-has ended, the Working step's own line, and "No Files Changed Yet" while at work with none. An ended turn that changed
-nothing says no count.
+## Result, check, media, usage and code-colour pages
+
+- **Changes and file reader (`RoomPanelCards`, `FileChangeText`):** `Changes` carries `What this
+  task changed in the project.` under its title, listing each file with its kind (`Edited`, `New`,
+  `Removed`) and line counts (`{n} Lines`, or `+{added}` / `−{removed}` from checkpoints). Opening a
+  file shows its name and path, `Page {n} of {pages}`, `Reading File`, `Whole File` (`As it is now:`
+  followed by path, or `As it is now.`), or truthful empty/refusal states: `Nothing to Compare`
+  (`The computer kept no earlier version of this file` or `The earlier version was not found`),
+  `Kept Private` (`Its name says it may hold secrets`), `Too Large to Show` (`Over 262 KB`, from
+  `PROJECT_FILE_BYTES`), `Not Text`, `Empty File`, `The rest is too long to show here`, and `Not
+  Read` (`The computer did not answer` with `Try Again`, `The computer's reply can't be shown`, or
+  `Reason unknown`). Kept checkpoints are titled `Earlier Versions`.
+- **Checks and automatic fixes (`CheckSteps`, `RoomResult`):** starter check rows are `Code Check`,
+  `Builds`, `Starts and Shows` and `Has VR Mode` (`Has VR Mode` means the page offers WebXR, not
+  that a headset session ran it); custom scripts read `Own Checks`. Steps after a failure read `Not
+  Run`, never a blank box; a failure names the step (`The check stopped at Build.` or `The
+  computer's check stopped on a step`). While automatic repair ([ADR 0044](../decisions/0044-a-failed-check-goes-back-to-its-agent-on-its-own-within-a-cap.md))
+  runs, the card shows `Fixing` over `The agent tries again on its own.`; if the cap is exhausted,
+  it shows `The agent tried twice and could not fix it.` Result cards show `All Passing`, `Checks
+  Failed`, `Partly Checked` (`What was checked passed; one thing could not be checked.`, plus the
+  three-sentence `No visible change to the page. ... Look and listen to judge it.` note when files
+  changed without visual pixel change), or `Starter Only` (`Nothing new is drawn yet. Say what you
+  want to see.`). An unconfined run shows `Not Kept to Folder` (never `confined`, `sandbox` or
+  `seatbelt`).
+- **Outcome and Reasoning (`EvidencePage`, `RunResults`, `RunUnderstanding`):**
+  - `Outcome` reads Seorak's evaluation under eyebrow `Measured` (or `Simulated`) with sections
+    `Activity` (`Time`, `Tool Calls`, `Instructions`), `Changes` (`Files Changed`, `Lines Added`,
+    `Lines Removed`, `Commits`, `Errors`, `Lines Kept`), `Checks`, and `Cost` (`Estimated`),
+    omitting nulls and unavailable fields rather than inventing zeros or grades. Unread or missing
+    states use `Not Measured`, `Measurement Unavailable`, `Measurement Unreadable` or `Measurement
+    Not Allowed` (`Nothing has been read for this task yet.` before the first read).
+  - `Reasoning` reads Salidium's understanding under eyebrow `Observed`, `Reported` or `Simulated`,
+    leading with the source's verdict headline and reason over `Runs` (`Passed`, `Failed`, `Partly
+    Passed`, `Can't Tell`, `Out of Date`), `Changes` (`Files`, `Commits`), `Review` (`Open`,
+    `Resolved`) and `Remaining`. Unread or missing states use `No Conclusions`, `Conclusions
+    Unavailable`, `Conclusions Unreadable` or `Conclusions Not Allowed`.
+- **Photos and videos (`TaskMedia`, [ADR 0066](../decisions/0066-a-persons-photo-or-video-goes-into-the-projects-folder-as-a-copy-without-its-place.md)):**
+  refusals use plain sentences: `That photo or video is no longer kept on this computer. Add it
+  again.`, `That photo or video is already in this project. Nothing was added.`, and `This project
+  already holds as many photos and videos as it can keep. Add it to another project.`
+- **Usage limits and stage banner:** provider gauges are `5-Hour Limit` and `Weekly Limit` with
+  `{n}% Left` (in demo playback: `Practice agent · 5-Hour Window`, `Practice agent · Weekly`,
+  `Recorded for Demo · No Account`, `Limits Part of Recording`, `Part of Recording`). Beside an
+  external window, the stage banner reads `{n} more tasks not shown here` (`1 more task not shown
+  here`) and `Still Open: {panel}` whole without truncation.
+- **Code Colours (`AppearanceColumn`, `CodeColouring`):** `Appearance` offers `Code Colours` with
+  `Halora` (`Soft colours for each kind of code.`), `Plain` (`All code in white.`) and `High
+  Contrast` (`Brighter colours, set further apart.`), `Current` on the active theme, `Preview
+  Colours` showing a `PREVIEW` specimen card (`// Top 3 tasks`, `let t: Task[];`, `log("Top", 3);`),
+  `Apply Colours` and `Cancel`.
 
 ## The words a person sees
 
-| Word | Means | Instead of |
+| Word | Means | Never say |
 | --- | --- | --- |
-| project | One body of work, in one folder | |
-| task | One durable workstream, with or without a spatial character | workstream, work item |
-| work | What the agents do, in general | execution |
-| agent | The AI working on a task; the character is the task, not the agent | runtime, bot |
-| round | One stretch of the agent's work, until it stops to wait | turn |
-| approval | A specific decision the agent requests | |
-| question | Something the agent asks you | prompt |
-| tests / checks | Tests when actual test evidence is available; checks for broader verification | |
-| your computer | The host and its control plane | control plane, server, Mac |
-| folder | Where a project's files live | location, directory, path |
-| agent app | The runtime, such as OpenCode or Codex, named as data | runtime, adapter |
-| sandbox | What keeps an agent app's commands to what it allows, said only where an approval can change that | seatbelt, permission profile |
-| practice run | Work on the simulated runtime: nothing is built | mock, simulated |
-| demo | The scripted demonstration, which answers the person; never "recorded", which names a real agent run played back | interactive example |
-| assistant | The AI helping shape an idea; it builds nothing until a task starts | |
+| `project` | One body of work in one folder | |
+| `task` | One durable Workstream, with or without a room character | workstream, work item |
+| `work` | What agents do in general | execution |
+| `agent` | The AI working on a task | runtime, bot |
+| `round` | One stretch of agent work until it pauses or finishes | turn (on legacy surfaces) |
+| `approval` | A specific permission decision requested by the agent | |
+| `question` | A prompt the agent asks the person | prompt |
+| `checks` / `tests` | `Tests` when test-run evidence exists; `Checks` for broader verification | |
+| `your computer` / `This Computer` | The connected host running the control plane | control plane, server, Mac (on headset faces) |
+| `folder` | Where a project's files live | location, directory, path |
+| `agent app` | An underlying runtime when discussed as a category in setup/details | adapter |
+| `sandbox` | Process confinement, named only on command approvals where [ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md) applies | seatbelt, permission profile |
+| `practice run` | Simulated runtime execution (`Nothing is built`) | mock |
+| `demo` / `recorded` | `Demo` for the interactive scripted walkthrough; `Recorded` for a replayed real run | |
+| `assistant` | The AI helping shape an idea or answer `Ask` requests | |
 
-A person never reads: execution, journal, command, principal, scenario, capability, projection,
-snapshot, workstream, access token (an access code, only where the person must act on one).
-
-### The chip beside an answer line
-
-Each line of an answer says how it is known with a chip; an observed fact, a measurement and
-Halcyonic's own words go without one. The words below were settled by the coordinator on
-2026-10-02 and put in the owner's voice standard on 2026-10-30; the old words are kept beside them
-so no surface goes back to them. The kit's report chip is the agent's own (Agent · Reported).
-
-| The line is | Chip | Instead of |
-| --- | --- | --- |
-| The agent's own words, whatever the source tagged them, and what it says is left: beside the chip, "To Do · {x}", "Failing · {x}", "In Progress · {x}", its words leaning, never quoted (2026-10-08; these mixed lines keep the lean on the independent candidate too, 2026-10-16); where no chip shows, "Failing · Agent · Reported · {x}" and the like | Agent · Reported | Agent says |
-| A subagent's own words | Subagent · Reported | Subagent says |
-| Words whose author the source does not know | Author Unknown | Author unknown; Quoted |
-| A model's account of the work, after it | Explanation · Reported | Model explains; Explanation |
-| The source's own reading of what it observed, not a fact | Inferred | |
-| What the agent planned to do | Planned | |
-| A question the agent asks, on a character's glance and as a lone question's heading, its words leaning on their ground (2026-10-08; in the voice standard's cadence, 2026-10-30) | Agent's Question | Agent asks; It asks: |
-
-### Usage in the demonstration
-
-While the recorded demonstration plays, Usage shows its recorded limits for one practice agent.
-These words were settled by the coordinator on 2026-10-02 and put in the owner's voice standard on 2026-10-30.
-
-| Where | Words |
-| --- | --- |
-| Each limit | Practice agent · 5-Hour Window, Practice agent · Weekly |
-| Where they come from, in place of a source's name | Recorded for Demo · No Account |
-| Under the limits, in place of the account note | Limits Part of Recording |
-| A limit's Account fact, in place of who it belongs to | Part of Recording |
-
-### The agent's question in a file
-
-How a file's Waiting page pages the agent's question (ADR 0026), as settled by the coordinator on
-2026-10-11 for the focused answer sequence and put in the owner's voice standard on 2026-10-30.
-A locked control's reason names what to read or do, in 1 to 3 words where it can.
-
-| Where | Words | Instead of |
-| --- | --- | --- |
-| The row at the end of a prompt's page of answers | More Choices; from the last page, First Choices | Next, the old panel's pager |
-| The primary action after a prompt | Next Question; after the last, Review Answers | Your answers as a plain navigation row |
-| The primary action on a long question | Next Part · 2 of 3; after the last, See Answers | On to the answers as a plain row |
-| The question's progress and selection rule | Question 1 of 2 · Choose One; Question 1 of 2 · Choose Any; with pages, · Choices 1 of 2 after them | A disabled Send answer throughout selection |
-| Choice-page position and navigation | Choices 1 of 2; More Choices; First Choices | Paging without a visible current position |
-| Clipped long-question context | Read Question | A hidden target or no way to reread the question |
-| An unavailable choice with a duplicated displayed name | Unavailable. Open it to read why. (the row itself opens the reason; it has no button of its own); explanation title Duplicate Choices; These share a name, so none can be chosen: {full conflicting words}; Back; Stop Task when offered | A selectable radio/checkbox on an ambiguous label or a Stop cue where no Stop control is offered |
-| Empty custom-answer field | Answer with a keyboard; Hold to Talk with voice only | Promising an unavailable keyboard |
-| Send Answer's reason while a long question isn't read to its end, the locked control's own word in the kit | Read Full Question | Open the question to read the rest. |
-| Send Answer's reason while a chosen cut answer or a long typed one isn't read whole | Read Full Answer | |
-| Send Answer's reason while a page of Your Answers isn't drawn | Read All Answers | |
-| Review and editor part navigation | Next Part · 2 of 3; Previous Part; a part not yet read, Read This Part | Your answers as a plain paging row |
-| Custom-answer navigation | Write Answer; once saved, selected Edit Answer with Selected | Type my answer styled as an offered choice |
-| The custom-answer editor | Your Answer; Use Answer; Cancel | Saving or sending on keyboard Done or transcription |
-| The saved custom answer | Selected Edit Answer control; Your Answer: {their words}, leaning, in editor and mandatory review | A duplicate preview row among the choices |
-| A free-text-only question | Write Answer; Write Answer First | Choose one with no offered choices |
-
-### Steering from a file
-
-Activity shows recorded events and actual pending decisions or problems. The task's state already
-appears above it: do not invent a latest event from that state or fill the log with "Nothing is
-waiting for you." An empty log says "No Activity". A loading or unavailable-history
-message takes its place when present. Agent messages retain their individual "Agent says" chip
-and outside-text treatment; observed events are not labeled as agent claims. The mixed log has no
-blanket agent source line. Waiting and request pages use "Reported" for their source.
-
-**Write Instruction** opens the draft. **Review Instruction** opens its complete review, and
-**Confirm** sends only after that review. A transcribed draft asks "Send This?" over the heard words (AUDIT2, 2026-11-16; until then "Send Heard Instruction?");
-a typed draft asks "Send Instruction?". These labels do not change capability, complete-reading or
-current-request checks.
-
-| Where | Words |
-| --- | --- |
-| Review Instruction while offered instructions show and none is chosen | Choose Instruction (locked) |
-| A confirmation dropped because the request it asks about now reads differently | Nothing was sent: the request changed. Read it again. |
-| Answers awaiting their Confirm, dropped because the question is no longer the one asked | Nothing was sent: the question changed. Read it again. (instead of Check it again) |
-| What an approval asks, as the heading over its request | Run Command; Use {tool}; Approval Requested where it names no tool. The request stands whole on its own line beneath, so the heading ends without a separator (instead of Run Command ·, 2026-11-03) |
-
-### The headset's access code
-
-Where a person must act on the development build's access token, it is the access code. These
-lines were settled by the coordinator on 2026-10-02; the old words are kept beside them so no
-surface goes back to them.
-
-| When | Words | Instead of |
-| --- | --- | --- |
-| Your computer answered 401 to the code | Your computer refused this headset's access code: it doesn't match your computer's. Put your computer's current access code on the headset, then restart the app. | Your computer refused this headset's access token: it doesn't match your computer's. Put your computer's current access token on the headset, then restart the app. |
-| What answers can't prove it holds the code, so the headset didn't send it | This headset's access code doesn't match your computer's, or something else is answering in its place, so the headset didn't send it. Put your computer's current access code on the headset, check that this app is running there, and restart the app. | "check that Halcyonic is running there", since our words never name the product (the coordinator, 2026-10-07) |
-| The endpoint is one the code never goes to, a name or another scheme (an editor setting) | The access code goes only to ws:// or http:// at 127.0.0.1 or [::1], so it was not sent to {endpoint}. Name one of those instead. | The access code goes only to 127.0.0.1 or [::1], so it was not sent to localhost:47800. Name one of those instead. |
-
-## Sentence patterns
-
-Halcyonic's own lines read in the " · " cadence (the owner's voice standard, 2026-10-30): the state
-or the action first, then the cause, then the way on, each segment in Title Case; words from outside
-stay exactly as written and lean.
-
-| Kind | Pattern | Example |
-| --- | --- | --- |
-| A peek | {State} · {reason}, the reason without the state's words | Needs You · make migrate |
-| Nothing waiting | Nothing Waiting, then "Latest: {activity}" ("Last Known: {activity}" when the state is stale), a name or the agent's message in it leaning, the agent's beside its chip; the model hands the label and the activity apart, and the task panel, one row a fact, lays them in one line | Nothing Waiting · Latest · Used edit: src/auth/rate-limit.ts; Last Known · Latest · {activity} |
-| Sent | Sent · Awaiting {Who} | Sent. Waiting for the agent. |
-| Still on its way | Sending, unavailable, where the action that sent it stood | Sending |
-| Confirmed | A sentence that says what was received: "The decision was received.", "The answer was received.", "The instruction was received.", "Stopped.", "Started." | Confirmed · Answer Received |
-| The run details on the task panel | One row a fact, its label then its value, handed apart by the model: "Agent App: {name}, on your computer" (", unavailable" once it is gone); "Model: {model}" or "Model: The app's choice", with no place, since where a model runs is never told; "Folder: {folder} in {parent}" or "Folder: None given"; "Started: HH:mm, d MMM"; then the round on its own row | Agent App · {name} · On Your Computer; Model · App's Choice · Location Unknown |
-| Refusal | {Action} Refused or Failed · {Cause} · {Next Step}, the next step a control's name where one is offered | Start Failed · No folder is chosen. Choose one. |
-| Unknown effect | {What} Unconfirmed · {What to Check} | Delivery Unconfirmed · Check Activity |
-| Not sent | "Nothing was sent: {why}. {Next step}." wherever a press sent nothing, one sentence, never parts on a dot (`DotJoinedWordsTests`) | Nothing was sent: your answer changed. Read it again. |
-| Connection | {Truth} · {Cause} · {What Happens} | Computer Unreachable · Retrying |
-| Provenance | {Source}, {When}, the source in the product's own words, never a sibling product's name | Measurement, Read 2 min ago |
-| The work's reported request or state | Reported, on Waiting and request pages; Activity identifies each reported message separately | Reported |
-| Confirmation | Confirm under the question that names the action. In the kit's decision bar, Cancel in the left place and Confirm in the right, the way on, locked until the request is read and for 0.7 s more (2026-11-03); the legacy menu's footer keeps Confirm where no control stood a moment before and Cancel where the first press was | Approve Request? · Cancel · Confirm |
-| Asking about what shows | {Verb} {Thing}? | Approve Request? |
-| Where an approved command runs | May Run Outside Sandbox · Your Access, or Runs Inside Sandbox, only for a command that can be approved and only as its agent app declares it, before what Approve does ([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)) | May Run Outside Sandbox · Your Access |
-| Locked final press | Read to Part {n} (locked) | Read to Part 3 |
-| Kept while away | Open · {Panel} | Open · New Project |
-| The companion's words | {line}, leaning on its ground under Halcyonic's quote mark, never in our voice; the page's source line names the companion; its view as its opinion, in our words | The companion thinks this is unclear. |
-
-The file, its question and its steering, the workspace's answers and refusals, voice, and since
-2026-10-30 the menu's own lines (New project, Projects, Connect, the companion, the activity log,
-Settings, Usage, results, workspace requests and recovery, and the reasons Help me understand and
-What was checked? give) follow these patterns.
-
-Some of Halcyonic's words still predate this guide; each surface takes these words as it moves to
-the interface of ADR 0023, one surface at a time. The ambient lines and the answers' own body lines
-(as "And 2 more reasons it gave") have not moved yet.
-
-## Words changed by the menu
-
-The menu of [ADR 0026](../decisions/0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md)
-replaces the entry panel's screens. Routine wording, settled by the coordinator, old beside new:
-
-| Where | Old | New | Settled |
-| --- | --- | --- | --- |
-| A file's instruction armed to send, heard through Hold to talk or typed for a policy's review | The words above (since 2026-10-08 leaning, never quoted), in parts as a request is, each but the last ending in "Next part, 2 of 3", then "Read to part 3 first" until the last part has shown, then "Your computer heard the words above. Send them?" or "Tell it the words above?"; a Yes refused before then, as a backstop, says "Nothing was sent: read to the last part first." | The words above, leaning, in parts as a request is, each but the last ending in Next Part · 2 of 3, Read Full Instruction until the last part is read, then Send Heard Instruction? or Send Instruction?; a press before then, Not Sent · Read to Last Part | The owner's voice standard, 2026-10-30 (ART's form) |
-| A file's question offering two answers by one label, as "Yes" to keep the data and "Yes" to delete it | "Two of its answers read the same, so your choice can't be sent from here. Press Stop to go on.", then "It's waiting for an answer." and Stop, as a question asking for a secret shows; no answer rows and no Hold to talk | Duplicate Answers · Not Answerable Here · Stop Task, then Awaiting Answer and Stop, as a question asking for a secret shows | The owner's voice standard, 2026-10-30 (ART's form) |
-| A file's question where some answers read the same, as "Yes" to keep the data and "Yes " to delete it, beside other ways to answer | Those rows show and can't be chosen; under them "Answers that read the same can't be chosen here. Press Stop if you meant one of them.", with Stop on the page (without Stop to offer, the first sentence alone); words typed or heard that read the same as one of them, a notice: "Your answer reads the same as answers that can't be chosen here. Answer another way, or press Stop if you meant one of them." ("Answer another way." where Stop isn't on the page); a prompt left with no way to answer keeps the row above | Those rows show and can't be chosen; under them These share a name, so none can be chosen; stopping the task is the only way past them where Stop is offered; words typed or heard that read the same, That matches answers that share a name: answer differently, or stop the task (one sentence each, never two facts on a dot) | The owner's voice standard; AUDIT2, 2026-11-14, 2026-10-30 (ART's form) |
-| Why it can't tell what a task is doing, on the character, its peek and the file's Activity | By the reason's code: "Can't tell what it's doing: your computer lost touch with the agent app.", "…: your computer restarted and lost touch with the agent app.", "…: not sure it started."; any other code "Can't tell what it's doing right now."; the log's line for a lost connection "Your computer lost touch with the agent app." | By the reason's code: Status Unknown · Agent App Unreachable, Status Unknown · Computer Restarted, Status Unknown · Start Unconfirmed; any other code, Status Unknown | The owner's voice standard, 2026-10-30 (ART's form) |
-| Why a task couldn't start or finish, on the character, its peek and the file's Activity | "Couldn't finish this round. Tell it to try again, or what to do instead." where Tell it is offered, else "Couldn't finish this round. Add the task again in Projects to try again."; a start refused over its folder, "Couldn't start: {the folder's problem, by its code}"; a start that failed with a code every agent app shares, "Couldn't start: {why}" as the next rows say it (a lost agent app, one not available, a version not supported, one that can't do that); any other start, "Couldn't start. Add the task again in Projects to try again." | Round Failed · Write Instruction where Write Instruction is offered, else Round Failed · Re-Add Task in Projects; a start refused, Start Failed · {why by its code}, as Start Failed · Agent App Unavailable · Check Setup · Re-Add Task; stopped because its permissions changed, Round Failed · The task stopped because its permissions changed. See Activity. | The owner's voice standard, 2026-10-30 (ART's form) |
-| A peek's next step under Couldn't finish | "Open it to see what it did.", since the file no longer shows the agent app's error | Open Task (Failed); Open to Answer (Needs You); See Failures (Checks Failed); Changes (Round Ended) | The owner's voice standard, 2026-10-30 |
-| The activity log's lines for a round and for what failed | "Round started", "Round finished", "Round stopped", "Couldn't finish this round", "Couldn't start", "Couldn't start: {the folder's problem}" or "Couldn't start work: {why}" by a shared code, "Couldn't {verb}" (as "Couldn't send an instruction") where it had no effect, and where it may have happened anyway what may have, then what to check, never after "Couldn't", which says nothing happened: "Not sure the instruction reached it.", "Not sure it stopped.", "Not sure it has your decision.", "Not sure it started.", each then "Check its activity before you try again."; an answer as before; anything else "Not sure it happened. Check its activity before you try again." (the same on a task's line of what was sent last; settled by the coordinator, 2026-10-04); and "Asked to stop it" | Start Requested · {app}; Started · {app}; Round Started; Round Ended; Round Stopped; Round Failed; Start Failed; Start Failed · {why}; {Action} Sent; {Action} Refused · {why}; {Action} Failed · {why} | The owner's voice standard, 2026-10-30 |
-| A command your computer refused, in the activity log, the file's line of what was sent last, and Start building's and Connect's steps | "Couldn't {verb}: {why}." by the refusal's code: "this project isn't on your computer any more. Choose another in Projects.", "this task isn't on your computer any more. Choose another in Tasks.", "this work isn't on your computer any more. Add the task again in Projects to try again.", "its agent app isn't on your computer now. Set it up there, then try again.", "it no longer waits for that decision. See what it's doing now.", "it's no longer waiting for this answer. See what it's doing now.", "it couldn't take that answer. Read the question again, then answer it.", "its agent app needs a model. Choose one, then try again.", "its agent app can't do that. See what it's doing, then try something it offers.", "it can't take that right now. See what it's doing, then try again.", "its agent app didn't accept those settings. Choose them again.", a folder's problem as before, the pairing line, "your computer no longer accepts this headset's pairing. Forget the computer on the headset and pair again.", one sentence for a revoked pairing wherever it is said (the last three ways on settled by the coordinator, 2026-10-04); a failure with no effect whose code every agent app shares, in words already used for it: approval_not_pending and question_not_pending as their refusals, no_running_turn as invalid_state, execution_unknown_to_runtime as execution_not_found, model_unavailable as model_required, capability_unimplemented as capability_unsupported where a task runs, and runtime_unreachable or runtime_closed "your computer lost touch with the agent app. See what it's doing; if it can't go on, add the task again in Projects." where a task runs, since one code covers a blip and an ended process; where nothing runs yet (a start, in the log and on the line of what was sent last alike) "…lost touch with the agent app. Check that the agent app is running on your computer, then try again.", and a start that would fail the same way again by its way on: runtime_unavailable "the agent app isn't available on your computer. Check its setup there, then add the task again in Projects.", runtime_version_unsupported "this agent app's version on your computer isn't supported yet. Add the task again in Projects with another agent app.", capability_unimplemented "its agent app can't do that. Add the task again in Projects with another agent app." (2026-10-07); Start building's and Connect's own steps by the ways on New project offers, never adding the task again, each within its two rows: runtime_unreachable or runtime_closed "your computer lost touch with the agent app. Check it's running there, then try again.", runtime_unavailable "the agent app isn't available on your computer. Check its setup, then try again.", runtime_version_unsupported "this agent app's version isn't supported yet. Choose another in How it runs.", capability_unimplemented "its agent app doesn't support it. Choose another agent app in How it runs, then try again." (2026-10-07, after review); any other, "Couldn't do that: nothing changed. Try again." on Start building's and Connect's steps and for a start, and on a task's line of what was sent last "Couldn't do that: nothing changed. See what it's doing, then try again." | {Action} Refused · {Cause} · {Next Step}, by the refusal's code, as Refused · That project is gone. Choose another.; Connect Refused · That task is gone. Choose another. | The owner's voice standard, 2026-10-30 |
-| Why the headset isn't connected, after "Can't reach your computer; trying again." or "Your computer refused this app." | "Your computer didn't answer within 10 seconds.", "Your computer closed the connection. The headset tries again by itself.", "Your computer runs another version of this app. Install the same version on both.", by the code your computer turned it away with: the same for another version, the pairing line for a revoked pairing, "This headset already has too many connections open to your computer. Close the app, then open it again.", "Your computer couldn't read what this app sent. Install the same version on both.", else "Your computer ended the connection. The headset tries again by itself."; "Your computer sent something this app can't read. Install the same version on both.", "Your computer sent nothing for 30 seconds. The headset tries again by itself.", "This headset fell behind, so it's catching up." | Computer Unreachable · No Answer in 10 s; Connection Closed · Retrying; Connection Ended · Retrying; Version Mismatch · Install Same Version; Message Unreadable · Install Same Version; Too Many Connections · Restart App | The owner's voice standard, 2026-10-30 |
-| Why the headset isn't connected, when your computer refuses the connection's upgrade for another reason than its credential | By its code, on its own and never after "Can't reach your computer", since your computer answered: host_not_allowed, which only the network listener answers and a stored pairing passed once, "Your computer turned away the address this headset uses for it, which may have changed there. The headset tries again by itself; if this keeps happening, pair it again in Settings."; too_many_requests "Your computer is turning this headset away for a minute after too many tries. The headset tries again by itself."; any other, worded for how this headset reaches your computer: paired, "Your computer turned the connection away. The headset tries again by itself; if this keeps happening, pair it again in Settings."; over USB, "...; if this keeps happening, restart this app on your computer." (a revoked pairing comes as 401, a refused credential, never here) | By its code: Host Not Allowed · Retrying · Pair Again if Repeated; Computer Busy · Too Many Tries · Retrying; otherwise Connection Refused · Retrying | The owner's voice standard, 2026-10-30 |
-| A file's Send answer, armed, when words heard or typed change the answer | "Nothing was sent: your answer changed. Read it again.", the confirmation cancelled | Not Sent · Answer Changed · Reread, the confirmation cancelled | The owner's voice standard, 2026-10-30 (ART's form) |
-| A file's Hold to talk while the voice records, then while the computer writes down what was said | "Listening", then "Writing down", on Hold to talk itself, laid at the widest of its words; nothing is added to the page; since 2026-10-07 in every column, New project's too (ADR 0027) | Listening, then Typing It Out (Transcribing until 2026-11-16, AUDIT2: a newcomer does not read "transcribing"), on Hold to Talk itself, laid at the widest of its words; nothing is added to the page | The owner's voice standard, 2026-10-30 (ART's form) |
-| A file's Hold to talk, its words heard after the question it was held for gave way to another | "Nothing was typed: the question changed while you spoke. Read it again.", the words dropped | Nothing was typed: the question changed. Read it again., the words dropped | The owner's voice standard, 2026-10-30 (ART's form) |
-| A file's Send answer, armed, when the text size changes | "Nothing was sent: the text size changed. Read it again.", as the size changes, the confirmation cancelled | Not Sent · Text Size Changed · Reread, as the size changes, the confirmation cancelled | The owner's voice standard, 2026-10-30 (ART's form) |
-| The stage's banner while the menu is folded away | "Still open: {task title}" while a task's file is open, "Still open: New project" while New project is, else the menu's place, as "Still open: Tasks"; nothing with only the closed bar | Open · {task title} while a task's file is open, Open · New project while New project is, else the menu's place, as Open · Tasks; nothing with only the closed bar | The owner's voice standard, 2026-10-30 (ART's form) |
-| The menu's row in Settings after the person dragged it | "Where you moved it", as its value and what it is now, until Reset position puts it back, then "Where it stands" again | Moved, its now Moved from where it started., until Reset Position puts it back, then Default (Where it started.); the change It comes back in front of you, within reach. | The owner's voice standard, 2026-10-30 |
-| Tasks with no tasks | "No tasks yet.", a quiet line on the page under the subject, which reads "Nothing is waiting for you." | No Tasks; subject Nothing Waiting, or Needs You · 1 Task | The owner's voice standard, 2026-10-30 |
-| Projects' subject | "Welcome", then "Show projects from your computer, or make a new one. Work already running keeps going." on a first visit; "Connect projects" otherwise | "What would you like to work on?" on every visit, the place's purpose under the lit place's word; it keeps to one line (21.9 of 29.2 degrees), so the fallback "What do you want to work on?" was not needed | 2026-10-02, by the coordinator, every visit by lane V; the stage shows that running work goes on |
-| A project's small fact on its row | "Hidden · 1 task waiting", "1 task waiting", "2 tasks running": a count keeps its noun, and a long name shortens first | Needs You · 1 Task; Ready · 1 Task; Running · 2 Tasks; Paused · 1 Task; Not Started · 3 Tasks; Hidden · {fact}; Similar Name · {fact} | The owner's voice standard, 2026-10-30 |
-| A project's small fact on its row, and its work in its side panel, where tasks were never started | "3 tasks not started"; tasks that ran and rest first, as "1 task paused" on the row and "1 task paused, 2 not started" in the side panel, since a task never started has paused nothing and its label says Not started | Not Started · 3 Tasks on the row; in the side panel, Paused · 1 · Not Started · 2 | The owner's voice standard, 2026-10-30 |
-| A project's work in its side panel, "Its work" | Every task, in order: waiting for you, to look at, running, paused, not started, the noun on the first count only: "2 tasks running, 1 not started", "1 task waiting for you, 2 paused", at most "1 task waiting for you, 1 to look at, 1 running, 1 paused, 1 not started"; the row keeps one fact by priority | Needs You · 1 · Ready · 1 · Running · 2 · Paused · 1 · Not Started · 1; No Work | The owner's voice standard, 2026-10-30 |
-| Projects' folders | "Folders on your computer", a heading in Projects; a folder's row says "Repository · changed 3 days ago" | Folders; Repository · Changed 3 Days Ago; Changed Just Now; Contents Unreadable | The owner's voice standard, 2026-10-30 |
-| Projects' prompts | "New project" with no row chosen; for a chosen project "Add a task" and "Hide from stage" or "Show on stage" (first "Hide from the stage", which needs 31.4 of the column's 30.3 degrees; "Hide from stage" needs 29.3, and says where the tasks go, since Tasks still lists them); for a chosen folder "Connect"; a list that pages "Next page", which on its last page reads "First page" and starts again; Close does what Done did | New Project; Add Task; Hide from Stage / Show on Stage; Connect Folder / Back to Projects | The owner's voice standard, 2026-10-30 |
-| A side panel's facts in Projects | A project: "Its work", "On the stage" ("Shown", "Hidden"). A folder: "Place", "Repository" ("Yes", "No"), "Changed", "Its name" for a look-alike, then "Connecting", or "What happened" once sent; "Your computer can't look inside it" where it couldn't | Work; On Stage (Shown, Hidden); Place; Repository (Yes, No); Changed; Name; Connecting | The owner's voice standard, 2026-10-30 |
-| Projects, when no folder can be listed | A row that opens its side panel: "Couldn't read your computer's folders", its panel's "What happened" over the reason; or "Your computer doesn't allow any folder yet", its panel saying "Allow a folder on your computer, then try again."; "Try again" is the footer's main action while either is chosen, since a row never acts | Folders Unreadable; No folder is allowed yet. Allow one on your computer and try again. | The owner's voice standard, 2026-10-30 |
-| Projects, after the security review | "1 task to look at" (row) and "1 task waiting for you, 1 to look at, 2 running" (side panel); "Not sure whether “x” was connected. Look for it in Projects."; while it is on its way, "Still waiting to hear whether “x” was connected. Connecting another folder waits until that's known."; once its outcome can't be known, "Not sure whether “x” was connected. Look for it in Projects. Connecting another folder waits until that's known, or until you restart."; "Another folder or project has a name that looks the same. Check where it is and when it changed to be sure it's the one you mean."; a project's "Its name": "Another project or folder has a name that looks the same. Check its work to be sure it's the one you mean."; the mark "Look-alike name", before a look-alike row's own facts | Connected · {name} · Add Task; Connect Unconfirmed · {name} · Check Projects | The owner's voice standard, 2026-10-30 |
-| New project's Questions: the main prompt while Go on without it is chosen, making the recap from the person's own words without the companion | Make the recap from my words; Recap from my words where the footer measures too narrow beside Close and Hold to talk | Recap My Words | The owner's voice standard, 2026-10-30 |
-| New project's Your idea: the row for the fixed questions | Answer a few questions | Answer Questions | The owner's voice standard, 2026-10-30 |
-| New project's Your idea: the main prompt while Talk it through with the companion is chosen | Talk it through | Talk It Through | The owner's voice standard, 2026-10-30 |
-| New project's Your idea: the main prompt while Answer a few questions is chosen | Start the questions | Start Questions | The owner's voice standard, 2026-10-30 |
-| New project's Your idea: the line where the companion cannot help, the host's companion_not_set_up and any other reason | Companion Not Set Up, type your idea or answer the questions; Companion Unavailable, type your idea or answer the questions | The companion isn't set up. Type your idea or answer the questions.; The companion isn't available. Type your idea or answer the questions. | AUDIT2, 2026-11-16: the family's {Why}. {Way on}., never a Title Case state joined to a sentence |
-| New project's Questions: why Make the recap can't be pressed before the person has said anything | Answer a question first, or go on without it. | Answer One First (locked) | The owner's voice standard, 2026-10-30 |
-| New project's Recap: the answer that types a first task in place of the companion's suggestion and the person's own words | Type my own | Type My Own | The owner's voice standard, 2026-10-30 |
-| New project's Recap: the small fact beside a fact the companion suggested | Suggested, at the row's right, and nothing once the value is the person's own; Suggested by the companion names the suggestion in its side panel | Suggested · Companion | The owner's voice standard, 2026-10-30 |
-| New project's Recap: the name over the person's own words in a suggested first task's side panel | Your own words | Your Words | The owner's voice standard, 2026-10-30 |
-| New project's Start building: the review's way to its next part | Next part, 2 of 3, a row at the end of each part; Yes, start building appears only once the last part has shown | Next Part · 2 of 3; Confirm after the last part | The owner's voice standard, 2026-10-30 |
-| New project's fixed questions: the main action, which gives the chosen answer | Next question; Make the recap on the last question | Next Question; Make Recap | The owner's voice standard, 2026-10-30 |
-| New project's fixed questions: why Next question can't be pressed yet | Choose or type an answer first. (a file's question's own words, reused) | Choose or Type First (locked) | The owner's voice standard, 2026-10-30 |
-| New project's fixed questions: the name question's skip, its last answer row | Name it later, kept over Go on without it, which under "What should it be called?" reads as going on without a name for good | Name Later | The owner's voice standard, 2026-10-30 |
-| New project's Start building, when the project a task was being added to has gone | This project isn't on your computer any more. Close this, then choose another in Projects. | That project is gone. Choose another. | The owner's voice standard, 2026-10-30 |
-| Settings' Your space and Your computer | Rows: "Around you" ("Your room", "Virtual space"), "Your room's layout" ("Not Loaded Yet" before the app takes it in from the headset, "Off in Virtual Space" while the virtual space shows, "No access", "Not set up", "Ready"), "The characters" ("In front of you", "Room for a window", "Either side of a window"), "The menu" ("Where it stands", its change "Reset position"), and in development builds "Pairing" ("Not paired", "Pairing…", "Paired", "Forgetting…"); each change keeps the old button's words, and Forget asks with "Yes, forget this computer" | Sections Your Space and Your Computer. Rows: Surroundings (Your Room, Virtual Space), Room Layout (No Access, Not Set Up, Ready, Not Read), Agents (On, Off), Agent Shelf (Placed, Not Placed; Move Shelf or Place Shelf), Menu (Default, Moved; Reset Position), and in development builds Pairing (Not Paired, Pairing, Paired with Paired · {address}, Forgetting; Pair Computer, Forget Computer); Forget asks with Confirm | The owner's voice standard, 2026-10-30 |
-| Settings' category index | "Appearance", "Comfort", "Your space" and build-supported "Your computer", each with its current value; "Back" returns to categories | Appearance, Comfort, Your Space and build-supported Your Computer, each with its current value; Back returns to categories | The owner's voice standard, 2026-10-30 |
-| Appearance choices and preview | "How should it look?", "Glaze", "Graphite", "Current", "Preview theme", then "Preview: {theme}", "Apply theme" and "Cancel"; "Next examples, {part} of 5" or "First examples" pages the labelled specimen | Appearance, its presets Glaze and Graphite, Current on the applied one, Preview Theme, then Preview · {theme}, Apply Theme and Cancel; Next Examples · {part} of 5 or First Examples pages the labelled specimen | The owner's voice standard, 2026-10-30 |
-| Code Colours | (new, the lead's 2026-11-17T03:36Z) | "Code Colours", a row on Appearance and its page's title; its choices "Halora" ("Soft colours for each kind of code."), "Plain" ("All code in white.") and "High Contrast" ("Brighter colours, set further apart."), each with its line under it, Current on the kept one; "Preview Colours", then a card whose label PREVIEW stands over the choice's name (the page titled by that name, the card's own title), then three lines of real code, each whole on one row even in the narrow form ("// Top 3 tasks", "let t: Task[];", "log(\"Top\", 3);") laid as Watch It Work lays code, "Apply Colours" and "Cancel" (its one way out); Back from the choices | AUDIT2, 2026-11-17T03:36Z and 18:52Z |
-| Restoring appearance | "Restore default appearance", then "Restore default appearance?", "Use Glaze for the interface.", "Your comfort and space stay as you set them.", "Restore default" and "Cancel" | Restore Default, then Restore Default?, Glaze Interface, Comfort Kept · Space Kept, Restore Default and Cancel | The owner's voice standard, 2026-10-30 |
-| Settings, while the room's controls aren't there, before they start or once they have gone | "Not known" on Around you, Your room's layout and The characters, each saying "Your room can't be read now."; The menu and its Reset position stay | Unknown on Surroundings, Room Layout and the characters' row, each saying Room Unreadable; Menu and its Reset Position stay | The owner's voice standard, 2026-10-30 |
-| Settings' Pairing, in a development build, while the pairing isn't there yet or has gone | "Not ready", saying "Pairing isn't ready yet." | Not Ready, its reason Not Ready | The owner's voice standard, 2026-10-30 |
-| Settings' Boundary, in a development build, Your space's row before The menu | "Shown" ("The headset draws its boundary as you set it up"; change "Hidden while your room shows", "The headset stops drawing its boundary while your room shows. It comes back when your room stops showing, when Halcyonic pauses or loses focus, or when you choose Show boundary"; "Hide boundary"; while the room isn't showing, "Only while your room shows."), "Asked to hide" ("The headset hasn't said it hid its boundary yet"), "Hidden" ("Your boundary is hidden while your room shows"), each with change "Shown", "The headset draws its boundary again", "Show boundary"; "Kept on" ("The headset kept its boundary on. Halcyonic asks again while your room shows"; "Halcyonic stops asking", "Stop asking"); once a session, the first time the headset reports it hidden, the workspace says "Your boundary is hidden while your room shows. Settings, Your space brings it back." | Shown (Drawn as Set Up; change Hidden While Room Shows, Returns When Room Stops or App Pauses, Hide Boundary; while the room isn't showing, Only While Room Shows), Hide Requested (Hide Unconfirmed), Hidden (Hidden While Room Shows), each with change Shown, Boundary Returns, Show Boundary; Kept On (The headset kept it on and asks again.; Stops Asking, Stop Asking); hidden is said only once the headset reports it | The owner's voice standard, 2026-10-30; hidden is said only once the headset reports it |
-| New project's last step, in its row of shapes | Build, since at 36 degrees the old words filled the step's shape edge to edge; the recap's main action stays Start building, and the confirmation Yes, start building | Start Task | The owner's voice standard, 2026-10-30 |
-| New project's Starting, where it needs more than the stage gives and its secondary place holds its change: the row at its end | Next page, 2 of 3; First page on the last, as the menu's pager and the review's row say; New project's lists page by the footer's Next page and its questions' answers by More answers rows, the menu's own words | Next Page · 2 of 3; First Page | The owner's voice standard, 2026-10-30 |
-| New project's unknown start, read in parts where it needs more than the stage gives: Clear's reason until its last part is drawn | Read to part 3 first, as the review's locked Yes says; each part but the last ends in Next part, 2 of 3 | Read to Part 3 (locked) | The owner's voice standard, 2026-10-30 |
-| New project's unknown start, when its words change while Yes, clear waits, as when the computer's record arrives | Nothing was cleared: this changed while you were clearing it. Read it again. As "Nothing was sent: the request changed. Read it again." says; the Yes lapses, and the page shows the first part with anything unread | Not Cleared · Changed · Reread | The owner's voice standard, 2026-10-30 |
-| New project's Recap: Start over | Start over, the recap's last row, on its last page, chosen as a fact is; chosen, Start over stands in the footer's middle and asks, over Yes, start over | Start Over; Confirm | The owner's voice standard, 2026-10-30 |
-| New project's Recap: what Start over clears, in its side panel and its confirmation alike | For a new project: "This clears your idea, its answers, the name, first task and folder. How it runs stays." For a task added to a project, which keeps its name and folder: "This clears your idea, its answers, the first task and any change of folder. The project and how it runs stay." | Clears the idea, answers, name, first task and folder. Keeps the run settings.; a task added to a project: Clears the idea, answers, first task and folder change. Keeps the project and run settings. | The owner's voice standard, 2026-10-30; sentences, never facts on a dot (JUDGE's live walk and the lead, 2026-11-13) |
-| New project's Recap: the companion's note on a side panel showing its suggested name or first task | An AI on your computer suggested this. It can be wrong. The page keeps the whole note, and the side panel's Change stands beside it | Suggested · Local AI · May Be Wrong | The owner's voice standard, 2026-10-30 |
-| New project's How it runs, its models: another agent app | Change agent app, an action row before the models, as Type my answer is, so the footer's middle is free for Next page | Change Agent App | The owner's voice standard, 2026-10-30 |
-| New project's How it runs, its models, when they couldn't be read | By the reason's code: a version not supported, "Couldn't read its models: this agent app's version on your computer isn't supported yet. Choose another."; an agent app that didn't start or answer (or timed out, or exited), "Couldn't read its models: the agent app didn't answer. Check its setup on your computer, then choose it again."; any other code or a request that failed, "Couldn't read its models. Choose the agent app again to retry."; not connected, "Couldn't read its models: your computer isn't connected. Choose the agent app again when it is." | By its code: The models couldn't be read: this version isn't supported. Choose another.; The models couldn't be read: the agent app didn't answer. Check its setup.; The models couldn't be read: no answer came. Choose again to try once more.; The models couldn't be read: your computer isn't connected. Try again when it is. | The owner's voice standard, 2026-10-30 |
-| Why your computer's folders couldn't be read, on New project's Where its files live and in Projects | The same in both: "Couldn't read your computer's folders." (Projects' row and side panel heading), then why on its own line (Projects' What happened): "It didn't answer. Check that this app is running there, then press Try again." for a request with no reply; the pairing line for a revoked pairing; for a refused credential, the sentence the connection says for how this headset reaches your computer (the access code's or the pairing's); "Your computer is turning this headset away for a minute after too many tries. Press Try again after a minute."; not connected, "Your computer isn't connected. Press Try again when it is."; anything else, "Press Try again." (in Projects a line, not What happened) | Folders Unreadable; Your computer didn't answer. Check the app there and try again.; Host Unverified · Code Not Sent · Check App · Try Again | The owner's voice standard, 2026-10-30 |
-| Why the headset isn't connected, while it tries again | "Can't reach your computer; trying again. Check that this app is running there and this headset can reach it.", as "Your computer runs another version of this app" names the computer's side | Computer Unreachable · Retrying · Check App and Network; Last Known · Computer Unreachable · Retrying | The owner's voice standard, 2026-10-30 |
-| Why the headset isn't connected, when nothing that is your computer answered | The sentence alone, the message in the device log only; for a certificate other than the paired one, after it, "What answered isn't the computer this headset paired with, so the headset sent nothing. If you set up your computer again, forget it on the headset and pair again." | Unknown Host · Not Your Computer · Nothing Sent | The owner's voice standard, 2026-10-30 |
-| Pairing that didn't complete, on the stage's banner | By its code, never what answered: too_many_requests "Your computer is turning this headset away for a minute after too many tries. Try again after a minute."; busy "Your computer is pairing another device right now. Try again in a moment."; timeout "Pairing took too long; try again."; any other refusal "Your computer refused to pair this headset. Open pairing there again, then try again."; a broken exchange "What answered at that address doesn't pair the way your computer does. Check the address, then try again."; something at the address that answered but set up no secure connection (not_secure) "Something at {address} answered but didn't set up a secure connection. Check the address and port; if they're right, try again in a minute.", where a name that doesn't resolve or a port nothing takes keeps "Nothing answered at {address}. …"; a connection that closed or failed partway (connection_lost) "The connection closed before pairing finished. Check the address and that pairing is open on your computer, then try again."; server_not_proven "What answered couldn't prove it knew the code, so nothing was paired. Check the address, then try again."; anything else "Couldn't pair this headset. Check the address, then try again." | By its code, the card's title and line (`PairingCards.Why`): Computer Not Found, Code Incomplete, Pairing Refused, Pairing Closed, Code Refused, Pairing Paused, Computer Busy, Timed Out, Connection Lost, Can't Pair, No Secure Connection, Not Verified, each with its own line; a code with none reads Reason Unknown with no line (2026-11-12) | The owner's voice standard, 2026-10-30 |
-| A folder's problem, wherever it is said (the character, the log, Start building's and Connect's steps) | "Your computer can't use that folder now. Choose it again, or fix it on your computer."; "This project has no folder yet. Choose where its files live, then try again."; a folder that couldn't be made, with no effect, "Your computer couldn't make that folder, so nothing changed. Choose another name or place."; the pairing line alone; every composed step line within New project's 110 characters | No folder is chosen. Choose one.; That folder can't be used. Choose another or fix it on your computer.; That folder isn't allowed. Choose one from the list.; That folder already exists. Use it or give it another name.; The folder wasn't made and nothing changed. Choose another. | The owner's voice standard, 2026-10-30 |
-| "Didn't answer" only where nothing answered: the folders' why and the models step | Folders by the inner error: a certificate other than the paired one, the connection's "What answered isn't the computer this headset paired with..."; an access code not sent for lack of proof, "What answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Try again."; an endpoint the code never goes to, an answer that isn't HTTP or is too large, and a connection something took without setting up a secure one, "Press Try again."; F1 only for a socket error, a proof over USB that nothing answered, or the headset's own timeout. Models, the headset's 40 s: "Couldn't read its models: your computer didn't answer in time. Choose the agent app again to retry." | No Answer only where nothing answered; otherwise the code's own reason | The owner's voice standard, 2026-10-30 |
-| A task its agent app's adapter stopped because something other than Halcyonic changed what it may do (runtime_tampered): a start, a round, the activity line | "Something on your computer changed what this task was allowed to do, so it was stopped. See what it ran in Activity.", after "Couldn't start:" or "Couldn't finish:"; never on New project's steps, which no start command fails with | The task stopped because its permissions changed. See Activity. | The owner's voice standard, 2026-10-30 |
-| Halcyonic's words beside a name or a reason from outside, which an ellipsis could cut | "{name} (simulated)", "{current} now, {new place} from now on", "{reason} (+1 more)" | "Simulated: {name}", "From now on, {new place}; {current} now", "+1 more · {reason}": Halcyonic's words first | 2026-10-08, by the coordinator |
-| Where no check was seen or nothing was measured and the source's own sentence shows as nothing | "Nothing measured." | Not Measured | The owner's voice standard, 2026-10-30 |
-| Why Help me understand or What was checked? has nothing: a source that answered without conclusions, and this headset's own read that failed | The lead, then why by the reason's code, the source named only in the provenance line: not_running "it isn't running on your computer. Start it there, then press Refresh."; unreachable, timed_out "it didn't answer on your computer. Press Refresh in a moment."; temporarily_unavailable, server_error "it couldn't answer just now. Press Refresh in a moment."; rate_limited "it asked for a pause after too many requests. Press Refresh a little later."; credential_missing "your computer has no credential set up for it. Set one up there."; credential_malformed "the credential set up for it on your computer isn't the right kind, so it wasn't sent. Set up another there."; credential_rejected "it turned down the credential set up on your computer. Set up a new one there."; credential_forbidden, insufficient_scope "the credential set up on your computer can't read this. Set up one that can."; outside_credential_restriction "the credential set up on your computer covers other projects or dates. Set up one that covers this task."; not_captured, not_observed "it hasn't seen this task yet. Press Refresh in a moment."; not_yet_computed "it hasn't worked this task out yet. Press Refresh in a moment."; not_retained "it no longer keeps this task, so there's nothing more to read."; runtime_not_observed "it doesn't follow tasks this agent app runs."; not_resolvable, not_observable "it can't look up this task by the name its agent app gave it."; result_limit "it stopped at a limit before it found this task. Press Refresh to try again."; a reader's or the control plane's incompatible codes "its answer isn't one this app can read. Check its version on your computer."; host_not_allowed, origin_not_allowed "it turned the request away on your computer. Check its setup there."; instance_mismatch "what answered isn't it. Check its setup on your computer."; discovery_unreadable "its setup on your computer can't be read. Check it there."; native_id_unknown, naming no source, "the agent app hasn't said which session this is yet. Press Refresh in a moment."; any other "it didn't say why. Press Refresh to try again." This headset's read: "Couldn't read the evaluation: ", "Couldn't read the understanding: " or " · couldn't read it again: ", then "your computer didn't answer in time. Press Refresh to try again.", "your computer didn't answer. Press Refresh to try again.", "your computer isn't connected. Press Refresh when it is.", "your computer is turning this headset away for a minute after too many tries. Press Refresh after a minute.", the pairing line, the refused credential's line for how this headset reaches the computer, the whole certificate line, "what answered couldn't prove it holds the access code, so the headset sent nothing. Check that this app is running there, then press Refresh.", the unreadable line, else "something went wrong. Press Refresh to try again."; a sentence reused after a colon with its first letter lowered | The lead in the cadence, then why by the reason's code, the source never named (the lead's ruling, 2026-11-13): the lead and why are given apart and drawn as one phrase on commas, {Lead}, {Why}. Leads: No Conclusions, Conclusions Unavailable, Conclusions Unreadable, Conclusions Not Allowed; for a measurement Not Measured, Measurement Unavailable, Measurement Unreadable, Measurement Not Allowed. Why: not_running Not Running · Start It · Refresh; unreachable, timed_out No Answer · Refresh Soon; temporarily_unavailable, server_error Busy · Refresh Soon; rate_limited Too Many Requests · Refresh Later; credential_missing Credential Missing · Set Up on Computer; credential_malformed Credential Wrong Kind · Not Sent · Set Up Another; credential_rejected Credential Refused · Set Up New One; credential_forbidden, insufficient_scope Credential Lacks Access · Set Up Another; outside_credential_restriction Credential Covers Other Work · Set Up Another; not_captured, not_observed Task Not Seen Yet · Refresh Soon; not_yet_computed Not Computed Yet · Refresh Soon; not_retained Task No Longer Kept; runtime_not_observed Agent App Not Followed; not_resolvable, not_observable Task Not Found by Name; result_limit Result Limit Reached · Refresh; the incompatible codes Answer Unreadable · Check Version on Computer; host_not_allowed, origin_not_allowed Request Turned Away · Check Setup on Computer; instance_mismatch Wrong Source Answered · Check Setup on Computer; discovery_unreadable Setup Unreadable · Check on Computer; native_id_unknown, naming no source, Session Unknown Yet · Refresh Soon; any other No Reason Given · Refresh. This headset's read: Measurement Unreadable, Understanding Unreadable or , Reread Failed, then a plain sentence of what happened, naming no control, since the page's own Refresh is drawn: The computer took too long to answer.; The computer didn't answer.; This headset isn't connected to the computer.; The computer paused this headset after too many tries. Wait a minute.; the pairing line; the refused credential's line; the certificate line; What answered couldn't prove it is your computer, so nothing was sent. Check that the app is running there.; the unreadable line; else Something went wrong reading it. The same sentences on the catalog's and the projects' read errors, the projects' after Projects couldn't be read. (the lead's ruling, 2026-11-13); every line keeps its own case, so none is lowered after a lead. While reading: Reading Understanding, Reading Measurement, then , Reading Again; before any read, Not Read; before work, No Work Yet | The owner's voice standard, 2026-10-30 |
-| The first visit, on a computer with no task (ADR 0026) | One plate: "What would you like to work on?", its rows "Something new" (chosen as it opens) and "A project on your computer", its main action "Start a project" or "Show my projects", and Settings alone in the row of places | New Project; Connect Projects; Start from Idea; Not Now | The owner's voice standard, 2026-10-30 |
-| The closed bar while there is no task at all | "Nothing is running yet" | Nothing Running | The owner's voice standard, 2026-10-30 |
-| The first question's idea, heard as New project opens on a later step of a draft kept from before | "Nothing was typed: this project has moved on from Your idea. Choose Your idea above, then hold to talk again.", the step's line; a page with no line for Hold to talk drops the words | Nothing was typed: the step changed. Choose your idea. | The owner's voice standard, 2026-10-30 |
-| The reduced-motion setting, in Settings' Comfort | "Motion" ("On", "Kept still"), now "Things move" or "Things keep still", the change "Keep things still" or "Let things move"; turning it on: "Nothing keeps moving on its own: a wait shows a still highlight, and characters and badges stand still.", which once characters travel becomes "Nothing keeps moving on its own: a wait shows a still highlight, characters and badges stand still, and characters fade from place to place."; turning it off: "Waits shimmer, a task waiting for you breathes, and characters move." | Motion (On, Still); turning it on: Still Highlights · Characters and Badges Still; turning it off: Waits Shimmer · Waiting Tasks Breathe · Characters Move; Comfort's change Keep Still or Allow Motion | The owner's voice standard, 2026-10-30 |
-| Where tasks wait, asked once (ADR 0026) | Settings' "The characters" alone | "Where should your tasks wait?", its rows "Below my screen", "On my right", "On my left", its main action "Keep them here", "Move them right" or "Move them left" | 2026-10-08, by the coordinator |
-| Work that left the stage, in Tasks (ADR 0026) | None: every task stayed on the stage | The heading "Earlier"; its rows' small facts "Ended 2 days ago" and "Last heard 3 days ago"; on a file opened from it, "Keep on stage" | 2026-10-08, by the coordinator |
-| A Can't tell yet a day or more old | "Can't tell what it's doing right now." | The badge keeps "Can't tell yet", with "Last heard 3 days ago" beside it on a brought-back character's label; the file says "Can't tell what it's doing: nothing heard from it for 3 days." | 2026-10-08, by the coordinator |
-| Quiet tasks crowding the stage as a session starts | None | A plate asked once: "4 tasks haven't been heard from since Monday." ("for over a week" past 6 days), then "Move them to Earlier? Tasks keeps them, and you can bring any back.", its main action "Move to Earlier" | 2026-10-08, by the coordinator |
-| The first-time hint on the stage | A prompt at the foot of a character's glance, the pinch icon in its cap and "Open", until the first file opened from a character | Open | The owner's voice standard, 2026-10-30 |
-| What is still open while things are folded into the bar | The closed bar's subject says "Still open: {task title}" while nothing waits; what waits wins | Open · {task title} | The owner's voice standard, 2026-10-30 |
-| Two tasks of one project that changed the same file, on either character's glance (ADR 0013) | None | "Both changed {file}", the file on a token | 2026-10-08, by the coordinator |
-| Start building while a build is on its way, its reason as the page's last line | Already starting. Wait to hear how it went. | Already starting. Waiting for the result. (locked) | The owner's voice standard, 2026-10-30 |
-| A place, where two share a name | "Projects (person)" and "Projects (Work)": the place's own name, then the nearest folder above that tells them apart; where one is not enough, more, in path order, "Projects (Personal, Work)"; where nothing above tells them apart, a number, "Projects (old) 2"; never a path. The host names them (`label`), so Projects, New project and every listing say the same | {folder} · {place}; In {place} where several share a name | The owner's voice standard, 2026-10-30 |
-| A kept choice whose place is gone | "{folder}, in a place your computer no longer lists" | {folder} · Place Unlisted | The owner's voice standard, 2026-10-30 |
+A person never reads internal domain identifiers: `execution`, `journal`, `command`, `principal`,
+`scenario`, `capability`, `projection`, `snapshot`, `workstream` or `access token` (`access code` is
+used where a development build requires token entry).
 
 ## Words from outside
 
-Lane V's treatment, picked by the owner on 2026-10-08 ([ADR 0026](../decisions/0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md)),
-applied by lane W's batch B. {x} is text Halcyonic didn't write: it leans, on a ground where it meets
-our words, under our quote mark where a row or a block is all of it, and is cut before our words.
-Settled by the coordinator on 2026-10-08, old beside new.
+Outside text (`LineWords.Theirs`, `TheirName`) is never silently merged into Halora's voice:
 
-| Where | Old | New |
-| --- | --- | --- |
-| Activity's agent message | {message} with "Agent says", under our quote mark | {message} with "Agent · Reported", under our quote mark (the owner's voice standard, 2026-10-30) |
-| Activity: a start asked for | Asked to start on {app} | Start Requested · {app} (the owner's voice standard, 2026-10-30) |
-| Activity: a tool starting | Used {tool}: {title}, or Used {tool} | Tool · {tool} · {title}, or Tool · {tool}; our word first, so a tool named "Approved" never reads as ours (the owner's voice standard, 2026-10-30) |
-| Activity: a tool done | Succeeded: {tool}, Failed: {tool}; with no name, A tool succeeded, A tool failed | Succeeded · {tool} · Reported, Failed · {tool} · Reported; with no name, Tool Succeeded · Reported, Tool Failed · Reported (the owner's voice standard, 2026-10-30) |
-| Activity: a runtime's internal tool id (XR, 2026-11-04) | Tool · commandExecution · {title}, Tool · fileChange · {title} | Tool · Command · {title}, Tool · File Change · {title}, in our words; Succeeded · Command · Reported; Approval Requested · Command · {summary} |
-| A recorded run's composer, nothing to send (XR, 2026-11-04) | Nothing can be sent: the agent app isn't available on your computer. | This is a recording, so nothing can be sent. |
-| A recorded run's Changes and Checks, no read recorded (XR, 2026-11-04) | Understanding Unreadable · The demo has no recorded answer here., in the problem tone | Not Recorded, secondary |
-| The redesign's instruction at rest (DESIGN's FINISH-3, the owner's yes 2026-11-05) | Type or Talk, one capsule | Hold to Talk and Type, two floating actions; then Listening, Transcribing, a typed draft with Send Instruction and Cancel, a heard draft with Send Heard Instruction?, Send Instruction, Talk Again and Cancel, Sending, Sent over Waiting for the agent to start. (the product's own words but Type, Talk Again and the waiting line, AUDIT2's W1) |
-| The redesign's approval (BUILD-SPEC-v4 2.4, XR 2026-11-10) | Run Command over the request, Deny and Approve in the decision bar; Approve Request? on its own line with Cancel and Confirm | The request alone in mono; Run Command? (a command), Use {tool} or Approval Requested in the sentence bar; Approve and Deny; then Read Full Request or Approve Request? (Deny Request?) with Confirm, Next Part · 2 of 3 and Cancel; Sending while the answer may still take effect; a lapse in the same bar (Nothing was sent: the confirmation timed out. Press again.); the product's own words throughout |
-| The redesign's question (BUILD-SPEC-v4 2.9, XR 2026-11-10) | Agent's Question over the question as a block; each answer a row, the one chosen said Selected; the press on where Send stands | The question alone on the band of the agent's words; each answer an action with its mark, "{label} · {description}"; the file's own Write Answer, More Choices, Next Question, Review Answers, Send Answer, Back; with several, Question 1 of 2 · Choose One in the panel; Send Answers? with Confirm and Cancel; Sending. No caption for one question and no Selected: the mark says it |
-| The redesign with no keyboard (BUILD-SPEC-v4 2.1, XR 2026-11-10) | Tell it, then each offered instruction's sentence as a row, Review Instruction | Choose Instruction in Type's place; then Continue, Summarize and Run Checks Again by their short names (a recorded run's own by their words), each with its mark, Review Instruction once one is chosen, and Cancel; the sentence itself shows in the draft before it is sent |
-| The redesign at work (BUILD-SPEC-v4 2.3, XR and FIELD 2026-11-10) | Working in the file's pill, the activity's latest line, Request Under Way where nothing can be written | No panel and no sentence: the working field, Stop alone, and the agent's cursor saying the step the runtime reports: Running Tests, Running Command, Reading {file name}, Editing {file name}, or Reading, Editing or Running alone where the whole line does not fit or no file is named; nothing where the runtime reports no step. Stop's confirmation is the file's own line in two places, Stopped Once Agent Confirms in the panel and Stop Task? in its sentence bar, with Confirm and Cancel |
-| The redesign's result at rest (BUILD-SPEC-v4 2.5 to 2.8, XR 2026-11-10) | The project's screen with Make VR Copy, Request Change, Try Build, Activity, Reasoning, Outcome; the moment's File Made, Change Observed, File Removed | {n} Files Changed (1 File Changed), Build Passed or Build Failed, Make VR Copy, Request Change, Try Build, Changes, Checks, Next Page, Back; in Changes a row a file, "Made · {path}", "Changed · {before} to {after} Lines · {path}" or "Removed · {path}", the path last and leaning, and Not Observed where the computer could not read the folder; in Checks a row a step, Type Check, Build, Page Drawn, VR Offered, and Write Instruction where the check failed |
-| A file's Doing, the latest line | Latest: {message}, with "Agent says" | Latest · {message} · Reported, the message leaning (the owner's voice standard, 2026-10-30) |
-| An agent's question, its answers, a header | {question} as a block under our quote mark; each answer a row of theirs under it | Agent's Question, then {question} as a block under our quote mark; each answer a row of theirs under it (the owner's voice standard, 2026-10-30) |
-| The companion's question and reply | {line} under our quote mark; the source line names the companion | Companion · {line}, the line leaning; its view That wasn't clear. Say it another way. or That doesn't sound like something software can do. Try another idea. (the owner's voice standard, 2026-10-30) |
-| Seorak's measured checks | 23 passed of 24 runs (96%): {label} | 23 of 24 Passed · 96% · {label}; a count not given, Passes Unknown · 24 Runs or 23 Passed · Runs Unknown; no rate, No Pass Rate; kinds apart by "; "; our counts first, the label leaning last (the owner's voice standard, 2026-10-30) |
-| The measurement's lines in a file | Checks: …, Cost: About $1.20. {note}, Outcome: … | Checks · …, Cost · About $1.20 · {note} (Under $0.01 below a cent; Unknown · Unpriced or Not Measured), Outcome · … (as No Commits Landed · 2 Tool Errors · First at 17:44 · End Unknown, then Uncommitted · 3 Files · +41 −7 · Kept After 3 Days · 90% · 36 of 40 Lines); each part's status Available, Partly Available · {reason} or Unavailable · {reason}, then 3 of 4 Sessions · Complete or Incomplete · {gaps}, then Fresh, Stale or Recomputing · Data to {time} (No Data Yet), or Stale Since {time} (the owner's voice standard, 2026-10-30) |
-| A statement or an item beside its chip | Failing: {x}, {x} | Failing · {x}, To Do · {x}, In Progress · {x}, the agent's words leaning beside Agent · Reported (the owner's voice standard, 2026-10-30) |
-| The system keyboard's prompt for an instruction | What to tell it; what it holds, shown by LabelText's plain rule | Instruction; for an answer, Your Answer; what it holds, shown by LabelText's plain rule (the owner's voice standard, 2026-10-30) |
-| The usage reading's side panel | Agent app: {agent}, then Seen, Resets, Account | Agent App · {agent}, then Seen, Resets, Account (the owner's voice standard, 2026-10-30) |
-| Your answer and the person's instructions | Your answer: {words}; {instruction} above the question, leaning | Your Answer · {words}; {instruction} above the question, leaning (the owner's voice standard, 2026-10-30) |
-| Connect's sentences and Projects' facts | “{name}” | {name}, cut at 40 |
-| Connect's reason while another folder's connection is unsettled | Still waiting to hear whether the other folder was connected. Connecting another folder waits until that's known. Once it can't be known: Not sure whether the other folder was connected. Look for it in Projects. Connecting another folder waits until that's known, or until you restart the app. (a prompt's reason holds our words alone) | Waiting for the other folder. Connecting waits until then.; once it can't be known, The other folder isn't confirmed. Check Projects. Connecting waits until then. (a prompt's reason holds our words alone) (the owner's voice standard, 2026-10-30) |
-| A recorded run's word on the answer it was given when it ran (2026-10-28) | (none) | Not sent to any agent. This was approved when it ran, so the run goes on as it happened.; …This was denied when it ran…; Not sent to any agent. The run goes on as it happened. |
-| A recorded run's word on anything it holds nothing for (2026-10-28) | (none) | Not sent to any agent. This run is recorded as it happened, so nothing changes. |
-| The line above the stage while a recorded run plays (2026-10-28; reworded 2026-10-29, since a run may never wait for anyone and the banner keeps to three rows with a task waiting) | Recorded: real agent work, played back on this headset. Nothing here is live. It waits for you where the agent waited. Nothing reaches an agent. | Recorded: real agent work, played back here. Nothing here is live. It waits only where the agent waited. Nothing reaches an agent. |
-| A recorded run's end, with a demo to follow; the end line takes the second sentence's place (2026-10-29) | This run has ended. A demo you can answer comes next. (added after the second sentence) | Run ended. Next, a demo you can answer. Nothing reaches an agent. |
-| A recorded run's end with no demo to follow (2026-10-29) | This recording has ended and starts again shortly. (added after the second sentence) | Run ended. It starts again soon. Nothing reaches an agent. |
-| The demo's end, with the recorded run to follow (2026-10-29) | This demo has ended. The recorded run comes next. (added after the second sentence) | Demo ended. Next, the recorded run. Nothing reaches an agent. |
-| The demo's end, playing alone (2026-10-29) | This recording has ended and starts again shortly. (added after the second sentence) | Demo ended. It starts again soon. Nothing reaches an agent. |
-| The demonstration's word on an answer it continues from its recording | Nothing is sent to an agent. The recording goes on as if you answered “{label}”.; Not sent to any agent; the recording continues as recorded for “{label}”.; …so it continues as recorded for “{label}”. | Nothing is sent to an agent. The recording goes on as if you had chosen its recorded answer.; Not sent to any agent; the recording continues as recorded for this instruction.; Not sent to any agent; the recording holds only its own instructions, so it continues with the one it recorded. (Halcyonic's message names no outside text) |
-| A provenance line | From Salidium {version}, 2 minutes ago, {version} leaning on its ground: a source names its own version | Explanation, 2 min ago (Just Now, 3 h ago, 30 Oct 14:02; Recorded {time} in a recording); Measurement, Read 2 min ago; a stand-in's Simulated Explanation, Simulated Checks or Simulated Measurement, then {when}. The source's own name and version are never drawn, in any build (the lead's ruling, 2026-11-13) |
-| Unchanged, now marked | The same words, {x} leaning on its ground | Started · {app}; Tests Started · {label}; Tests Passed · {summary} · Reported; Approval Requested · {tool} · {summary}; Open · {title}; New Task · {name}; the rest as before, {x} leaning on its ground (the owner's voice standard, 2026-10-30) |
+- **Attribution chips:** reported lines carry `Agent · Reported`, `Subagent · Reported`, `Author
+  Unknown`, `Explanation · Reported`, `Inferred`, `Planned` or `Agent's Question`. Observed host
+  facts and Halora's own labels carry no chip.
+- **Presentation:** in room faces (`KitType` with `room: true`), outside text stands upright,
+  distinguished by its region, chip and monospace well (`KitWell`). On `Glaze` plane surfaces, mixed
+  lines lean in italic on a subtle token ground (`Failing · {x}`, `To Do · {x}`, `In Progress ·
+  {x}`) and whole-block rows carry `GlazeIcon.Quote`; on `KitWorkView`, whole-block attributed agent
+  prose and the focused instruction input stand upright while mixed lines keep their lean and
+  ground. Outside text is always shortened before Halora's words (`LineWords.CutToFit`).
+- **Recorded and demo playback notices (`DemonstrationFallback`, [ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md)):**
+  - Banner: `Recorded: real agent work, played back here. Nothing here is live. It waits only where
+    the agent waited. Nothing reaches an agent.`
+  - End transitions: `Run ended. Next, a demo you can answer. Nothing reaches an agent.`, `Run
+    ended. It starts again soon. Nothing reaches an agent.`, `Demo ended. Next, the recorded run.
+    Nothing reaches an agent.`, `Demo ended. It starts again soon. Nothing reaches an agent.`
+  - Composer / decision notices in recordings: `This is a recording, so nothing can be sent.`; `Not
+    sent to any agent. This was approved when it ran, so the run goes on as it happened.` (or
+    `denied`); `Nothing is sent to an agent. The recording goes on as if you had chosen its recorded
+    answer.`
+
+### A provenance line
+
+No headset screen in any build draws a sibling product's name or version (`Salidium`, `Seorak`;
+enforced by `tooling/sibling-names.test.ts` and `SourceWords`):
+
+| Where | Provenance words |
+| --- | --- |
+| Understanding (`Salidium` or stand-in) | `Explanation, 2 min ago` (`Just Now`, `3 h ago`, `30 Oct 14:02`; `Recorded {time}` in a recording); stand-in: `Simulated Explanation, {when}`. On `Reasoning` (`EvidencePage`): `Observed`, `Reported` or `Simulated` |
+| Evaluation (`Seorak` or stand-in) | `Measurement, Read 2 min ago`; stand-in: `Simulated Checks, {when}` or `Simulated Measurement, {when}`. On `Outcome` (`EvidencePage`): `Measured` or `Simulated` |
+
+## Instructions, questions, approvals and spending limits
+
+- **Instructions (`FileScreens.Instruction`, `RoomBar`, `VoiceText`, `WaitingText`):**
+  - At rest on `RoomBar`, `Hold to Talk` and `Type` stand side by side (`Choose Instruction` with
+    `Continue`, `Summarize` and `Run Checks Again` when no keyboard is available). While recording,
+    `Hold to Talk` reads `Listening`; while transcribing, `Typing It Out`
+    (`VoiceText.WritingDownWords`).
+  - `Write Instruction` opens `Your Instruction` (placeholder `Instruction` with a keyboard, `Hold
+    to Talk` without). The explicit send button is `Send` (`FileScreens.SendWords` and
+    `COMMAND_SAYING['execution.send_instruction']`; `RoomBar` shows `Send Instruction` on typed
+    drafts, and `KitComposer` shows `Start New Run` when switching runtimes).
+  - Unread multi-part drafts lock the button as `Read Full Instruction` (`Next Part` / `Previous
+    Part`). Spoken drafts require confirmation under `Send This?` (with `Talk Again` and `Cancel`);
+    policy-reviewed typed drafts ask `Send Instruction?`.
+  - Queued instructions on runtimes that cannot steer ([ADR 0056](../decisions/0056-an-instruction-sent-during-a-turn-waits-for-it-on-a-runtime-that-cannot-steer.md))
+    show `Waiting` (`Each is sent when this turn ends.`) and `Waiting for Its Turn` (`It is sent
+    when this turn ends`, with `Drop` and `Back`), or `Not Sent` with the cause (`The turn before it
+    ended in an error`, `The turn was stopped before it ended`, `The agent's session could not be
+    picked up again`, `The project's files were put back`, `You dropped it`) and `Send Again`.
+- **Spending limits (`SpendingLimit`, [ADR 0062](../decisions/0062-a-tasks-spending-limit-is-the-apps-own-stop-handed-only-what-is-left.md)):**
+  - At start (when `OffersSpendingCap` is true): `Spending Limit` offers `No Limit`, `$1`, `$5` and
+    `$10`; the recap card shows `Stops Near $5.00` or `No Limit`, and the review shows `Limit $5.00`
+    over `It stops near $5.00 by the app's own estimate; it can go over on its last step`.
+  - On a task: an open cap shows `Limit $1.00`; a reached cap shows `At Spending Limit` with `Spent
+    $0.30 of $1.00` (or `Limit $1.00` when spent is unknown); a post-restart cap with unknown prior
+    spend shows `Spending Not Known` with `Limit $1.00`. Its composer asks `Spend Up To` over `$1
+    More`, `$5 More` and `$10 More` with `Counts from now.`, locks `Send` with `Choose an Amount
+    First` until an amount is pressed, and confirms with `Send Instruction, Spend Up To $5.00 More`.
+- **Agent questions (`QuestionDraft`, `RoomBar`):**
+  - Progress and selection: `Question 1 of 2 · Choose One` or `Choose Any` (`· Choices 1 of 2` when
+    paged), paged by `More Choices` and `First Choices`, advancing via `Next Question`, `Next Part`,
+    `See Answers`, `Review Answers` and `Send Answer` (confirmed under `Send Answers?`).
+  - Locked reasons: `Read Full Question`, `Read Full Answer`, `Read All Answers`, `Read This Part`,
+    `Write Answer First`. Custom answers use `Write Answer`, `Your Answer`, `Use Answer` and `Edit
+    Answer`.
+  - Duplicate choice labels (`WorkspaceText.AsShown`) cannot be selected: the unavailable row reads
+    `Unavailable. Open it to read why.` -> `Duplicate Choices` (`These share a name, so none can be
+    chosen: {words}`), or `Duplicate Answers · Not Answerable Here · Stop Task` when no valid option
+    remains; typing a matching label warns `That matches answers that share a name: answer
+    differently, or stop the task`.
+- **Approvals (`WorkspaceSteering`, `KitMoment`):**
+  - Heading / sentence: `Run Command?` / `Run Command`, `Use {tool}`, or `Approval Requested`. When
+    declared by the adapter ([ADR 0033](../decisions/0033-approvals-declare-whether-commands-leave-the-sandbox.md)),
+    sandbox scope reads `May Run Outside Sandbox · Your Access` or `Runs Inside Sandbox`.
+  - Actions: `Approve` and `Deny` (or `Run`, `Decline` and `Reply` on moment cards / `KitReader`),
+    followed by `Read Full Request` or `Approve Request?` / `Deny Request?` with `Confirm` and
+    `Cancel`. Requests exceeding the 2,000-character approvable bound or marked incomplete offer
+    only `Deny` / `Decline`.
+
+## Connection, pairing, access code and unknown-effect patterns
+
+- **Unknown-effect pattern (`WorkspaceText`):** when delivery or execution cannot be ruled out,
+  Halora uses `{What} Unconfirmed · {What to Check}` (for example `Delivery Unconfirmed · Check
+  Activity`), never claiming the command failed without effect.
+- **Unsent / lapsed confirmations:** `Nothing was sent: the request changed. Read it again.`,
+  `Nothing was sent: the question changed. Read it again.`, `Nothing was sent: your answer changed.
+  Read it again.`, `Nothing was sent: the task changed.`, `Nothing was sent: the text size changed.
+  Read it again.`, `Nothing was sent: the confirmation timed out. Press again.`, `Nothing was sent:
+  a request is already under way.`, `Nothing was typed: the question changed. Read it again.`
+- **Connection status (`ConnectionText`):** a computer that does not answer reads `Can't reach your
+  computer; trying again` (or `Computer Unreachable · Retrying` in compact cadence), keeping raw
+  socket/DNS/TLS exception text in `ConnectionStatus.ForLog` rather than on screen. Refused or ended
+  connections speak by code (`Version Mismatch · Install Same Version`, `Message Unreadable ·
+  Install Same Version`, `Too Many Connections · Restart App`, `Host Not Allowed · Retrying · Pair
+  Again if Repeated`, `Computer Busy · Too Many Tries · Retrying`, or a certificate mismatch warning
+  to forget and pair again).
+- **Wi-Fi pairing failures (`PairingCards.Why`):** `Computer Not Found`, `Code Incomplete`, `Pairing
+  Refused`, `Pairing Closed`, `Code Refused`, `Pairing Paused`, `Computer Busy`, `Timed Out`,
+  `Connection Lost`, `Can't Pair`, `No Secure Connection`, `Not Verified`, or `Reason Unknown`.
+- **Intelligence / catalog / folder read failures (`IntelligenceText`):** leads `No Conclusions`,
+  `Conclusions Unavailable`, `Conclusions Unreadable`, `Conclusions Not Allowed`, `Not Measured`,
+  `Measurement Unavailable`, `Measurement Unreadable` or `Measurement Not Allowed`, paired with
+  code-specific reasons (`Not Running · Start It · Refresh`, `No Answer · Refresh Soon`, `Busy ·
+  Refresh Soon`, `Too Many Requests · Refresh Later`, `Credential Missing · Set Up on Computer`,
+  `Credential Wrong Kind · Not Sent · Set Up Another`, `Credential Refused · Set Up New One`,
+  `Credential Lacks Access · Set Up Another`, `Credential Covers Other Work · Set Up Another`,
+  `Task Not Seen Yet · Refresh Soon`, `Not Computed Yet · Refresh Soon`, `Task No Longer Kept`,
+  `Agent App Not Followed`, `Task Not Found by Name`, `Result Limit Reached · Refresh`, `Answer
+  Unreadable · Check Version on Computer`, `Request Turned Away · Check Setup on Computer`, `Wrong
+  Source Answered · Check Setup on Computer`, `Setup Unreadable · Check on Computer`, `Session
+  Unknown Yet · Refresh Soon`, `No Reason Given · Refresh`) without naming sibling products.
+
+### The headset's access code
+
+Where a development build uses the loopback access token over USB (`LoopbackProof`,
+[xr-loopback-proof.md](../validation/xr-loopback-proof.md)), person-facing copy calls it the `access
+code`:
+
+| Condition | Exact message |
+| --- | --- |
+| Control plane answered `401` | `Your computer refused this headset's access code: it doesn't match your computer's. Put your computer's current access code on the headset, then restart the app.` |
+| Endpoint failed loopback proof (token withheld) | `This headset's access code doesn't match your computer's, or something else is answering in its place, so the headset didn't send it. Put your computer's current access code on the headset, check that this app is running there, and restart the app.` |
+| Non-loopback or disallowed scheme configured | `The access code goes only to ws:// or http:// at 127.0.0.1 or [::1], so it was not sent to {endpoint}. Name one of those instead.` |
 
 ## Workspace organization
 
-Move, Compact and Expand are persistent named workspace controls outside the decision footer.
-Compact keeps the exact current page and valid local draft. Expand resumes that composition;
-Close retains its existing leave/discard meaning. Move's short press opens placement details;
-Hold Move to drag the whole workspace explains its hold. Below a window the detail says,
-"The workspace stays below the window. Choose where the characters stand."
-The actual choices are In front of you, Room for a window and Either side of a window. Selecting
-one shows Apply; it changes only on that explicit press. Reset position brings the workspace back
-within reach (Reset Position). Read title shows the retained task's complete outside title in readable parts.
+`Move` / `Move Workspace`, `Compact` / `Minimize Workspace`, `Expand` / `Open Workspace`, `Reset
+Position` and `Other Apps` (`Open Work Window`) are workspace controls separate from task decisions.
+`Compact` / `Minimize Workspace` preserves the open view and unsent drafts; `Close` leaves or
+discards the local context. Holding `Move` drags the workspace (`Done Moving` exits explicit move
+mode); `Reset Position` restores default placement. Below an external window, placement details read
+`The workspace stays below the window. Choose where the characters stand.` with `In front of you`,
+`Room for a window` and `Either side of a window` applied on `Apply`. `Settings` groups `Appearance`
+(`Glaze`, `Graphite`, `Neutral`, `Code Colours`, `Restore Default`), `Comfort` (`Motion`: `Keep
+Still` / `Allow Motion`, text size), `Your Space` (`Surroundings`, `Room Layout`, `Agents`, `Agent
+Shelf`, development `Boundary` with `Hide Boundary` / `Show Boundary` / `Stop Asking`, `Menu`) and
+`Your Computer` (`Pairing`: `Pair Computer` / `Forget Computer`).
 
-## Instructions
-
-Write Instruction opens Your Instruction. An empty keyboard field says Instruction; without a
-keyboard it says Hold to Talk. Keyboard Done and completed transcription save only local
-words. The explicit action is Send (Send Instruction until 2026-11-16: one name for the action, AUDIT2). Recorded or generic instruction choices lead to
-Review Instruction, which copies a local draft; choosing or reviewing never sends. Cancel discards
-that draft locally. A spoken draft retains its additional reviewed Confirm after Send Instruction,
-including after a keyboard edit. Read Full Instruction explains an unread draft, as the locked Send's own word in the kit; Answer Approval
-First explains approval preemption. A changed execution says Nothing was sent: the task changed..
-
-A task at its spending limit says "At Spending Limit" with "Spent $0.30 of $1.00" where the spend is known; one whose spend is not
-known after a restart says "Spending Not Known" with "Limit $1.00", never a figure; an open limit is "Limit $1.00". Its composer asks
-"Spend Up To" over "$1 More", "$5 More" and "$10 More", with "Counts from now." under the first, none chosen until pressed. Send's
-reason until then is "Choose an Amount First", and the confirm reads "Send Instruction, Spend Up To $5.00 More" (AUDIT2, 2026-11-16).
-At a start where the runtime offers a limit, "Spending Limit" offers "No Limit", "$1", "$5" and "$10"; the recap card says
-"Stops Near $5.00" or "No Limit", and the review "Limit $5.00" with the control plane's line under it, or "No Limit" (AUDIT2, 2026-11-16T2324Z and 2330Z).
-
-Next Choices names the preset chooser's body pager, and the model and starter choosers'; from the last page it says First Choices, as it goes back to the first. Back to Choices acknowledges the full notice
-and returns to the preserved selection. Task unavailable is the compact fallback only when the
-retained task is missing and no verified last title is available.
-
-
-## Dedicated workspace navigation
-
-The workspace opens with normal Projects and Tasks navigation for fresh, demonstration,
-disconnected and returning sessions. Halcyonic, connection mode and Project > Task context are
-visible on the composed frame. Minimize workspace is global; Close task is local. Open Workspace
-restores the retained selection and valid local drafts after fresh drawn authority. Other Apps
-opens the actual native panel when supported and explains unavailability otherwise. Move and
-Reset Position describe real workspace movement, with no promises about another app's window.
-
-Navigation uses familiar capability names. Run ended does not mean the task is accepted, its
-result is correct, or tests passed. Synthetic and recorded work remain explicitly marked beside
-the task even inside a live journal containing real work. Existing wording elsewhere in this document is historical
-where it mandates character-first discovery or forbids these familiar labels; implementation
-updates must preserve source provenance and current-action truth.
-
-
-### Project and task navigation
-
-Projects and Tasks use those concrete view names. Selecting a project opens its Tasks, with the
-project name in the persistent workspace header. All Projects returns to the full task list;
-Project Details preserves the project's existing Add Task and agent visibility actions. Saved
-Drafts remains reachable in either task list. Every task row carries its actual state and applicable
-Practice, Demo, Recorded or Last known marks, even within a live journal containing mixed sources.
-The selected task's state appears once in the attached header rather than again above its title.
-The Projects header control remains reachable while an instruction is open and retains that draft.
-An empty folder list says No Folders Allowed, with the concrete next step Allow on Computer · Try
-Again. Earlier copy tables above are historical
-for these replaced subjects and navigation routes.
-
-
-Ask workspace opens a general request for the selected task and run. Request, Reply and Actions
-are views of the same request, not a catalogue of accepted phrases. Start request and Continue
-request are explicit actions; heard words first offer Yes, send request with Cancel. The visible
-scope says Read this task and send instructions to this run. Assistant reply is marked reported;
-recorded action receipts show recorded outcomes separately. Cancel request stops the planner;
-the task may keep running. Back to task retains both local drafts. Unavailable assistant or
-connection state keeps the words and gives a concrete Refresh or reconnect route.
-
-
-The native panel says Checking your computer before restoring this view only for its restoration
-check. During the actual in-flight read its words shimmer, or stand highlighted under Keep things
-still or disabled system animations. Connection failure replaces that wait with the existing
-recovery message; the animation never changes a checking state into a success claim.
-
-Workspace opens local organization and navigation. Move workspace enters placement; its header
-target says Move and its return says Done moving. In the context column and the kit's spine the row that opens placement says
-Move Workspace (2026-11-04), so Workspace stands once there, as the mode beside Compact. An agent's prose shows without
-Markdown's marks (fences, code spans' backticks, strong runs' asterisks), its words as written; a request for approval keeps
-every character. Minimize workspace preserves work and drafts.
-Open work window opens the existing native work panel and retains its platform availability rule;
-it does not open the system's app launcher. Show task portraits and Hide
-task portraits name a device-wide local preference, separate from per-task colour. The Projects
-root omits Close; a task retains Close because that action removes its context and does not
-always navigate to a task list. Blue marks the main action, while amber still means waiting for
-you. These words describe the isolated candidate; wearer acceptance remains open.
+In the native Android continuation panel, restoration check wait text reads `Checking your computer
+before restoring this view`, and the button back to Unity XR reads `Open Halora`.
 
 ## The Projects panel
 
-The launch screen in the one language (FIELD's sheet, tile f1; `RoomBar.Projects`). Our own words in the label role are
-drawn in spaced capitals by the face's style; the words themselves stay as written here.
+The launch panel (`RoomBar.Projects`):
 
-| Part | Words | Example |
-| --- | --- | --- |
-| The label over the title | the product's shown name | Halora |
-| The title | Projects | Projects |
-| The panel's own press, top right | Menu: the workspace's own column (Move Workspace, Reset Position, Minimize Workspace, Other Apps) | Menu |
-| The heads over the list | Project, then State | Project / State |
-| A project's state, at the right of its row | one word, never a count: Needs You, Ready, Working, No Work, Paused, Not Started | Working |
-| The actions at the panel's foot | New Project, Next Page where the list pages, Settings, Usage, Close where the frame offers it | New Project |
+| Part | Words |
+| --- | --- |
+| Eyebrow over title | `Halora` (`WorkspaceText.Product`, rendered in spaced capitals by `RoomType.Label`) |
+| Title | `Projects` |
+| Top-right action | `Menu` (`Move Workspace`, `Reset Position`, `Minimize Workspace`, `Other Apps`) |
+| Column headers | `Project` / `State` |
+| Row state word | Single state word (`Needs You`, `Ready`, `Working`, `No Work`, `Paused`, `Not Started`) |
+| Footer actions | `New Project`, `Next Page` (when paged), `Settings`, `Usage`, `Close` (where offered) |
 
 ## The room of projects
 
-The words of [ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md)'s room, decided with its storyboard on
-2026-10-29 and its truth read, and put in the owner's voice standard on 2026-10-30 (ART's room section, DESIGN's moment
-card anatomy). {runtime} is the agent app's name, said only as provenance; anything the runtime wrote (a path, a command,
-its sentence) is theirs and drawn as theirs. A moment card reads top to bottom: its eyebrow (who and how known), a 1 to 3
-word Title, one metadata line in the " · " cadence, a well for a command, a risk line, its answers. The moment words live
-in `KitMomentWords`; the gallery's title, newcomer line, shelves and finder are not built yet.
+Copy for [ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md)'s room surfaces
+(`KitMomentWords`, `KitScreenModel`, `RoomBar`):
 
-| Kind | Words | Example |
-| --- | --- | --- |
-| The gallery's title | Projects · {n} · {groups} Groups | Projects · 214 · 6 Groups |
-| A newcomer's line | Say Idea when speech is set up on the Mac, otherwise Type Idea; Open Project | Say Idea |
-| Making something | New Project, on the first tile and at the top of the gallery | New Project |
-| What needs the person | Needs You · {n} | Needs You · 3 |
-| The rest of a shelf | +{n} More | +42 More |
-| Finding | Find Project | Find Project |
-| A catalog state | Halcyonic's words mapped from the catalog's states (the gallery's table below), marked Reported beside the catalog's name; an attention kind Halcyonic does not know reads Needs a Look | Review Requested · Reported · Sample Projects |
-| A catalog project linked to no Project here | Not Linked. Never "Not on this computer yet": Halcyonic cannot know what is on the computer. Possible Match · {folder}, marked Inferred, only from the host's own suggestion | Not Linked |
-| A linked project with both states | Halcyonic's state with its dot, Observed, then the catalog's, Reported; neither hides the other | Running · Observed / Review Requested · Reported |
-| The screen's picture | Last Check · Today {time} · Observed, or Last Check · {d MMM} {time} · Observed where it isn't today, on the host's check screenshot; no picture and no label until the check takes one | Last Check · Today 10:38 · Observed |
-| The one clear action | Make VR Copy (Make VR Version until 2026-11-16: "copy" says the original stays; the host's title, AUDIT2), for a project that is not VR yet. It makes a new project for the headset beside this one. | Make VR Copy |
-| The screen's title | {project}, then {runtime} · {state}, on the screen's own chip | Tower Toss · Codex · Ready |
-| The screen's bar | Its primary action first (Make VR Copy for a project that is not VR yet, else Request Change), then Request Change where it is not the primary, then Try Build only after a passed check of the computer's own, with a route to try it, while no turn runs and with no change seen since that check; then Activity, Reasoning, Outcome; then Close, which puts the screen away and leaves the task where it was | Request Change |
-| A task's way to its project's screen | Show Project Screen, on the kit's rail on the task's Activity in the spatial workspace, while the task's project is known; it brings that project's screen forward and sends nothing | Show Project Screen |
-| A task's routes behind More | One chevron row each, in the frame's order, then Back: Place in Room (the room's placement for that task: the person points to a spot and the task stands there), Ask About This Task, Character Colour, Show Project Screen | Place in Room |
-| A request sent | Eyebrow Your Computer · Observed (your computer sent it); Title Sent; under it, apart, Waiting for the agent to start. (the agent by its role, never the runtime's name; no joining dot, AUDIT2's 08:54Z). Never "Started" on acceptance. | Sent / Waiting for the agent to start. |
-| The runtime's report of an edit | Eyebrow The Agent Says (the agent by its role, never the app's name); Title Edit Reported (New File Reported, Removal Reported); the path; Not Yet Observed | Edit Reported · src/towers.ts · Not Yet Observed |
-| The Mac's reading at the turn's end | Eyebrow Your Computer · Observed; Title Change Observed (File Made, File Removed); the path · {before} to {after} Lines · {time}; never the lines themselves | Change Observed · src/towers.ts · 41 to 54 Lines · 10:42 |
-| Lines added and removed | +{added} −{removed} Lines, only from a checkpoint diff when undo is on | +14 −3 Lines |
-| Earlier moments | {n} Earlier, counting only the moments before the shown one | 4 Earlier |
-| Moments after a waiting question | {n} Newer, counting the moments after a question that stays shown, after the earlier count in the cadence | 2 Earlier · 1 Newer |
-| A check the Mac ran | Eyebrow Your Computer · Observed; Computer Check · Builds · Under Way while no exit is seen, never the agent's own "Checking"; then Build Passed or Build Failed · Builds (· Opens only where the check opened the build) | Build Passed · Builds · Opens |
-| A check the agent ran | Eyebrow The Agent Says; Title Check Reported; the command in the well; its outcome as theirs | Check Reported · npm run build · exit 1 |
-| A check that ended with no outcome | Check Ran · Result Unknown | Check Ran · Result Unknown |
-| A check whose verdict is not known | Title Partly Checked, its line under it (What was checked passed; one thing could not be checked.); on the Checks page the host's own finding under the line, never on the moment beside the character; the quiet tone, never Build Failed or the failure cue; the result's check slot Partly Checked with the plain dash (AUDIT2's words, VRIFY's not_known) | Partly Checked |
-| A check whose page looks like the untouched starter while the checked folder's files changed (`not_known`, VRIFY 2026-11-17) | Partly Checked as above; the host's finding is three sentences: No visible change to the page. Then the count: This task changed {n} files, including sound files. / ..., including a sound file. / ..., including the project's sound code. / ..., including sound files and the project's sound code. / This task changed {n} files. / This task changed 1 file, a sound file. / This task changed 1 file, the project's sound code. / This task changed 1 file. (This project in place of This task for the project's own folder.) Then always Look and listen to judge it. An audio file is a sound file; the starter's own sound code is never called one. Never Failed, never drew nothing (AUDIT2's words, 2026-11-17, 22:34Z) | Partly Checked |
-| A check whose page is still the starter's picture alone, nothing new drawn yet (`starter_only`), a check of a project's own untouched folder only (a task's copy that drew nothing new reads Checks Failed) | Title Starter Only, its line under it (Nothing new is drawn yet. Say what you want to see.); the quiet tone and the plain dash, never Failed, red or the failure cue; the project's row and tile stay No Work (AUDIT2's words, 2026-11-16) On the headset the same words (CheckSteps.StarterOnlyWord and StarterOnlyLine): the steps list ends on Starter Only with its line, the result card's status says it, quiet, and the moment says it; never Checks Failed or the failed mark. | Starter Only |
-| A command to approve | Eyebrow Agent's Question (KitMomentWords.AgentQuestion, the one name; the card's ring marks it the agent's report); Title Run Command?; the command in the well; ADR 0033's line when the runtime declares it (May Run Outside Sandbox · Your Access, or Runs Inside Sandbox). "Nothing runs until you answer." is deleted: the question and its locked answers carry it. | Run Command? · npm install matter-js |
-| The answers | Run · Decline · Reply; a cut command offers no Run | Run |
-| The agent's own note | Eyebrow The Agent Says; Title Agent Note; their words beneath as prose | Agent Note |
-| Ready | Eyebrow Your Computer · Observed; Title Build Ready; the project; then, each on a line of its own and never joined on a dot, Builds and how long it took, as "Took {duration}" (Builds, Starts and Shows and Took where the check opened it; the Checks card's own row names). Only after a check of the computer's own passed; Try Build only where a route to try it exists; for a VR version, only after the check opened the VR version. | Build Ready / Tower Toss / Builds / Starts and Shows / Took 6 min 40 s |
-| A skipped reading | Eyebrow Your Computer · Observed; Title Not Observed; the reason. Never "no changes". | Not Observed · too many files |
-| A package the starter doesn't hold | Eyebrow Your Computer · Observed; Title Not in Starter; the package; Install Not Run | Not in Starter · matter-js · Install Not Run |
-| Reading | Read File, Read Output, Fold, Whole File (unavailable until the Mac has read the file); a cut command in the well says {n} More Lines Not Shown (no joining dot) | Read File |
-| The check's outcome on the result's card (AUDIT2, 2026-11-16 10:05Z) | The Checks page's own words, one word per state: All Passing or Checks Failed as a slot beside the files; none where the card's status already names the outcome (a chain of tries that ended), so Failed is never said twice | All Passing |
-| A task that is a plan, and a run not kept to its folder, on the result's card (FIELD, 2026-11-11) | Plan Ready over "Read it, then carry it out or change it" at rest, with Carry Out Plan its main action; Planning over "It plans first, then waits for you to carry it out" before; Not Kept to Folder as a slot under the folder's mark; never confined, sandbox or seatbelt on a screen | Not Kept to Folder |
-| An instruction waiting for the turn to end (FIELD, 2026-11-11) | Waiting over "Each is sent when this turn ends.", each row the person's words, Next on the first alone; Waiting for Its Turn over "It is sent when this turn ends", with Drop and Back; Not Sent over why by its code ("The turn before it ended in an error", "The turn was stopped before it ended", "The agent's session could not be picked up again", "The project's files were put back", "You dropped it"), with Send Again and Back; never queued, never sent for one that waits | Waiting for Its Turn |
-| A start that plans first (FIELD, 2026-11-11), where the runtime offers a plan | Plan First, a third answer after Ask First and Never Ask; the recap's level and the review's own level read Plan First, apart from the model (never on a dot) | Plan First |
-| A file of Changes read on the headset (the lead, 2026-11-11), each status a title over its quieter line | The file's own name as the title and its path under it, both theirs; its change's kind as a slot (Edited, New, Removed) and its lines as slots ({n} Lines, an edit's added and removed apart under their marks); the page's place at the foot, Page {n} of {pages}; Reading File while a read is out; Whole File, the file as it is now, its line "As it is now:" then the path, its own gap (or "As it is now." where the path has no folder); Nothing to Compare over "The computer kept no earlier version of this file" only where the turn's version is the folder's first, else over "The earlier version was not found" (the critics' words, for FIELD to word); Kept Private over "Its name says it may hold secrets"; Too Large to Show over "Over 262 KB" (computed from the computer's bound, PROJECT_FILE_BYTES, in decimal kilobytes); Not Text (no mark); Empty File and Too Large to Show with the file's mark, Kept Private with the folder's; "The rest is too long to show here" at the foot of a change cut at the Mac's bound; Not Read over "The computer did not answer", with Try Again, only where no answer came, else over "The computer's reply can't be shown" with no Try Again; in the demonstration a row of Changes is not pressed; Next Page, Previous Page, Back | Kept Private |
-| The report beside a task, in the kit | Agent · Reported, as the agent's chip everywhere; Nothing Reported; Earlier Activity · {n} More | Agent · Reported |
-| A rail entry the agent reported, its evidence in the chip beneath | {What} · Reported, in the cadence, never "(Reported)" | Tests Failed · Reported |
-| Where the task's character can't stand, beside its way back | No Room, with Move Workspace; Agents Hidden, with Show Agents (render fixtures: nothing in production draws this band yet) | No Room |
-| The composer, in the kit | Instruction (empty field) · Your Answer · Not Sent · Send Instruction · Hold to Talk | Send Instruction |
-| Send at rest on another agent | Start New Run, where Send starts the task's next run on the agent the Agent chip names (never a claim that the new run keeps the old one's conversation); Nothing was sent: choose a model first. where that agent lists its models and none is chosen | Start New Run |
-| Send while a request is under way | Request Under Way, Send's reason while a request to the task is being sent or not yet confirmed; "Nothing was sent: a request is already under way." where a press comes anyway | Request Under Way |
+| Surface / moment | Words |
+| --- | --- |
+| Gallery header and controls (core `GalleryText`) | `Projects · {n} · {groups} Groups`; `Say Idea` (when speech is set up) or `Type Idea`; `Open Project`; `New Project`; `Needs You · {n}`; `+{n} More`; `Find Project` |
+| Screen chip and screenshot stamp | `{project}`, then `{face} · {state}` (`RuntimeFaces.Head`, such as `Local Models · Ready`); `Last Check · Today {time} · Observed` (or `Last Check · {d MMM} {time} · Observed`) |
+| Screen bar | Primary (`Make VR Copy` for a non-VR project, else `Request Change`), `Request Change` (when secondary), `Try Build` (only after a passed host check on current files with no active turn), `Activity`, `Reasoning`, `Outcome`, `Close` |
+| Task `More` routes | `Place in Room`, `Ask About This Task`, `Character Colour`, `Show Project Screen`, `Back` |
+| Request sent receipt | Eyebrow `Observed on This Computer`; title `Sent`; subtitle on its own line `Waiting for the agent to start.` or `Declined` (never `Started`) |
+| Runtime-reported file edit | Eyebrow `The Agent Says`; title `Edit Reported`, `New File Reported` or `Removal Reported`; `{path} · Not Yet Observed` |
+| Host-observed file change | Eyebrow `Observed on This Computer`; title `Change Observed`, `File Made` or `File Removed`; `{path} · {before} to {after} Lines · {time}` (or `+{added} −{removed} Lines` from checkpoint diff) |
+| Host check moment | Eyebrow `Observed on This Computer`; `Computer Check` (`Builds`, `Starts and Shows`, `Checking`) while running; then `Build Passed`, `Build Failed` or `Check Ran` (`Can't Tell`) |
+| Agent-reported check | Eyebrow `The Agent Says`; title `Check Reported`; command in well |
+| Ready moment | Eyebrow `Observed on This Computer`; title `Build Ready`; project name, `Builds`, `Starts and Shows` (when opened) and `Took {duration}` on separate lines |
+| Command approval moment | Eyebrow `Agent's Question`; title `Run Command?`; command in well; sandbox note (`May Run Outside Sandbox · Your Access` or `Runs Inside Sandbox`); actions `Run`, `Decline`, `Reply` (`Read to End` while unread; `{n} More Lines Not Shown` when clipped on card) |
+| Agent note / skipped read / missing package | `The Agent Says` / `Agent Note`; `Observed on This Computer` / `Not Observed`; `Observed on This Computer` / `Not in Starter` (`Install Not Run`) |
 
 ## The projects gallery
 
-The words of the gallery's core (`GalleryText`, [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)),
-agreed with DESIGN on 2026-10-29 and put in the owner's voice standard on 2026-10-30. How the room lays them out is in
-"The room of projects". A project's state in the person's catalog is reported by Omnorium, so its line never
-repeats a task's own words ("Needs You", "Checks Failed") and is marked Reported with the catalog's name: a reported
-state is never read as one Halcyonic observed. Names, owners, groups and pull request titles from the catalog lean, as
-words from outside do; these lines are Halcyonic's own.
+Catalog state mapping (`GalleryText`, [ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)):
+Omnorium states are always marked `Reported` so they never impersonate host-observed task states:
 
-| The catalog's state | Group | Line |
+| Catalog wire state | Shelf group | Shown line |
 | --- | --- | --- |
-| `awaiting_input` | Needs you | Agent Waiting |
-| `session_failed` | Needs you | Agent Failed |
-| `checks_failing` | Needs you | Checks Failing |
-| `review_requested` | Needs you | Review Requested |
-| `changes_requested` | Needs you | Changes Requested |
-| `ready_to_merge` | Needs you | Ready to Merge |
-| any state Halcyonic doesn't know yet | Needs you | Needs a Look |
-| `agent_running` | Working now | Agent Running (a line, never a character) |
-| `session_complete` | Recent | Agent Finished |
-| `active` | Recent | Changed Recently |
-| `inactive` | Quiet | Quiet |
-| `archived` | Quiet | Archived |
-| `access_lost` | Quiet | Unreachable |
+| `awaiting_input` | `Needs you` | `Agent Waiting` |
+| `session_failed` | `Needs you` | `Agent Failed` |
+| `checks_failing` | `Needs you` | `Checks Failing` |
+| `review_requested` | `Needs you` | `Review Requested` |
+| `changes_requested` | `Needs you` | `Changes Requested` |
+| `ready_to_merge` | `Needs you` | `Ready to Merge` |
+| Unknown catalog state | `Needs you` | `Needs a Look` |
+| `agent_running` | `Working now` | `Agent Running` |
+| `session_complete` | `Recent` | `Agent Finished` |
+| `active` | `Recent` | `Changed Recently` |
+| `inactive` | `Quiet` | `Quiet` |
+| `archived` | `Quiet` | `Archived` |
+| `access_lost` | `Quiet` | `Unreachable` |
 
-A Halcyonic project keeps its tasks' words, or "No work yet", always, as this computer observed them. Linked to a
-catalog project, it shows the catalog's line beside them, marked as the catalog's, and the more urgent of the two places
-it in a group.
-
-| Where | Words |
-| --- | --- |
-| Where a Halcyonic project is | On Your Computer · No Folder Yet |
-| Where a catalog project is, as far as Halcyonic knows | Not Linked · Possible Match · {a folder the computer matched by a rule, leaning} (Inferred, never a link) |
-| How old the catalog is, on the gallery's header line | Checked · Today 14:50; Checked · 27 Oct 09:05; Refresh Failed · Last · Today 14:50; Refresh Failed; Not Checked (a refresh that could not run, never a failed result) |
-| Over a sample or simulated catalog, kept apart from real projects | Sample Projects |
-| No catalog: not set up | Omnorium · Not Set Up · Set Up on Computer |
-| No catalog: not running | Omnorium · Not Running |
-| No catalog: still gathering | Omnorium · Gathering · Refresh |
-| No catalog: credential refused | Omnorium · Access Refused · Set Up Again |
-| No catalog: a version Halcyonic can't read | Omnorium · Version Unsupported |
-| No catalog: any other reason | Projects Unreadable · Refresh |
-| This headset's own read failed | Projects Unreadable · {why, as Help me understand says it; that sentence moves with the menu's words} |
-| No catalog in a recording (the demonstration, the judge build, a recorded run) | Not in Recording |
-
-The lines without a catalog that name Omnorium appear only where a real control plane
-answered, never over sample projects or in a recording, so neither the judge build nor the
-competition video shows "Omnorium" or "GitHub". "Omnorium" is one
-constant (`GalleryText.Source`), settled by the owner on 2026-10-31.
+Unlinked catalog entries read `Not Linked` (with `Possible Match · {folder}` marked `Inferred` only
+from host matching). Gallery freshness reads `Checked · Today {time}`, `Checked · {d MMM} {time}`,
+`Refresh Failed · Last · {when}`, `Refresh Failed` or `Not Checked`; sample and recorded modes read
+`Sample Projects` and `Not in Recording`, and live catalog unavailability lines (`Omnorium · Not Set
+Up · Set Up on Computer`, `Omnorium · Not Running`, `Omnorium · Gathering · Refresh`, `Omnorium ·
+Access Refused · Set Up Again`, `Omnorium · Version Unsupported`, `Projects Unreadable · Refresh`)
+appear only against a live control plane, never in demo or recorded builds.

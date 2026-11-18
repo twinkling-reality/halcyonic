@@ -1,26 +1,33 @@
 # Brand
 
-Canonical: the name people see, its mark, colours, type and ground, where the product shows itself
-outside the headset's panels (an app icon, a page's tab, the film's cards). The headset's panels
-follow [STYLE.md](STYLE.md); their words follow [WORDS.md](WORDS.md). The owner approved the mark and
-its board on 2026-11-16.
+Canonical reference for the name people see, its mark, colours, type and ground where Halora
+appears outside the headset's panels (the app icon, browser tab icons and film cards). The
+headset's panels follow [STYLE.md](STYLE.md); their words follow [WORDS.md](WORDS.md).
 
 ## The name
 
-The name people see is **Halora**: halcyon, the kingfisher of the calm-sea legend, and aurora, the
-dawn. Code, packages, folders and the repository keep the working name `halcyonic`, as
-[PRODUCT.md](PRODUCT.md) says.
+The shown product name is **Halora**: halcyon, the kingfisher of the calm-sea legend, and aurora,
+the dawn. Internal code, npm packages (`@halcyonic/*`), C# namespaces (`Halcyonic.*`), CLI and
+environment identifiers (`HALCYONIC_*`), folders and `~/.halcyonic` keep the working name
+`halcyonic`, as [PRODUCT.md](PRODUCT.md) states (`tooling/visible-name.test.ts` guards user-facing
+sources).
 
-- Written "Halora": capital H, the rest lower case. Never "HALORA", never "Halora VR".
-- In this checkout the setup page and `Start Halora.command` say Halora; the other Mac pages are
-  titled by what they do. The headset app's product name (`apps/xr/ProjectSettings/ProjectSettings.asset`, `productName`),
-  its panel's label and the workspace's own title (`WorkspaceText.Product`) say Halora too.
+- Written "Halora" in prose and titles: capital H, the rest lowercase. Never "HALORA" in prose
+  (only where a panel's eyebrow role renders all labels in spaced capitals), never "Halora VR".
+- On macOS, `Start Halora.command` launches the control plane. The browser pages (`Pairing`, `Set
+  Up This Computer`, `Usage`, `Photos and Videos` and `Play`) are titled by what they do, set their
+  interface text in `Inter`, serve the kingfisher tab icon, and refer to the product as `Halora`.
+- On the headset, the app's product name (`apps/xr/ProjectSettings/ProjectSettings.asset`,
+  `productName`), the native Android panel (`AgentPanelActivity`), the glance notification
+  (`GlanceActivity`), the workspace label (`WorkspaceText.Product`), and the default `Code Colours`
+  palette (`CodeTheme.Halora`) all say `Halora`.
 
 ## The story
 
 The halcyon at dawn over a calm sea. The kingfisher is calm and quick at once, and dawn is the
-moment something begins. Together they hold the feeling Halora exists for (PRODUCT.md, "The feeling
-it exists for"): wonder at being somewhere new, and the ease of making your own thing there.
+moment something begins. Together they hold the feeling Halora exists for
+([PRODUCT.md](PRODUCT.md#the-feeling-it-exists-for), "The feeling it exists for"): wonder at being
+somewhere new, and the ease of making your own thing there.
 
 ## The mark
 
@@ -52,8 +59,7 @@ Orange and turquoise are complements, both taken from the bird. Never add a thir
 
 - Instrument Serif (SIL Open Font License) for the wordmark and titles.
 - Inter for words that do work.
-- The line under the wordmark is "Direct your software work in VR". The submission's tagline is the
-  long form of the same message.
+- The line under the wordmark is "The best way to build with AI agents is in VR."
 
 ## The ground
 
@@ -74,12 +80,13 @@ with film grain.
 
 ## Where it appears
 
-Decided on 2026-11-16; not all of it is built in this checkout:
-
-- The headset app's icon: the ground with the cream mark.
-- The Mac page's tab icon: the same, at 32 and 64 px only.
-- The film's opening and closing cards: the ground drifting, the mark arriving, the wordmark under
-  it.
+- **Headset launcher icon (built):** the ground cropped square with the cream mark centred across
+  Android `legacy`, `round` and `adaptive` densities (`apps/xr/Assets/Halcyonic/Brand/Icon/`, wired
+  in `ProjectSettings.asset` and checked by `HaloraIcons`).
+- **Mac browser tab icon (built):** the same mark on its ground at 32 and 64 px only
+  (`apps/control-plane/src/network/pairing-page/` and `apps/control-plane/src/preview/viewer/`).
+- **Film opening and closing cards (rendered outside the repository):** the ground drifting, the
+  mark arriving, and the wordmark and tagline beneath it.
 
 ## Rules
 

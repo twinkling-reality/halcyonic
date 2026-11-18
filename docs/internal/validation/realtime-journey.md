@@ -9,7 +9,7 @@
 - **Date:** 2026-10-31.
 - **Environment:** an Apple M5 Max with macOS 26.7; Node.js 24.15.0; .NET SDK 10.0.401;
   `whisper.cpp` 1.9.4-dev (`ggml-large-v3-turbo-q5_0.bin`); `chrome-headless-shell` 145.0.7632.6;
-  Codex 0.118.0 confined by macOS `sandbox-exec` ([ADR 0041](../decisions/0041-codex-runs-confined-to-the-project-it-works-on.md));
+  Codex 0.118.0 confined by macOS `sandbox-exec` ([ADR 0041](../decisions/0041-a-new-apps-agent-is-confined-to-its-project.md));
   Ollama on `127.0.0.1:11434` serving `muse-glimmer:30b-mlx`; Halcyonic on top of `ad53ad3c`.
 - **Method:** two complementary proofs over the real control plane and `RealtimeClient`:
   1. A live rehearsal on a scratch control plane (`127.0.0.1:47810`) with synthetic 16 kHz mono WAV

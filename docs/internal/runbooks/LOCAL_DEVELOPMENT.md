@@ -5,20 +5,20 @@
 - Node.js 24.15 or newer: `node --version`.
 - pnpm. The repository pins 11.27.1 in `package.json` (`packageManager`). pnpm 10 switches to that pin. pnpm 12 cannot be installed by that switcher ([ADR 0004](../decisions/0004-control-plane-stack.md)).
 - `pnpm install` from the repository root.
-- For `pnpm check`: a JDK and Android's platform jar, which the glance's tests (`tooling/glance`)
-  compile against. Unity 6000.3.25f1 with Android Build Support brings both; otherwise set
-  `JAVA_HOME` and `ANDROID_JAR`. Without them `pnpm check` fails there, rather than skip it.
+- For `pnpm check`: a JDK and Android's platform jar, which the Android Java checks (`tooling/glance`
+  and `tooling/panel`) compile against. Unity 6000.3.25f1 with Android Build Support brings both;
+  otherwise set `JAVA_HOME` and `ANDROID_JAR`. Without them `pnpm check` fails there, rather than
+  skipping them.
 - For C# work only: the .NET 10 SDK. A user-local install works:
   `curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0`, then
   `export PATH="$HOME/.dotnet:$PATH"`.
 
 ## First run on a Mac
 
-What a person new to Halcyonic does on their Mac before the headset can do real work. It is a
-prototype: it has been run on the owner's Mac, not yet by someone new
-([mac-host-setup.md](../validation/mac-host-setup.md)). How Halcyonic will be packaged is not
-decided ([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)),
-so today it starts from this repository, with the prerequisites above.
+Set up the Mac host before connecting a headset for live agent work
+([mac-host-setup.md](../validation/mac-host-setup.md)). Standalone packaging is still open
+([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)),
+so Halora runs directly from this repository checkout with the prerequisites above.
 
 At any point, see where you are:
 
@@ -28,21 +28,21 @@ pnpm mac-setup
 
 It checks each step below, says what is ready, what each step allows, and the next command, and
 changes nothing. It reads no access token unless you add `--with-token`, which asks the running
-Halcyonic which folders, agent apps and headsets it has; the token is then sent only after
-Halcyonic proves it holds it, so nothing else listening on its port gets it. Every command that changes something says what it will do first; the ones that
+Halora which folders, agent apps and headsets it has; the token is then sent only after
+Halora proves it holds it, so nothing else listening on its port gets it. Every command that changes something says what it will do first; the ones that
 open something (a folder, pairing) ask before they do it. They write `~/.halcyonic/settings.json`,
-which only you can read or change, and Halcyonic reads it when it starts
+which only you can read or change, and Halora reads it when it starts
 ([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)). A
 `HALCYONIC_` variable set in the environment still wins over the file.
 
-With Halcyonic running, the same steps are on a page: **Set Up This Computer** on the pairing page
+With Halora running, the same steps are on a page: **Set Up This Computer** on the pairing page
 (below) opens it ([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md)).
 Each step there has the presses its commands make, and each press says first what it will run; a
 download button also says what it fetches, its version, its size and from where, and runs the
 pinned command this section prints, one at a time, with its progress and a Stop. Pairing's own
 setting applies at once. Any other changed setting shows **Restart to Apply**, which says which
-tasks will pause, closes Halcyonic and starts it again with the new settings; they come back
-through re-attach. Only `Start Halora.command` can start it again, so started by hand
+tasks will pause, closes Halora and starts it again with the new settings; they come back
+through re-attach. Only `Start Halora.command` (or the login LaunchAgent) can start it again, so started by hand
 (`pnpm start`, `pnpm dev`) the page says to stop and start it yourself.
 
 1. **Allow a folder for projects.** Agents may read and change anything in a folder you allow, and
@@ -56,12 +56,12 @@ through re-attach. Only `Start Halora.command` can start it again, so started by
 
    makes `~/HalcyonicProjects`, empty, once you say yes. `pnpm mac-setup allow <folder>` allows a
    folder that is already there; it refuses your home folder and any folder holding it, macOS's,
-   its apps' and other people's folders, a whole drive, Halcyonic's own data, the hidden folders and
-   Library in your home folder, and a folder another user owns or any user can change. Halcyonic
+   its apps' and other people's folders, a whole drive, Halora's own data, the hidden folders and
+   Library in your home folder, and a folder another user owns or any user can change. Halora
    itself refuses to start with such a folder, however it was allowed. `pnpm mac-setup disallow
    <folder>` takes one back; nothing in it is deleted.
-2. **Get an agent app ready.** Halcyonic runs only the OpenCode and Codex versions it was checked
-   with. Installing them downloads them from npm, without running their install scripts:
+2. **Get an agent app ready.** Halora runs only the pinned agent-app versions it was checked
+   with. Installing OpenCode and Codex downloads them from npm without running their install scripts:
 
    ```bash
    npm install --prefix ~/.halcyonic/runtimes/opencode-2.0.18 @opencode/cli@2.0.18 --ignore-scripts
@@ -69,12 +69,18 @@ through re-attach. Only `Start Halora.command` can start it again, so started by
    pnpm mac-setup agent-apps
    ```
 
-   The last command records each one only if its SHA-256 is the one Halcyonic was checked with (on
-   Apple silicon; Intel Macs have no checksums yet). OpenCode searches files with ripgrep, and
-   its sandbox refuses a download of it, so it needs one on the PATH: `brew install ripgrep`.
+   `pnpm mac-setup agent-apps` records each one only if its SHA-256 matches the pinned build (on
+   Apple silicon; `pins.ts` defines checksums for `darwin` `arm64` only). OpenCode searches files with ripgrep, and
+   its sandbox refuses a download of it, so it needs one on `PATH`: `brew install ripgrep`.
+
+   You can also install and turn on the Agent Client Protocol (ACP) apps, **Antigravity 1.5.10**,
+   **Kiro 3.4.0** and **Cursor Agent 2026.11.13**, from the **Agent Apps** section of the setup page
+   (**Install**, then **Turn On**, or `pnpm mac-setup agent-app <antigravity|kiro|cursor>:on`; see
+   [Run real agents](#run-real-agents)). Each spends your own account or plan, so installing never
+   turns one on automatically.
 3. **Choose where work runs, and what it costs.** A model on your Mac costs nothing per task and
    keeps your code and instructions on the Mac; a model on a remote service sends them there, and
-   some cost money. Halcyonic never picks a model by itself: the headset lists the Mac's models
+   some cost money. Halora never picks a model by itself: the headset lists the Mac's models
    first, and a remote one takes a second press. For work on the Mac, install
    [Ollama](https://ollama.com), start it with `OLLAMA_CONTEXT_LENGTH=65536` (and
    `OLLAMA_NO_CLOUD=1` to hide Ollama's own remote models), download a model that fits your Mac's
@@ -85,13 +91,13 @@ through re-attach. Only `Start Halora.command` can start it again, so started by
    pnpm mac-setup local-model qwen3.6:35b-a3b-nvfp4
    ```
 
-   `muse-glimmer:30b-mlx` (19.1 GB) is also checked: it built a kid's game cleanly where qwen3.6 more often did not,
-   but its card says it is not meant for anyone under 18, so it is not the default until the owner decides
+   `muse-glimmer:30b-mlx` (19.1 GB) is also verified, though its model card restricts use to adults (18+),
+   so it is not the default
    ([local-models.md](../validation/local-models.md#muse-glimmer-a-checked-model-the-default-unchanged-2026-10-31)).
 
    OpenCode then starts on that model when none is chosen; your own OpenCode settings are left as
-   they are. Whatever its settings, every task Halcyonic starts on OpenCode has Code Mode, web fetch,
-   web search and subagents turned off, runs inside a sandbox of Halcyonic's own (it connects only to
+   they are. Whatever its settings, every task Halora starts on OpenCode has Code Mode, web fetch,
+   web search and subagents turned off, runs inside Halora's Seatbelt sandbox (it connects only to
    Ollama on this Mac, writes only in your project folders and folders of its own, and can't read
    your keys and the credentials the sandbox lists, so an `npm install`, a `git fetch` or a dev
    server it runs fails: run those yourself; and a model OpenCode lists from a remote service can't
@@ -104,67 +110,72 @@ through re-attach. Only `Start Halora.command` can start it again, so started by
    it runs only on models this Mac serves, never signed in, and your own `~/.codex` is left as it
    is ([Codex](#codex)). Claude Agent runs only on Anthropic's remote service and is paid with your API
    key, so the setup never turns it on; see [Run real agents](#run-real-agents).
-4. **Optional: voice, the companion, Usage left, and what changed and why.** Voice turns Hold to talk
+4. **Optional: voice, the companion, Usage left, What changed and why, Omnorium, sharing and media.** Voice turns **Hold to Talk**
    into a draft on the Mac: build it as in [Turn on voice](#turn-on-voice), then `pnpm mac-setup
    voice`, which records the files once their checksums match. Create's companion asks a model of its
    own on the Mac: `ollama pull qwen3.5:9b` (6.6 GB), start Ollama with
    `OLLAMA_MAX_LOADED_MODELS=2` so it stays loaded beside the agents' model, then `pnpm mac-setup
    companion qwen3.5:9b`, which records it only if Ollama lists it as running on this Mac; `pnpm
-   mac-setup companion off` turns it off ([Turn on Create's companion](#turn-on-creates-companion)). Usage left needs Seorak and a credential, and the Understand
-   tab's explanations need Salidium and a credential ([Connect Seorak](#connect-seorak),
-   [Connect Salidium](#connect-salidium)). Credentials move only as files with mode 600, never
+   mac-setup companion off` turns it off ([Turn on Create's companion](#turn-on-creates-companion)). Usage left needs Seorak and a credential, the Understand
+   tab's explanations need Salidium and a credential, and the projects catalog needs Omnorium and a
+   credential ([Connect Seorak](#connect-seorak), [Connect Salidium](#connect-salidium),
+   [Connect Omnorium](#connect-omnorium)). Credentials move only as files with mode 600, never
    through the clipboard, a prompt or a chat; the setup checks that they exist and that no one else
    can read them, and never opens them. New VR apps begin from the VR starter: `pnpm mac-setup
    starter` prints the commands that install its pinned set and records it once each package is the
    version its lockfile pins ([The VR starter](#the-vr-starter)), and their checks run in the browser
-   `pnpm mac-setup browser` sets up ([New apps' browser](#new-apps-browser)). `pnpm mac-setup undo`
+   `pnpm mac-setup browser` sets up (which also builds the permission-isolated launcher; `pnpm mac-setup
+   launcher` rebuilds the launcher alone, [New apps' browser](#new-apps-browser)). `pnpm mac-setup undo`
    turns undo on with the system's git, `/usr/bin/git`, so a task's changes can be put back from the
-   checkpoints Halcyonic keeps; `pnpm mac-setup undo off` turns it off.
+   checkpoints Halora keeps; `pnpm mac-setup undo off` turns it off. `pnpm mac-setup tunnel <path|off>`
+   records the pinned `cloudflared` binary for **Share a Link** ([ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)),
+   and `pnpm mac-setup ffmpeg <path|off>` records `ffmpeg` and its SHA-256 for **Photos and Videos**
+   ([ADR 0066](../decisions/0066-a-persons-photo-or-video-goes-into-the-projects-folder-as-a-copy-without-its-place.md)).
 5. **Start Halora**, and leave its window open while you use the headset:
 
    ```bash
    pnpm start
    ```
 
-   Or double-click `Start Halora.command` in the repository's folder in Finder: it starts the
-   same in a Terminal window and opens the pairing page once Halcyonic is ready (step 6). What is
-   checked of it (2026-11-10): a login zsh on the owner's Mac, as Terminal starts one for a
-   `.command` file, finds `node` and `pnpm`; `pnpm start` passes `--open-pairing-page` on to the
-   control plane; the file is kept executable in git. Not checked: the double-click itself from
-   Finder; a copy downloaded as a zip, which may lose the executable bit or be stopped by macOS's
-   check of downloaded files, so open it from a clone. The first install (Node.js, pnpm, the clone,
-   `pnpm install`, the agent apps) still needs a terminal.
+   Or double-click `Start Halora.command` in the repository folder in Finder: it runs
+   `pnpm start --open-pairing-page --restartable` in a login `zsh` Terminal window and opens the
+   pairing page once Halora is ready (step 6; [mac-host-setup.md](../validation/mac-host-setup.md)).
+   Open it from a `git clone` rather than a downloaded zip archive, which may drop the executable bit
+   or be blocked by macOS quarantine. First-time installation (Node.js, pnpm, `pnpm install`, and
+   agent apps) runs in a terminal.
 
-   Settings take effect when it starts. To use changed settings, stop it with Ctrl-C and start it
-   again; restarting stops any agent at work, and its task then shows Can't tell yet.
+   Settings take effect when Halora starts. To apply manual changes, stop it with Ctrl-C and start it
+   again; restarting stops any running agent whose session cannot re-attach, leaving that task at
+   `Unknown` (`Status Unknown · Computer Restarted`).
 
-   Or have it start whenever you log in, so no window has to stay open: stop the one you started,
-   then run `pnpm mac-setup login on` once. It writes one user LaunchAgent,
-   `~/Library/LaunchAgents/com.halcyonic.control-plane.plist`, has launchd start Halcyonic from this
-   checkout now, and says when it answers. `pnpm mac-setup login off` stops it and removes the file;
-   to change how it starts, turn it off, then on again. What the agent does: it runs
-   `apps/control-plane/src/main.ts --restartable` from this checkout (so keep the checkout where it
-   is) with the `node` on your PATH that is the node you ran the command with (with Homebrew,
-   `/opt/homebrew/bin/node`, a link Homebrew moves to the new version when it upgrades, not tried
-   here; a version manager's per-shell or per-version folder may not last, and On prints the path it
-   chose). It keeps your PATH without relative folders, folders inside the checkout or a
-   `node_modules/.bin`, `HALCYONIC_PORT` if set, and the data and tasks folders it judged, always
-   written (`HALCYONIC_DATA_DIR`, `HALCYONIC_TASKS_DIR`), nothing else, so no secret is in it (a data folder other than `~/.halcyonic` is refused without its own tasks
-   folder, since task copies otherwise go to `~/.halcyonic-tasks`, which a start clears of copies its own
-   journal does not hold); On names any other `HALCYONIC_` setting it leaves out (the settings file still
-   applies). Its output goes to `control-plane.log` in the data folder, which is never trimmed.
-   launchd starts it again after any exit that is not a success: Restart to Apply on the setup page,
-   a crash, a close that failed, and a start Halcyonic refuses (its port taken, settings it can't
-   read), at most once every 30 seconds, so read that log when it keeps stopping. On refuses while a
-   Halcyonic you started yourself answers on the port, and removes its file if launchd refuses it
-   (as from an ssh session with no one logged in at the Mac). What is checked and not:
-   [mac-host-setup.md](../validation/mac-host-setup.md), "Start at login".
-6. **Connect the headset.** Pairing over Wi-Fi is your choice
-   ([Pair a headset over Wi-Fi](#pair-a-headset-over-wi-fi)): on the pairing page, Pair Headset,
-   and in the headset choose Settings, then Pair Computer, and type the name and
-   the code the page shows. A development build can also connect over USB
-   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). Until the headset reaches your Mac it plays the recorded
-   demo, labelled as one; nothing in it reaches an agent.
+   To start Halora automatically at login without keeping a Terminal window open, stop any manually
+   started instance and run `pnpm mac-setup login on` once. It writes the user LaunchAgent
+   `~/Library/LaunchAgents/com.halcyonic.control-plane.plist`, tells `launchd` to start Halora from
+   this checkout immediately, and reports when it answers. `pnpm mac-setup login off` stops it and
+   removes the plist; to update how it starts, run `off` and then `on`. The LaunchAgent runs
+   `apps/control-plane/src/main.ts --restartable` from this checkout (so keep the checkout at the
+   same path) using the `node` binary resolved when `login on` ran (prefer a stable path such as
+   `/opt/homebrew/bin/node` rather than a transient shell-specific version-manager directory; `login on`
+   prints the chosen path). It preserves `PATH` entries outside relative directories, checkout paths,
+   and `node_modules/.bin`, preserves `HALCYONIC_PORT` when set, and writes `HALCYONIC_DATA_DIR` and
+   `HALCYONIC_TASKS_DIR` explicitly (a data directory other than `~/.halcyonic` requires its own tasks
+   directory because startup clears `~/.halcyonic-tasks` entries absent from its journal). No other
+   environment variables or secrets are written to the plist (`login on` lists any omitted `HALCYONIC_`
+   variables; `settings.json` still applies). Output appends to `<data dir>/control-plane.log` without
+   rotation. `launchd` restarts Halora after any non-zero exit (including **Restart to Apply** exit code
+   `75`, crashes, or startup refusals) at most once every 30 seconds; inspect `control-plane.log` if it
+   keeps restarting. `login on` refuses while another Halora instance already answers on the port and
+   removes the plist if `launchd` rejects it (for example over SSH with no GUI login session; see
+   [mac-host-setup.md](../validation/mac-host-setup.md), "Start at login").
+6. **Connect the headset.** Pairing over Wi-Fi is opt-in
+   ([Pair a headset over Wi-Fi](#pair-a-headset-over-wi-fi)): on the pairing page, press **Pair Headset**,
+   and in the headset open **Settings**, then **Your Computer**, then **Pairing**, pick your computer
+   (or type its address) and enter the eight-digit code the page shows. A development build can also
+   connect over USB ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). When no Mac is
+   connected, the headset plays the bundled recorded real run
+   ([ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md))
+   and the recorded demo ([ADR 0012](../decisions/0012-a-labeled-demonstration-runs-on-the-headset.md)),
+   labelled as recorded; nothing in them reaches an agent.
 
 ### When the headset says something is wrong
 
@@ -176,17 +187,17 @@ The headset calls the Mac "your computer" ([WORDS.md](../product/WORDS.md)).
 | This headset's access code doesn't match your computer's, or something else is answering in its place | Start Halora if it isn't running. Over USB: write the current access token into the app's private storage again with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect"). If it still says so, something else holds port 47800 (`lsof -nP -iTCP:47800 -sTCP:LISTEN`), or `adb reverse` maps another headset port onto it: use `adb reverse tcp:47800 tcp:47800` |
 | Your computer refused this headset's access code | Over USB: write the current access token into the app's private storage again with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect") |
 | Your computer no longer accepts this headset's pairing. | It was revoked: forget the computer on the headset, then `pnpm pair` |
-| Your computer doesn't allow any folder yet. | `pnpm mac-setup allow`, then restart Halcyonic |
-| Your computer can't use that folder now | The folder moved or can't be read: put it back or choose another. If a folder you allowed is gone, Halcyonic won't start until it is back or you `pnpm mac-setup disallow` it |
-| No agent app on your computer can start work right now. | `pnpm mac-setup agent-apps`, then restart Halcyonic |
-| Voice isn't set up on your computer. Type instead. | Step 4, or keep typing |
+| Your computer doesn't allow any folder yet. | `pnpm mac-setup allow`, then restart Halora |
+| Your computer can't use that folder now | The folder moved or can't be read: put it back or choose another. If a folder you allowed is gone, Halora won't start until it is back or you `pnpm mac-setup disallow` it |
+| No agent app on your computer can start work right now. | `pnpm mac-setup agent-apps` (or turn an installed agent app on from the setup page), then restart Halora |
+| Voice isn't set up. Type instead. | Step 4, or keep typing |
 | Usage left isn't set up on your computer yet. | Step 4; `pnpm mac-setup` says which part is missing |
-| A task shows Can't tell yet after a restart | Its agent stopped with Halcyonic: open it and start it again |
+| A task shows `Unknown` (`Status Unknown · Computer Restarted`) after a restart | Its agent stopped with Halora: open the task and send a new instruction or add a task |
 
-If Halcyonic itself won't start, its last line says why, and `pnpm mac-setup` puts it first: a
-settings file others can read (`chmod 600 ~/.halcyonic/settings.json`), Halcyonic's own OpenCode
-settings naming a model that isn't on the Mac (run `pnpm mac-setup local-model` again), or a folder
-you allowed that is gone.
+If Halora itself won't start, its last log line states why, and `pnpm mac-setup` surfaces it first: a
+settings file others can read (`chmod 600 ~/.halcyonic/settings.json`), Halora's own OpenCode
+settings naming a model missing from Ollama (run `pnpm mac-setup local-model` again), or an allowed
+folder that is missing.
 
 ## Run the control plane
 
@@ -199,17 +210,25 @@ creates the access token `~/.halcyonic/access-token` on first start. Logs are JS
 `control plane ready` line shows the address, the journal id, the registered runtimes, which
 settings it took from `~/.halcyonic/settings.json` (`settings.used`), and each OpenCode and Codex
 binary with whether it is the pinned copy (`agent_binaries`: `matches`, `differs`, or `no_pin` where
-Halcyonic has no checksum for the processor). The token never appears in
+Halora has no checksum for the processor). The token never appears in
 logs. Use `pnpm start` for a run without file watching.
 
 Every `HALCYONIC_` variable below can be set in the environment. `pnpm mac-setup` keeps the ones a
 person sets up once (`HALCYONIC_PROJECT_ROOTS`, `HALCYONIC_OPENCODE_BIN`,
-`HALCYONIC_OPENCODE_CONFIG_HOME`, `HALCYONIC_CODEX_BIN`, the three `HALCYONIC_WHISPER_` files,
-`HALCYONIC_COMPANION_MODEL` and `HALCYONIC_COMPANION_OLLAMA_URL`, and `HALCYONIC_NETWORK_HOST`) in `settings.json` in the data directory, mode 600, which the control
-plane reads for whatever its environment leaves unset; a variable present in the environment wins,
-even empty. The file can never hold `HALCYONIC_CLAUDE_AGENT`, `HALCYONIC_CLAUDE_EXECUTABLE` or
-`HALCYONIC_AGENT_ENV`, so paid model use and pass-through variables stay in the environment
-([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md)).
+`HALCYONIC_OPENCODE_CONFIG_HOME`, `HALCYONIC_CODEX_BIN`, `HALCYONIC_BROWSER`, `HALCYONIC_GIT_BIN`,
+`HALCYONIC_TUNNEL_BIN`, `HALCYONIC_FFMPEG` and `HALCYONIC_FFMPEG_SHA256`, the three `HALCYONIC_WHISPER_`
+files, `HALCYONIC_COMPANION_MODEL` and `HALCYONIC_COMPANION_OLLAMA_URL`, and `HALCYONIC_NETWORK_HOST`)
+in `settings.json` in the data directory, mode 600, which the control plane reads for whatever its
+environment leaves unset; a variable present in the environment wins, even empty. The file can never
+hold `HALCYONIC_CLAUDE_AGENT`, `HALCYONIC_CLAUDE_EXECUTABLE`, `HALCYONIC_ANTIGRAVITY_BIN`,
+`HALCYONIC_KIRO_BIN`, `HALCYONIC_CURSOR_BIN` or `HALCYONIC_AGENT_ENV`, so paid model use, ACP binaries
+that spend your own plan, and pass-through variables stay in the environment (or in
+`<data dir>/agent-apps-on.json` when you press **Turn On** on the setup page)
+([ADR 0024](../decisions/0024-the-macs-settings-live-in-one-file-only-its-owner-can-write.md),
+[ADR 0067](../decisions/0067-agent-apps-that-speak-acp-are-directed-through-one-adapter.md)).
+Each task works in an isolated copy under `~/.halcyonic-tasks` (`HALCYONIC_TASKS_DIR`) by default;
+`HALCYONIC_TASK_COPIES=0` runs tasks directly in the project's folder
+([ADR 0045](../decisions/0045-each-task-works-in-a-copy-of-its-own.md)).
 
 Use another data directory or port through the environment:
 
@@ -230,7 +249,7 @@ as it does on SIGTERM. Leave it unset otherwise: input that has already ended, s
 mock runtime, prints every state change as it streams in, approves the one approval request after
 three seconds, and prints the final state. It exits non-zero if any server message fails
 contract validation. It approves only its own workstreams' requests, and starts each with a model
-the mock lists, since a runtime that lists models refuses a start without one (`model_required`).
+the mock lists because a runtime that lists models refuses a start without one (`model_required`).
 
 For a device check, `pnpm demo --scenario <name>` starts one mock scenario in a project of its own,
 named "Scenario: <name>", and leaves whatever it asks waiting for the person: nothing answers it.
@@ -269,25 +288,24 @@ it. The execution's `model_ref` then shows the model the runtime reports running
 ## Run real agents
 
 Real runtimes work only inside directories you list, and are off until enabled. The Claude Agent
-runtime needs an Anthropic API key. Add it on the setup page: open Agent apps, paste the key into
-Anthropic API Key, and press Add Key, then Restart to Apply. The page keeps it as
-`~/.halcyonic/anthropic-api-key`, readable only by you, shows it afterwards only as Key Stored, and a
+runtime needs an Anthropic API key. Add it on the setup page: open **Agent Apps**, paste the key into
+**Anthropic API Key**, and press **Add Key**, then **Restart to Apply**. The page keeps it as
+`~/.halcyonic/anthropic-api-key`, readable only by you, shows it afterwards only as **Key Stored**, and a
 stored key turns Claude Agent on at the next start
-([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md), amendment of
-2026-11-12). Remove Key, pressed twice, takes it away. Every hosted provider declared in
-`providers/<id>/provider.json` that something here reads gets the same field
+([ADR 0053](../decisions/0053-the-macs-setup-runs-from-a-page-beside-pairing.md)).
+**Remove Key**, pressed twice, takes it away. Every hosted provider declared in
+`providers/<id>/provider.json` that Halora reads gets the same field
 ([ADR 0061](../decisions/0061-a-hosted-provider-is-one-declaration-file-the-host-reads.md)).
 
-A plane that is not your own, such as a test's or a scratch plane with a fake key, sets
+A non-personal control plane, such as a test or scratch plane with a stand-in key, sets
 `HALCYONIC_ASSISTANT_UPSTREAM` to an address on this Mac: a stand-in that speaks the provider's shape, or the
 closed port `http://127.0.0.1:9`. Every provider is then reached there instead of at its own address, by the
 assistant, the model list's key check and the key gate alike, so no fake key reaches a real provider. An address
 that is not on this Mac stops the start. The test suites set it for every plane they start. Only a plane holding a
-real key, such as your own or the proving plane, goes without it. A plane on your own data folder (`~/.halcyonic`)
-or the proving plane's (`~/.halcyonic-proving`), in your account's own home and found as the Mac's pages find
-it (a link to it counts, a launcher's HOME does not), refuses it and does not start, so a variable left in a shell
-never sends your keys to a test's listener. A plane that takes it says so once in its log: "every provider points
-at a stand-in on this Mac".
+real key goes without it. A plane on your personal data folder (`~/.halcyonic` or `~/.halcyonic-proving` in your
+account's home, resolved through symlinks rather than a launcher's overridden `HOME`) refuses
+`HALCYONIC_ASSISTANT_UPSTREAM` and does not start, so a variable left in a shell
+never sends your keys to a test listener. A plane that accepts it logs once: `"every provider points at a stand-in on this Mac"`.
 
 `ANTHROPIC_API_KEY` in the environment, or a cloud provider's variables, work too and take
 precedence over the file; with those, turn the runtime on yourself:
@@ -301,7 +319,7 @@ pnpm dev
 Real runtimes work in the project's folder, so first give the project one (below). Then start an
 execution on it with the runtime id `claude-agent` and options such as
 `{"permission_mode": "default"}`; `model` is optional. Every run spends model credit. The runtime's sessions appear in
-Salidium and Seorak like any other Claude Code session, because Halcyonic keeps your home and Claude
+Salidium and Seorak like any other Claude Code session, because Halora keeps your home and Claude
 configuration directories.
 
 ### Where projects live
@@ -324,7 +342,7 @@ or have the control plane make a new, empty folder for it, which needs no git re
 ```
 
 `folder_name: null` with `existing_folder` binds the root itself. A project created with
-`location: null` can run only on the mock runtime until it gets one:
+`location: null` can run only on the mock runtime while unbound;
 `project.set_location` with `{"project_id": "...", "location": {...}}` binds it, and also rebinds
 a project whose folder you moved or renamed. Refusals: `location_not_allowed` (not a root, or not
 directly inside one), `location_missing` (not there, or the folder moved), `location_exists` (a new
@@ -346,14 +364,14 @@ the copy only if the whole folder, every file and folder in it with no link, mat
 into `~/.halcyonic/browser/current`, records its folder in the settings file (never a hash), and builds the launcher and
 the sound helper. After that `pnpm dev` needs no variable for it; at every start the copy is checked against the pin
 again. If the cache has no such build, the command says where it looked; install it with Playwright yourself and run
-the command again. Nothing is downloaded by Halcyonic.
+the command again. Nothing is downloaded by Halora.
 
 ### The VR starter
 
 New VR apps begin from the starter in `starters/iwsdk-vr`
 ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)). Its pinned set of packages is
 installed once, into `~/.halcyonic/starters/iwsdk-vr`, by you, from the public npm registry only, with no install
-scripts and none of your own npm settings; Halcyonic downloads nothing. `pnpm mac-setup starter` prints these commands
+scripts and none of your own npm settings; Halora downloads nothing. `pnpm mac-setup starter` prints these commands
 when the set is missing or differs, and records the set once every package is the version the lockfile pins and
 nothing else is in it: no package the lockfile doesn't list, and no link but npm's own `.bin` links. A set changed by
 `npm install` or `npm link` reads as differing; `npm ci` makes it again.
@@ -365,7 +383,7 @@ npm ci --prefix "$HOME/.halcyonic/starters/iwsdk-vr" --ignore-scripts --no-audit
 pnpm mac-setup starter
 ```
 
-The set is 80 packages, about 240 MB. A project made from the starter links to it and never changes it; Halcyonic
+The set is 80 packages, about 240 MB. A project made from the starter links to it and never changes it; Halora
 sees the record at once, with no restart.
 
 ### The VR starter's controller models
@@ -385,7 +403,7 @@ model, never a different one.
 
 ### OpenCode
 
-Halcyonic runs only its pinned OpenCode version, from a binary you install for it, never the
+Halora runs only its pinned OpenCode version, from a binary you install for it, never the
 `opencode` on your PATH ([ADR 0009](../decisions/0009-opencode-v2-pinned-and-launched-by-halcyonic.md)).
 Install it without running its install scripts, which would run the binary in your environment:
 
@@ -428,7 +446,7 @@ work put this in `~/.config/opencode/opencode.json` (one `models` entry per mode
 ```
 
 `pnpm mac-setup local-model <tag>` writes these settings for you, with a `limit` for every model
-Ollama lists, into a directory of Halcyonic's own, `~/.halcyonic/opencode-config`, which the control
+Ollama lists, into a directory of Halora's own, `~/.halcyonic/opencode-config`, which the control
 plane gives OpenCode alone as its `XDG_CONFIG_HOME` (`HALCYONIC_OPENCODE_CONFIG_HOME`), so your own
 `~/.config/opencode` stays as it is. The control plane refuses to start if those settings name a
 default `model` or `small_model` that is not an Ollama model on this Mac, or if another OpenCode
@@ -436,7 +454,7 @@ settings file sits beside them.
 
 The `model` makes a start without one use the local model instead of OpenCode's free hosted
 default. The permissions ask about shell commands and keep OpenCode off the web when something other
-than Halcyonic runs it with these settings; each task Halcyonic starts carries rules of its own that
+than Halora runs it with these settings; each task Halora starts carries rules of its own that
 outrank them. The `limit` tells OpenCode the context Ollama
 actually gives the model (`OLLAMA_CONTEXT_LENGTH`), where it would otherwise assume the model's full
 context. The adapter disables OpenCode's catalog fetch by default. Ensure ripgrep is on the PATH
@@ -462,7 +480,7 @@ OPENCODE_BIN="$HALCYONIC_OPENCODE_BIN" node --test packages/integrations/opencod
 
 ### Codex
 
-Halcyonic runs only its pinned Codex version, from a native binary you install for it, never the
+Halora runs only its pinned Codex version, from a native binary you install for it, never the
 `codex` on your PATH ([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md)). Install it
 without running its install scripts:
 
@@ -484,21 +502,25 @@ A new, empty folder that is not a git repository works
 ([project-location.md](../validation/project-location.md)).
 `approval_policy` `never` is refused, and `danger-full-access` needs `untrusted`.
 
-Codex runs only on models served on this Mac, in a home of its own, `CODEX_HOME` set to
+Codex runs without ChatGPT sign-in in a home of its own, `CODEX_HOME` set to
 `~/.halcyonic/codex-home` (the data directory's `codex-home`), never your own `~/.codex`: your Codex
-settings, sign-in and plugins don't apply, and nothing signs Codex in. Neither does a project's own
+settings, sign-in and plugins don't apply, and nothing signs Codex in (`auth.json` is refused). Neither does a project's own
 `.codex/config.toml`: every thread marks its folder untrusted, and a start is refused if Codex's
 configuration trusts the project anyway, for example through an entry in that home's `config.toml`;
-remove the entry ([SECURITY.md](../architecture/SECURITY.md)). Hosted Codex
-models are not offered while it is open whether a ChatGPT sign-in may drive Codex
+remove the entry ([SECURITY.md](../architecture/SECURITY.md)). By default Codex offers only models served
+on this Mac; when you store a key for a declared hosted provider that speaks the Responses wire (such as
+`providers/meta/provider.json`, [ADR 0061](../decisions/0061-a-hosted-provider-is-one-declaration-file-the-host-reads.md)),
+a confined Codex server also reaches that provider through a per-launch loopback Seatbelt key gate
+(`halcyonic_<provider>`, [agent-apps-hosted-providers.md](../validation/agent-apps-hosted-providers.md))
+without holding your raw API key. ChatGPT sign-in is not offered
 ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md)). `pnpm mac-setup local-model <name>` writes the
 home's `config.toml`, mode 600: the `ollama` provider, the model, a context of 65,536 tokens and
-compaction at 52,000. Halcyonic makes the folder with mode 700 and won't start Codex in one that is
+compaction at 52,000. Halora makes the folder with mode 700 and won't start Codex in one that is
 a link, another user's, open to others, or holding a sign-in (`auth.json`), and never changes its
-mode: move such a folder away and Halcyonic makes a new one. Every launch turns off
+mode: move such a folder away and Halora makes a new one. Every launch turns off
 plugins and Codex's other network features, the update check, analytics and web search with `-c`
 settings that outrank the file, and every start checks Codex applied them
-([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md), note of 2026-10-07).
+([ADR 0011](../decisions/0011-codex-app-server-stable-surface.md)).
 
 What `HALCYONIC_AGENT_ENV` passes to Codex, and what stops it:
 
@@ -509,13 +531,14 @@ What `HALCYONIC_AGENT_ENV` passes to Codex, and what stops it:
   other runtimes still get them.
 - Codex is not started, and its tasks can't start, while this Mac has a `/etc/codex` folder or a
   `com.openai.codex` file in `/Library/Managed Preferences` (yours or the machine's), which apply
-  whatever Halcyonic sets; once it is gone, the next task starts Codex.
-- Codex is stopped, and stays refused until you restart Halcyonic, when it reports managed
+  whatever Halora sets; once it is gone, the next task starts Codex.
+- Codex is stopped, and stays refused until you restart Halora, when it reports managed
   requirements, a managed or device-profile configuration, system settings, or a local-only
   setting turned back on.
 
-Each thread's rollout is written under that home's `sessions`, not where Salidium and Seorak read
-Codex sessions, so Understand and Checks say they don't follow those Codex tasks
+Each thread's rollout is written under that home's `sessions`, outside Salidium's and Seorak's
+default Codex session paths unless configured below, so **Reasoning** (`understanding`) and
+**Outcome** (`evaluation`) report those Codex tasks as unobserved until extra session paths are set
 ([understanding-and-evaluation.md](../validation/understanding-and-evaluation.md)).
 
 #### Local models through Ollama
@@ -556,10 +579,43 @@ It samples every 200 ms, so a connection shorter than that can be missed, and DN
 macOS makes for the process, are not seen. On 0.157.0 the setting that keeps Codex off GitHub at
 startup is undocumented (`features.plugins`), so a new version may need another.
 
+### Agent apps over ACP (Antigravity, Kiro and Cursor)
+
+Halora directs three agent apps over the Agent Client Protocol v1 (`packages/integrations/acp`,
+[ADR 0067](../decisions/0067-agent-apps-that-speak-acp-are-directed-through-one-adapter.md),
+[acp-agents.md](../validation/acp-agents.md)):
+
+| Runtime id | Pinned version | Environment variable | Setup-page path under `~/.halcyonic/` | Sign-in |
+| --- | --- | --- | --- | --- |
+| `antigravity` | Antigravity CLI `1.5.10` | `HALCYONIC_ANTIGRAVITY_BIN` | `runtimes/antigravity-1.5.10/antigravity` | `agy acp --login` (Google account) |
+| `kiro` | Kiro CLI `3.4.0` | `HALCYONIC_KIRO_BIN` | `runtimes/kiro-3.4.0/kirocli/bin/kiro-cli` | `kiro-cli login` (Kiro plan) |
+| `cursor` | Cursor Agent `2026.11.13` | `HALCYONIC_CURSOR_BIN` | `runtimes/cursor-2026.11.13/dist-package/cursor-agent` (pinned as the whole `dist-package` folder) | `cursor-agent login` (Cursor plan) |
+
+Each spends your own account or plan, so installing never turns one on by itself and `settings.json`
+never holds its path. Install the pinned vendor archive from the **Agent Apps** section of the setup
+page (**Install** verifies the archive checksum before unpacking), sign in with the CLI in your own
+terminal, and press **Turn On** on the setup page or run:
+
+```bash
+pnpm mac-setup agent-app antigravity:on   # or kiro:on, cursor:on; :off removes it, :check verifies the pin
+```
+
+**Turn On** checks the unpacked binary (or whole folder manifest for Cursor) against `pins.ts` and
+writes `~/.halcyonic/agent-apps-on.json` (mode 600), which takes effect at the next control-plane
+start. You can also point `HALCYONIC_ANTIGRAVITY_BIN`, `HALCYONIC_KIRO_BIN` or
+`HALCYONIC_CURSOR_BIN` at an absolute executable path in the control plane's environment.
+
+On macOS, each launch runs in its task's own copy ([ADR 0045](../decisions/0045-each-task-works-in-a-copy-of-its-own.md))
+with a fresh per-launch settings home (cleaned up on exit), a detached process watchdog, and an
+agent-app Seatbelt profile that blocks Halora's own folders, push and cloud credentials, and
+project-local agent configuration (`.agents`, `.gemini`, `.kiro`, `.amazonq`, `.cursor`). Every Kiro
+session sets and verifies `autopilot: off` before sending any prompt, and any mid-turn switch away
+from the asking mode cancels the turn (`mode_left`).
+
 ## Connect Salidium
 
-With Salidium 0.6.0 or later running (earlier versions do not serve the consumer contract), create
-a credential for Halcyonic and
+With Salidium `0.6.0` or later running (`0.6.0` introduced the consumer contract), create
+a credential for Halora and
 store only the token in the data directory, readable only by you. `--json` makes Salidium print the
 token as a field instead of in prose, and `umask 077` creates the file private from the start:
 
@@ -568,10 +624,13 @@ token as a field instead of in prose, and `umask 077` creates the file private f
 ```
 
 `GET /api/executions/:execution_id/understanding` then answers from Salidium for executions on
-Claude Agent, whose Claude Code sessions Salidium observes. Halcyonic keeps its Codex and OpenCode
-sessions in folders of its own. A Salidium of 0.8.3 or before does not read them, so those executions
-answer `runtime_not_observed` (only its version is read). A later Salidium reads them once told where
-they are, beside its own defaults:
+Claude Agent, whose Claude Code sessions Salidium observes. `GET /api/executions/:execution_id/brief`
+reads Salidium's composed session brief when the running Salidium offers consumer contract `1.2` or
+later (`steer=0`, never reading a steering brief); Salidium versions without consumer contract `1.2`
+answer `incompatible` (`brief_not_offered`). Halora keeps its Codex and OpenCode
+sessions in folders of its own. Salidium `0.8.3` and below do not read them, so those executions
+answer `runtime_not_observed` (only Salidium's version is read). Salidium versions above `0.8.3` read
+them once configured alongside default stores:
 
 ```bash
 export SALIDIUM_EXTRA_CODEX_HOMES="$HOME/.halcyonic/codex-home:$HOME/.halcyonic/codex-confined/*"
@@ -581,13 +640,16 @@ salidium service install
 
 `pnpm mac-setup` and the setup page show these lines under What changed and why, for the data
 directory in use, once a Salidium credential is saved and the running Salidium's version (read
-without the credential) is after 0.8.3; for an earlier one they say it does not read them. Usage
-left shows Seorak's line once its credential is saved. Neither can see whether you ran the lines.
+without the credential) is above `0.8.3`; for `0.8.3` and below they report that Salidium does not
+read them. Usage left shows Seorak's line once its credential is saved. Neither can see whether you
+ran the lines.
 
-OpenCode stores are read only while `salidium/opencode` is among Salidium's enabled providers. Until
-then those executions answer `not_found` (`own_sources_not_set_up`). Seorak, from e3aa039e, tails
-Halcyonic's Codex sessions once told (`SEORAK_CODEX_EXTRA_DIRS="$HOME/.halcyonic/codex-home/sessions:$HOME/.halcyonic/codex-confined/*/sessions" seorak setup`);
-it has no OpenCode reader, so OpenCode executions stay `runtime_not_observed` for Checks. Every answer states its availability, so a missing
+OpenCode stores are read only while `salidium/opencode` is among Salidium's enabled providers;
+without it, those executions answer `not_found` (`own_sources_not_set_up`). Seorak builds with
+`SEORAK_CODEX_EXTRA_DIRS` support tail Halora's Codex sessions once configured
+(`SEORAK_CODEX_EXTRA_DIRS="$HOME/.halcyonic/codex-home/sessions:$HOME/.halcyonic/codex-confined/*/sessions" seorak setup`);
+Seorak has no OpenCode reader, so OpenCode executions stay `runtime_not_observed` for **Outcome**
+(`evaluation`). Every answer states its availability, so a missing
 credential, a stopped Salidium or an unobserved runtime reads as such rather than as an error.
 Salidium's real-wire tests run against its consumer test daemon from a built Salidium checkout:
 
@@ -599,9 +661,9 @@ SALIDIUM_CHECKOUT=/path/to/salidium node --test packages/integrations/salidium/s
 
 With Omnorium's Node server running on this Mac (the catalog contract v1,
 `omnorium.catalog` and `phat-porcupine.catalog`, is served only there, not by a hosted instance),
-create a consumer credential for Halcyonic in its checkout and store only the token in the data
-directory, readable only by you. `consumer:create` prints an `omc_` token and nothing else (older
-`ppc_` tokens are still accepted), and `umask 077` creates the file private from the start; the
+create a consumer credential for Halora in its checkout and store only the token in the data
+directory, readable only by you. `consumer:create` prints an `omc_` token and nothing else (`ppc_`
+tokens are also accepted), and `umask 077` creates the file private from the start; the
 token never appears on screen:
 
 ```bash
@@ -610,7 +672,7 @@ token never appears on screen:
 
 `GET /api/catalog` then answers with every project of your collection, read through and never
 journaled ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)).
-Halcyonic looks for `consumer.json` in `OMNORIUM_HOME`, else `PHAT_PORCUPINE_HOME`, else
+Halora looks for `consumer.json` in `OMNORIUM_HOME`, else `PHAT_PORCUPINE_HOME`, else
 `~/.omnorium` and then `~/.phat-porcupine`. A missing or exposed credential, a stopped server or one
 still gathering your projects reads as such. `pnpm consumer:revoke halcyonic` in the checkout
 withdraws it at once. The live test reads the catalog once and prints only counts:
@@ -621,8 +683,9 @@ OMNORIUM_CREDENTIAL_FILE=~/.halcyonic/omnorium-credential node --test packages/i
 
 ## Connect Seorak
 
-With Seorak running its local plane on 127.0.0.1:4317 (Halcyonic is verified against 0.3.0),
-issue an API integration credential for Halcyonic in Seorak's local dashboard
+With Seorak running its local plane on 127.0.0.1:4317 (verified against Seorak `0.3.0`,
+[seorak-integration-api.md](../validation/seorak-integration-api.md)),
+issue an API integration credential for Halora in Seorak's local dashboard
 (<http://127.0.0.1:4317/dashboard>): audience `http://127.0.0.1:4317/api/v1`, not the MCP one,
 with the scopes `sessions:read`, `replay:read` and `limits:read`, and no project or date
 restriction. One credential serves every Seorak read. Seorak shows the token once. Store only the
@@ -635,8 +698,9 @@ token in the data directory, readable only by you:
 `GET /api/executions/:execution_id/evaluation` then answers from Seorak for executions on runtimes
 it observes (Claude Code and Codex). Every answer states its availability, so a missing credential,
 a stopped Seorak or an unobserved runtime reads as such rather than as an error. An evaluation
-spends three of the credential's 60 requests a minute: fetch it on demand, never on a timer.
-The live test reads the credential file in its own process, never prints it, and makes at most six
+spends five of the credential's 60 requests a minute (resolve, outcome, verification, tool-mix, and
+cadence lenses): fetch it on demand, never on a timer.
+The live test reads the credential file in its own process, never prints it, and makes at most eight
 requests; name a Claude Code session Seorak captured to evaluate one:
 
 ```bash
@@ -647,25 +711,24 @@ node --test packages/integrations/seorak/src/live-seorak.test.ts
 
 ### Usage left
 
-The headset's Usage left glance reads `GET /api/usage-limits`, which reads Seorak's account-wide
-provider usage limits with `limits:read`. That read is in a Seorak build that is not released
-yet, so until it runs the headset says "Usage left isn't set up on your computer yet. Set it up there to
-see it here." and nothing more.
-The control plane's reason code says why:
+The headset's **Usage** view reads `GET /api/usage-limits`, which queries Seorak's account-wide
+provider usage limits endpoint (`GET /api/v1/usage-limits`) with `limits:read`
+([seorak-integration-api.md](../validation/seorak-integration-api.md)). When Seorak or its
+`limits:read` credential is not configured, the headset shows `"Usage left isn't set up on your computer yet. Set it up there to see it here."`
+The control plane's reason code states why:
 
 | Reason | Meaning | Fix |
 | --- | --- | --- |
 | `credential_missing` | No `~/.halcyonic/seorak-credential` | Issue the credential above and store it |
-| `insufficient_scope` | The credential lacks `limits:read`, as one issued before 2026-09-30 does | Issue a new credential with all three scopes, replace the file, then revoke the old one in Seorak's dashboard |
+| `insufficient_scope` | The credential lacks `limits:read` | Issue a new credential with all three scopes, replace the file, then revoke the old one in Seorak's dashboard |
 | `outside_credential_restriction` | The credential is restricted to a project or dates; Seorak serves limits only to an unrestricted one | Issue an unrestricted credential |
 | `credential_rejected` | Unknown, expired, revoked, or for another audience | Issue a new one |
-| `limits_not_served` | Seorak answers 404: it predates the limits read | Merge the limits build and restart Seorak |
+| `limits_not_served` | Seorak answers 404 because the running build does not serve `/api/v1/usage-limits` | Run a Seorak build with usage-limits support and restart Seorak |
 | `not_running`, `unreachable` | Nothing answers on 127.0.0.1:4317; the headset says Usage left can't be read right now | Start Seorak |
-| `not_captured` | Seorak has no provider reading yet; the headset says "No usage reading yet." | Use Codex; Claude Code never yields one |
+| `not_captured` | Seorak has no provider reading yet; the headset says `"No usage reading yet."` | Use Codex; Claude Code never yields one |
 
-To enable it: merge Seorak's usage limits build and restart its daemon (its new history schema
-cannot be read by older Seorak builds), then replace the credential as above. The file is read on
-every request, so the control plane needs no restart. Check with the control plane's access token:
+The credential file is read on every request, so replacing `~/.halcyonic/seorak-credential` requires
+no control-plane restart. Check with the control plane's access token:
 
 ```bash
 curl -s -H "Authorization: Bearer $(cat ~/.halcyonic/access-token)" http://127.0.0.1:47800/api/usage-limits
@@ -673,11 +736,13 @@ curl -s -H "Authorization: Bearer $(cat ~/.halcyonic/access-token)" http://127.0
 
 ## Turn on voice
 
-A development build of the headset can turn a held clip of speech into a draft, transcribed on this
-Mac by whisper.cpp ([ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md),
-[record](../validation/voice-transcription.md)). Voice is off until you set it up; nothing is
-downloaded because someone spoke. Build the pinned whisper.cpp from its release archive (needs
-Xcode's command-line tools and CMake), with Metal:
+Every headset build includes **Hold to Talk** in the immersive workspace (both development and release
+APKs, [ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md),
+[voice-transcription.md](../validation/voice-transcription.md); the native Android hybrid panel's
+**Hold to talk** stays restricted to debuggable builds, [native-panel-voice.md](../validation/native-panel-voice.md)).
+It turns a held clip of speech into a draft, transcribed on this Mac by whisper.cpp. Voice is off
+until you set it up; nothing is downloaded because someone spoke. Build the pinned whisper.cpp from
+its release archive (needs Xcode's command-line tools and CMake), with Metal:
 
 ```bash
 mkdir -p ~/.halcyonic/speech/src ~/.halcyonic/speech/models
@@ -712,8 +777,8 @@ export HALCYONIC_WHISPER_VAD_MODEL="$HOME/.halcyonic/speech/models/ggml-silero-v
 ```
 
 At startup the log names the engine (`speech: {name: 'whisper.cpp', version: '1.9.4-dev'}`; the
-archive build says `-dev`), then `speech engine warmed up`. The first warm-up after building
-compiles the GPU's shaders and took 23.5 s here; later ones take under a second. Try a clip made
+archive build reports `-dev`), then `speech engine warmed up`. The initial warm-up after building
+compiles Metal GPU shaders (around 20 to 25 seconds on Apple silicon); subsequent starts take under a second. Try a clip made
 with `say`:
 
 ```bash
@@ -777,15 +842,15 @@ free port up to 47809 (on another `HALCYONIC_PORT`, that port plus 2 to plus 9),
 `control plane ready` line names
 ([ADR 0047](../decisions/0047-pairing-starts-from-a-page-on-the-mac.md)). It opens only by a link:
 `pnpm pair` asks the running control plane for one and opens it in your browser, and
-`Start Halora.command` (or `pnpm start --open-pairing-page`) opens one once Halcyonic is ready. A
+`Start Halora.command` (or `pnpm start --open-pairing-page`) opens one once Halora is ready. A
 link works once, within a minute; run `pnpm pair` again for another. It reaches the browser through a
 file only you can read, in `~/.halcyonic/open-links`, never in a command's arguments, and that file
 goes within a minute; `pnpm pair --print` also prints the link, for a browser it did not open. The
-page needs a browser that says which page each request comes from (current Chrome, Safari 16.4 or
-later, Firefox); an older one is turned away with words that say so. A Halcyonic started on a data folder
-other than the usual `~/.halcyonic` (`HALCYONIC_DATA_DIR`) says so under the head of both this page and
-the setup page, **Another Data Folder**, naming its folder, so a second Halcyonic on one computer is
-never taken for the usual one.
+page needs a browser that sends `Sec-Fetch-Site` (current Chrome, Safari 16.4 or
+later, Firefox); browsers without it are refused with an explanation. A Halora instance started on a data folder
+other than `~/.halcyonic` (`HALCYONIC_DATA_DIR`) displays **Another Data Folder** with that path at the top of both the pairing page and
+the setup page, so a second Halora instance on one computer is
+never mistaken for the default one.
 
 On the page, nothing happens until you press:
 
@@ -873,8 +938,11 @@ first or set `HALCYONIC_PORT`.
 | A contract in `packages/contracts` | `pnpm contracts:emit` | Review the schema and C# diffs, then `pnpm test:csharp` |
 | Contracts, the pipeline, the mock runtime or a scenario | `pnpm fixtures:record` | Review the trace diff |
 | Contracts, the pipeline, the mock runtime, a scenario it plays, its plan, the routes, the Salidium or Seorak clients, or the stand-ins' stories | `pnpm demonstration:record` | Review the demonstration diff, then `pnpm test:csharp` |
+| Create's companion prompt or model | `HALCYONIC_COMPANION_MODEL=qwen3.5:9b pnpm companion:record` | Review the companion demonstration diff (`--check` verifies rules) |
+| The sanitized recorded real run (`HalcyonicRecordedRun.json`, [ADR 0035](../decisions/0035-a-recorded-real-run-lets-anyone-try-halcyonic-before-connecting-a-computer.md)) | `pnpm judge:record <trace.jsonl> --root <project> --home <home> --deny <deny-file>` | Review the sanitized diff (`--check` verifies without writing), then `pnpm test:csharp` |
 
-`pnpm check` fails when any generated file is stale. `node apps/control-plane/src/cli/record-fixtures.ts --check`
+`pnpm check` fails when generated schemas, C# bindings, fixture traces or the recorded demonstration
+are stale. `node apps/control-plane/src/cli/record-fixtures.ts --check`
 checks the trace alone, and `node apps/control-plane/src/cli/record-demonstration.ts --check` the
 demonstration alone.
 
@@ -890,7 +958,7 @@ instruction. The runs share their beginning exactly, and it writes them as one t
 `apps/xr/Assets/Halcyonic/Resources/HalcyonicDemonstration.json`, about 720 KiB. Beside the tree it
 records the control plane's answers about each execution's understanding and evaluation wherever
 the playback can stand: for each node, a control plane without runtimes is given the journal up to
-there and serves its routes on loopback, reading through Halcyonic's Salidium and Seorak clients
+there and serves its routes on loopback, reading through Halora's Salidium and Seorak clients
 from stand-ins that speak the products' contracts with content written for the story
 (`apps/control-plane/src/fixtures/demonstration-sources.ts`), and every answer is marked synthetic
 ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)).

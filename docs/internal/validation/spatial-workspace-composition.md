@@ -3,7 +3,7 @@
 2026-10-15. The revised composition is enabled by the production WorkspaceDirector initializer.
 This source activation is not headset acceptance; build, install and wearer checks remain separate.
 The owner's actual headset review rejected the flat stacked composition; see the updated
-[style direction](../product/STYLE.md#spatial-composition-candidate--2026-10-15).
+[style direction](../product/STYLE.md).
 
 `Halcyonic.XR.Workspace.Editor.WorkspaceRender.SpatialWorkspaceCheck` renders three actual
 MenuDirector routes at standard and larger text: Projects, a selected working task's local

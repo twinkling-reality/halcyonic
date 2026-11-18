@@ -1,1060 +1,298 @@
-# How Halcyonic looks
+# How Halora looks
 
-How the headset's menu, a task's file, New project and their side panels look, and where everything
-on them goes ([ADR 0026](../decisions/0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md)).
-The values live in the client core (`apps/xr/Packages/com.halcyonic.client`), so tests and renders
-hold them: `Glaze.Menu` for sizes, grid, glass and selection, `MenuFrame` for places, sections, page
-lines, side panels and the footer, and `PlaneComposition` for the plane. This guide says how to use
-them. How Halcyonic speaks is [WORDS.md](WORDS.md). The stage, its characters, labels and peek, keeps
-[ADR 0023](../decisions/0023-the-headset-interface-is-one-system-of-tokens-and-components.md)'s sizes
-and rules.
+Canonical visual specification for Halora's headset panels, moments, buttons, typography, colour,
+sound, motion and automated render checks. Token and layout logic lives in
+`apps/xr/Packages/com.halcyonic.client` and the Unity rendering layer in
+`apps/xr/Assets/Halcyonic/UI*`; client architecture and threading live in
+[XR_CLIENT.md](../architecture/XR_CLIENT.md), on-screen copy in [WORDS.md](WORDS.md), and brand
+surfaces outside the headset's panels in [BRAND.md](BRAND.md).
 
-Every surface is reviewed from the eyes against the owner's test: one thing at a time, fixed
-controls, clean. `DirectionsRender` shows each rule below on the moments it was decided for.
+Every surface is evaluated from the wearer's eyes against three rules: one thing at a time, fixed
+controls, clean.
 
-## Spatial system, 2026-10-29
+## Room glass, buttons and code colours
 
-[ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md) makes the headset a room: a gallery of projects as
-home, one screen per picked project with its bar beneath, moments from the task's character, reading that unfolds on
-demand. Built so far, as kit components checked in Editor renders: the colours, type and motion below, a picked
-project's screen and its bar (placed in the room 2 m away), the moment card, the reading surface, and the character
-figure (`KitFigure`); the rest are not yet. The sections after this one describe what the headset draws today (the plane, the
-curve, the 2026-10-15 and 2026-10-16 candidates); each is rewritten as the build unit that replaces it lands. Values
-below are the accepted storyboard's; the client core will hold them (`SpatialKit`), and renders check them.
+Workspace panels, bars, tags and actions (`RoomSurface`, `AskGlass`, `RoomButton`, `RoomType` and
+`CodeColouring`) render in neutral true-grey glass with zero hue in the chrome, enforced across all
+rendered states by `KitRender.ChromeTakesNoHue` (maximum HSV saturation `0.12` above value `0.04`,
+exempting only character/figure bodies, app content and code syntax spans).
 
-**Where things stand** (degrees at the eye, with the head level; the Quest 3's field is 110 by 96):
+- **Glass (`AskGlass`, `RoomSurface`, `Halcyonic/Room Glass`):** `AskGlass` defines neutral dark
+  glass in two forms: `FaceColour` `#121212` at `FaceAlpha = 0.918` in Unity's linear blend (used on
+  tag plates such as `RoomTag`), and `PageColour` `#0E0E0E` at `PageAlpha = 0.72` in sRGB
+  (`RoomWords.GroundColour` on `RoomBand` for the agent's words band). `RoomSurface.DarkLook`
+  renders panels with `#121212` at `DarkAlpha = 0.96` so bright passthrough rooms do not muddy the
+  face, a 1 dp outer edge easing from `#919191` at the top (`LitEdgeTop`) to `#2C2C2C` at the foot
+  (`LitEdgeFoot`), and 1 dp inner sentence/divider hairlines of white at `0.08`
+  (`AskGlass.HairlineAlpha`). `RoomSurface.LightLook` inverts the same structure (`#FBFCFE` at
+  `LightAlpha = 0.64`, `#E3E4E8` edge, `rgba(12, 14, 22, 0.08)` inner hairline). Squircle corners
+  are 20 dp on panels, 22 dp on bars and 14 dp on tags; moving sheen is off (`RoomSheen.Peak = 0`),
+  and panel drop shadows remain off (`DrawsShadow = false`) so layout bounds match visible glass
+  edges.
+- **Buttons (`RoomButton`, `Halcyonic/Room Halo`):** every target meets the 60.8 dp hand-target
+  floor (`CoreDp = 48` on column actions, 60.8 dp on home actions), pairing a stroke glyph
+  (`RoomGlyphs`) with unwrapped or balanced-wrapped white words on a soft black text underlay
+  (`0.35` alpha). Standard actions sit on an opaque `#272727` capsule (`#3C3C3C` pointed, `#323232`
+  held, `1.2 dp` edge feather); quiet secondary dialog actions hide their plate at rest and show it
+  when pointed or held. A moment's single main action (and `Confirm` while locked) uses the lighter
+  neutral plate `#474747` (`#555555` pointed) with white glyph and white words, distinguished by
+  luminance rather than hue or rim (`RimPainted = false`). `Confirm`'s lock draws a 2 dp white
+  progress ring 4 dp clear of the squircle chip; single- and multi-choice answer marks draw a 2 dp
+  white ring or rounded box and a white check (`#FFFFFF`) when chosen. An action's optional aside
+  chip (`AsideGround`) floats 10 dp to the right on `#2D2D2D` at `0.78` alpha with a 1 dp white
+  edge at `0.06` and 17 dp label text. Unavailable actions are omitted rather than dimmed.
+- **Room typography (`RoomType`):** reading words use `Inter Regular` at 20 dp on a 28 dp line
+  (`-0.6%` tracking), runtime commands and code use `JetBrains Mono Regular` at 19 dp on a 28 dp
+  line, and eyebrows and state labels use `Inter Regular` in spaced uppercase at 18 dp (`+0.24 em`
+  tracking, `0.53` linear alpha so labels hold `4.5:1` over bright passthrough). `Larger` text
+  multiplies scaled metrics by `1.15` and reflows.
+- **Code syntax colouring (`CodeColouring`, `Appearance` > `Code Colours`):** `CodeTokens` and
+  `GlazeRuns` colour syntax spans directly on glyph vertices without rich-text tags or string edits,
+  holding at least `4.7:1` contrast on the glass across both dark and bright rooms:
+  - `Halora` (default): keywords `#CFC1FF`, types `#F2BAD1`, names `#F3EBDC`, strings `#9EE6D8`,
+    numbers `#A8D4FF`, comments `#C3CAD4`; punctuation and plain words stay white.
+  - `Plain`: every token keeps the row's white.
+  - `High Contrast`: keywords `#D3C0FF`, types `#FFB8E0`, names `#FFFFFF`, strings `#7FF2E0`,
+    numbers `#99CFFF`, comments `#C9D0DA`.
+
+## Spatial room layout and colour ramp
+
+[ADR 0040](../decisions/0040-the-headset-is-a-room-of-projects.md) defines the room layout: projects
+around the user, up to three open project screens with a bar beneath the active screen, moments from
+the task's character, and a reading surface that unfolds on demand. Layout geometry and placement
+rules are documented in [XR_CLIENT.md](../architecture/XR_CLIENT.md).
+
+**Angular placement** (degrees at the eye with the head level; Quest 3 field is 110 by 96):
 
 | Part | Where | Size |
 | --- | --- | --- |
-| Gallery tiles | Facing the person at reading distance, shelves from about 22 above to 18 below eye level | 14 by 7.9 a tile with many projects; 28 by 15.8 for a newcomer's |
-| A picked project's screen | About 2 m away, centred a little above eye level | 56 by 31.5 |
-| Its bar | Under the screen, parallel and slightly in front, the screen's edges | 5.4 high a row, two rows where one does not fit; folds to a handle while idle |
-| The character | Beside the screen's right edge, standing at its foot | About 5 by 6 |
-| The moment slot | Above the character, one moment at a time, actions beneath | 23 wide; height follows content |
-| The reading surface | About 1 m ahead of where the person looks, a little below eye level | 44 by 33 |
+| Gallery tiles | Facing the person at reading distance, shelves from about 22 above to 18 below eye level | 14 by 7.9 per tile with many projects; 28 by 15.8 for a newcomer |
+| A picked project's screen | About 2 m away, centred slightly above eye level (team screens at 24 degrees wide over their places) | 56 by 31.5 (48 by 27 at Larger) |
+| Its bar | Under the screen, parallel and slightly in front, matching the screen's edges | 5.4 high per row, two rows when one does not fit; folds to a 6 by 0.45 handle while idle |
+| The character | Beside the screen's right edge or at its project place in the room | About 5 by 6 |
+| The moment slot | Beside or above the character, one moment at a time, actions beneath | 23 wide; height follows content |
+| The reading surface | About 1 m ahead of where the person looks, slightly below eye level | 44 by 33 (704 by 528 dp) |
 | Heads-up items | Low at the sides, about 31 below eye level and 31 to either side, on a leash | At most two, 2.8 high |
-| Compact | Beside the other app, on the existing route | About 20 by 10 |
+| Native compact panel | Beside other Quest apps, on the native Android panel route | About 20 by 10 |
 
-**Colour.** Opaque carriers only; words never sit on the room. Contrast is measured as a WCAG ratio. The ramp is the
-approved window glass (2026-10-31, at the floor-safe value: 0.6 of the reference's grey so white words hold 6.5:1 on
-its lit top): eight neutral steps on one grey, white words, one blue for the one primary, and colour only where it
-carries meaning. The figure (`KitFigureLook`) keeps its own neutral and state tones (`#DADDE0`, `#A0A5AC`, `#767B82`,
-`#59CFF1`, `#FABA59`, `#69D98D`, `#F7857D`) so word colours change without changing a figure's eyes.
+**Colour (`SpatialKit`, `KitPillMaterial`).** Opaque carriers only; words never sit directly on the
+room. Contrast is measured as a WCAG ratio (`SpatialKitTests`). Every neutral step in the kit is a
+true grey (`R == G == B`), paired with white words and semantic state tones reserved for character
+figures and non-chrome indicators. The character figure (`KitFigureLook`) keeps its own neutral and
+state tones (`#DADDE0`, `#A0A5AC`, `#767B82`, `#59CFF1`, `#FABA59`, `#69D98D`, `#F7857D`) so text
+ramp adjustments never alter a figure's eyes.
 
 | Step | Value | For |
 | --- | --- | --- |
-| n0 | #2A2D30 | A well (a command, code), the empty screen |
-| n1 | #424549 | Every face with words, lit from above: #494C50 at its top, #3B3E42 at its foot |
-| n2 | #46494D | Raised: a chip, the stacked edge, a poster's centre |
-| n3 | #4B4E52 | A secondary capsule's resting fill; #45484C raises the switch's thumb, which carries only primary and secondary words |
-| n4 | #97999B | A locked answer's ring, a hairline, the dotted gutter (3.17 on n2, 3.37 on n1) |
-| n5 | #DBDCDC | Tertiary words: a time, a count, Reported (white at 78 percent) |
-| n6 | #E1E2E3 | Secondary words (white at 82 percent) |
-| n7 | #FFFFFF | Primary words, and a glossy capsule's word (`OnFill`) |
-| Primary | #006ADB | The fallback flat primary fill (5.14 under n7), pressed #0058B8 (6.80); in the room, every capsule and round button uses `KitPillMaterial` |
-| Pill Blue | #474747 | The prominent capsule (the primary, and Approve's green): exactly RoomButton's main-action plate, `#474747` flat, `#555555` pointed, white words, no gloss, catch-light, bounce or rim (the owner's no-hue order, the lead's ruling 2a). Decline's red is the neutral glass |
-| Pill Green | #0F5A24 | A green glossy capsule's middle band (`#34A856`, `#116228`, `#0F5A24`, `#0C4B1D`, `#208840`; rim `#09441A`, bottom bounce `#6EF58C`) |
-| Pill Red | #881C18 | A red glossy capsule's middle band (`#D84840`, `#941F1B`, `#881C18`, `#741714`, `#BC342E`; rim `#6C1411`, bottom bounce `#FF826E`) |
-| Pill Neutral | #42464D | A smoked-slate secondary or round glass capsule's middle band (`#5C626C`, `#444850`, `#42464D`, `#32363D`, `#4A5059`; rim `#24282E`, bottom bounce `#7A8088`) |
-| Avatar Tint | #163E8F | An avatar's left-edge wash colour on the glass panel beside it (`28 -> 16 -> 6 -> 0` percent across the width) |
-| Live | #7ADCF7 | An agent running; the one accent, lifted from #59CFF1 to hold 4.5:1 on every grey step, never a button's fill |
-| Needs | #FABA59 | Needs you: a question, an approval; #FFC164 (`AttentionSign`) for a question's "?" sign inside its ring |
-| Failed | #FFAAA3 | Failed, failing checks included, lifted from #F7857D for the grey ramp; #FFBBB4 (`FailureSign`) for a failure's "!" sign inside its ring |
-| Passed | #69D98D | Passed, checked by your computer; added lines from a checkpoint diff, on the band #1B3324 |
+| n0 (`Well`) | `#202020` | Sunk wells (commands, code, recessed spine and rail), empty screen edge |
+| n1 (`Carrier`) | `#313131` | Primary word-carrying face, lit from above: `FaceTop` `#3A3A3A`, `FaceBottom` `#292929` |
+| n2 (`Raised`) | `#383838` | Chips, stacked moment edges, selection lift |
+| n3 (`Control`) | `#414141` | Resting control fill; `Thumb` `#3F3F3F` raises the mode switch thumb (`>= 1.5:1` on `n0`) |
+| n4 (`Hairline`) | `#969696` | Locked answer rings, hairlines, dotted reported-code gutter (`>= 3:1` across `n0`..`FaceTop`) |
+| n5 (`TextTertiary`) | `#DBDCDC` | Times, counts, `Reported` metadata (white at 78 percent) |
+| n6 (`TextSecondary`) | `#E1E2E3` | Secondary words (white at 82 percent) |
+| n7 (`Text` / `OnFill`) | `#FFFFFF` | Primary words and capsule labels |
+| Primary (`PrimaryFill`) | `#006ADB` | Flat fallback primary fill (`>= 5:1` under `n7`), pressed `#0058B8` (`>= 6:1`) |
+| Pill Blue / Pill Green | `#474747` | Prominent `KitPillMaterial` plate (`Blue` and `Green`): flat `#474747`, pointed `#555555`, white words, zero gloss, crown, catch-light, bounce or separate rim, matching `RoomButton.MainPlateColour` |
+| Pill Neutral / Pill Red | `#3D3D3D` | Secondary and round `KitPillMaterial` true-grey glass (`Neutral` and `Red`): five stops `#555555`, `#404040`, `#3D3D3D`, `#303030`, `#474747`; outer rim `#222222`; bottom bounce `#797979` at `0.16` alpha; upper crown `0.22` to `0.06` to `0.00`; top catch-light `0.28` |
+| Avatar Tint | `#0F3380` | Optional left-edge wash token (`KitGlassMaterial.LeftWash`, `28 -> 16 -> 6 -> 0` percent); off on shipped chrome (`KitRender.ChromeTakesNoHue`) |
+| Live (`Accent`) | `#7ADCF7` | Active figure light (`>= 4.5:1` on every grey step); never a button fill |
+| Needs (`Attention`) | `#FABA59` | Waiting figure light; `AttentionSign` `#FFC164` |
+| Failed (`Failure`) | `#FFAAA3` | Failed figure light; `FailureSign` `#FFBBB4` |
+| Passed | `#69D98D` | Passed figure light and checkpoint diff additions on `AddedBand` `#1B3324` |
 
-Measured on n1: n7 9.6, n6 7.4, n5 7.0, live 6.2, needs 5.6, failed 5.3, passed 5.5; every word at least 6.1 on n3
-and 4.74 across the face's lit top (n7 6.52), and at least 4.5 across the avatar-tinted face (`AvatarTint` `#163E8F` at 28
-percent on the left edge never lifts the face's luminance above its untinted top); a question's "?" sign (`#FFC164`) 4.52
-and a failure's "!" sign (`#FFBBB4`) 4.50 on the lit top beside the mark, each lifted in its own hue, and n0 (`#2A2D30`) at
-least 7.5 on an observed disc mark; n7 on every glossy capsule's middle band at least 5.2 at rest and 4.8 when pointed;
-n4 at least 3.17 on every surface a locked ring sits on, n1 3.37 (a boundary, WCAG's 3:1 for non-text); the thumb against
-its n0 track 1.51. No step is darker than #1A1A1A, the darkest the display separates. State colour only on the character's
-own light and the moment that carries it; every state a glyph and words as well as a tone.
+Every text and state word holds at least `4.5:1` across `Well`, `Carrier`, `Raised`, `Control`,
+`FaceTop` and `FaceBottom` (`n7 >= 7:1`), `n0` (`#202020`) holds `>= 7:1` on observed discs, `n4`
+(`#969696`) holds `>= 3:1` on every surface a locked ring sits on while staying quieter than `n5`,
+and no carrier is darker than `#1A1A1A`, the darkest step the display separates. State is conveyed
+by form, weight and words, never by colour alone.
 
-**Type.** Six static faces, all SIL OFL 1.1 (`NOTICE`, [the fonts note](../validation/fonts-2026-10-30.md)), built by
-`KitFontAtlas` into static atlases (each role its own asset so a role is still found by its face) with Liberation Sans as
-their fallback. `KitType` gives each role its face and
-tracking, and its own line pitch, on the room's parts only: a label made with `room` (the screen, its bar, a moment card, and the reader, gallery
-and tag as they land) takes its face and keeps it as it is sized again. The instrument candidate (the workspace's spine,
-slate and rail, the overview, the presence) keeps Rajdhani Medium and Liberation Sans until the room replaces it, as the
-old menus do: in Inter the slate's report runs 11 lines at the larger size where the slate holds 8. No italics: outside text stands upright in the room's faces, told by its place and the mono face, and keeps
-its run, so who said it is still known to every check. Larger multiplies by 1.15 and reflows, nothing zooms.
+**Kit glass (`KitGlassMaterial`, `KitGlass`, `Halcyonic/Kit Glass`).** Kit carriers draw one opaque
+vertical gradient (`FaceTop` `#3A3A3A`, `Carrier` `#313131` at middle, `FaceBottom` `#292929`) with
+a soft radial white top light (`0.10` alpha fading by `60%` of height), a 1 dp outer white ring at
+`0.06`, a 1 dp white top highlight at `0.30`, and one soft drop shadow (`18 dp` down, `40 dp` blur,
+black at `0.24` alpha, fitted in linear light over `#B9AE9E`). Insets are 10 dp on panels, 8 dp on
+the lost plate and earlier-moment lip, and 6 dp on tiles and tags. All face layers composite in sRGB
+inside a single-pass textureless shader. Moment arrival bloom peaks at `0.11` so `n5` words keep
+`>= 4.5:1` on the lit top; shipped chrome leaves panel tone and tint unset.
+
+**Kit capsules (`KitButton`, `KitPillMaterial`, `KitPill`, `Halcyonic/Kit Pill`).** Capsules are
+60 dp tall, at least 60 dp wide, and 12 mm apart. Prominent primary actions (`KitPillMeaning.Blue`
+and `Green`, 28 dp side padding) render as the flat `#474747` plate (`#555555` pointed, with a 3 dp
+outer ring `PrimaryRing` at `>= 3:1` contrast). Secondary capsules (`KitPillMeaning.Neutral` and
+`Red`, 18 dp side padding) and 60 dp round icon buttons (`KitButtonRole.Round`, such as the reader's
+close button) render through the five-stop neutral glass ramp (`#3D3D3D` middle, `#222222` rim,
+`+5%` sRGB pointed lift at `103%` scale, `-12%` pressed darken at `97%` scale). Locked capsules draw
+a 2 dp `n4` ring around their `n5` reason text; quiet controls (`KitPillMeaning.None`) use an
+outlined capsule. The screen bar scales all buttons uniformly so labels share one type size,
+splitting lead actions above navigation doors when a single row does not fit.
+
+## Static typography and flow
+
+Six static SDF font assets (`NOTICE`, [fonts-2026-10-30.md](../validation/fonts-2026-10-30.md)) are
+built from bundled SIL Open Font License 1.1 sources (`KitFontAtlas`, `KitType`): `Inter`
+(`SemiBold`, `Regular`, `Medium`) and `JetBrains Mono` (`Regular`). Every atlas holds printable
+ASCII, typographic punctuation, literal code-point marks (`‹`, `›`, `⇥`, plus `↵` on `Inter` with
+`KitMono` falling back to `KitReading` for `↵`, `Ĳ` and `ĳ`), and `KitGlyphs.Latin` (Latin-1
+Supplement and Latin Extended-A), verified byte-for-byte against an in-memory rebuild by
+`KitFontAtlas.Check()`, with `Liberation Sans` as the final fallback. `InstrumentFontAtlas` builds
+`Rajdhani Medium` (falling back to `KitTitle` then `Liberation Sans`) for headings on `KitSpine` and
+`Glaze` frames. In room faces, outside text stands upright, distinguished by its region, attribution
+and monospace role while preserving exact `LineWords` runs. `Larger` multiplies by `1.15` and
+reflows; nothing zooms.
 
 | Role | Face | dp | Degrees | Tracking | Line | For |
 | --- | --- | --- | --- | --- | --- | --- |
-| Display | Inter SemiBold | 48 | 3.0 | -1% | 1.06 | A project's name on its empty screen; a tile's initials at 34 |
-| Title | Inter SemiBold | 28 | 1.75 | -0.5% | 1.18 | A moment's subject and the reader's title, the screen's chip, Projects, the lost plate |
-| Body | Inter Regular | 18 | 1.125 | 0 | 1.40 | Everything read; answer words |
-| Strong | Inter SemiBold | 18 | 1.125 | 0 | 1.30 | Names; the primary capsule's word |
+| Display | Inter SemiBold | 48 | 3.0 | -1% | 1.06 | Project name on an empty screen; tile initials at 34 |
+| Title | Inter SemiBold | 28 | 1.75 | -0.5% | 1.18 | Moment subject, reader title, screen chip, `Projects`, lost plate |
+| Body | Inter Regular | 18 | 1.125 | 0 | 1.40 | Reading prose and answer labels |
+| Strong | Inter SemiBold | 18 | 1.125 | 0 | 1.30 | Emphasized names and primary capsule words |
 | Label | Inter Medium | 15 | 0.9375 | +0.5% | 1.30 | Metadata lines, eyebrows, tile lines |
-| Mono | JetBrains Mono Regular | 16 | 1.0 | 0 | 1.50 | Commands, paths and output, which are theirs |
+| Mono | JetBrains Mono Regular | 16 | 1.0 | 0 | 1.50 | Runtime commands, paths and output |
 
-The screen's two-letter mark is in Display's face at its own size. Identity (30 dp) and Heading (22 dp) are the instrument
-candidate's only, in its own face and a 1.2 line pitch; no part of the room uses them.
+- **Cadence (`KitFlow`):** segments joined by `" · "` ([WORDS.md](WORDS.md)) lay out as separate
+  labels positioned by character advance (spaces included) rather than glyph ink bounds. Line breaks
+  occur only between segments with the separator dropped, so no line begins or ends with a dot; an
+  oversized segment wraps within itself (up to five lines in the rail notice) before the flow
+  resumes below (`KitRender.SeparatorsHold`).
+- **Whole-word wrapping (`KitReading`):** labels never truncate where room exists. Project and task
+  names wrap up to three balanced lines before cutting inside an outside-text run; trailing counts
+  (such as `2 More`) drop onto a right-aligned line beneath when needed; paths and well commands
+  break at spaces or after `/`, `?`, `&`, `=`, `,`, `;` or `:` (never inside a hyphenated word
+  unless a single filename chip exceeds the measure), with wrapped well rows hanging two characters
+  in (`KitRender.KitWordsHold`).
 
-**The cadence.** Halcyonic's " · " segments ([WORDS](WORDS.md) rule 2) are laid as a flow (`KitFlow`): each segment and each
-dot its own label, set by its runs so a space at its edge stays, and placed at the previous label's pen (the last character's
-advance, spaces included), never at its ink, which ends at the last glyph and once put a dot under the next segment. A line
-breaks only between segments, the dot dropped there, so no line starts or ends with one; a segment wider than a line wraps
-inside itself where it may (the rail's notice, to five lines) and the flow goes on below it. The moment card's metadata and
-risk lines, its receipt and the rail's notice are laid so. Every state's render reads the cadence as the eyes do
-(`KitRender.SeparatorsHold`, from TextMeshPro's own glyph boxes, labels sharing a parent and a baseline read as one line): no
-line starts or ends with the dot, labels side by side never touch (half a space at least), and a dot stands no further from
-what it follows than from what follows it, nor the other way round, beyond half a space, except before outside text, whose
-ground takes one more space by design.
+## Moments, reading surface and character figures
 
-**Words read whole.** No word of the kit's is cut where it has room to stand whole (the owner, 2026-11-03): a task's or a
-project's name in a row takes up to three lines before it is cut inside its own run; where a row's end words (as "2 More")
-would push its words onto another line, they stand under the words at the right instead; a chip's path and a well's command
-wrap by the reader's own rule (`KitReading`: at their spaces, else after a "/", "?", "&", "=", ",", ";" or ":", never beside a
-"-", never mid-name where a mark fits, a wrapped well row hanging two characters in), one label a row, except that a chip's
-name longer than a row breaks beside its own hyphen rather than inside its letters ("test/sign-" / "in.test.ts"); a rail
-head in the cadence flows as its segments ("Tests Failed · Reported", never in brackets); and the absent character's band
-holds a few words on one line beside its way back, no wider than they need. `KitRender.KitWordsHold` checks each in every
-state at rest, with the cadence above.
+- **Moment card (`KitMoment`):** 368 dp wide in window glass (inset 10 dp), ordered top to bottom:
+  20 dp white mark (ring with `?` or `!` for reported items, solid disc with `n0` glyph for host
+  observations) beside the `Label` `n6` eyebrow (`Agent's Question`, `Observed on This Computer` or
+  `The Agent Says`); `Title` 10 dp below (up to two lines); metadata in `Label` `n6` using `" · "`
+  or runtime prose in `Body`; optional `KitWell` command 14 dp below (`Mono` `n7` on `n0`, radius
+  12 dp, padding 12 by 14 dp, truncated after two lines with `{n} More Lines Not Shown` or `Cut ·
+  {n} More Lines`); optional supporting line 12 dp below in `Body` `n6`; and answer capsules 16 dp
+  below. Earlier moments appear as a single glass lip 28 dp narrower rising 10 dp above the card,
+  with `{n} Earlier` (and `{n} Newer` when a question holds focus) at the eyebrow's right. In
+  `KitComposer`'s footer strip, declared environment and runtime roles appear as `Host: This
+  Computer` or `Host: Sandbox` and `Agent: {Role}` (`RuntimeFaces`), sharing equal halves when whole
+  or stacking full-width so no label truncates; unchangeable chips render as plain `n5` facts
+  without a button outline.
+- **Reading surface (`KitReader`, `KitReading`):** 704 by 528 dp (44 by 33 degrees) with the
+  question mark, `Body`-sized eyebrow, `Title`, and top-right 60 dp round close button (`Fold` with
+  `GlazeIcon.Close`). Its `n0` well (inset 14 dp, 96 dp from top to 84 dp from bottom, radius 12 dp,
+  padding 14 by 18 dp) lays commands by rows in `Mono` (comments `n5`, code `n7`), preserving
+  indentation, showing tabs, line breaks and unprintable code points literally, hanging wrapped rows
+  two characters in, and fading hidden edges over 24 dp without counting half-shown rows as read.
+  `End of Command · ` plus the sandbox effect scrolls in after the final row. The fixed footer
+  (12 dp from bottom) holds a 240 dp primary slot beside equal-width `Decline` and `Reply` capsules:
+  the primary starts as locked `Read to End` with a left-to-right `LockedProgress` fill (`n7` at
+  `14%` over `n1`) and becomes the `#474747` `Run` plate once the final row has shown. Lifting the
+  lock plays the `Moment` sound cue.
+- **Character figure (`KitFigureLook`, `KitFigure`, `KitFigureMeshes`):** floating porcelain ovoid
+  companion (`Halcyonic/Kit Pearl` and `Halcyonic/Kit Figure Light`, GPU-instanced with
+  `MaterialPropertyBlock`): inverted-teardrop torso (`0.132 m` by `0.156 m`) with saddle collar
+  (`#141C26` interior bowl) and luminous waist belt (solid, or 14 dashes when `Unknown`, dimmed in
+  `Stopped` and `Last Known`), two detached tapered wing arms (`0.032 m` by `0.111 m`, `0.011 m`
+  gap), and floating dome head (`0.140 m` by `0.098 m`, `0.012 m` gap) with recessed `#030406` visor
+  (`#C9D2DC` chamfer lip) and tilted scanline LED eyes (upward arcs when host checks passed). Shell
+  shades from `#3D4552` to `#DCE3EC`..`#F8FAFD` across six `FigureFamily` identity hues (`#4F7FF2`,
+  `#3BE6D4`, `#9B75EB`, `#F75CA8`, `#CA52D6`, `#393DF2`) and state tones (`Running` `#59CFF1`,
+  `Needs You` `#FABA59`, `Passed` `#69D98D`, `Failed` `#F7857D`, `Not Started` / `Unknown` `#A0A5AC`
+  with `#B9C0C8` belt, `Stopped` `#7A828E`, `Last Known` `#767B82` static). A 3-layer floor
+  projection sits `0.095 m` below (`#05070A` AO shadow, concentric rings with cardinal ticks,
+  bounded inner specular reflection; hidden in `Last Known`). Triangle budgets stay under `2,400`
+  near (`2,178` open, `2,202` happy) and `600` far (`502`).
 
-**Material.** The room's panels are one window glass (`KitGlassMaterial` in the client core, `KitGlass` and the
-`Halcyonic/Kit Glass` shader in the Unity layer; `KitCarrier.DrawGlass` draws a carrier in it): one opaque face over the
-whole panel (`#3A3A3A`, n1 `#313131` at the middle, `#292929`), an optional horizontal left-edge wash in the avatar's hue
-(`SpatialKit.AvatarTint` `#0F3380`, 28 percent at the left edge, 16 at 42 percent across, 6 at 74 percent, and 0 at the
-right edge; `KitGlassMaterial.LeftWash`), and a soft radial top light of white at 10 percent reaching 60 percent
-of the height, carrying every word (inset 10 dp on a panel, 8 on the lost plate and the earlier edge, 6 on a tile and the
-tag, where the quiet glass's rim stood; no part is see-through and nothing glows round it); a 1 dp ring of white at 6
-percent on the outer edge and a 1 dp top line of white at 30 percent; one soft shadow (18 dp down, 40 dp blur, black at
-24 percent); and on a moment the bloom of its arrival, said in the moment's words too and never standing for progress.
-One pass, no textures, no blur. The quad reaches 60 dp past the panel's sides, 42 above and 78 below, so the glass fills
-about 1.6 times the screen's area and more on smaller panels; the kit render reports each part's cost.
+## Press guard, decision bar, sound and motion
 
-Everything on the opaque face mixes in sRGB inside the shader and matches the prototype over every room. Only the shadow
-lies over the room: it is fitted for linear light over the lit room (`#B9AE9E`), and the render check reports how far the
-other rooms drift. The bloom peaks at 11 percent, not 14, so tertiary words keep 4.5:1 on the face's lit top.
-
-**Answers.** One style everywhere an answer stands (`KitButton`, `KitPillMaterial`, `KitPill`, and the `Halcyonic/Kit Pill`
-shader): every answer is a glass capsule 60 dp tall and at least 60 wide, 12 apart, rendered through the same five-stop
-vertical gradient, bottom inner bounce, continuous upper-half glass specular crown (`0.50` of the height, fading smoothly
-from top to `0.36` to `0.00` at `0.50` without a pasted oval sticker edge), 1.2 dp top rim catch-light, and 1.5 dp darker
-outer rim. The one primary action on a card or the reader (`Run`, `Try Build`, `Read Command`, a failure's `Read Output`,
-or the screen bar's primary) is the lighter grey glass capsule (`KitPillMeaning.Blue`); every secondary capsule (`Decline`,
-`Reply`, `Restore Checkpoint`, a passed check's `Read Output`, `Stop`) and round 60 dp icon button
-(`KitButtonRole.Round`, such as the reader's close button carrying `GlazeIcon.Close` while keeping `Fold` as its name) is a
-dark neutral grey glass capsule (`KitPillMeaning.Neutral`: `#555555` to `#404040` to `#3D3D3D` to `#303030` to `#474747`,
-rim `#222222`, bottom bounce `#797979` at `0.16` alpha, top specular crown from `0.22` to `0.06` to `0.00`, and top rim
-catch-light at `0.28` vs `0.34` to `0.10` to `0.00` crown, `0.28` bounce, and `0.42` catch-light on the saturated hues). Every
-capsule carries its word or glyph in n7 (`28 dp` in at either side on the primary, `18 dp` on a secondary answer; pointed,
-`3` percent larger than the size its owner stands it at (so the screen bar's growth is kept) with `+5` percent sRGB lift and, on the primary, a `3 dp` ring outside it at 3:1 or more on every face;
-pressed, `-12` percent toward black at `97` percent scale). A locked answer keeps a 2 dp n4 ring round its n5 word, its
-reason being its word. Every button the kit draws is that one capsule: a quiet one (the screen bar's doors, a section tab, a composer chip) is the same capsule outlined, never a squarer box. The screen bar lays every button at one scale, the most any of them needs to hold the floor where it stands, so its words stand at one size; its lead actions and its doors share one row only where that row fits inside the bar's padding at that scale, else the lead actions stand above the doors.
-
-**The one press.** Every action in the headset is one pinch on one button, acting on its release over the button, and the
-guard against a stray pinch lives inside that press (`PressGuard`, `KitPress`; the lead's decision R1 of 2026-11-12). A press
-counts only where the pinch began after the button arrived (its command, words, place or visibility last changed) and, for a
-ray, after the ray rested on it 0.35 s; a button lights its hover only once it will take a press, and a refused pinch sinks
-nothing. A ray off the button for under 0.1 s keeps its rest and its press; a pinch that slides off before it is let go, or
-drags past 4 degrees of a ray's turn or 2 cm of a finger's travel, does nothing. A held control (Hold to Talk) acts at its
-counted pinch and ends on release. No action takes a hold, and no screen adds a second press: where a command's policy asks
-for a review, the review card's one Confirm is that press.
-
-**The decision bar.** An approval waits in the slate's footer, in the composer's place (`KitDecisionBar`), in two fixed
-places: equal halves of the slate's width 12 mm apart, as the composer's own footer below the same slate is laid. The left
-half is the way back and the right half the way on, in every stage: asked, Deny left and Approve right; once either is
-pressed, the question on its own line above ("Approve Request?", "Deny Request?"), Cancel left and Confirm right with the
-answer's icon, so the primary never leaves the right and the hand never crosses the slate. Confirm arrives locked, in a
-locked answer's look, until the whole request and its notes have been read (until then the question line says what to read
-first), and then for 0.7 s more (`KitDecisionBar.ConfirmLockSeconds`, its arrival's length). A press while it is locked is
-refused, never queued, and once it unlocks a press already under way is still dropped by the settle (0.35 s). For a Deny, a
-second press where the first landed is a Cancel; for an Approve it reaches Confirm only after the lock and the settle. This
-replaces, for the kit, the rule that a second press where the first landed is always a Cancel and that Confirm stands where
-no control stood a moment before (the owner's fixed places, 2026-11-03); the legacy menu's footer keeps that rule.
-
-**The moment card.** 368 dp of window glass (inset 10, the avatar's left-edge tint wash across the face, and the moment's
-tone blooming on arrival, said in its words), in reading order:
-the eyebrow (a 20 dp mark, a ring for the runtime's report and a disc for what the computer saw, its glyph in `#FFC164` for
-"?" or `#FFBBB4` for "!" inside a ring and n0 on a disc, then who says it in Label n6: `"Agent's Question"`, `"Observed on This Mac"`, or `"The Agent Says"`); the Title 10 dp below, in Title, at most two lines; the metadata line in
-Label n6, its segments joined by " · ", a path or a name of theirs in their monospace; or the runtime's own prose in Body;
-a command of theirs in a well 14 dp below (`KitWell`: Mono n7 on n0, radius 12, padding 12 by 14, cut after two lines with
-the last fading and "Cut · {n} More Lines" in Label n5 beneath); any supporting line 12 dp below in Body n6 (a question carries no static `"Runs on This Mac"` text line on the card; its declared `KitSandbox` stays on `KitMoment.Sandbox`, and the environment and agent the composer's Send reaches show as chips with icons and category prefixes, `>_ Host: This Mac` or the lock glyph's `Host: Sandbox`, and `<> Agent: {Agent}` with the agent app's or the model's own name whole, in `KitComposer`'s flush full-width footer grid above the glossy `Hold to Talk` and `Send Instruction` capsules: the two chips share the grid's equal halves where each fits its half whole, and otherwise each takes the full width on its own row, so no name is cut and no chip leaves the slate (the slate grows by one row of chips at most, and a second row comes out of the reading room, which pages, so the instrument stays inside the field at Larger); the Host chip shows only for a runtime that declares its environment, and a chip no press can change, as both are while Send instructs the task's own execution, stands locked as a fact, its glyph and words in n5 with no outline (a locked quiet control keeps no shape, as a locked word answer keeps none), an outlined quiet capsule only where a press would change what runs; while `KitSpine` leads with navigation at the top and anchors `KitModeSwitch` inside a framed segmented track at its foot, and `KitCarrier` draws no top accent stripe); the answers 16 dp
-below, the one primary at full width in the lighter grey glass (`KitPillMeaning.Blue`), then the secondary capsules sharing the
-row's full inner width equally in cool dark-slate glass (`KitPillMeaning.Neutral`). The earlier moments stand as one subtle lip of the same glass, 28 dp
-narrower, rising 10 dp above the card, inset 8; their count (`"{n} Earlier"`, then `"{n} Newer"` after a question that waits, in the cadence: `"2 Earlier · 1 Newer"`) stands at the eyebrow's end in Label n5. No locked answer stands in the card's
-top 40 percent, where the bloom peaks. The render names any part that does not read whole.
-
-**The reading surface.** A command of theirs is read whole before it can run (`KitReader`, `KitReading`): 704 by 528 dp of
-the same glass (44 by 33 degrees from the eyes); the head as the card's (the mark, a ring
-with the question's "?" in `#FFC164`, then the eyebrow in Body, since at the reader's far corner Label would read under the floor, then
-the Title) with a round 60 dp close button (`KitButtonRole.Round`, `GlazeIcon.Close`, keeping `Fold` as its name) at its top right; the well inset 14 dp, from 96 dp below the top to 84 above the bottom, n0,
-radius 12, padded 14 by 18, showing the command in their monospace by rows (comments n5, the rest n7). A line wraps only at
-its spaces; a token alone longer than a row breaks inside, after a "/", "?", "&", "=", ",", ";" or ":" where one fits and
-otherwise where the row ends, never after a "-", so never between "--" and its name. A wrapped row hangs two characters in,
-so a wrap never reads as a new command. Each row is laid alone and never cut, and the rows add up to the line exactly, its
-indentation kept and a tab shown as its code point. The reading goes by rows, so a line longer than the well is paged
-through to its last row like any other. The rows run to the well's foot. At an edge where rows are hidden, the next row
-stands half-shown under a 24 dp fade, from 0.95 of the well at its edge to 0.12, its letters fading toward the edge, and it
-does not count as read. "End of Command · " and what answering may do, in Label n6, is the content's last part, scrolled
-into view after the command's last row like any other row, so nothing reflows when the end arrives. Its foot stands fixed from the first frame, 12 dp above the bottom: Run's 240 dp slot, then Decline and Reply sharing the rest of the footer width equally as cool dark-slate glass capsules (`KitPillMeaning.Neutral`),
-12 apart. The slot is the locked "Read to End", filled from its left in n7 at 14 percent over n1 as far as the command has been read, with
-its word in n6 while the fill stands under it, and becomes a lighter grey glossy Run capsule (`KitPillMeaning.Blue`) only once the last row of
-the last line has been shown; scrolling back never locks it again. The unlock sounds the Moment cue where its owner gives
-the reader a player.
-
-**Sound.** The room's ten cues are one key, A major pentatonic (`KitSounds` in the client core makes their samples from
-the art direction's notes, onsets, durations and levels; no audio assets; `KitSoundPlayer` plays them): Tick (a tile
-pointed at, a 3.2 kHz noise tap), Press (every answer and tile on release, a 2.4 kHz tap then an A6 bell), Moment (E6, A6),
-Question (C#6, E6, A6), Sent (A6, E6), Open and Fold (a noise sweep up or down), Passed (the one hero: A5, C#6, E6, A6 60 ms
-apart, bright, with air above them), Failed (a low-passed triangle E5 then B4) and Lost (A3 gliding to E3). A bell is a
-sine with a partial at 3.01 times its frequency (12 percent, 22 for the hero), a 6 ms attack and an exponential decay.
-Levels run from -38 to -18 dB relative to full scale; the master is set by ear on the headset. Each cue sounds from its
-element on a fully spatial source that never loops, only while the app has the person's attention, and never carries a
-state alone. Where the room shows a card its cues sound at the card and the stage's sound stays silent for those same
-events; until the room is wired into the menu, the room sounds only its answers' presses.
-
-**Motion.** Only on events; Keep things still lands each change as a 120 ms fade, with nothing moving and nothing looping.
-A moment arrives in about 700 ms (`KitMomentTimeline` in the client core, read by time alone; `KitMomentChoreography`
-plays it): at 60 ms a 2 dp light line rises from the character's head to the card's lower corner in 120 ms (decelerate),
-its tone from 15 percent to full, and fades 260 ms after; at 160 ms the card opens from 86 percent about 14 percent across
-its bottom edge on the spring (damping ratio 0.75, 15.5 rad/s: inside 2 percent by 420 ms, about 3 percent overshoot) and
-fades in over 200 ms, its bloom full for a quarter of 1400 ms and then out, from the clock alone, never from progress; from
-300 ms its parts rise 6 dp into place and fade in over 200 ms (decelerate), 40 ms apart, in reading order (eyebrow, Title,
-metadata, command, risk, answers); a pass's check draws itself 420 ms after the open, over 300 ms; at 700 ms the character
-turns to the person (its beats are its own view's). It retires by scaling to 0.2 and fading over 260 ms (accelerate) as
-the line drops back in 160. Curves: standard cubic-bezier(0.2, 0, 0, 1), decelerate (0.05, 0.7, 0.1, 1), accelerate (0.3,
-0, 0.8, 0.15). A mark's sign is "?" for a question and "!" for a failure, in the face's own type, and a check for a pass.
-An answered question (`KitMomentTimeline.Answered`; `KitMomentChoreography.Answer`): the answers not taken fade over 120 ms
-while the one taken stands; at 200 ms the card shrinks from its top to its receipt over 320 ms (standard) and is no longer
-lit, since an answered question needs no one; its parts below the eyebrow go over the shrink's first 80 ms, and any part the
-glass passes is hidden, so no words stand on the room; 80 ms into the shrink the receipt fades in over 200 ms with the Sent
-cue, through a player its owner gives; at 1600 ms the card retires as any moment does. A retirement or an arrival begun
-before then lands the receipt at once and plays from it, never the question back; from the answer on, no answer on the card
-takes a press until the card is shown again. The receipt is the card's own
-shrunk form: its eyebrow, then "Sent" and under it, on its own line, "Waiting for the agent to start." or "Declined", in Body,
-never joined on a dot, "Sent" in n7 and the rest n6. It
-never says "Started": an accepted command is not a start. Kept still, the parts fade out over 120 ms at the card's full
-height, the receipt's size lands, and the receipt fades in over 120 ms.
+- **Single settled press (`PressGuard`, `KitPress`):** every headset action is a single pinch acting
+  on release over the target. A press counts only if the pinch began after the button settled (its
+  command, label, position or visibility last changed) and, for a ray, after `0.35 s` of ray rest;
+  hover lights only once the button accepts a press, and a refused pinch does not depress the plate.
+  Ray dropouts under `0.1 s` preserve rest; sliding off before release or dragging past `4` degrees
+  of ray turn or `2 cm` of finger travel cancels the press. Held controls (`Hold to Talk`) start on
+  a counted pinch and end on release. Where command policy requires review, the review card's single
+  `Confirm` is that press.
+- **Decision bar (`KitDecisionBar`):** approvals in the slate footer occupy two fixed half-width
+  slots 12 mm apart: way back on the left (`Deny`, then `Cancel`), way forward on the right
+  (`Approve`, then `Confirm` under `Approve Request?` or `Deny Request?`). `Confirm` stays locked
+  until the full request and notes have been read and for `0.7 s` after (`ConfirmLockSeconds`). A
+  press while locked is refused rather than queued, and once the lock lifts any pinch already under
+  way is dropped by the `0.35 s` settle guard.
+- **Sound (`KitSounds`, `KitSoundPlayer`):** ten procedural cues synthesized in code in A major
+  pentatonic without audio assets: `Tick` (3.2 kHz tap), `Press` (2.4 kHz tap + A6 bell), `Moment`
+  (E6, A6), `Question` (C#6, E6, A6), `Sent` (A6, E6), `Open` and `Fold` (noise sweeps), `Passed`
+  (A5, C#6, E6, A6 60 ms apart), `Failed` (low-passed triangle E5, B4) and `Lost` (A3 to E3 glide),
+  from `-38` to `-18 dBFS`. Cues play spatially from their element without looping, only while
+  focused, and never convey state without visual words and glyphs.
+- **Motion (`KitMomentTimeline`, `KitMomentChoreography`):** event-driven only; `Keep Still`
+  replaces motion with 120 ms opacity fades and stops all loops. Moment arrival runs over ~700 ms
+  (2 dp light line from character at 60 ms, spring scale from 0.86 at 160 ms, staggered 6 dp part
+  rises from 300 ms, character turn at 700 ms) and retires over 260 ms. Answering fades unchosen
+  options over 120 ms, shrinks the card into its unlit receipt (`Sent` over `Waiting for the agent
+  to start.` or `Declined` on separate lines, never `"Started"`) at 200 ms with the `Sent` cue, and
+  retires at 1600 ms.
 
 | Event | Duration | Curve |
 | --- | --- | --- |
-| A moment comes out of the character | 500 ms | A spring with a small overshoot (bounce 0.15) |
-| Read it unfolds the moment into the reading surface | 500 ms | Decelerating (Material 3 emphasized decelerate) |
-| Fold returns it | 250 ms | Accelerating (Material 3 emphasized accelerate) |
-| A tile grows into the screen; a part moves | 600 ms | Material 3 standard |
-| Pointing at a tile | At once | It grows 5 percent and its edge lights, with one light controller tick |
-| The character idles | 3.2 s a breath | A few millimetres; one hop at ready |
-
-**The character figure.** One floating porcelain ovoid companion (`KitFigureLook` in the client core, `KitFigure` and
-`KitFigureMeshes` in the Unity layer, drawn through `Halcyonic/Kit Pearl` and `Halcyonic/Kit Figure Light` with GPU
-instancing and `MaterialPropertyBlock`): an inverted-teardrop torso (`0.132 m` wide by `0.156 m` tall) wider at the
-rounded shoulders and tapering to a clean lower point, with a curved upper saddle collar line (`0.010 m` higher at the
-shoulders than front and back), a dark recessed interior collar bowl (`#141C26`, strictly inside the outer saddle crest)
-carrying an emissive inner collar ring, and a luminous waist belt with a 25 percent porcelain halo (solid, or 14 dashes
-when the status is unknown, dimmed to 25 percent when stopped and 18 percent when unreachable); two detached tapered
-capsule-wing arms (`0.032 m` wide by `0.111 m` tall, `0.011 m` air gap from the torso, banked `13.5` degrees and yawed
-`35.5` degrees to contour along the torso's conical V-taper); and a floating rounded-conical dome head (`0.140 m` wide by
-`0.098 m` tall, `0.012 m` floating collar gap above the torso saddle) with a physically recessed gloss-black front oval
-visor (`#030406`, chamfer lip `#C9D2DC`, smooth convex downward lower arc) and two tilted oval LED eyes (`7` degrees
-inward tilt, `7` horizontal scanline bands, or upward happy arcs when the computer's own check passed in this round).
-The porcelain shell shades from `#3D4552` on its hidden underside through `#DCE3EC` to `#F8FAFD` under the studio key
-light with an 11 percent Fresnel/subsurface identity sheen. All six companion slots share this single aerodynamic
-silhouette and differentiate by six signature identity hues (`SpatialKit.FigureFamily`: `#4F7FF2`, `#3BE6D4`, `#9B75EB`,
-`#F75CA8`, `#CA52D6`, `#393DF2`) and by state tone (`Running` `#59CFF1`, `Needs You` `#FABA59`, `Passed` `#69D98D` only
-when `passedCheckObserved` is true, `Failed` `#F7857D`, `Not Started` `#A0A5AC` eyes with `#B9C0C8` belt and ground ring
-at `0.52` opacity, `Unknown` `#A0A5AC` asymmetric eyes with `15.5` degree head tilt and `#B9C0C8` 14-dash belt and ground
-ring at `0.48` opacity, `Stopped` shut-line eyes with `#7A828E` belt at 25 percent and ground ring at `0.22` opacity,
-`Last Known` `#767B82` dimmed with `Moves == false`). Beneath the figure (`0.095 m` below the lower torso tip on a
-`0.184 m` floor quad, matching `0.48` prototype units) sits a 3-layer spatial ground projection: (1) a tight
-ambient-occlusion contact shadow (`#05070A`, `r = 0.095` prototype units) coupled to `RiseM`, (2) a structured concentric
-ground ring (`r = 0.150` inner ring with 55 percent white front-arc highlight, `r = 0.198` broken outer ring with 4
-cardinal micro-ticks at `0, 90, 180, 270` degrees and a center origin pip), and (3) a compact specular floor reflection
-strictly inside the inner ring (`r <= 0.135`, alpha capped at `0.28`, zero smudge outside the outer ring). The ground
-projection is shown for all reachable states and hidden in `Last Known` (`ShowPool == false`). Near detail stays within
-`2,400` triangles (`2,178` open, `2,202` happy) and far detail within `600` (`502`).
-
-## Design acceptance status — 2026-10-15
-
-The installed interface and the subsequent floating-panel composition were rejected in product
-review. The sections below describe preserved implementation, not an accepted visual direction.
-Improved spacing, controls, materials or an attached character do not resolve that rejection.
-
-The required replacement is a coherent spatial composition with distinct roles for the current
-work, task selection, contextual evidence, deliberate input and compact presence. It must not
-confine every flow to one universal panel or scatter identical panels across the field. Regions
-need not all be visible: their presence follows the activity, and substantial reading must remain
-comfortable. Exact placement, depth, movement and region ownership are unresolved; no replacement
-architecture is adopted here. See [open questions](OPEN_QUESTIONS.md).
-
-Evaluate complete compositions and transitions with realistic working, permission, failed,
-disconnected and long-content states. Preserve task identity, drafts, source attribution and exact
-rendered-action authority. Geometry checks and editor images cannot establish design acceptance,
-headset readability or comfort. The existing plane rules below must not prevent replacing the
-rejected composition once a better whole interaction has been demonstrated.
-
-## Independent spatial composition candidate — 2026-10-16
-
-The main spatial Projects, Tasks, task, workspace-request and results views now draw a separate
-project-context object beside the selected work. It contains up to three actual project choices,
-the selected project's Tasks route, a larger project picker when needed, Workspace controls and
-connection state. The selected task determines its project context. Choosing another project
-opens its task picker; it does not relabel a retained task or its draft.
-
-The selected work owns the central reading object. Ordinary instruction input reserves at least
-three draft rows. When the measured field fits those rows and two recent Activity entries, a
-passive Activity view remains above the composer. Otherwise the same editor owns the reading
-position with an explicit Editing instruction label; Hide composer returns to Activity. The selected
-task name, state and provenance appear once, above the Activity view or the focused editor. The
-composer has one instruction label and no duplicate task or hero heading. Its passive context shows the newest bounded entries, in chronological order,
-under Recent activity. Full Activity history retains its own reading position. Hide composer removes
-that lower object while retaining the unsent draft. Results, workspace requests, questions and
-approvals own the reading position when selected. They do not acquire input or decision authority
-from the passive Activity view. Only the settled authoritative view can acknowledge reading or
-accept its current actions. Results navigation belongs to the full task view; the independent
-ordinary composer does not repeat that route. Its footer measures the offered controls at their
-actual text size. When one row cannot fit, local Hide/Discard actions occupy the upper row and
-voice/Send the lower row, with Send at the right. This preserves the target and text floors rather
-than compressing labels to fit. A reason to read first ("Read Full Instruction", "Read Full Question") is the locked
-control's own word, where Send or Next Question stands, never a line above the footer, which would read as one more button;
-any other reason keeps its line.
-
-Context is 18 degrees wide and the reading object uses the existing 36-degree file width. Each
-visible object owns an opaque reading backing. The task portrait is the actual task character at
-the reading object's leading edge. Placement and recovery account for the combined conservative
-bounds, including the full reserved animated portrait volume and its depth; no empty right-hand region is
-allocated. The independent work title is 24 dp, measured at its actual row count. The external
-portrait does not impose a minimum text-header height. The reading top
-is stable within that placement, with height following measured content. Normal and larger text
-use measured budgets, full target bounds and the same minimum readable text threshold. This is
-still the existing placement distance, not an accepted new comfort distance.
-
-Named identities use the bundled normal-width font with the same metrics for measurement and
-drawing. Outside-text provenance, literal rendering and the current agent-prose treatment remain
-intact. Local workspace overlays and retained legacy fixtures still use the preceding composition
-below. This replacement remains a candidate: source, editor checks and synthetic images do not
-establish visual acceptance, real-work usefulness or headset comfort.
-
-## Previous single-face composition — 2026-10-15
-
-The owner's headset review rejected the stacked menu composition. The candidate gives an open
-task one reading column; its details replace that column and return to its retained draft. Only
-Projects remains as a direct return while a task is open. One stable Workspace control opens
-local workspace controls and the global destination index. The chooser does not repeat a four-tab
-application row or allocate an empty navigation column. Move, Reset position, Minimize workspace,
-Open work window, task portrait visibility and Projects/Tasks/Usage/Settings are reachable through
-that local page. It packs complete targets by the same actual height budget and pages every route;
-an off-page or stale action has no authority. Open work window remains unavailable when unsupported.
-There is no permanent utility slab or target strip below the task. Only actual provenance marks
-reserve a small final line; zero marks reserve no extra bottom region. Context, task and evidence
-share one solid reading face.
-The selected work's literal name uses the larger title role. Paragraphs and controls still face
-the eyes together. There is no decorative folder shoulder or surrounding window frame.
-
-`WorkspaceDirector` enables `MenuDirector.Setup.SpatialWorkspace` for the main application.
-The setup option defaults off for explicitly retained legacy component/geometry fixtures; the
-older layout below describes that legacy system. The actual spatial fixtures use Projects,
-task instruction, pending approval, question, Results and Appearance frames and actions,
-with explicit synthetic data. It adds no work capability or automatic character arrangement.
-Known task titles and project-detail names carry explicit `MenuIdentityKind` metadata. In this
-candidate only, the header has an upright literal name whose outside-text ranges remain intact.
-It omits the redundant Task/Project eyebrow; project context and the state badge carry that context. Generic `SubjectIsData` does not opt in;
-agent prose eligible for the scoped independent treatment below keeps its explicit reported-source
-chip and literal outside ranges while becoming upright. Questions, tool text, approvals and
-unattributed data retain their existing treatment. The state badge retains its measured header allocation.
-Readability, full decision text, action authority, local drafts, target size and measured field
-remain requirements. A quieter frame and a different font alone do not establish acceptance.
-
-When the exact task's expanded main file shows its name, its character keeps the state badge and
-provenance marks without repeating the name on a second plaque. The title returns on Projects,
-minimize, focus loss, details without that identity, or another task. The full label's conservative
-placement envelope stays reserved, so this presentation change does not move the shelf or reduce
-clearance. With the duplicated title plaque absent, the task connector leaves the character's
-body top and joins its named heading; both the drag predictor and rendered line use that same
-rule. It must cross no body or label. Zero-character use remains complete.
+| Moment emerges from character | 500 ms | Spring (bounce `0.15`) |
+| `Read Command` unfolds into reading surface | 500 ms | Material 3 emphasized decelerate `(0.05, 0.7, 0.1, 1)` |
+| `Fold` returns reading surface | 250 ms | Material 3 emphasized accelerate `(0.3, 0, 0.8, 0.15)` |
+| Tile expands into screen; region moves | 600 ms | Material 3 standard `(0.2, 0, 0, 1)` |
+| Pointing at a tile | Immediate | `+5%` scale, lit edge, controller tick |
+| Idle character breath | 3.2 s | Few millimetres vertical float; single hop on ready |
 
 ## Coated reading material
 
-The independent candidate reuses this material separately on each reading object. The continuous
-face and context-header placement described here apply to the preceding single-face consumer.
+Spatial reading objects in `WorkspaceRender` (`KitWorkView`, `KitOverviewView`) use a continuous
+opaque coated face with a smooth analytic studio reflection (`<= 0.025` linear-luminance lift), an
+inward `0.006`-unit edge (`~2.8 mm` at `0.46 m`) with a `0.001`-unit bevel inside the footprint, and
+no passthrough transmission, backdrop blur or periodic texture
+([instrument-material-study.md](../validation/instrument-material-study.md)). Selection lifts by
+`6%` white inside the selected frame, holding `>= 4.5:1` ink contrast across all palettes and
+reading sizes.
 
-The spatial workspace gives project context, named identity, sections and page one continuous
-opaque coated face. A neutral virtual studio source reflects smoothly across that face from the
-actual eye direction, with a maximum0.025 linear-luminance lift. The inward edge is0.006 distance
-units deep (about2.8mm at the normal0.46m distance), with a0.001-unit bevel contained inside the
-allocated footprint. There is no surrounding transparent carrier, inner opaque poster, repeated
-material rim or periodic face texture. This analytic optical response does not capture room
-reflection, refract or blur the scene, or transmit passthrough through the reading face.
+## Plane fallback and workspace controls
 
-The Workspace control stays in the context header; its local page replaces the evidence body on purpose.
-A narrow physical edge connects the composition and is repeated on the minimized object.
-No detached word-fitted utility rectangle is drawn. The complete
-geometry/input allocation remains separate from the visual face, preserving target dimensions,
-placement bounds and character/connector ownership. The legacy rule below that each part owns its
-own rounded shape does not apply to this spatial composition. Activity records and its truthful
-"No recorded activity yet." state lead utility routes such as Ask workspace and Read results;
-a utility route is not recorded activity, and reported agent text keeps its provenance.
+Fallback `Glaze.Menu` and `PlaneComposition` views ([ADR 0026](../decisions/0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md);
+layout mechanics in [XR_CLIENT.md](../architecture/XR_CLIENT.md)) hold the following invariants:
 
-Header state icons use the same nominal em as their readable state word, centred in the existing
-wider icon slot. Their rotating glyph rectangle stays inside the pill's fill, clear of its bright
-border; the badge's outer size and stage icons are unchanged. Host-owned, nonpending plain reading
-facts use primary ink on the spatial coated face. Outside text, provenance and semantic state tones
-retain their treatments; unavailable words keep their declared unavailable treatment.
+- **One plane facing the eyes:** flat, square to the line of sight within `0.5` degrees at `0.46 m`
+  (`PlaneComposition.Distance`), never rolled; parts separated by `1` degree (`PartGapDegrees`),
+  columns `15 mm` apart (`ColumnGapMeters`; menu `32` degrees wide, file `36`..`38`, side panel
+  `26`), at most two columns visible at once, inside the `96` by `90`-degree Quest 3S field (`4`
+  rows per list page at Standard, `3` at Larger; `MenuFrame.RowsAPage`).
+- **Grid and surface (`Surface.DrawGlass`, `GlazePalette`):** 8 dp (`0.5`-degree) grid step, 24 dp
+  inner padding, 16 dp group gap, 8 dp label-to-value gap, 24 dp icon column, `0.9`-degree corner
+  radius; panel colour at `96%` opacity with a `12%` white `0.06`-degree hairline (`Neutral`
+  default: well `#1D1D1D`, panel `#242424`, raised `#2E2E2E`, control `#3A3A3A`, hover `#494949`,
+  pressed `#595959`, text `#F2F2F2`, secondary `#C4C4C4`, disabled `#A0A0A0`, outline `#8A8A8A`;
+  plus `Glaze` and `Graphite`, [theme-settings.md](../validation/theme-settings.md)).
+- **Selection, rows and icons:** chosen adds `10%` white fill and `78%` white frame; pointed adds
+  `42%` white frame alone (`GlazeChecks.OneSelectionTreatment`). Rows are 48 dp tall, 12 mm apart,
+  and navigate rather than execute commands; footer actions sit in `PromptSlot` at 60 dp height and
+  12 mm spacing. Icons come from the bundled Material Symbols Rounded subset
+  ([material-symbols.md](../validation/material-symbols.md)), always paired with words and never
+  vendor or language logos.
+- **Workspace recovery and native wait:** reading content stays fixed through small head turns and
+  recovers smoothly to the resting wearer after leaving view
+  ([ADR 0032](../decisions/0032-recover-the-workspace-when-it-leaves-view.md)), suspending task and
+  frame input while moving or settling and preserving unsent drafts. In the native Android panel,
+  pending restoration shimmers over its connection-check text (`1.6 s` sweep, steady highlight under
+  `Keep Still`) and stops immediately on completion, error or focus loss
+  ([native-agent-panel.md](../validation/native-agent-panel.md)).
 
-Small navigation/context, reached sections, utility labels and chevrons use primary ink; size
-and position retain their hierarchy. Unreached sections remain unavailable in the quiet secondary
-role. Selection on the coated face uses a 6-percent white lift with the existing selected frame.
-Spatial task-footer actions have a full opaque rest boundary matching their target. One whole
-control carries the main action's accent container/foreground; secondary controls use Control and
-Outline. Icons stand inside that boundary without a second cap. Pressing depresses the complete
-boundary; hover adds its focus edge. Legacy component fixtures keep their cap treatment. The
-spatial footer has no decorative divider. Position and availability still follow the existing
-Close/rare/secondary/main command contract; rendering never changes approval or send authority.
-
-Material rendering does not redefine historical preset values or saved appearance keys. Palette
-selection and default adoption follow the Colour section independently of the coating. Every
-visible word and icon must retain actual whole-bounds backing and resolved-ink contrast of4.5:1,
-including unavailable labels when present. The comparison at warm commit `9b547a02` passed those
-technical checks across three palettes, both reading sizes and bright/dark backgrounds, together
-with geometry, moving-eye and interior material/flat-negative checks. That editor evidence is not
-wearer acceptance, calibrated passthrough readability or proof of comfort. Exact evidence and
-remaining limits are in [material validation](../validation/instrument-material-study.md).
-
-## The plane
-
-- **One plane facing the eyes.** A composition, such as the menu with a task's file beside it, is
-  one flat plane, square to the line of sight at its centre within 0.5 degrees, 0.46 m from the eyes
-  (`PlaneComposition.Distance`), never rolled. No part is angled against another.
-- **Parts and columns.** Each part is its own rounded shape, a degree from the next
-  (`PartGapDegrees`); columns stand 15 mm apart (`ColumnGapMeters`). Every part of a column takes
-  its width, and the columns start on one line and end on one, a shorter column's last part
-  reaching down to it. The menu's column is 32 degrees wide, a file's 38.
-- **Detail slides out to the right**, along the plane, and the whole plane re-centres as one piece
-  over a short eased slide, so what was pressed travels least.
-- **Inside the field.** A composition stays inside a Quest 3S's field, 96 by 90 degrees less 1.5 at
-  each edge, with the head turned to its centre and tipped by `WorkspacePlacement.ReadingPitch`, at
-  most 8 degrees. The plane's top stands 17.5 degrees below eye level (`MenuPage.TopDegrees`), and
-  the menu and a file side by side take 64.3 by 33.0 degrees, to 50.5 below eye level. A list of
-  rows holds 4 a page at the standard text size and 3 at larger text (`MenuFrame.RowsAPage`), its
-  source line counting as one, and Tasks beside a file takes 3 where the stage leaves room for no
-  more, as on a 3S at the far stage, decided when the menu opens; any other page packs by height, at
-  most `MenuPage.Height`. The head is taken to tip as much as the plane's bottom needs, at most 8
-  degrees.
-- **With nothing on the stage**, the menu stands where the person looks at rest, about 15 degrees
-  down.
-- **Labels are cleared where they stand**: placement keeps the plane clear of each label at the
-  label's own yaw, so a wide plane needn't drop for a label at its far side.
-- **At larger text a side panel takes the file's place**, keeping the file's light line and pill;
-  Close details brings the file back. A file and a side panel together would leave the field.
-- **Beside a window**, with the characters either side of one straight ahead, the menu or a file
-  stands centred under the window, one at a time, never within a degree of it; a file's side panel
-  takes the file's place there at both text sizes; and the file draws no light line, which would
-  cross the window.
-- **Text shrinks away from the centre**, as the eyes see it: a word x across and y up, in units of
-  the distance, spans sqrt(1 + x²) / (1 + x² + y²) of its size (`PlaneComposition.ShrinkAt`), down
-  to 84 percent at the far corners of a menu and file side by side.
-- **Organizing it.** The primary subject has named Move and Compact targets at its right, apart
-  from the title and the decision footer. Holding Move drags the whole plane round the eyes. A short
-  press opens placement details with Reset position and the actual character arrangements; selecting
-  one only selects, and Apply changes it. Beside a window, the detail explains why the plane stays
-  below it and offers those choices. Compact retains the current composition and draft; Close keeps
-  its existing leave/discard meaning.
-- **Two columns at most.** The menu, a file and a side panel would not fit the field together. When
-  a file beside the menu opens a side panel, or shows a page taller than the menu's rows leave, the
-  menu steps aside off the plane with the same eased slide, as it does whenever the two don't fit
-  the field together, as with a file's title on two rows; it comes back once neither holds or the
-  file closes.
-
-## A composition's parts
-
-From the top of a column: its subject, a row of separate shapes, the page, and the footer inside
-the page's shape at its bottom.
-
-- **The subject**, one a column, at the Title size, drawn light. In the menu's column a line holds
-  about 36 characters; a longer subject wraps to a second line and its plate grows. Projects' subject
-  is "Projects", matching its navigation place. The primary subject reserves the production
-  measurer's exact Move/Compact widths, 12 mm between them and 12 mm clear of the title. Its plate is
-  at least the 60 dp control height. TitleRows, SubjectHeight and page-height packing use that same
-  reservation; a full retained task title is reachable through Move's Read title detail.
-- **The split header.** A task's file carries its character's state pill on the subject's top edge
-  at its left: the same badge as the character's label on the stage, its word at 18 dp, the title
-  half a grid step under the pill's lower edge. Every
-  column's subject keeps the pill's room, so the plates and titles stay level.
-- **The row of shapes**: the menu's places (Tasks, Projects, Usage, Settings), a file's sections
-  (Waiting, Activity, Changes, Checks) or New project's steps (Your idea, Questions, Recap, Build).
-  Each is its own rounded shape, the chosen one lit, an amber dot on the one that waits.
-  New project's steps are its way back; there is no Back prompt.
-- **The page**: a few short lines, rows and answers, then the footer.
-- **A side panel**: its subject, then facts, each a name in the secondary colour over its value, both
-  at 18 dp, or lines, then its source. It holds nothing to press but its own Close details.
-- **The compact workspace**: one rounded shape on the plane's top line, the retained task or place
-  identity at 18 dp, with its truthful task state and waiting count when known. Move and Expand at
-  its right are separate bounded targets. The surface itself never expands on a press. Expand and
-  the retained task's character resume the exact file even when another task waits.
-
-## Type
-
-Three sizes on the plane (`Glaze.Menu`):
-
-| Size | dp | Degrees | For |
-| --- | --- | --- | --- |
-| Title | 24 | 1.5 | The subject, one a column, drawn light |
-| Body | 18 | 1.125 | Places, sections, content, prompts, headings inside a page, a side panel's fact names, the source line, the pill's word |
-| Label | 15 | 0.9375 | Small facts inside a row; never a line of its own |
-
-- **Type only steps down** from the top of a column to its bottom. The one exception is the split
-  header's pill, which reads with the subject it stands on.
-- **Nothing reads under 14 dp as the eyes see it** (`Glaze.MinimumTextDegrees`), measured from the
-  eyes with the slant included.
-- **Small text keeps 15 dp only where it reads at 14 dp or more.** Toward the outer edges of a wide
-  composition, as a side panel's counts at the far right, it takes 18 dp
-  (`PlaneComposition.SmallTextDegreesAt`). The layout decides from the part's place before laying
-  the text, so nothing overlaps afterwards. The final small-label check uses its laid text bounds
-  and finite em, including a left-column fact extending away from the center; the row has already
-  reserved room for the 18 dp alternative.
-- **Heavier** are only the chosen section and the main action.
-- **Legacy/default outside-text treatment** (2026-10-08; superseded for the independent prose cases below). Outside text Halcyonic did not write,
-  an agent's words, a title, a name, a label, a source's sentence and the person's own words, leans by
-  the font's italic amount, never quoted, on a ground only Halcyonic draws where it meets our words:
-  white at 2 percent with a 5 percent hairline, in linear space as Unity blends, so it never reads as
-  chosen; 0.32 degree corners; 0.25 degrees past the words, set in the sentence as a word is, our space
-  before it and after it; our punctuation follows its edge as it follows a letter, clear of it and
-  nearer than a word space, the ground stopping halfway to it; the words on it in the primary text colour. A
-  separator such as ": " between two of theirs doesn't make the line ours.
-  A row or a block all of it carries our quote mark (format_quote) in the icon column, in the
-  secondary colour, where no icon of ours stands; a title in its plate leans with the plate as its
-  ground. Theirs comes after our words where we can word it so, and is cut first, inside its ground.
-  Pills, the light line, prompts, places and sections hold our words alone.
-- **Named spatial identity:** a project or task heading may stand upright using explicit identity metadata.
-  The independent candidate omits the redundant `Project`/`Task` eyebrow; project context and the
-  actual state badge establish its role. Retained legacy consumers may keep their fixed caption. This narrow presentation uses explicit identity metadata,
-  retains outside-text ranges and literal escaping, and never applies to agent prose, approval
-  questions, tool output or action labels. Reusing the label resets identity mode; its explicit prose
-  treatment below, where eligible, is separate from identity.
-  Host-owned context establishes what the name identifies; the name cannot supply or alter it.
-- **Independent workspace prose candidate:** the ordinary instruction input and agent prose attributed
-  whole, every run theirs beside an `Agent says` or `Subagent says` chip and Halcyonic's quote mark,
-  use upright Liberation Sans body text. They retain
-  literal escaping, rich-text parsing disabled, exact outside-text ranges and their source chip;
-  upright never means observed or host-authored. Their decorative token/block grounds are omitted
-  because the input label or reported-source chip supplies the context on an opaque reading face.
-  A mixed line, Halcyonic's words leading into theirs, keeps its lean, ground and grounded colour
-  beside the chip, so the chip is never the only mark.
-  Tool output, decisions, names and unattributed data retain their existing treatment. This is an
-  explicit rendering mode, not named identity; every pooled ordinary/identity Set resets it, and each
-  page line reapplies eligibility. Legacy consumers are unchanged. Focused-editor mode is a separate
-  host-owned label beneath actual provenance, never text concatenated into a provenance mark.
-  This source change remains subject to actual native render review, not aesthetic acceptance.
-  Candidate engine checks group body/project hierarchy by semantic reading region. Footer actions
-  are a separate measured 19dp role, not a descending continuation of the body; shared angular text
-  floors and actual target bounds still apply. The real selected contextual project alone uses the
-  existing coated selection lift (6 percent white) and selected frame; arbitrary controls retain the
-  ordinary selection checks. Each exception has an actual-label/surface negative witness. Focused
-  editor fallback must retain its measured allocation and one explicit mode label; actual task
-  provenance remains exactly once in its separate label. These supersede the old universal
-  descending-type and universal selection-fill assumptions for these specific candidate regions.
-- **Last on a page**: an unavailable prompt's reason, then the source line, one a page, at 18 dp in
-  the secondary colour. A detail under a part, as a Seorak part's coverage or freshness, is its own
-  18 dp line in the secondary colour.
-- **The companion's words** are one block of theirs of at most 2 rows, the page's source line naming
-  the companion. Its view, when it has one, goes first in our words and the secondary colour, and the
-  block is then its question alone.
-
-## Colour
-
-The interface's colour roles are immutable `GlazePalette` presets, read by `Glaze` separately from
-type, sizes and motion. Neutral is the candidate default, using low-chroma surfaces and neutral
-actions to reserve colour for work states and characters. Glaze preserves the original colours;
-Graphite retains its graphite surfaces and blue action accent. Saved `glaze` and `graphite` choices
-retain their exact meanings; there is no preference migration. State colours retain their meanings
-in all three presets. Actual three-palette Appearance and character review is still required
-before aesthetic acceptance. The Neutral candidate uses achromatic reading levels: well `#1D1D1D`,
-panel `#242424`, raised `#2E2E2E`, control `#3A3A3A`, hover `#494949`, pressed `#595959`;
-text `#F2F2F2`, secondary `#C4C4C4`, disabled `#A0A0A0`, outline `#8A8A8A`.
-These are a design decision to remove the prior green/cream cast, not colours copied exactly from
-a reference or an accepted visual result. Existing semantic status and blue accent colours remain. Settings' Appearance
-chooses locally, then shows a labelled Preview with actual navigation, choice, input, status and
-outside-word treatments. Preview controls send nothing to an agent. Apply theme keeps the preset;
-Cancel or leaving restores the applied colours. Restore default appearance opens its own explanation
-and names and restores only the current default (Neutral), without changing comfort, space,
-projects or the paired computer. Missing or invalid appearance values also select the current
-default; loading and previewing never save it.
-
-Settings opens a category index for Appearance, Comfort, Your space and Your computer only where
-that build supports it. Categories and setting rows navigate; their current value stays beside the
-name, including provenance where a value comes from outside. A category returns by Back; a pending
-appearance preview returns by Cancel. The specimen pages by a bounded body control, keeping Close,
-Cancel and Apply theme as the three footer controls. Every variant retains the same grid, readable
-type, hit targets and action hierarchy.
-
-This first palette consumer covers the menu's token-based surfaces, prompts and outside-word
-grounds. Character identity and body shader/material colours remain separate; this is not an
-arbitrary colour picker or a claim that every character colour is configurable. Preset composition,
-stage cache refresh and headset appearance require the validation record's checks.
-
-- Words in the text colour; quiet words, as a secondary line, a heading, a source or an unavailable
-  prompt, in the secondary colour (`Glaze.Menu.QuietText`).
-- **The accent marks only the main action.** **Amber means waiting for you** and nothing else; a
-  stale or partial line says so in words, in the secondary colour.
-- A line's tone is Primary, Secondary, Waiting, Good or Problem (`LineTone`).
-- Every word holds 4.5 to 1 on the glass over a white wall, the brightest room in passthrough
-  (`Glaze.Menu.GlassOverWhite`), and on a chosen shape over its lit fill (`Glaze.Menu.LitOverWhite`).
-
-## Grid
-
-- An 8 dp step, 0.5 degrees: 24 dp padding inside a shape, 16 dp between groups, 8 dp from a fact's
-  name to its value.
-- Words and icons start on one left content line; small facts and chevrons end on the right one.
-  Icons stand in a fixed 24 dp column.
-- A shape round words, as an answer or a well, reaches 0.7 degrees past the content line, and its
-  words stay on the line.
-- Every shape has one corner radius, 0.9 degrees.
-
-## Glass
-
-`Surface.DrawGlass` draws it in one call of the surface shader:
-
-- the panel colour at 96 percent opacity, with no blur;
-- a white hairline edge, 12 percent and 0.06 degrees;
-- no light from the top edge and no sheen: reading plates carry no gloss and no bright top stripe
-  (the October 15 composition reset, below). `GlazeRender` holds the glass calm, top and middle
-  alike; should a light return, it ends within a page's top padding, so no row stands in it.
-
-No corner ticks.
-
-## Selection
-
-One treatment for places, sections, rows, answers and prompts:
-
-- **Chosen**: the shape lights up, white at 10 percent, and gains a crisp white frame at 78 percent.
-- **Pointed at**: the frame alone, at 42 percent.
-- Nothing is marked by an underline or a bar.
-- Choosing lights; it never acts. Answers to a question that takes several may be chosen together;
-  any other row is chosen one at a time.
-
-## Rows and answers
-
-- **A row**: its icon in the icon column, its words, a small fact at the right and, when it opens
-  more, a chevron. Rows are 48 dp tall and 12 mm apart. Its state's tone stands on its icon, and on
-  its fact only where the row waits, in amber; its words stay in the text colour, and a line with
-  neither an icon nor a fact takes the tone on its words. A list's small facts are one kind, as
-  Tasks' projects, in the secondary colour. A small fact keeps 18 dp's room wherever it stands, so a
-  line wraps the same anywhere, and a fact from outside takes at most 40 percent of its line. On a
-  page none of whose rows has an icon, as Usage's and Settings', words start on the content line.
-  Nothing is drawn under a row: a meter there reads as an underline, so the small fact carries a
-  share in words.
-- **Rows only take you somewhere**: to a side panel, a page or a place. Ordinary rows never act and carry
-  no side action. Focused answer controls are explicit bounded exceptions, including the explicit unavailable-choice Read why route. Choosing one may set the footer's main action or the prompt beside it, as a
-  project's Add a task and Hide from stage. A line that reports a problem is a row that opens its
-  side panel, and what fixes it is the footer's main action while it is chosen.
-- **An offered answer** has a hairline shape at rest and the existing lit fill/frame when selected.
-  Its provenance quote/lean stays at left; a persistent radio mark for one choice or checkbox mark for
-  multiple choices stands in a separately reserved area at right. Hover adds only the frame and never
-  changes that mark. The selected centre/check uses existing surface and check-glyph primitives.
-- **Focused answer controls** are visibly bounded at rest: More choices, Write an answer, selected
-  Edit answer, review Edit, unavailable-choice Read why and clipped Read question. They keep the 48 dp targets and 12 mm spacing.
-  Write/pager pairing uses actual half-width measurement. A saved custom answer has one lit Edit
-  answer control with Selected fact, and its words stay fully accessible in editor and review.
-- **The answer field** is bounded and labeled Your answer. Keyboard focus uses the lit treatment;
-  a plain vertical insertion caret is shown only for the empty focused keyboard field. It is an input
-  cue, not a selection bar; the generic prohibition on bars/underlines remains. Populated/long fields
-  do not invent a caret position while the native keyboard owns editing. Voice-only fields promise
-  Hold to talk below, never a keyboard. Done/transcription only change a buffer; Use this answer saves.
-- **The focused composition** keeps the task title/state and one question, its choices and forward
-  footer. File tabs and the competing Tasks/menu are suppressed without dropping navigator state.
-  Short question text stays complete; long questions have full read-through and bounded clipped
-  context with Read question. Choice-page count stays in the selection caption, with no extra target.
-  Mandatory review shows all answers; only its final read part offers Send answer. Editor Cancel is
-  the local Close-slot exception and preserves the saved draft. The column's Close discards the draft.
-
-- **A page packs by height**, not rows: a line of words takes its line, a target its 48 dp, against
-  the page's content height (`MenuFrame`), for the file alone. A question and its answers are one
-  group, 8 dp apart.
-- **Offered answers keep their order** and none is omitted. An answer that does not fit whole
-  opens guarded full details; the page does not shrink text or hit targets. New project's own
-  question/recap flow retains its separate behavior in the client contract.
-- **A claim keeps its evidence class's chip**: "Agent says", "Subagent says", "Inferred", "Planned",
-  "Author unknown" or "Model explains", beside the claim's words. Legacy/default claims lean;
-  eligible independent `Agent says`/`Subagent says` prose uses the scoped upright treatment above.
-  Its evidence class remains reported regardless of presentation. Observed and measured
-  facts, and Halcyonic's own words, take none.
-
-## The footer
-
-- **Places** (`PromptSlot`): Close far left; one rare action beside it, as Stop; the free middle,
-  which only a confirmation's Yes takes; a secondary prompt beside the main action; and the main
-  action far right.
-- **A prompt** is a round key cap, 1.45 degrees, holding its icon at a degree (ADR 0023's floor for
-  icons), then its words at 18 dp, with no
-  plate. Hit areas are 60 dp tall, unseen, 12 mm apart. The footer follows the page's last target
-  12 mm below it, with no 16 dp gap before it. Pointed at, it shows the selection frame;
-  pressed, its cap sinks and Touch plays.
-- **The main action**, one a page and only at the far right: its cap filled with the accent, its
-  words heavier in the accent. Anything else there is drawn plain.
-- **Unavailable**, a prompt keeps its place, drawn quiet: its cap outlined and its words in the
-  secondary colour. An action says why, on the page's last line of content, except a page of
-  answers waiting only for one to be chosen, which the answers themselves explain.
-- **Hold to talk** is always the secondary prompt, and the only prompt with the microphone, wherever
-  the person can speak or give words.
-- **Paging**: a list pages by Next page alone, at the far right where nothing is the main action,
-  else beside it. On the last page it reads First page. It waits while a row is chosen.
-- **Confirming**: Cancel takes the pressed prompt's place, Close stays, and Yes appears in the free
-  middle once every part of the request has shown. A request in parts pages by a row at the end of
-  the page, "Next part, 2 of 3".
-- **Width, not count.** A footer holds what its words fit in its column: each prompt measures its
-  cap, a grid step, its words (a main action's 5 percent wider) and 1.2 degrees of margin, 12 mm
-  apart. The component render logs each footer's measure. A frame grows whole with larger text, so a
-  footer that fits at one size fits at both. One that does not fit is wrong, never squeezed.
-
-## The light line
-
-A file opened out of its character keeps a light line from the character to it: one leg from under
-the character's label, below any mark, to the file's subject. Where the label stands over the
-subject, as the eyes see them, it drops straight down from the middle of their overlap; else it
-joins the label's nearer bottom corner to the subject's nearer top corner. It crosses no label and no
-character, its own included. Over a desk, where the plane stands above the lineup, it rises from
-the top of the character's body to the file's bottom edge. The renders draw it in the Holo colour,
-about 3 mm wide at the label thinning to 1.2 mm, fading from 55 to 12 percent.
-
-## Icons
-
-Material Symbols Rounded, generic only ([material-symbols.md](../validation/material-symbols.md)):
-the state icons, and for a file code, database, data_object, description for writing and any
-unknown kind, image, terminal for a script, deployed_code for a package, and folder; chevron_right
-marks what opens more. `FileKind` picks a file's from its name. Never a language's or a brand's logo.
-An icon stands before words, never in their place.
-
-## The checks
+## Automated render checks
 
 | Rule | Checked by |
 | --- | --- |
+| Zero hue in shipped chrome | `KitRender.ChromeTakesNoHue` |
+| Static font atlases, glyphs, fallbacks and licences | `KitFontAtlas.Check`, `InstrumentFontAtlas.Check` |
+| Separator cadence and uncut kit words | `KitRender.SeparatorsHold`, `KitRender.KitWordsHold` |
 | One plane facing the eyes, columns aligned | `GlazeChecks.OnePlane` |
-| Text as the eyes see it | `GlazeChecks.TextAsSeen` |
-| Type only steps down | `GlazeChecks.TypeStepsDown` |
-| One selection treatment | `GlazeChecks.OneSelectionTreatment` |
-| Inside a Quest 3S's field | `FieldChecks.Inside`, head turned to the composition and tipped by `ReadingPitch` |
-| Contrast on the glass over white | `GlazeChecks.Over` and `Glaze.Menu.GlassOverWhite` |
-| The glass lights from its top | The component render (`GlazeRender`) |
-| A footer's width | The component render's footer measure |
-| The light line, and no row in a page's glow | `DirectionsRender` |
-
-Unavailable choices keep their original list slot as bounded Read why navigation, with no radio or
-checkbox mark. The dedicated explanation preserves provenance for every full conflicting word and
-pages within the same field. Back returns to the same question/page and saved draft. Close and the
-current Stop task occupy the explanation's footer; Stop still requires policy confirmation. No
-unconditional warning/Stop target adds density to ordinary choices.
-
-Tell it's instruction editor uses the focused composition and the existing bounded Input role,
-Your instruction label, empty focused keyboard caret and bounded navigation. Middle read parts
-keep Previous part and Next part, paired only at measured half widths; all field/pager targets and
-12 mm gaps remain in the height budget. The editor has at most three footer prompts: local Cancel,
-Hold to talk when available, and Send instruction. Done/transcription only change its local draft;
-Send is explicit and remains quiet/unavailable until the complete current draft has been read.
-
-Preset instructions are a focused choice page. Their actual wrapped rows, source, reason and body
-pager fit the same measured field budget; browsing keeps the selected candidate. A full notice that
-cannot share the page reads separately under What happened, with Back to choices.
-
-Usage pages count the heading at its actual remaining width beside Move and Compact, reserve the
-source line, and show only the rows that fit the measured stage page. The pager preserves source
-order and every limit; a chosen limit keeps its details when text size changes. Its details page
-measures each fact's label, value and gaps; all Agent app, Seen, Resets and Account facts remain
-reachable through existing side-panel parts, with the exact source repeated on each. List paging
-waits while a limit is chosen; Next page then turns only its details.
-
-## Workspace presentation
-
-The workspace opens expanded without characters. Optional spatial agents share one local
-presentation state with the menu. Minimize workspace hides the complete workspace and optional
-agents into one dock; it retains work identity and valid local drafts, rather than meaning close
-or send. Input, voice and armed decision authority are suspended before the visibility change.
-Restoring requires current layout and fresh drawn authority. Showing agents remains a separate
-explicit display choice and does not create or change work.
-
-
-The dedicated workspace is a composed rectangular frame, with connected task navigation and
-content panes. Its attached header identifies Halcyonic, the current connection mode and selected
-project/task even with no spatial agents. Global Move, Other apps and Minimize controls live on
-that frame, separate from request decisions and local Close task actions. Minimize leaves one
-Open workspace target and suspends the complete workspace. Other apps is unavailable where the
-verified native panel bridge cannot run; it is never an arrangement preset.
-
-The shared header consumes measured composition height before pages pack their content. The
-character-free workspace centers in the available field rather than reserving an empty character
-label band above it. Header, perimeter and connected panes participate in field/drag geometry at
-both text sizes. Source, outside-text and decision-proof treatments remain on actual content.
-Move offers direct hand movement and Reset position, without guessed window arrangements.
-Actual Unity composition evidence is recorded in the current validation checkpoint below; wearer
-acceptance remains pending.
-
-
-A neutral structural divider may separate the attached workspace header from its connected panes.
-It is horizontal, thinner than 0.2 degrees, uses only the neutral edge color, carries no action and
-marks no selection. Chosen and pointed-at actions retain the existing fill/frame treatment; an
-arbitrary bar or underline still fails that rule. The workspace perimeter is an unfilled outline,
-so content's opening/closing remains visibly distinct from its actual background. Geometry
-witnesses include the full shared header when measuring the composition center, field corners
-and coplanarity; measuring only body panes would exclude real visible workspace content.
-
-
-`DedicatedWorkspaceCheck` exercises the production menu without characters at Standard and Larger:
-fresh/connected Projects, visible Tasks selection, a marked synthetic task in a live-origin journal,
-local instruction, global Minimize/restore and disconnected draft. Its structural negative controls
-remove the divider role and rotate the header against its body, preserving the arbitrary-bar and
-coplanarity rejection paths. It is a simulated renderer fixture, not proof of a real runtime send,
-native JNI return or wearer acceptance. The current validation checkpoint below records its
-actual Unity outcome.
-
-
-The console owns its world position independently of optional agents. Selecting a task or changing
-agent placement never re-centers a hand-placed workspace; Reset position is explicit. The console
-starts centered, retains its anchor and hand offset, and packs against current occupied agent
-geometry and measured field bounds. Manual shelf height is not a desk floor for the console.
-Shelf previews use the actual visible workspace perimeter or restore dock as a collision veto,
-with at least one degree of spacing; they do not displace the workspace. Legacy floating arcs and
-guessed window bands are not the presentation model for this workspace.
-
-
-The header repeats only project context; the selected task's full title stays on its content pane.
-Current state and Practice/Demo/Recorded provenance have independently measured reserved cells,
-so outside project text cannot consume or ellipsize them. Placement failures use a measured local
-explanation with Back to workspace; these details own no runtime or draft authority.
-
-
-Passive redraws preserve the exact retained hand offset, including transitions to and from the global
-restore dock. Only explicit movement or Reset position changes it. Finishing a hand drag, resetting
-position, or returning from a local placement overlay repacks retained files at the current position;
-ordinary instruction text survives, while old keyboard callbacks and ordered reading/confirmation
-proof do not. Shelf placement reserves the workspace beneath its temporary overlay as well as the
-visible overlay, so Apply cannot introduce an overlap that appears only on return. A real furniture
-surface still bounds a hand drag; a manual shelf does not supply a fictitious floor.
-
-A selected agent's light line first uses the nearest label-bottom/subject-top join. If that straight
-path crosses measured current labels or bodies, the same crossing veto checks alternative endpoints
-along those two edges. Neither line routing nor content redraw moves the console. A failure to find
-a clear straight path remains visible to geometry checks instead of being hidden as successful proof.
-
-
-The attached context row includes a full-size Projects target even when a focused instruction
-steps the body navigation aside. Filtered Tasks shows the chosen project name without requiring a
-selected task. State and source marks retain independently reserved header space; when that header
-owns the selected state, the body omits its duplicate pill. Headerless render fixtures retain their
-own state pill. Filtered task pages reserve the All projects content row, and keep Project details,
-Saved drafts and the offered pager reachable together. The complete header remains in measured
-composition and field checks; these changes do not reduce the minimum target or text size.
-
-`DedicatedWorkspaceCheck` now follows the production project row into filtered Tasks, opens the
-existing project details, and uses the visible Projects header target while a local instruction is
-retained. It reopens that same task view and checks the draft survived and the body state pill was
-not duplicated. The navigation-focused core checks pass 54/54 with no skips, and Editor plus
-Android player-symbol source compilation passes (2026-10-12). At that source checkpoint the new header/navigation render remained pending; the subsequent
-DedicatedWorkspaceCheck and current validation checkpoint below cover the revised composition.
-
-The Larger project-detail fixture closes the actually visible detail panel before selecting its
-project again: details replace the project list at that size. The first navigation render passed
-Standard but correctly refused the hidden Larger project row. This fixture correction preserves
-that visibility guard; the subsequent repeated exact render is recorded below.
-
-The corrected DedicatedWorkspaceCheck ran on integration fc32 at both Standard and Larger with
-30 current PNGs (2026-10-12). The project-to-task path, visible detail return, Projects breadcrumb,
-retained instruction and header state/provenance passed the existing field, target, text and
-coplanarity checks. The Larger project-task and reopened-instruction images were reviewed. This
-is simulated source/render evidence, not acceptance by a wearer or a real command delivery.
-
-Workspace request uses the attached console and measured focused-file room. Its local editor
-retains the existing paged input/read guard; scope text, held voice, explicit Start/Continue and
-spoken Yes remain visible controls. Model reply and recorded receipts have separate sections and
-full measured paging, with source names treated as outside text. Request and recovery-focused
-checks passed 46/46 with zero skips at the first source checkpoint, with Editor/Android source
-compilation. The later RequestCheck result below supersedes its unrun screenshot status; full
-integrated gates were pending at that source checkpoint. The current validation checkpoint below
-records the later combined outcome.
-
-RequestCheck is the request-specific real-font composition gate. It uses the actual production
-column and director control routes with synthetic capability/result seams, and retains all field,
-readability, target and coplanarity checks. Its source compiles with Editor and Android symbols.
-The existing Judge walkthrough now
-checks Tasks as the stable view subject and the actual waiting state on its row.
-
-RequestCheck ran on integration c2c64 with 20 captures at Standard and Larger; the complete request
-composition and original checks passed, and Larger spoken review and Actions were inspected.
-That review identified missing task identity in the request body. The follow-up uses the actual
-bound task title as the outside-text subject and measures its title height at both sizes; Request,
-Reply and Actions remain the section labels. The redundant Actions body heading is removed.
-The focused title/lifetime regressions pass 54/54 with zero skips; core, Editor and Android source
-compilation pass. RequestCheck now also checks the actual outside-text task subject on each
-visible request frame. The current validation checkpoint below includes the title-adjusted
-request composition. No live send or wearer acceptance is implied.
-
-The legacy director render route now starts from visible Projects and selects its offered Tasks
-section before opening the waiting task. Global Minimize and Restore use the actual console and
-dock pointer controls; Move is exercised after Restore on the visible console utility. Question
-editor retention, review, stale callbacks, two-hand ownership and drag bounds remain checks. The
-director's budget is the independently centered console with its measured header and occupied
-geometry. Passive stage flags and Larger repacking must retain the exact hand offset while the
-whole composition still fits and old input is revoked; automatic offset clamping is no longer an
-expected outcome. Task identity is checked in the actual file and project context rather than a
-removed character banner. At that source checkpoint Editor compilation passed while the migrated
-render and legacy raw plane/fade investigation remained pending. The current validation checkpoint
-below records the later combined outcome; clearance, field, readability and visibility thresholds
-remain unchanged.
-DirectorCheck runs all three existing director cases at both text sizes with the same PlaneState
-guards and nonzero retained-offset counter. It diagnoses this migration separately from untouched
-raw plane/stage cases; the full WorkspaceRender.Check retains them and remains the acceptance gate.
-The retained FirstQuestion column's regression expects the current concrete Projects subject for
-both choices while preserving its choice/action/voice checks. This legacy column test is not
-evidence that fresh production entry uses the superseded first-question policy.
-
-
-## Current validation checkpoint — 2026-10-15
-
-The October13 production checkpoint `61646671` passed the complete Workspace and Appearance
-Editor render gates, including current Projects/task navigation, retained instruction and request
-views, character-free and confirmed-shelf compositions, and both Standard and Larger text. Both
-Glaze and Graphite presets passed Appearance. Results additionally passed far/desk placement and
-zero/one shelf with exact displayed pages and both drafts retained. These later runs supersede
-pending-render statements in the source-checkpoint history above; they retain the original field,
-text, target, visibility and coplanarity constraints. Detailed scope and limits are recorded in
-[theme settings](../validation/theme-settings.md),
-[workspace requests](../validation/workspace-requests.md) and
-[recorded tool results](../validation/recorded-tool-results.md).
-
-These are synthetic Editor composition and continuity checks. They do not establish wearer
-readability, hand or microphone usability, live model reliability, native JNI/other-app return or
-source/build correspondence for an opened external app. Those remain separate acceptance gates.
-
-
-On Android the initial workspace waits for a present wearer, tracked head position and rotation,
-and input focus before taking its first anchor. An unworn or untracked camera pose is not a valid
-placement. Later ordinary head/focus changes preserve the established composition and Move offset;
-this is not head-following UI. The source and remaining device checks are recorded in
-[initial workspace placement](../validation/initial-workspace-placement.md).
-
-
-### Native restoration wait
-
-The native panel's actual pending-restore connection check shimmers through its words, using the
-same 1.6-second sweep, 0.35 relative band and 0.55 lift toward white as Glaze. It changes no text,
-position or progress value. Ordinary status/error text stops the sweep and restores its normal
-colour; cancellation, focus/top loss, pause and detach stop it too. A finished or failed check
-cannot keep presenting an animated wait. This treatment marks a pending connection read, never
-agent execution or successful restoration.
-
-Keep things still, disabled system animations and unknown motion preferences show a steady active
-highlight instead. The Unity comfort setting mirrors only its motion choice into one tiny private
-native record; no credentials or continuation authority cross through that record. Native motion
-also requires a successful preference mirror in the current process, so a direct native launch
-with unknown settings remains still. No native loading shimmer hardware acceptance is claimed by
-source or JVM tests; evidence is in [native agent panel](../validation/native-agent-panel.md).
-
-## October 15 composition reset: title and reading material
-
-The owner rejected the actual installed stacked workspace. Earlier geometry and contrast checks
-remain narrow technical evidence, not aesthetic acceptance. The replacement composition uses a
-single selected-work title and subordinate navigation. Rajdhani Medium provides restrained
-industrial headings; Liberation Sans remains the body face and fallback for unsupported heading
-glyphs. A static, bundled SDF atlas consumes the OFL source; no runtime font download is required.
-The principal work title is 34 dp, used once, while all existing reading/target minima remain.
-
-The spatial reading surface follows [Coated reading material](#coated-reading-material): one
-opaque face with bounded reflected light, rather than independently glossed parts. Focus and
-selection retain their meanings. This material and typography do not establish a successful
-diegetic experience; full-context evidence and fresh wearer review remain required.
-
-### Task-focused composition candidate
-
-The selected task occupies one reading column. Its Projects control returns to the workspace
-chooser; Workspace carries Projects, Tasks, Usage and Settings. Those destinations do not
-remain a second rail beside an open task. Project context and Workspace stay above the work;
-practice/recorded provenance has its own small line only when present.
-The named heading reserves its badge inset and Hero name; pagination and actual layout use the same inset, including larger-text SDF bounds.
-Context, named heading, sections and reading body share the opaque coated face, without a folder
-tab, clear rear carrier or independently backed internal plates. Workspace remains in the header; no organization strip is allocated below the face.
-Bounded footer actions use the same corner radius as the header controls. Secondary actions use
-the neutral reading-face colour and the shared quiet hairline; primary actions retain the blue
-accent container and edge. Shape does not distinguish these roles.
-This composition remains a candidate until actual full-context and wearer validation pass.
-
-The focused work object's context row reserves one full Projects target in height. Project and
-connection words align with that target; the composition's ordinary part gap follows it before
-task identity. The chooser shares that single-target-height header. This removes unused focused
-context space without reducing a hit target or type size. The same allocation drives the actual
-composition and available page-height calculation; actual paired captures remain the design gate.
-
-The type hierarchy resets for each independent known-project entry: its name leads its own
-supporting task summary. A later project's name may therefore be larger than the preceding
-project's summary. This is not a blanket exception to descending type: ordinary reading content
-retains that rule, and each project's actual name-to-summary group must satisfy it independently.
-
-### Material evidence
-
-[Coated reading material](#coated-reading-material) defines the current implementation. Superseded
-card, coating and carrier comparisons are retained only in the [validation history](../validation/instrument-material-study.md),
-not as alternative authoring rules.
-
-## Out-of-view workspace recovery, 2026-10-15 candidate
-
-The owner rejected the fixed workspace staying behind when they turned. Reading content now stays
-still through ordinary small head movement, then recovers to the resting wearer after it leaves
-view. It never changes XR tracking or the camera, never moves room-placed characters, and does not
-control native Android panel placement. A moving or settling reading object accepts no task or
-frame input; its exact local drafts/pages survive and require a fresh physical draw. Keep things
-still uses an immediate content reposition with the same input settling. Candidate timings and
-translation tolerances require an actual wearer check; renderer success alone is not comfort.
-
-The October 15 work-object candidate removes the chooser side rail and its unused horizontal
-space. One complete Workspace target occupies the chooser header; task focus adds
-the direct Projects return. The matching page-height calculation includes this header and only the actual provenance line. Its spatial proof checks the actual row geometry, single column,
-full title provenance/bounds and whole-action rest backing, including an icon-only negative.
-This candidate has not yet passed actual Unity rendering or wearer review; earlier coating
-evidence does not establish these new compositions. No character is enabled or moved by this
-change, and the existing character-placement and connector guarantees remain unchanged.
-
-Selected tasks now also have a local body-only character portrait at their title's leading edge.
-It uses the actual Workstream presentation and identity hue; the title measure reserves its
-5.5-degree-wide slot plus the normal target gap, and the subject reserves its full6.5-degree-high
-animated envelope. Its own labels, halo and ring are absent because the adjacent title/state
-already identify the task. The portrait has no runtime command target. It is a local illustration
-of the selected task, independent of whether a character has deliberately been placed in the room.
-Opening work never enables or moves a room character.
-
-Workspace's local controls offer Show task portraits or Hide task portraits. This device preference
-applies to all tasks and survives app restart. A hidden portrait restores the full title width.
-Per-task colour still binds to the current connection, journal and Workstream. Its existing
-preview/apply/cancel route may now use a selected source-bound portrait without requiring a room
-character; preview never grants runtime or approval authority. Source loss still revokes editing.
-The spatial proof checks real Workstream binding, body-only presentation, title separation and
-absence of command targets. These new portrait compositions remain unvalidated until actual
-rendering and wearer review; the separate body component's implementation is not that evidence.
-The compact object's leading edge uses the same selected task portrait and hue, with the complete
-animated body fit inside its shorter allocation. Its adjacent literal task identity and state
-remain readable without relying on the character alone. Open workspace retains its complete target; movement is available through Workspace after
-opening. The portrait itself does not expand or command the task.
-
-## Workspace controls candidate — second pass
-
-Workspace is a deliberate local page, preserving the task and draft behind it. Move workspace
-enters an explicit placement mode: the stable header target reads Move and enables its existing
-real hold/drag path. The local page explains that hold and offers Reset position; Done moving
-returns to the retained task. A normal Workspace hold never starts an unexpected move. Compact's
-explicit named Move target keeps its existing behavior. Closing, focus loss or leaving the local
-page revokes its drawn actions; movement and approvals never share input authority.
-
-The unselected Projects root omits redundant Close because it only collapsed that root. Minimize
-is available through Workspace. Selected project details retain their own close route. A task's
-Close still closes the actual task context; it is not relabeled Back to tasks, because closing a
-task opened from a character need not reveal an open task list.
-
-Neutral now uses the established blue Accent family for the whole main-action control. That
-accent remains distinct from amber attention and preserves state colours and saved preset keys.
-Its foreground/container contrast is checked in core tests; actual resolved button contrast is
-still part of the render gate. The local character is larger and reaches the face's leading edge
-within its measured allocation. Neither that adjustment nor fewer controls establishes wearer
-acceptance. Actual complete compositions and movement/draft/approval regressions remain required.
-
-Local character bodies do not inherit the text/surface opacity shader. They therefore appear
-only when the expanded subject or compact object is complete and disappear immediately when it
-starts leaving. This is an intentional discrete identity transition, not a claimed body fade.
-Workspace's Other apps action retains platform availability and requires the exact current drawn
-local controls page. It is unavailable in explicit moving mode; successful switching uses the
-existing draft capture and workspace suspension path.
-
-The compact object gives identity and Open workspace one target-height band. State and the
-workspace waiting count use a separate lower reading band with its full measured width, so a long
-state cannot collide with the Open workspace target. Only if the exact state/count widths exceed
-that band does the count use another line and the object grow. Status words, count and action
-labels keep their size; a long literal task name may be cut within its controlled outside-text
-range, with the complete task available through Open workspace.
+| Apparent text floor (`>= 14 dp`) | `GlazeChecks.TextAsSeen`, `SpatialKitTests` |
+| Descending type hierarchy | `GlazeChecks.TypeStepsDown` |
+| Single selection treatment | `GlazeChecks.OneSelectionTreatment` |
+| Quest 3S field containment | `FieldChecks.Inside` |
+| Contrast over white and bright passthrough | `GlazeChecks.Over`, `Glaze.Menu.GlassOverWhite`, `SpatialKitTests` |
+| Calm glass, footer width and light-line routing | `GlazeRender`, `DirectionsRender` |

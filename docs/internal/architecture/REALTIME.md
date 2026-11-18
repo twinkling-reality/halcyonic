@@ -21,15 +21,15 @@ credential instead (below, and [SECURITY.md](SECURITY.md)).
 | `GET /api/locations` | `LocationsResponse`: where projects may live on the host, read from the file system on request and never journaled ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). Each project root (`HALCYONIC_PROJECT_ROOTS`, as its real path) with its own `name`, `status` (`available`, or `missing` when it is no longer a folder), the visible folders directly inside it (`{name, path}`, no hidden folders or symbolic links, sorted, at most 200, found among at most the first 10,000 entries the file system returns) and `folders_truncated`, true when either limit was reached. `roots: []` means the host allows no folder yet. Paths and names are for display, and names are untrusted text |
 | `GET /api/runtimes/:runtime_id/models` | `RuntimeModelsResponse`: the models the runtime lists now, from its own list, read through and never journaled ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)); always 200 with an availability (`unavailable` carries the reason in words: `timeout` after 30 s, `invalid_models` for a list outside the contract, or the adapter's own code), 404 `models_not_listed` for a runtime whose `model_choice` is `none`, 404 `runtime_not_found` for an unknown one. Listing may start the runtime, so it can take seconds: fetch it when a person opens the choice, and never poll |
 | `GET /api/starters` | `StartersResponse`: the starters a new project can begin from, each with its title and whether its dependencies are installed on this computer, read from disk on request and never journaled ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)) |
-| `GET /api/projects/:project_id/checkpoints` | `CheckpointsResponse`: the project's checkpoints for Halcyonic's own undo, oldest first, from the projection ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)); `unavailable` with `undo_not_set_up` when the host has no `HALCYONIC_GIT_BIN`; 404 `project_not_found` |
+| `GET /api/projects/:project_id/checkpoints` | `CheckpointsResponse`: the project's checkpoints for Halora's undo, oldest first, from the projection ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)); `unavailable` with `undo_not_set_up` when the host has no `HALCYONIC_GIT_BIN`; 404 `project_not_found` |
 | `GET /api/projects/:project_id/checkpoints/:checkpoint_id/restore-preview` | `RestorePreviewResponse`: what putting the checkpoint back would change now (at most 100 paths each changed back, removed and returned, with totals, and whether the project's own commit moved), read from the folder on request and never journaled; `unavailable` with a reason when undo is off or the folder cannot be read; 404 `checkpoint_not_found` for a checkpoint not the project's. Fetch it when a person opens Undo, and show it before they confirm; `review` in an available result is the digest a `project.restore` carries back ([ADR 0051](../decisions/0051-a-paired-device-acts-on-files-only-with-the-review-it-read.md)) |
-| `POST /api/projects/:project_id/location-review` | `LocationReviewResponse` for a `LocationReviewRequest`: the folder the project works in now, the one chosen, and `review`, the digest a `project.set_location` carries back; a paired device's move of a project that has a folder needs it (ADR 0051). Reads only; 404 for an unknown project |
+| `POST /api/projects/:project_id/location-review` | `LocationReviewResponse` for a `LocationReviewRequest`: the folder the project works in now, the one chosen, and `review`, the digest a `project.set_location` carries back; a paired device's move of a project that has a folder needs it ([ADR 0051](../decisions/0051-a-paired-device-acts-on-files-only-with-the-review-it-read.md)). Reads only; 404 for an unknown project |
 | `GET /api/events?after=&limit=&workstream_id=` | Journal history after a position (limit 1 to 1000, default 200); a paired device's reads leave device events out |
 | `GET /api/executions/:execution_id/understanding` | What Salidium says about the execution's session, read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. An available answer's `source.synthetic` is true only for a stand-in's, as in the recorded demonstration ([ADR 0019](../decisions/0019-the-demonstration-reads-simulated-sources-through-the-real-flow.md)) |
 | `GET /api/executions/:execution_id/brief` | `UnderstandingBriefResponse`: the brief Salidium composed of the execution's session (its two to four moves, each a sentence with its own epistemic class, and the edit's footprint), read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. `incompatible` (`brief_not_offered`) from a Salidium before consumer contract 1.2. Read it again when the understanding's `evidence_sequence` grows, never on a timer ([record](../validation/salidium-consumer-contract.md)) |
-| `GET /api/executions/:execution_id/evaluation` | What Seorak measured about the execution's session (estimated cost, outcome, verification runs, the tool mix and cadence when their reads succeed (`tool_mix` and `cadence`, each absent otherwise), and its activity when Seorak reports all of it: start, end, elapsed seconds, tool calls, prompts; `activity` is absent otherwise, unknown and never zero), read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. Each answer spends three of Seorak's 60 requests a minute, so fetch it on demand, for example when a workstream is opened, and never poll. `source.synthetic` as for understanding |
-| `GET /api/usage-limits` | `UsageLimitsResponse`: the provider usage limits Seorak last observed, account wide, read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability. `available` carries at least one reading, and `complete`, false when Seorak read only some limits (it stopped at a result limit): the readings it returned are exact, and a window missing from them is unknown, never zero. Each reading has: the agent (Seorak's open id, and a label to show), the window (`rolling-5h` or `weekly`), the used percentage the provider reported, when it resets and when it was observed, Seorak's freshness flag, and an account that is always `unidentified`. A reading past its reset is never served; with none left the answer is `unavailable` (`no_current_reading`), never 0%. `unauthorized` covers a missing credential, one without `limits:read` (`insufficient_scope`) and a project- or date-restricted one (`outside_credential_restriction`); `unavailable` covers `not_captured`, a stopped or rate-limited Seorak, and `not_configured` where no source serves limits. The recorded demonstration holds one `available` answer, read through this route from its stand-in for Seorak and marked synthetic, with its times moved to the recording's start ([ADR 0012](../decisions/0012-a-labeled-demonstration-runs-on-the-headset.md)). One request of Seorak's 60 a minute: read it when a person opens Usage left, never on a timer. Not Workstream status, and not part of starting work |
-| `GET /api/catalog` | `CatalogResponse`: every project the person has across their accounts, from their catalog, read through and never journaled ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)); always 200 with an availability. `available` is `reported` by the source and says how old it is (`sync`); each project's `local.project_ids` are the Halcyonic projects this journal links to one of its repositories, whatever the source says, and `suggestions` stay empty until the host matches folders. Without a catalog source the answer is `unavailable` (`not_configured`); a source that fails is `unavailable` (`source_failed`), and one outside the contract `incompatible`. No live source is built yet; the recorded demonstration's stand-in serves invented projects marked synthetic |
+| `GET /api/executions/:execution_id/evaluation` | What Seorak measured about the execution's session (estimated cost, outcome, verification runs, the tool mix and cadence when their reads succeed (`tool_mix` and `cadence`, each absent otherwise), and its activity when Seorak reports all of it: start, end, elapsed seconds, tool calls, prompts; `activity` is absent otherwise, unknown and never zero), read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability, 404 for an unknown execution. Each answer spends five of Seorak's 60 requests a minute (`resolve`, `outcome`, `verification`, `tool-mix` and `cadence`; at most 12 evaluations a minute), so fetch it on demand, for example when a workstream is opened, and never poll. `source.synthetic` as for understanding |
+| `GET /api/usage-limits` | `UsageLimitsResponse`: the provider usage limits Seorak last observed, account wide, read through and never journaled ([ADR 0010](../decisions/0010-external-intelligence-is-read-through.md)); always 200 with an availability. `available` carries at least one reading, and `complete`, false when Seorak read only some limits (it stopped at a result limit): the readings it returned are exact, and a window missing from them is unknown, never zero. Each reading has: the agent (Seorak's open id, and a label to show), the window (`rolling-5h` or `weekly`), the used percentage the provider reported, when it resets and when it was observed, Seorak's freshness flag, and an account that is always `unidentified`. A reading past its reset is never served; with none left the answer is `unavailable` (`no_current_reading`), never 0%. `unauthorized` covers a missing credential, one without `limits:read` (`insufficient_scope`) and a project- or date-restricted one (`outside_credential_restriction`); `unavailable` covers `not_captured`, a stopped or rate-limited Seorak, and `not_configured` where no source serves limits. The recorded demonstration holds one `available` answer, read through this route from its stand-in for Seorak and marked synthetic, with its times moved to the recording's start ([ADR 0012](../decisions/0012-a-labeled-demonstration-runs-on-the-headset.md)). One request of Seorak's 60 a minute: read it when a person opens `Usage Left`, never on a timer. Not Workstream status, and not part of starting work |
+| `GET /api/catalog` | `CatalogResponse`: every project the person has across their accounts, read through from Omnorium (`packages/integrations/omnorium`, credential in `<data dir>/omnorium-credential`) and never journaled ([ADR 0039](../decisions/0039-the-projects-gallery-reads-a-catalog-from-omnorium.md)); always 200 with an availability. `available` is `reported` by the source and says how old it is (`sync`); each project's `local.project_ids` are the projects this journal links to one of its repositories, whatever the source says, and `suggestions` match folders in `HALCYONIC_PROJECT_ROOTS` by their git origin. Without `<data dir>/omnorium-credential` the answer is `unavailable` (`not_configured`); a source that fails is `unavailable` (`source_failed`), and one outside the contract `incompatible`. The recorded demonstration's stand-in serves invented projects marked synthetic |
 | `POST /api/commands` | Submits a `CommandEnvelope` (JSON only) |
 | `POST /api/transcriptions` | Turns one clip of speech into a draft on the Mac ([ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md)); the only route that takes anything but JSON. The body is `audio/wav`, 16-bit mono PCM at 16 kHz, 0.5 to 30 s, at most 960,044 bytes (`TRANSCRIPTION_MAX_BYTES`). Answers `TranscriptionResponse`: `heard` with the text, its language (`en`) and the engine's name and version, or `nothing_heard` when the engine found no speech. The text is untrusted, a draft the person confirms before anything is sent. Refusals: 503 `transcription_unavailable` (voice not set up), 415 for another content type, 400 `invalid_audio` or `audio_too_short`, 413 past the byte limit, 429 `transcription_busy` (this principal's clip is in progress) or `rate_limited` (thirty clips reach the engine in each fixed minute), 503 `transcription_busy_on_mac` (the Mac transcribes one clip at a time and up to three more wait their turn: a fourth waiting clip, or one whose turn has not come within 4 s, is refused in words that say how many are ahead), 502 `transcription_failed` (the engine failed or ran past 15 s, or its transcript is longer than a draft). Neither clip nor text is journaled, stored or logged |
 | `GET /api/companion` | `CompanionStatus`: whether Create's companion can be asked now ([ADR 0025](../decisions/0025-the-companion-is-a-local-model-whose-exchange-stays-on-the-headset.md)), read from Ollama's model list without asking the model. `available` names the model (an opaque string, served `this_mac`) and the most questions it asks (4); `unavailable` carries `companion_not_set_up` (no model named), `companion_not_running` (Ollama does not answer), `companion_model_missing` (not in Ollama's list) or `companion_model_not_local` (Ollama would pass it to another host: a cloud or remote model). Read it when Create opens, never on a timer |
@@ -40,7 +40,7 @@ credential instead (below, and [SECURITY.md](SECURITY.md)).
 | `GET /api/devices` | Loopback only. `DevicesResponse`: every device paired, revoked ones included, and which have a realtime connection open |
 | `POST /api/devices/:device_id/revoke` | Loopback only. Revokes the device (again is harmless) and answers its `DeviceView`; 404 for a device never paired |
 | `POST /api/device/revoke` | Network listener only. The calling device revokes its own credential, as forgetting the control plane does; 204 |
-| `GET /api/projects/:project_id/preview/...` | Network listener only, to a paired device. The project's preview relayed from its own port on 127.0.0.1, GET and HEAD only, while it serves the latest check, passed, with `reads_confined` ([ADR 0052](../decisions/0052-a-preview-reaches-a-paired-headset-through-a-loopback-relay.md)); 409 with the reason's code otherwise; only the file's own headers come back, with `Cache-Control: no-store` |
+| `GET /api/projects/:project_id/preview/...`, `GET /api/projects/:project_id/tasks/:workstream_id/preview/...`, `GET /api/projects/:project_id/preview-stream` | Network listener only, to a paired device. Relays the project's or a task copy's preview from its own port on 127.0.0.1 while it serves the latest passed check with `reads_confined` ([ADR 0052](../decisions/0052-a-preview-reaches-a-paired-headset-through-a-loopback-relay.md)); `preview-stream` upgrades to a binary WebSocket stream for `PreviewRelay` (`?task=<workstream_id>` for a task's copy); 409 with the reason's code otherwise |
 | `GET /api/device/listener` | Network listener only, to a paired device. `NetworkListener`: where it can reach the listener now, the computer's `.local` name first, so it finds the computer again at a new address (below); 503 `unavailable` before the listener listens |
 
 Command submission answers honestly:
@@ -58,7 +58,7 @@ Errors use one shape: `{error: {code, message, issues: [{path, message}]}}`.
 
 ## WebSocket: `GET /realtime`
 
-JSON text messages, protocol version 1.
+JSON text messages, protocol version 3 (`REALTIME_PROTOCOL_VERSION = 3` in `packages/contracts/src/realtime.ts`; see [EVENTS.md](EVENTS.md) for protocol version scope).
 
 ```text
 client                                   server
@@ -78,16 +78,16 @@ client                                   server
   protocol version gets `unsupported_protocol` and the connection closes.
 - **Command policies.** `welcome` lists the consequence category of every command type. Clients
   require an explicit, deliberate action before sending a `review_required` or
-  `high_consequence` command, and treat a missing entry as requiring one. Every client gets the
-  same policies until per-device authorization exists.
+  `high_consequence` command, and treat a missing entry as requiring one. Every client receives the
+  same policy map.
 - **Snapshot and subscription are atomic.** The server takes the snapshot and subscribes in one
   synchronous step, so no event can fall between them.
 - **Resume.** If the client's cursor names this journal and the current head, the server answers
   `resumed: true` and sends no snapshot. Otherwise it sends a fresh snapshot. Missed history is
-  available from `GET /api/events`. Sending the missed events instead was weighed on 2026-11-10 and
-  not built: each `event` carries the `changes` the projection computed when it was recorded, which
-  are not kept, so a replayed event could not carry its own; and a snapshot is small and quick (352
-  KiB built in 0.7 ms at 50,000 events, [control-plane-scale-2026-11-03.md](../validation/control-plane-scale-2026-11-03.md)).
+  available from `GET /api/events`. Missed events are not replayed directly on reconnect: each live
+  `event` carries incremental `changes` computed at record time that are not stored in the journal,
+  whereas building a fresh snapshot is small and fast (352 KiB in 0.7 ms at 50,000 events,
+  [scale record](../validation/control-plane-scale-2026-11-03.md)).
 - **Device events stay home.** `device.paired` and `device.revoked` are journaled like every
   event, but no client receives them over this stream, and a paired device does not read them from
   `GET /api/events` either, where `limit` counts only the events returned: which devices are
@@ -96,33 +96,33 @@ client                                   server
 - **Events carry their effects.** Each `event` message includes `changes`: the current state of
   every project, workstream, execution and command the event changed. Clients replace their copies
   wholesale and never re-implement the projection.
-- **A project's view holds its check, preview and play (M1.8e, T2).** A project's view carries, each
+- **A project's view holds its check, preview and play.** A project's view carries, each
   only when there is one, `check` (its latest check: `check_id`, `recorded_at`, the journal
   `position` at which it was recorded, `files`, and the findings as recorded), `preview` (the check
   its running preview serves, the loopback port and that check's `files`), `mac_play` (the check
   whose game plays on the Mac now and that check's `files`) and `share` (the check shared at a
   public address, the address, and that check's `files`; [ADR 0054](../decisions/0054-what-was-made-is-kept-and-shared-only-by-the-persons-press.md)). `files` is `'current'` when recorded
-  while no turn is running in the project (a turn a restart cut short runs no longer, since no
-  runtime session survives a restart; #13), `'changed'` once a turn's file reading or a restore
+  while no turn is running in the project (a turn a restart cut short no longer runs, though supported
+  sessions re-attach at rest under [ADR 0046](../decisions/0046-a-restart-re-attaches-each-tasks-session-where-the-runtime-keeps-it.md)), `'changed'` once a turn's file reading or a restore
   changed files in the project's folder or the project was moved to another folder, and `'unknown'`
   while a turn is running or when a turn ended without a complete file reading, an incomplete
   restore stopped, or an execution's state became unknown. A check whose `files` is `'changed'` or
   `'unknown'` is stale or unknown, never treated as a passed check of the current files. After a
   turn that changed files in a starter project (`execution.files.observed` with files created,
   changed or deleted), the host submits `project.check` on its own (`received_via: 'internal'`),
-  one check at a time per project, journaled like a client's check (A1); never for a world
-  (ADR 0049), which has no build and whose `project.check` is refused. They leave
+  one check at a time per folder, journaled like a client's check; never for a world
+  ([ADR 0049](../decisions/0049-a-persons-world-is-a-project-whose-description-the-mac-reads.md)), which has no build and whose `project.check` is refused. They leave
   the view when their stop does, so a headset that connects after a check still shows it. An absent
   member means there is none, never false. Nothing of a play's viewer (its link, code or session)
   is in the view.
-- **A world project's view holds its world (ADR 0049).** `world` is there once the Mac has read the
+- **A world project's view holds its world ([ADR 0049](../decisions/0049-a-persons-world-is-a-project-whose-description-the-mac-reads.md)).** `world` is there once the Mac has read the
   project's `world.json`: `description` (the newest valid one, kept while a later reading is
   refused, or null until one was valid), `refused` (why the file as last read is not a description,
-  or null) and `observed_at`. A client validates the description again before it draws, since the
-  generated bindings do not enforce ranges or patterns. Since 2026-11-12 a description is format 2:
-  its scene, the scene's lights and air as the headset mixes them, and which of the scene's places
-  is which project's; format 1 readings are no longer taken into the view (the Mac brings such a
-  world forward and reads it again).
+  or null) and `observed_at`. A client validates the description again before it draws, because the
+  generated bindings do not enforce ranges or patterns. Descriptions use format 2: the scene, its
+  lights and atmosphere as mixed on the headset, and which scene places map to which projects.
+  Format 1 `world.json` files are upgraded to format 2 on the Mac and re-read; legacy format 1
+  events are not projected.
 - **Acknowledgements.** `command_ack` reports `accepted`, `rejected`, `duplicate` or `conflict`.
   Because events are recorded while the command is handled, a client may receive the command's
   events before its acknowledgement; correlate by `command_id`.
@@ -130,13 +130,12 @@ client                                   server
   `device_revoked` rejects a command from a paired device revoked after its request or connection
   was authenticated. `review_required` rejects a paired device's `project.restore`, or its
   `project.set_location` of a project that has a folder, that carries no `review`; `review_stale`
-  one whose `review` no longer describes what is true (ADR 0051). The code `demonstration` never comes from a control plane: only the XR
-  client's recorded demonstration, which stands in for one on a device without one, answers with
-  it. It means the
-  command was sent to no control plane and no agent, however admissible it was in the recording,
-  and the message says how the recording continues. It was added without a new protocol version
-  because no control plane sends it, so no client of an older version can receive it
-  ([XR_CLIENT.md](XR_CLIENT.md)).
+  one whose `review` no longer describes what is true
+  ([ADR 0051](../decisions/0051-a-paired-device-acts-on-files-only-with-the-review-it-read.md)).
+  The code `demonstration` never comes from a control plane: only the XR client's recorded
+  demonstration, which stands in for one on a device without a live connection, answers with it. It
+  means the command was sent to no control plane and no agent, however admissible it was in the
+  recording, and the message says how the recording continues ([XR_CLIENT.md](XR_CLIENT.md)).
 - **Choosing where a project lives.** `project.create` carries `location`: null, or a choice of
   `{kind: 'existing_folder', root, folder_name}` (`folder_name` null for the root itself) or
   `{kind: 'new_folder', root, folder_name}` or `{kind: 'new_from_starter', root, folder_name,
@@ -144,22 +143,23 @@ client                                   server
   starter not installed and for `project.set_location`, where `root` is a root's `path` exactly as
   `GET /api/locations` gave it and `folder_name` a folder directly inside it. A new folder's name
   matches `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`; an existing folder's is one visible path segment.
-  Anything else is a 400 `invalid_command`. `project.set_location` `{project_id, location}` binds a
-  project to another folder. The project's `location` then reads `{path, name, created}`. The host
-  refuses a location with `location_not_allowed`, `location_missing` or `location_exists`, and a
-  runtime whose descriptor has `uses_project_location` refuses a start in a project without one with
-  `location_required`, or whose folder has gone with `location_missing`. Runtimes take no folder in
-  their options; the execution's `directory` says where it runs ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)).
-  `location` was added as an explicit null without a new protocol or schema version: a development
-  build generated before it sends `project.create` without it and gets 400 until it is rebuilt.
-- **An instruction while a turn runs, to a runtime that cannot steer** (Claude Code today, ADR 0056).
-  `execution.send_instruction` is accepted and waits; it is not sent to the runtime then. Only on the
-  person's own journal (`origin: live`), where the queue runs; on a recording's journal it is refused
-  with `capability_unsupported`, as before.
+  Anything else is a 400 `invalid_command`. `project.set_location` `{project_id, location, review?}`
+  binds a project to another folder. The project's `location` then reads `{path, name, created}`.
+  The host refuses a location with `location_not_allowed`, `location_missing` or `location_exists`,
+  and a runtime whose descriptor has `uses_project_location` refuses a start in a project without
+  one with `location_required`, or whose folder has gone with `location_missing`. Runtimes take no
+  folder in their options; the execution's `directory` says where it runs
+  ([ADR 0020](../decisions/0020-a-project-works-in-one-host-approved-folder.md)). `project.create`
+  requires `location` (explicitly null when unbound).
+- **An instruction while a turn runs, to a runtime that cannot steer** (Claude Code and ACP agent
+  apps, [ADR 0056](../decisions/0056-an-instruction-sent-during-a-turn-waits-for-it-on-a-runtime-that-cannot-steer.md)).
+  `execution.send_instruction` is accepted and waits; it is not sent to the runtime during the turn.
+  Only on the person's own journal (`origin: live`), where the queue runs; on a recording's journal
+  it is refused with `capability_unsupported`.
   - At most 3 wait per execution; a fourth is refused with `invalid_state`.
-  - The host says it on the runtime's descriptor: `RuntimeDescriptor.holds_instructions` is true where the
-    queue runs (a live journal) for a runtime that cannot steer but can be instructed at rest, and is never
-    taken from an adapter.
+  - The host sets `RuntimeDescriptor.holds_instructions` true where the queue runs (a live journal)
+    for a runtime that cannot steer but can be instructed at rest, and never takes it from an
+    adapter.
   - `execution.instruction.queued` (`command_id`, `position`) records it. `ExecutionView.queued_instructions`
     lists the waiting ones, oldest first, as `{command_id, queued_at}` without the words, and is absent when
     none waits.
@@ -168,42 +168,47 @@ client                                   server
     its send begun: it leaves `queued_instructions` then, and can no longer be dropped or failed unsent. A
     restart fails what still waits as `queued_stopped`, effect `none`.
   - Every one still waiting fails unsent, effect `none`: `queued_turn_failed` after a failed turn;
-    `queued_stopped` after a Stop, or a turn interrupted or cut by a restart; `queued_session_lost`;
+    `queued_stopped` after `Stop`, or a turn interrupted or cut by a restart; `queued_session_lost`;
     `queued_files_restored` after a restore is accepted.
   - `execution.drop_queued_instruction` `{execution_id, command_id}` (low consequence) fails one that waits,
     with `queued_dropped`; one not waiting is refused with `invalid_state`.
   - While one waits, the project has a pending command, so the automatic check and the fix loop wait for the
     turn that takes the last one. A runtime that steers (Codex, OpenCode) takes the instruction in its running
-    turn, as before.
-- **A picture the person gives** (ADR 0058, amended). `POST /api/pictures` with `content-type` image/png, image/jpeg
-  or image/webp and the bytes (at most 5 MiB) answers 201 `PictureGivenResponse` `{picture: {id, media_type,
-  size_bytes}}`, 422 for what is not a whole picture, 413 past the size, 503 where none are kept. An attachment
-  `{kind: 'given', picture: id}` then goes with an instruction as a folder's picture does, with no folder needed.
-- **Pictures with an instruction** (ADR 0058). `execution.start` and `execution.send_instruction` take
-  `attachments`: at most 4, each `{path, kind: "image"}`, a path of the project's folder.
+    turn.
+- **A picture the person gives** ([ADR 0058](../decisions/0058-an-instructions-pictures-come-from-the-projects-folder-and-reach-the-runtime-as-the-bytes-the-host-read.md)).
+  `POST /api/pictures` with `content-type` `image/png`, `image/jpeg` or `image/webp` and the bytes
+  (at most 5 MiB) answers 201 `PictureGivenResponse` `{picture: {id, media_type, size_bytes}}`, 422
+  for what is not a whole picture, 413 past the size, 503 where none are kept. An attachment
+  `{kind: 'given', picture: id}` then goes with an instruction as a folder's picture does, with no
+  folder needed.
+- **Pictures with an instruction** ([ADR 0058](../decisions/0058-an-instructions-pictures-come-from-the-projects-folder-and-reach-the-runtime-as-the-bytes-the-host-read.md)).
+  `execution.start` and `execution.send_instruction` take `attachments`: at most 4, each
+  `{path, kind: "image"}` for a path of the project's folder (alongside `given` and `media`
+  attachments).
   - Admission refuses them with `capability_unsupported` for a runtime whose descriptor lacks
-    `takes_pictures`, and with `location_required` for a project without a folder.
+    `takes_pictures`, and refuses folder pictures with `location_required` for a project without a folder.
   - The host reads each once when the instruction is sent: PNG, JPEG or WebP by its first bytes, whole by its
-    structure, at most 5 MB, never through a link, a withheld name or Halcyonic's own data.
+    structure, at most 5 MB, never through a link, a withheld name or Halora's own data.
   - One it cannot read fails the command, effect `none`, nothing sent, with `picture_not_found`,
     `picture_withheld`, `picture_too_large` or `picture_not_a_picture` and words that name it.
   - `execution.instruction.pictures_read` (`command_id`, and each picture's `path`, `media_type`, `size_bytes`,
     `sha256`) records what was read, never the bytes, before the runtime is given them.
   - `RuntimeModel.picture_input` says whether the runtime's list says a model takes pictures; OpenCode refuses,
     with no effect, a model it lists as text only.
-- **A task's usage** (protocol 3). `WorkstreamView.usage` is what the task's runs reported they used, summed by the same
-  rule as `ProjectView.usage` (`projectUsage` over that task's executions), made on read, absent until one reports.
-- **Watch It Work** (protocol 3). While a turn runs, the host watches the run's folder and records
+- **A task's usage.** `WorkstreamView.usage` is what the task's runs reported they used, summed by the same
+  rule as `ProjectView.usage` (`projectUsage` over that task's executions), computed on read, absent until one reports.
+- **Watch It Work.** While a turn runs, the host watches the run's folder and records
   `execution.files.writing` (newest 20 paths, a count) at most every two seconds; `ExecutionView.writing` holds the
   latest until the next turn starts. `GET /api/projects/:project_id/file` takes an optional `workstream_id`: then the
   file is read in that task's own copy (else the project's folder), only for a path the task's latest run's `writing`
   names, at most 4 reads a second per task (429 past it), with the same reader and redaction as without it.
-- **Photos and videos in a project** (ADR 0066, protocol 3). The Mac's own page keeps the person's file by its
-  SHA-256; `project.media.add {project_id, media}` (title Add Media, one press, never said) then copies it into
-  the project's folder under a name the host chooses. Admission refuses it with `location_required` for a project
-  without a folder, `invalid_state` while the project is busy (it is one of the commands that write the folder),
-  and `media_full` at `MEDIA_PER_PROJECT` (50) or `MEDIA_FOLDER_BYTES` (240 MB, the files made from them
-  counted); the host refuses `media_not_kept` and `media_present`.
+- **Photos and videos in a project** ([ADR 0066](../decisions/0066-a-persons-photo-or-video-goes-into-the-projects-folder-as-a-copy-without-its-place.md)).
+  The Mac's own page keeps the person's file by its SHA-256; `project.media.add {project_id, media}`
+  (`Add Media`, one press, not sayable by the assistant) then copies it into the project's folder
+  under a name the host chooses. Admission refuses it with `location_required` for a project without
+  a folder, `invalid_state` while the project is busy (it is one of the commands that write the
+  folder), and `media_full` at `MEDIA_PER_PROJECT` (50) or `MEDIA_FOLDER_BYTES` (240 MB, derived
+  files counted); the host refuses `media_not_kept` and `media_present`.
   - `project.media.added` records the written file (`path`, `media_type`, `size_bytes`, `sha256`, never the
     person's file name or anything read from inside it), then `project.media.prepared` its stills, its play copy
     for a video, or why not (`tool_missing`, `tool_changed`, `unreadable`, `timed_out`, `too_long`, `too_large`, `no_room`). The command
@@ -213,76 +218,59 @@ client                                   server
   - An instruction's `attachments` take `{kind: 'media', path}` of one of them. Admission refuses a path that is
     none of the project's, and more than 4 pictures once a video's stills are counted for a runtime that takes
     pictures. A runtime that takes pictures gets the stills; every runtime gets one line of the host's after the
-    person's words saying where the file and its copies are, then once a line saying the media is the person's
-    reference for what to make, shown as a picture only where their words ask (ADR 0066, amended). `execution.instruction.media_given` (`command_id`,
-    each medium's `path`, `media_type`, `stills_given`, and `line_added`) records it before the runtime is given
-    the instruction, never the line's text; `ExecutionView.media` holds each medium given, with its first still.
-- **What can be done here** (ADR 0060). `GET /api/actions?project_id=&workstream_id=&execution_id=` (all
-  absent for all work; a task's scope names its project and its current execution) answers `HereResponse`
-  `{scope, position, actions}`: what the host would admit there now, in its order, the main action first.
-  - Each `command` entry: `command_type`, `title`, `description`, `confirm` (`none`, `undo` with its `undo`
+    person's words saying where the file and its copies are, plus a note that the media is the person's
+    reference for what to make, shown as a picture only where their words ask. `execution.instruction.media_given`
+    (`command_id`, each medium's `path`, `media_type`, `stills_given`, and `line_added`) records it before the
+    runtime is given the instruction, never the line's text; `ExecutionView.media` holds each medium given, with
+    its first still.
+- **What can be done here** ([ADR 0060](../decisions/0060-the-computer-says-what-can-be-done-here.md)).
+  `GET /api/actions?project_id=&workstream_id=&execution_id=` (all absent for all work; a task's scope names its
+  project and its current execution) answers `HereResponse` `{scope, position, actions}`: what the host would admit
+  there now, in order, the main action first.
+  - Each `command` entry carries `command_type`, `title`, `description`, `confirm` (`none`, `undo` with its `undo`
     command, or `review`), `sayable`, and `needs` (`name`, `kind`, `label`, `required`, `list`, `max`). A `list`
-    entry opens one of the host's lists (a project's tasks, its versions).
-  - It is computed by the one admission in a probe mode (`admitHere`): only what the scope binds is given, so a
-    check of a value the person still gives waits for the whole admission, and the list never offers what that
-    admission refuses for the state. The command service then leaves out what this host cannot do at all.
-  - A scope whose ids do not hold together lists nothing; ids that are not ids are refused with 400. A client reads
-    it again once the journal passes `position`.
-  - `GET /api/actions/choices?list=&<the scope's ids>` answers `ChoicesResponse` `{scope, list, position, digest,
-    rows, total, default}`: one of the host's lists, at most 32 rows, each `{index, kind, label, detail, theirs,
-    actions}`, and never the id a row stands for. `default` is the row the host takes where the person names none,
-    from its own facts, or null (2026-11-13, the recap is the review): `runtimes`, of the rows offering a start, only
-    the real agent apps (the descriptor's declared `synthetic` tells the practice run apart, never a name), exactly
-    one taken, with more the app of the newest real run in the scope's project, then anywhere; `models`, read for
-    one app with `&runtime=<its row's index>&runtimes=<that list's digest>` (that app's models alone, with their own
-    digest; a changed `runtimes` list answers 409 `choices_changed`), exactly one taken, with more the model of the
-    newest real run of that app; `folders`, the first new folder; every other list none, `starters` (each
-    starter set up on this computer, by its title, for a new project's new folder) among them. A practice or simulated
-    run never seeds a default. A row of `versions`, `secrets`, `queued_instructions`, `approvals`,
-    `runtimes` or `catalog` names only the commands the whole admission takes it for, the host's checks included
-    (an agent not kept to one folder starts no task that works in its own copy); a refusal about another need, such
-    as a model still to choose, is not the row's. A row left with none says why in `detail`, the admission's words.
-    Today: `tasks`, `versions`, `runtimes`, `approval_levels`, `share_ways`,
-    `secrets`, `queued_instructions`, `approvals`, `decisions`, `questions`, and `pictures` (the folder's pictures
-    as the pictures read finds them, each given to an instruction as `{path, kind: 'image'}`), and `models` (every
-    model of every runtime that lists its own, each row's `detail` naming its runtime; the start's admission and
-    the runtime check the pair against a fresh list. Where the runtime's latest execution failed with
-    `credential_refused` since this host read its credentials, the hosted models (`served: remote`) of the same
-    declared provider (`RuntimeModel.provider`; where the runtime names none, all its hosted models) are shown with
-    no action and the detail says the key was refused, while another provider's and its models on this Mac stay
-    offered; a refusal from before that is unknown, so they are offered and the detail says it. A model that names
-    its provider is also asked of the provider itself before any start, by the same no-spend metadata read the
-    assistant makes (`KeyChecks`, kept ten minutes per key): a refusal shows at once, and a key the provider takes
-    settles a refusal from before), and `own_check_scripts` (each script by name with its command
-    as read now; the choice carries the command's digest), and `folders` (first a new folder in each available root,
-    then the roots' folders no project uses, newest change first; a used folder is never offered, and New Project's
-    new folder takes its name from the project's, made folder-safe by the host as
-    the field's `completes` in `COMMAND_FIELDS` says; Make VR Version takes a new
-    folder row's root, as its field's `takes` says, and an existing folder is no place for one).
-    `catalog` is every repository of the person's catalog as read now (archived ones left out, each row's detail
-    its project's name), for Link to Catalog; a sample's rows offer nothing and say why, and with no catalog set up,
-    or one that cannot be read, it answers 404 `read_unavailable`.
+    entry opens one of the host's choice lists.
+  - Computed by the single admission function in probe mode (`admitHere`): only scope-bound fields are supplied, so
+    validation of user-supplied values waits for full admission, and the list never offers what state admission would
+    refuse. `CommandService` then filters out commands unconfigured on this host. A scope whose ids do not nest lists
+    nothing; malformed ids return 400. Clients re-read once the journal advances past `position`.
+  - `GET /api/actions/choices?list=&<scope ids>` returns `ChoicesResponse` `{scope, list, position, digest, rows,
+    total, default}`: at most 32 rows (`{index, kind, label, detail, theirs, actions}`), never exposing internal row
+    ids:
+    - `default` names the row selected when the person names none, or null: for `runtimes`, the sole offering real
+      runtime (excluding `synthetic`), or the runtime of the newest real run in the project and then across all work;
+      for `models` (queried per runtime via `&runtime=<index>&runtimes=<digest>`, returning 409 `choices_changed` if
+      `runtimes` changed), the sole model or the model of that runtime's newest real run; for `folders`, the first
+      new-folder row; null for every other list (`starters` included). Synthetic runs never seed a default.
+    - Rows in `versions`, `secrets`, `queued_instructions`, `approvals`, `runtimes` and `catalog` list only commands
+      admitted for that row (host checks included: an unconfined runtime cannot start a task copy); rows with no
+      admitted action explain why in `detail`.
+    - Supported lists: `tasks`, `versions`, `runtimes`, `starters`, `approval_levels`, `share_ways`, `secrets`,
+      `queued_instructions`, `approvals`, `decisions`, `questions`, `pictures` (folder images from the picture
+      listing), `own_check_scripts` (each script name and command with its digest), `folders` (a new-folder row per
+      available root first, then unused root folders newest first; `New Project` derives a folder-safe name via
+      `completes` in `packages/domain/src/command-fields.ts`, and `Make VR Copy` takes a new-folder root via `takes`), `catalog` (non-archived
+      repositories for `Link Repository`; sample rows offer no action, and missing or unreadable catalogs return 404
+      `read_unavailable`), and `models` (listed per runtime with runtime checks at admission and start; remote models
+      whose provider key failed `credential_refused` after the host read its credentials, or failed the cached 10-minute
+      no-spend provider metadata probe `KeyChecks`, show no action and state why in `detail`, while a passing probe
+      clears a prior refusal).
   - One preparation (`CommandService.prepare`) builds a command from `{scope, command_type, values, read}` for a
-    person's press and the assistant's proposal alike: only a command the scope offers now; the scope's ids and the
-    host's fills (`options: {}`); each need's value, a choice by its index in a list whose digest is still the one
-    read (`choices_changed` otherwise); an id given for any other field is refused. A review field is left for the
-    review. The command meets its own validator there, and the whole admission when submitted.
-  - One review (`buildReview` in core/reviews.ts) for every command whose `confirm` is `review`: `ActionReview`
-    `{command_type, digest, confirm_words, what_happens, facts (at most 4), items, items_total, warnings}`, every
-    word the host's, kinds from `ReviewKind`. One reader per command type: Send and Publish read through the same
-    functions their routes answer with, Restore through its preview, Add from the task's copy's reading, Change
-    Folder, Project Rules, Share and Choose Check from their own facts. The digest is the one the button's own
-    review gives (ADR 0051), so a command carrying it back is admitted exactly as from a button. Add's review warns
-    (`provider_declaration`) for each changed file that is a hosted provider's declaration the host would read
-    (ADR 0061): a new address its key goes to, a key kept or sent another way, a provider added or removed; where
-    more files changed than were listed, it says a provider among them is not looked for
-    (`provider_declaration_unread`).
-  - Take Down is one press (R1): the preparation fills its `commit` from the host's own record of what it
-    published, never from a proposer, and its admission refuses one published again since. Remove Secret is
-    reviewed (`review_required`, confirm `review`), since its value cannot be brought back; Save a Copy is done on
-    its press (`low_consequence`). A reviewed policy with one press stays only where the press is the decision:
-    Stop, Approve or Deny, a secret typed in its own field, and Take Down.
-  - A starter the host's catalog cannot read has no build to check (AUDIT2 S1).
+    person's press and an assistant proposal alike: only commands currently offered in `scope`; scope ids and host
+    defaults (`options: {}`); each need resolved by list index against a matching `digest` (`choices_changed`
+    otherwise); raw ids on other fields refused; `review` populated at review time.
+  - One review builder (`buildReview` in `core/reviews.ts`) produces `ActionReview` `{command_type, digest,
+    confirm_words, what_happens, facts (at most 4), items, items_total, warnings}` (`ReviewKind`, all host words) for
+    every command with `confirm: 'review'`: `Send for Review` and `Publish` reuse their review routes, `Restore` uses
+    its restore preview, `Add to Project` uses the task copy's reading (warning with `provider_declaration` or
+    `provider_declaration_unread` when `providers/<id>/provider.json` changes,
+    [ADR 0061](../decisions/0061-a-hosted-provider-is-one-declaration-file-the-host-reads.md)), and `Change Folder`,
+    `Project Rules`, `Share` and `Choose Check` build from their own facts. The digest matches the button review's
+    digest ([ADR 0051](../decisions/0051-a-paired-device-acts-on-files-only-with-the-review-it-read.md)).
+  - `Take Down` acts on one press (`prepare` fills `commit` from the host's published record and admission refuses a
+    stale commit); `Remove Secret` uses `confirm: 'review'`; `Save a Copy` is `low_consequence`. One-press
+    `review_required` commands are limited to `Stop`, `Approve`, `Add Secret` (typed in its own field) and `Take Down`.
+  - A starter unreadable from the host's starter catalog has no build to check.
 - **A project's own rules** (ADR 0059). `GET /api/projects/:project_id/rules` reads the project's `AGENTS.md`,
   else its `CLAUDE.md`, at its folder's top: `file`, `state` (`none`, `off`, `on`, `changed`, `too_large`,
   `unreadable`), `size_bytes`, the `text` whole (at most 32 KB) and its `review`.
@@ -310,16 +298,16 @@ client                                   server
   file again and found the folder equal; otherwise `project.restore_incomplete` and a failure,
   effect `unknown` once a file was written
   ([ADR 0036](../decisions/0036-halcyonic-undoes-a-tasks-changes-from-checkpoints-it-keeps.md)).
-- **Checking a new app.** `project.check` `{project_id}` asks the host to check a project made from a
-  starter: type check, build, and the built copy opened for 10 s in its sandboxed browser. It
+- **Checking a new app.** `project.check` `{project_id, workstream_id?}` asks the host to check a project made from a
+  starter (or that task's own copy when `workstream_id` is given): type check, build, and the built copy opened for 10 s in its sandboxed browser. It
   completes with `{kind: 'project_checked', check_id, passed, ready}` once `project.check.recorded` is
-  journaled, whatever the check found; `passed` never means the game works, and `ready` (absent on
-  checks from before M1.8b) adds the laptop and VR-entry steps, never a headset. `project.preview.start`
-  `{project_id}` serves the built copy of the latest passed check on a loopback port and completes
+  journaled, whatever the check found; `passed` never means the game works, and `ready`
+  adds the laptop and VR-entry steps, never a headset. `project.preview.start`
+  `{project_id, workstream_id?}` serves the built copy of the latest passed check (of the project or of that task's own copy) on a loopback port and completes
   with `{kind: 'preview_started', check_id, port}` only once the server itself answers with that copy;
-  clients open `http://127.0.0.1:port`, never `localhost`. One start per project at a time, and none
-  while its check runs; `project.preview.stop` stops it. Both are refused
-  with `capability_unsupported` when checks are off and `invalid_state` otherwise as DOMAIN_MODEL.md
+  clients open `http://127.0.0.1:port`, never `localhost`. One start per folder at a time, and none
+  while its check runs; `project.preview.stop` `{project_id, workstream_id?}` stops it. Both are refused
+  with `capability_unsupported` when checks are off and `invalid_state` otherwise as [DOMAIN_MODEL.md](DOMAIN_MODEL.md)
   says ([ADR 0037](../decisions/0037-new-vr-apps-start-from-a-host-vetted-web-starter.md)).
 - **Playing on the Mac.** `project.open_on_mac` `{project_id}` plays the copy the running preview
   serves in the host's contained browser and completes once `project.mac_play.started` is journaled.
@@ -331,15 +319,15 @@ client                                   server
   the viewer closes it tells its page why the game ended, and it tells the page the game's sound as
   the computer shows it: playing, paused, or none at all.
   It is refused with `capability_unsupported` when no browser for it is set up, and `invalid_state`
-  otherwise as DOMAIN_MODEL.md says. The play stops, and `project.mac_play.stopped` says why, when
+  otherwise as [DOMAIN_MODEL.md](DOMAIN_MODEL.md) says. The play stops, and `project.mac_play.stopped` says why, when
   its viewer closes, when no viewer comes within 60 s, with the preview, on a newer check and with
-  the host (P-A).
+  the host.
 - **Sharing a game.** `project.share.start` `{project_id, way}` gives the project's running preview
   an address: `link`, a temporary public `https://` one; `wifi`, the Mac's own on its local network,
   over plain `http://`, from which a game cannot enter VR. It completes with `share_started`
   (`check_id`, `url`, `way`) once the address answered; `project.share.stop` ends it. It fails
   `unavailable` when no previews or, for a link, no pinned tunnel program is set up, `no_network`
-  off any network, and is refused `invalid_state` otherwise as DOMAIN_MODEL.md says. The share stops
+  off any network, and is refused `invalid_state` otherwise as [DOMAIN_MODEL.md](DOMAIN_MODEL.md) says. The share stops
   with the preview, its tunnel or listener and the host too, and `project.share.stopped` says why.
 - **Choosing a model.** `execution.start` carries `model_ref`: null, or a model's reference exactly
   as `GET /api/runtimes/:runtime_id/models` gave it. A start without one on a runtime whose
@@ -347,9 +335,8 @@ client                                   server
   choose never runs. A choice for a runtime whose `model_choice` is
   `none` is rejected with `capability_unsupported`, and one the runtime does not list with
   `invalid_runtime_options`; a model that leaves the runtime's list before the start fails it with
-  `model_unavailable`, before anything runs. The field was added as an explicit null without a new
-  protocol or schema version, because no client in the field sends `execution.start`; commands
-  stored before it read as `model_ref: null`
+  `model_unavailable`, before anything runs. Stored `execution.start` commands migrated from legacy
+  journals carry `model_ref: null`
   ([ADR 0016](../decisions/0016-a-person-chooses-a-runtimes-model-from-its-own-list.md)).
 - **Answering an agent's question.** An execution's view lists `pending_questions`, each
   `{question_id, prompts, answerable, asked_at}`; a prompt is `{key, header, text, options:
@@ -441,8 +428,8 @@ Revoking a device applies to what it already has open, not only to its next requ
 
 The listener waits 5 seconds for a TLS handshake and 10 for a whole request, headers and body,
 closes a connection on which nothing moves for 60 seconds, which outlasts the slowest route's
-answer, or idle between requests for 5, and holds 32 connections at once, 8 of them from any one
-address. A WebSocket it closes waits a second for the client's answer. A device holds
+answer, or idle between requests for 5, and holds 128 connections at once, 40 of them from any one
+address (with 8 overflow slots answered 503 `too_many_connections` before closing). A WebSocket it closes waits a second for the client's answer. A device holds
 at most 4 realtime connections; another is refused with the fatal error `too_many_connections`.
 
 ## Pairing: `GET /pair`
@@ -509,11 +496,11 @@ for privacy, capture and source-memory limits and the coordinator's separate bou
 
 ## Project reads
 
-Five read-only routes let the headset see a project's work and history for any runtime. Each takes `journal_id`
+Seven read-only routes let the headset see a project's work and history for any runtime. Each takes `journal_id`
 (the current journal) and requires an owner-journal principal; a malformed id, path or extra query
 field is 400, and anything not found, not allowed or not set up is the same 404 `read_unavailable`.
 Every text in them is outside words, from the project's files or its build, as `source` says
-(`project_files`, `check_output`), and loses exact copies of the secrets Halcyonic holds (SECURITY.md).
+(`project_files`, `check_output`), and loses exact copies of the secrets Halora holds ([SECURITY.md](SECURITY.md)).
 
 - `GET /api/projects/:project_id/history?limit&before`: the project's history, newest first, at
   most `limit` entries (1 to 50, 20 when absent), older than the entry `before` names (an unknown one
@@ -531,7 +518,7 @@ Every text in them is outside words, from the project's files or its build, as `
   lines added and removed (null for a binary file), sorted by path, at most 200, `files_total` and
   `complete` saying when there were more. A task's change is its `before_task` checkpoint to its
   last `after_turn` one. With `to` left out (the response's `to` is then null), `from` is compared
-  with the folder it was taken of as it is now: that folder is read into a tree in Halcyonic's
+  with the folder it was taken of as it is now: that folder is read into a tree in Halora's
   checkpoint store, as a checkpoint is and within a checkpoint's file and byte bounds, after any
   checkpoint or restore of the project already under way, and no checkpoint is recorded. A folder
   no longer there, no longer allowed or past the bounds is the 404. That read hashes every file, so
@@ -542,25 +529,24 @@ Every text in them is outside words, from the project's files or its build, as `
   most 64 KiB and 2,000 lines, `complete` false when cut; null for a binary file and for a file
   whose name says it may hold secrets (`withheld`). A file that did not change is 404. `to` left out
   compares with the file as it is now, as above.
-- `GET /api/projects/:project_id/file?path`: one file of the project's folder as it is now, a
+- `GET /api/projects/:project_id/file?path&workstream_id=`: one file of the project's folder as it is now, a
   project-relative path: `text` (valid UTF-8 without NUL, at most 256 KiB, given whole), `binary`,
   `too_large` or `withheld`, with its size and modification time; never through a link, outside the
-  folder or inside Halcyonic's own data. It reads the project's own folder only, never a task's copy
-  (ADR 0045): a task's work not yet added is not there, so a screen must not show this file as the
-  task's.
+  folder or inside the host's own data. Without `workstream_id` it reads the project's own folder only
+  ([ADR 0045](../decisions/0045-each-task-works-in-a-copy-of-its-own.md)); with `workstream_id` it reads only paths named in that task's latest run's `writing` inside that task's own copy (`Watch It Work` above, at most 4 reads a second per task).
 - `GET /api/projects/:project_id/pictures`: the pictures of the project's folder an instruction may carry
-  (ADR 0058), sorted by path: the first 200 with their path, `media_type` (PNG, JPEG or WebP by their first
+  ([ADR 0058](../decisions/0058-an-instructions-pictures-come-from-the-projects-folder-and-reach-the-runtime-as-the-bytes-the-host-read.md)), sorted by path: the first 200 with their path, `media_type` (PNG, JPEG or WebP by their first
   bytes), size and modification time, and `pictures_total`. Never larger than 5 MB, through a link, a hidden
-  or withheld name, `node_modules`, or Halcyonic's own data.
+  or withheld name, `node_modules`, or Halora's own data.
 - `GET /api/projects/:project_id/picture?journal_id&path`: one picture of the project's folder as its bytes, with its
-  type, read as an instruction's picture is (ADR 0058: whole PNG, JPEG or WebP, at most 5 MB, never through a link, a
-  withheld name or the host's own data), for a still of a photo or video the headset draws (ADR 0066). 404
+  type, read as an instruction's picture is ([ADR 0058](../decisions/0058-an-instructions-pictures-come-from-the-projects-folder-and-reach-the-runtime-as-the-bytes-the-host-read.md): whole PNG, JPEG or WebP, at most 5 MB, never through a link, a
+  withheld name or the host's own data), for a still of a photo or video the headset draws ([ADR 0066](../decisions/0066-a-persons-photo-or-video-goes-into-the-projects-folder-as-a-copy-without-its-place.md)). 404
   `media_gone` for one of the project's photos or videos or their stills whose file is no longer there, 404
   `picture_not_found` for anything else it does not read.
 - `GET /api/projects/:project_id/checks/:check_id/output?step=typecheck|build`: a step of one of the
   project's checks as its own folder holds it, its exit (null when it did not run) and at most 200
   lines of at most 300 characters, cleaned as the agent's copy is: no terminal sequences or unseen
-  characters, the project's folder as `.`, Halcyonic's data folder and the home folder by name.
+  characters, the project's folder as `.`, Halora's data folder and the home folder by name.
 
 ## Send to GitHub's review
 
@@ -605,17 +591,18 @@ device alike:
 
 ## Workspace request upgrade order
 
-Since 2026-11-10 `workspace.request.submit` may name a project alone (`workstream_id` and
-`execution_id` both null) for a read-only whole-project request, or nothing (all three null) for a
-read-only request about all of the person's work; any other mix is refused. A request view's and request events' task fields are then null, so clients that read them
-need the regenerated bindings first.
+`workspace.request.submit` may name a full task tuple (`project_id`, `workstream_id`, `execution_id`),
+a project alone (`workstream_id` and `execution_id` both null) for a read-only whole-project request,
+or nothing (all three null) for a read-only request across all of the person's work; any other mix is
+refused. Request views and request events carry null task fields for project-wide and workspace-wide
+requests, so clients that read them require current generated bindings.
 
-The journaled general request coordinator adds `workspace.request.submit`, `.resume` and `.cancel`
-to every welcome policy catalogue, and adds request lifecycle events to realtime/history. An older
-generated C# client can reject these enum variants during welcome before a request is submitted.
-These additions are coordinated development changes, not a promise of backward compatibility.
-Install and validate the regenerated client against an isolated updated host first, then update the
-live control plane. Do not restart the current live host underneath an older installed client.
+The journaled request coordinator includes `workspace.request.submit`, `.resume` and `.cancel` in
+every `welcome` policy catalogue and emits request lifecycle events over realtime and history.
+Generated C# clients lacking those enum variants reject `welcome` before any request is submitted.
+When rolling out contract enum additions, install and validate the regenerated client against an
+isolated updated host first, then update the live control plane; never restart the live host
+underneath a client with older bindings.
 
 `GET /api/workspace/agent` verifies configured local model/tool availability without inference.
 A missing route on an older host is unavailable, and request words remain an ordinary local draft.

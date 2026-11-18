@@ -1,149 +1,140 @@
 # A headset session
 
-One session on a Meta Quest, with build evidence and wearer acceptance recorded separately.
-Passing an editor render or installing an APK does not establish usability. The current workspace
-journey below replaces the character-first entry and fixed window arrangements from earlier sessions.
-The rest of this runbook covers the access token, the demonstration's first
-visit, the loopback proof, the glance, the menu plane's comfort, motion, the words Hold to talk
-writes for one word, labels that read alike, Codex on a local model, a paired request that times
-out, the judge's path and the experience from the eyes, and points to the other checks on a Quest to
-fit in where time allows.
-A check for work not yet on main says "if present" and how to tell; where the session's commit
-lacks it, record "not in this build" and go on. Each step says what to do, what to look at, what passes, and where to
-record it. Setup happens once at the start and teardown once at the end; the few steps that change
-the setup on purpose say how to put it back.
+Ordered verification procedure for a single session on a Meta Quest, recording build evidence and
+wearer usability separately. Passing an Editor render or installing an APK does not establish
+usability on hardware.
 
-What needs no person is in one command, run whenever a step says so:
+This runbook covers workspace acceptance, private token storage, the demonstration's first visit,
+loopback proof verification, the 2D glance window, workspace comfort, motion, single-word speech
+transcription, Unicode label normalization under IL2CPP, Codex on a local model, Wi-Fi paired
+request timeouts, the release demonstration walk, and spatial presence and audio, plus unattended
+automation via `pnpm quest:check` and `pnpm quest:device`. Setup runs once at the start and teardown
+once at the end ([Close](#close)); steps that intentionally alter state specify how to restore it.
+
+Run the automated state check whenever a step calls for it:
 
 ```bash
 pnpm quest:check
 ```
 
-It prints one line per check, each a plain pass or FAIL, and exits 1 when any fails:
-- one Halcyonic `adb reverse` mapping, 47800 to 47800, with unrelated routes preserved;
-- the access token files in the app's private storage at mode 600 and 44 bytes, read with `stat`
-  through `run-as`, and no `.tmp` file a write left before its move;
-- nothing at the token's old place on shared storage;
-- from the running app's own log lines since it started: what the token's move did, whether the
-  connection is live (the control plane proved it holds the token), the glance's last poll, and no
-  cleartext or StrictMode line.
+It prints one `pass` or `FAIL` line per invariant and exits `1` if any fails:
 
-It reads modes and sizes only, never a token or a file's contents, and repeats no log line. A step
-that expects something else says so: `--expect unproved` (or `refused`, `not-loopback`,
-`unreachable`, `none`) for the connection, `--move moved` (or `kept`, `released`, `not-a-token`,
-`nothing`) for the move, `--release` on the release build, and `--closed` at the end. It reads the
-log since the app started. The app says at its start what the move did, "nothing was at the access
-token's old place" included (builds from 2026-10-04), and the check reads the move only from that
-line. Where it isn't there, the move line says it can't be judged from this log, a FAIL only where
-the step names a move, and why: the headset's log has dropped the app's start, which it tells from
-times alone (the main log's oldest stamp against the headset's clock less how long the app has run,
-`ps -o ETIME`, and 2 seconds more), or the build is older than the line. Restart the app and check
-at once. A `stat` reads a file as not there only where it names that file, so `run-as` failing to
-reach the app's folder never reads as a file removed.
+- a single Halora `adb reverse` mapping (`47800` to `47800`) with unrelated routes preserved;
+- app-private access token files at mode `600` and `44` bytes (`stat` via `run-as`), with no
+  leftover `.tmp` file;
+- no token file at `/sdcard/Android/data/com.halcyonic.xr/files/access-token`;
+- from the running process's `logcat` lines after app launch: startup shared-storage migration
+  outcome, live proved connection, latest glance poll, and zero `cleartext` or `StrictMode` lines.
 
-Rules for the whole session:
-- Never print, paste or `cat` a token. Nothing here needs it.
-- One Halcyonic reverse mapping, 47800 to 47800, and nothing else on the Mac forwarding to 47800 (`ssh -L`,
-  `socat`, a proxy): anything that routes there can relay the control plane's proof
-  ([SECURITY.md](../architecture/SECURITY.md)). Other apps' independent routes stay in place.
-- One adb: `pnpm quest:check` uses Unity's, so put the same one first on the path, or two adb
-  servers take turns and drop the mapping. In the session's terminals:
+`pnpm quest:check` inspects file modes, byte counts, and timestamps only; it never reads or prints
+token contents. Flags override expected states for negative tests: `--expect unproved` (or `refused`,
+`not-loopback`, `unreachable`, `none`), `--move moved` (or `kept`, `released`, `not-a-token`,
+`nothing`), `--release` on a release APK, and `--closed` at teardown. If `logcat` rotated past app
+startup (detected by comparing the oldest main-log timestamp against `ps -o ETIME`), restart Halora
+and re-run `pnpm quest:check` immediately.
+
+Session rules:
+
+- **Never print, paste, or `cat` a token.**
+- **Single loopback route:** keep exactly `adb reverse tcp:47800 tcp:47800` and run no local forwarder
+  to port `47800` (`ssh -L`, `socat`, proxies), which could relay loopback challenge proofs
+  ([SECURITY.md](../architecture/SECURITY.md)). Leave unrelated ports untouched.
+- **Single ADB binary and isolated Editor server:** put Unity's `adb` first on `PATH` (or set
+  `HALCYONIC_ADB`) so `adb` versions match `pnpm quest:check`, and run Android Editor builds on an
+  isolated no-device server ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md#build)):
+
   ```bash
   export PATH="/Applications/Unity/Hub/Editor/6000.3.25f1/PlaybackEngines/AndroidPlayer/SDK/platform-tools:$PATH"
   ```
-  (`HALCYONIC_ADB` points the tools at another adb, if the owner uses another.) Isolate Android
-  editor jobs on a private no-device server as [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md#build)
-  describes; do not stop the shared server.
-- Sit, or set a roomscale boundary. Leaning out of a stationary boundary made everything vanish in
-  the sixth session, with no focus change logged; the boundary showing passthrough in the app's
-  place is likely, not verified ([quest-3-device.md](../validation/quest-3-device.md)).
-- Run the control plane without `--watch` (`pnpm start`), so a merge doesn't restart it mid-session.
-- Keep captures out of the repository. `adb exec-out screencap` does not work on a Quest; Meta's
-  capture service saves the wearer's view, so whoever is at the Mac runs this where a step says
-  "capture", and the pictures are pulled once at the end ("Close"):
+
+- **Boundary:** sit, or set a roomscale boundary; leaning outside a stationary Guardian boundary
+  causes Horizon OS to replace the app view with passthrough without logging a focus change
+  ([quest-3-device.md](../validation/quest-3-device.md)).
+- **Control plane:** run `pnpm start` (without `--watch`) so file edits cannot restart it mid-session.
+- **Captures:** keep captures out of git. `adb exec-out screencap` does not capture Quest views;
+  trigger Meta's capture service and pull stills during [Close](#close):
+
   ```bash
   adb shell am startservice -n com.oculus.metacam/.capture.CaptureService -a TAKE_SCREENSHOT
   ```
-  A capture is a still: for motion, write down what you saw.
-- Record as you go, in the record each step names. At the end, move what was shown from "Not
-  verified" to "Verified" with the date, the main commit and the headset's model and OS build, and
-  resolve each answered row of [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md) as its own rule says.
 
-## Current workspace acceptance
+- **Evidence:** record results in the validation file named by each step with the git commit, date,
+  headset model, and Horizon OS build, and update resolved rows in
+  [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md).
 
-Use the exact candidate APK and record its commit, headset model and OS. These are acceptance
-requirements, not a claim that the current candidate passed them. A missing path or an unreadable
-control is a failure of this journey, even if a lower-level check passed.
+## Workspace acceptance
 
-1. **Find work without characters.** Launch with Spatial agents off. Projects and Tasks are
-   available immediately. Find an existing project, open a task and identify its state and whether
-   its source is live or simulated. Repeat with an empty project list and a disconnected host.
-2. **Keep context.** Open activity, changes and tests from that task. Identify what is observed,
-   reported or unavailable. Open another task and return. Both ordinary instruction drafts remain
-   with their original tasks; changing execution does not move old text into the new run.
-3. **Clear the workspace.** Minimize with a draft open. All workspace panels, peeks and optional
-   agents leave one dock. Restore the selected task and draft. A previously read or armed approval
-   must require a fresh read and deliberate action.
-4. **Place agents deliberately.** Enable Spatial agents and preview a shelf. Apply and Cancel have
-   distinct visible results. Move the shelf by hand; its bodies visibly contact it. Try a pose
-   overlapping the console and the edge of the reading field. It must be refused with a reason.
-   Opening a task from a character must not move the console. Repeat with larger text.
-5. **Work beside another app.** Open Other apps. Verify the real protected native panel is visible
-   and readable, then a supported 2D app and an immersive app separately. Inspect a task and perform
-   one supported action on designated test work. Record acceptance and runtime confirmation
-   separately. A synthetic screenshot preview does not prove the protected panel is visible.
-6. **Return safely.** Edit an ordinary native-panel draft and return to Workspace. Verify selection
-   and text after fresh synchronization, then repeat across app pause and a controlled Halcyonic
-   process restart. Test a failed save without deleting the previous records: show the unsaved
-   state and retain the draft. No question answer, secret, read proof or armed confirmation returns.
-7. **Check focus.** Leave a review for another window, then return; the old confirmation cannot act.
-   Change the task's current execution while a review is open. A retained callback must not target
-   the replacement run. Ordinary text remains recoverable.
-8. **Judge the experience.** The wearer identifies the active task, the next available action and
-   how to leave and return without coaching. Record confusion, hand misses, clipping, reading
-   effort and lost context in their words. Those findings can reject a technically passing build.
+Install the target APK and record its commit, headset model, and Horizon OS build. Any missing path
+or unreadable control fails acceptance regardless of lower-level unit or render checks:
 
-Voice currently writes into a selected field in development builds. Exercise correction and focus
-loss using check 6 below. Contextual workspace voice navigation and microphone continuity beside
-other apps remain unimplemented; do not demonstrate them as available controls.
+1. **Find work without characters.** Launch with **Agents** off. Verify **Projects** and **Tasks**
+   are available immediately, inspect an existing project and task, and confirm state and source
+   labels (`Live`, `Practice`, `Demo`, `Recorded`). Repeat with an empty project list and a
+   disconnected host.
+2. **Keep context.** Open **Activity**, **Changes**, and **Checks** on a task and distinguish
+   observed, reported, and unavailable data. Switch to another task and return: verify ordinary
+   instruction drafts stay bound to their original tasks and never carry over to a replacement
+   execution.
+3. **Clear the workspace.** Press **Minimize Workspace** with an unsent draft open; verify panels,
+   peeks, and optional agents collapse to a single dock control, and **Open Workspace** restores the
+   task and draft while requiring a fresh read and confirmation for any pending approval.
+4. **Place agents deliberately.** Enable **Agents** and preview the shelf (**Place Agents** / **Place
+   Shelf**). Verify distinct **Apply** and **Cancel** outcomes, direct **Move Shelf** dragging with
+   character contact, refusal with a stated reason when overlapping the console or field edge, and
+   stationary console placement when opening a task from a character. Repeat at **Larger Text**.
+5. **Work beside another app.** Open **Other Apps** and verify the `FLAG_SECURE`-protected native
+   panel is visible and readable on the headset display alongside both a 2D app and an immersive app
+   (a synthetic screenshot preview does not verify `FLAG_SECURE` visibility). Inspect a task and run
+   one supported action on test work, recording command acceptance and runtime confirmation
+   separately.
+6. **Return safely.** Edit an ordinary draft in the native panel and return to Workspace (**Open
+   Halora**). Verify synchronized selection and draft text across app pause and a controlled Halora
+   control-plane restart, verify failed saves surface unsaved status while retaining the draft, and
+   confirm no question answer, secret, read proof, or armed confirmation transfers across surfaces.
+7. **Check focus.** Switch focus to another window during an open review and return: verify the armed
+   confirmation is cancelled. Replace a task's active execution while a review is open and verify no
+   retained callback targets the replacement run while ordinary draft text remains recoverable.
+8. **Judge the experience.** Without coaching, verify the wearer identifies the active task, next
+   available action, and how to leave and return; record any confusion, hand misses, clipping, eye
+   strain, or lost context verbatim.
+
+In the immersive Unity workspace, **Hold to Talk** ships in every build
+([ADR 0021](../decisions/0021-speech-becomes-a-draft-transcribed-on-the-mac.md)); in the native
+Android panel, **Hold to talk** is exposed in debuggable builds only
+([native-panel-voice.md](../validation/native-panel-voice.md)). Contextual voice navigation and
+background microphone capture beside other apps are not implemented.
 
 ## Prepare, before the headset
 
-1. **One commit.** `git switch main && git pull --ff-only && git log --oneline -1`. Record the
-   commit; the APKs and the control plane all come from it.
-2. **The development APK**, with the Unity editor closed:
+1. **Checkout:** `git switch main && git pull --ff-only && git log --oneline -1`. Build both APKs and
+   run the control plane from this single commit.
+2. **Development APK** (with Unity Editor closed, using isolated Editor ADB from
+   [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md#build)):
+
    ```bash
    /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildDevelopmentApk -logFile ~/Library/Logs/Unity/halcyonic-xr-build.log
    ```
-   Pass: the log's `Halcyonic: built Builds/Halcyonic.apk …` line, which comes after Unity's own
-   `Build Finished, Result: Success.` and the build's glance check (an exit status of 134 after
-   `Exiting batchmode successfully now!` is harmless).
-3. **The release APK**, for the judge's path (check 10), right after, so Unity runs twice before the
-   session and never during it. Leave `HALCYONIC_VERSION_CODE` unset, so it keeps the project's code
-   and installs over the development build and back:
+
+   Pass: `Halcyonic: built Builds/Halcyonic.apk …` after `Build Finished, Result: Success.` (exit
+   status `134` after `Exiting batchmode successfully now!` is benign shutdown teardown).
+3. **Release APK** (for check 10; leave `HALCYONIC_VERSION_CODE` unset so debug-signed development
+   and release builds install over one another cleanly; see [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md),
+   "Before an upload"):
+
    ```bash
    /Applications/Unity/Hub/Editor/6000.3.25f1/Unity.app/Contents/MacOS/Unity -batchmode -quit -projectPath "$PWD/apps/xr" -buildTarget Android -executeMethod Halcyonic.XR.Editor.QuestBuild.BuildReleaseApk -logFile ~/Library/Logs/Unity/halcyonic-xr-release.log
    ```
-   Pass: `Halcyonic: built Builds/Halcyonic-release.apk …` in its log. Both APKs are signed with the
-   same debug key, which is fine on the owner's headset and not for an upload
-   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Before an upload"). Use the editor ADB isolation
-   described there for both builds so other apps' connections survive.
-4. **The control plane from the same commit.** Stop the running one (Ctrl-C in its terminal), then
-   `pnpm start`. Pass: its `control plane ready` line.
-5. **The Mac's side.** `pnpm mac-setup`: read what it says of the folders, the agent apps, the local
-   models (Ollama answering), voice, the companion and Salidium's credential. Ollama runs as
-   [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md) says (`OLLAMA_CONTEXT_LENGTH=65536 OLLAMA_NO_CLOUD=1
-   ollama serve`, and `OLLAMA_MAX_LOADED_MODELS=2` with the companion); Salidium is 0.6.0 or later
-   and running ("Connect Salidium"). Pass: nothing it flags matters for this session; voice is set
-   up for checks 5 and 6, and a local model for check 8. Record what it flagged.
-6. **Labels that read alike, if present** (check 7). This lists `WorkspaceText.cs`; no line means
-   the session's commit lacks them, so skip this step and check 7:
-   ```bash
-   git grep -nF "AsShown(" -- apps/xr/Packages/com.halcyonic.client/Runtime/WorkspaceText.cs
-   ```
-   Copy the mock runtime's scenarios outside the repository and give `question_asked`'s first
-   question four answers: "Café" with its accent composed (U+00E9), "Café" with it decomposed (an e
-   then U+0301), a noncharacter (U+FFFE) alone, and "Dark":
+
+   Pass: `Halcyonic: built Builds/Halcyonic-release.apk …` in the log.
+4. **Control plane:** stop any running instance and start `pnpm start`. Pass: `control plane ready`.
+5. **Host readiness:** run `pnpm mac-setup` and verify allowed folders, agent apps, local Ollama
+   models (`OLLAMA_CONTEXT_LENGTH=65536 OLLAMA_NO_CLOUD=1 ollama serve`, plus
+   `OLLAMA_MAX_LOADED_MODELS=2` with the companion; [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md)),
+   voice (for checks 5 and 6), companion, and Salidium (`0.6.0+`).
+6. **Unicode normalization scenario copy** (for check 7): copy `fixtures/scenarios` outside the
+   repository and set `question_asked`'s first prompt options to composed `Café` (`U+00E9`),
+   decomposed `Café` (`e` + `U+0301`), `U+FFFE`, and `Dark`:
+
    ```bash
    rm -rf ~/halcyonic-scenarios && cp -R fixtures/scenarios ~/halcyonic-scenarios
    python3 - <<'EOF'
@@ -162,36 +153,31 @@ other apps remain unimplemented; do not demonstrate them as available controls.
 
 ## Connect
 
-The headset has an adb server of its own on port 5038; the shared one on 5037 belongs to other
-projects, and Unity's Android builds start a throwaway server on 5039 that never has the headset
-([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). In the shell for this
-session, point every bare `adb` below at the headset's server first; the `pnpm quest:` tools do so
-themselves:
+Point bare `adb` commands in this shell at the headset's dedicated ADB server on port `5038`
+([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md); `pnpm quest:*` tools
+target `5038` automatically):
 
 ```bash
 export ANDROID_ADB_SERVER_PORT=5038 ADB_SERVER_SOCKET=tcp:localhost:5038
 ```
 
-1. `adb devices` lists the headset as `device`, not `unauthorized` (accept USB debugging in the
-   headset). Record `adb shell getprop ro.product.model` and `adb shell getprop ro.build.display.id`.
-2. Look at the token's old place before anything runs, names and sizes only:
-   `adb shell ls -l /sdcard/Android/data/com.halcyonic.xr/files/`. Record whether an
-   `access-token` is there: earlier sessions pushed one, and the next start deals with it.
-3. Install while preserving existing app data and unrelated device routes:
+1. Confirm `adb devices` reports `device`, and record `adb shell getprop ro.product.model` and
+   `adb shell getprop ro.build.display.id`.
+2. Inspect `/sdcard/Android/data/com.halcyonic.xr/files/` (`adb shell ls -l /sdcard/Android/data/com.halcyonic.xr/files/`)
+   for any pre-existing shared-storage `access-token`.
+3. Install `Halcyonic.apk` while preserving app data and unrelated `adb reverse` routes:
+
    ```bash
    adb install -r apps/xr/Builds/Halcyonic.apk
    adb reverse --list
    adb reverse tcp:47800 tcp:47800
    ```
-   `pnpm quest:device -- connect` makes the same mapping in place of the last line, and `give-back`
-   removes it at the end.
-   If the install says `INSTALL_FAILED_VERSION_DOWNGRADE`, build with a suitable version code.
-   Uninstalling deletes saved pairings and drafts and is not part of a routine update.
-4. On a first setup, write the token into the app's private storage with `run-as`, whole and private before it takes
-   the old one's place, then start the app. The write is three commands
-   ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Install and connect", says why); the last prints
-   `written`, and only then start the app. An update retaining an already proven private token
-   does not need to replace it; verify its mode, size and successful connection instead:
+
+   (`pnpm quest:device -- connect` creates the same mapping, and `give-back` removes it.)
+4. Provision the private access token with `run-as` ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md),
+   "Install and connect"), confirm `written`, and launch Halora (an update that already holds a
+   valid private token can skip rewriting it):
+
    ```bash
    adb shell run-as com.halcyonic.xr rm -f files/access-token.tmp
    adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && rm -f files/access-token.tmp && cat > files/access-token.tmp'" < ~/.halcyonic/access-token
@@ -199,135 +185,114 @@ export ANDROID_ADB_SERVER_PORT=5038 ADB_SERVER_SOCKET=tcp:localhost:5038
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
-5. `pnpm quest:check`. Pass: every line passes; the glance token reads "not written" and the
-   connection "live". The move reads "nothing was on shared storage", or, if step 2 found a token
-   there, "a private token was there, and the shared one was removed unread"; a FAIL saying a copy
-   is still there means the app may not remove a file `shell` made: remove it with
-   `adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token` and record it. The
-   control plane logs `realtime client connected` for `halcyonic-xr`.
-   - Record in [headset-token-storage.md](../validation/headset-token-storage.md): the `run-as`
-     write (mode 600, 44 bytes, the app reads it), how many seconds the last command waited for
-     the second, if it printed late; whether `adb shell ps -A -o USER,NAME` still lists a `cat` as
-     the app's user after `written`, since a `cat` that never sees the end of its input holds the
-     token's file open until `adb kill-server`; and what was on shared storage, and what the start
-     did with it.
-   - Record in [xr-loopback-proof.md](../validation/xr-loopback-proof.md): the connection is live
-     over `adb reverse`, so adb delivers the headset's connections to 127.0.0.1:47800, and the
-     upgrade, the HMAC and the app's own HTTP run under IL2CPP.
 
-The token is replaced once, in step 1.5, after the move check has put one on shared storage on
-purpose; the token in use from then on never touched shared storage.
+5. Run `pnpm quest:check`. Pass: all checks pass, glance token reads `not written`, connection reads
+   `live`, and control plane logs `realtime client connected` for `halcyonic-xr` (if a `shell`-owned
+   shared-storage copy could not be unlinked by the app, remove it with
+   `adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token` and record it).
+   - Record private write, `adb shell ps -A -o USER,NAME` check for lingering `cat`, and migration
+     behavior in [headset-token-storage.md](../validation/headset-token-storage.md).
+   - Record live proved USB upgrade and HMAC behavior under IL2CPP in
+     [xr-loopback-proof.md](../validation/xr-loopback-proof.md).
 
 ## The demonstration's first visit ([demonstration-build.md](../validation/demonstration-build.md))
 
-The current workspace opens Projects in the demonstration, with characters optional. The former
-closed-bar opening in ADR 0026 is superseded by ADR 0029. Use an existing demonstration setup.
-If preparing the development headset for recorded data, preserve its token in app-private backup
-storage first, as the token-storage procedure describes; never overwrite an existing backup.
+With no computer connected, the workspace opens **Projects** with spatial characters optional
+([ADR 0029](../decisions/0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md)).
+If testing on a development headset that holds a USB token, move `files/access-token` to
+`files/access-token.off` without overwriting any existing backup.
 
-1. **Launch.** Without opening a character, identify Projects, Tasks and the recorded-demo source.
-   The source remains readable next to the work and never becomes a claim that an agent is live.
-2. **Find the waiting task.** Open the recorded project and its tasks. When a task needs a decision,
-   read it through the normal task view. Opening it does not move the console.
-3. **Inspect evidence.** Open the recorded activity, changes and tests. Simulated evidence remains
-   labelled. A demonstration response cannot imply that a real runtime accepted the decision.
-4. **Minimize and restore.** Keep a draft, minimize the whole workspace and restore it from the
-   dock. Repeat with optional agents enabled and verify that no stray panel or character remains.
-5. **Return to the real connection.** Restore the development setup and verify the source changed
-   only after live state arrived. Demonstration selections and drafts must not target real work.
+1. **Launch:** verify **Projects**, **Tasks**, and the explicit **Recorded** / **Demo** source label.
+2. **Waiting task:** open the recorded project and read the waiting decision without console jumps.
+3. **Evidence:** inspect simulated **Activity**, **Changes**, and **Checks**; confirm simulated
+   badges never claim live runtime execution.
+4. **Minimize and restore:** keep an unsent draft, press **Minimize Workspace**, and restore via
+   **Open Workspace** (both with and without optional agents) with zero stray panels or characters.
+5. **Reconnect:** restore the live connection and verify source labels switch only after a live
+   snapshot arrives and demonstration drafts never target live work.
 
-Record the opening and navigation in demonstration-build.md with the candidate commit. Screenshots
-show composition; the wearer separately judges whether the task and next action are understandable.
+Record navigation and wearer comprehension in [demonstration-build.md](../validation/demonstration-build.md).
 
 ## The checks
 
 ### 1. Token storage ([headset-token-storage.md](../validation/headset-token-storage.md))
 
-1. **The write survives a reinstall, and nothing reads as nothing.** `adb install -r
-   apps/xr/Builds/Halcyonic.apk`, then start the app. `pnpm quest:check -- --move nothing`. Pass:
-   the access token passes, the move reads "nothing was on shared storage", and the connection is
-   live. Record both: the token survives `install -r`, and nothing on shared storage read as nothing
-   there (`ENOENT`).
-2. **The move.** Put a token where earlier builds kept it, with no private token, and start the app:
+1. **Reinstall retention and `ENOENT`:** run `adb install -r apps/xr/Builds/Halcyonic.apk`, launch
+   Halora, and run `pnpm quest:check -- --move nothing`. Pass: private token survives `install -r`,
+   move reports nothing on shared storage, and connection is `live`.
+2. **Shared-storage migration:** remove the private token, push a token to the legacy shared-storage
+   path, and launch:
+
    ```bash
    adb shell run-as com.halcyonic.xr rm -f files/access-token
    adb push ~/.halcyonic/access-token /sdcard/Android/data/com.halcyonic.xr/files/access-token
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
-   `pnpm quest:check -- --move moved`. Pass: every line passes. A FAIL line says which way it went:
-   - "a copy is still on shared storage": the app may not remove a file `shell` made. Remove it with
-     `adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token`, and record that.
-   - "(open failed with EACCES)": the app may not read it. Remove it the same way, and record that.
-   - Any other call and errno is a failure to look into: record it whole.
-   On a paired headset, the same holds; repeat it there if the session includes the pairing checks
-   (below, "Where time allows").
-3. **Links and pipes.** Set the private token aside, so the start looks at what is on shared storage
-   instead of keeping its own, and try a link at the old place:
+
+   Run `pnpm quest:check -- --move moved` (if `shell` ownership leaves a copy or blocks reading with
+   `EACCES`, remove `/sdcard/Android/data/com.halcyonic.xr/files/access-token` via `adb shell rm -f`
+   and record it; repeat on a Wi-Fi paired headset if pairing is tested).
+3. **Symlinks and FIFOs:** set the private token aside and place a symlink at the shared path:
+
    ```bash
    adb shell run-as com.halcyonic.xr mv files/access-token files/access-token.off
    adb shell ln -s /dev/null /sdcard/Android/data/com.halcyonic.xr/files/access-token
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
-   Record whether `ln -s` could make it. If it could, `pnpm quest:check -- --move not-a-token
-   --expect none`: the app started at once, and the move reads "was not a token, and was removed
-   unused". Then the same with a pipe in place of the link,
-   `adb shell mkfifo /sdcard/Android/data/com.halcyonic.xr/files/access-token`, which must not hold
-   the app up. Clean up and put the token back:
+
+   If `ln -s` succeeds on `/sdcard`, verify `pnpm quest:check -- --move not-a-token --expect none`
+   passes without blocking startup; repeat with `mkfifo`, then restore the private token:
+
    ```bash
    adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token
    adb shell run-as com.halcyonic.xr mv files/access-token.off files/access-token
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
-   `pnpm quest:check`: live again.
-4. **Record only.** Whether a Meta or Horizon backup ever copied the shared file (the app sets
-   `android:allowBackup="false"`), if the owner's account shows backups; otherwise "not known".
-   The mode the app's umask gives a new file before its `chmod` can't be seen from adb: record "not
-   seen".
-5. **Replace the token once, and a stale token on the headset.** On the Mac: stop the control plane,
-   `rm ~/.halcyonic/access-token`, then `pnpm start`, which makes a new one. Restart the app, which
-   still holds the old one:
+
+   Verify `pnpm quest:check` reports `live`.
+4. **Backup note:** record whether Meta/Horizon backups show any app data (`android:allowBackup="false"`).
+5. **Token rotation and stale-token refusal:** stop the control plane, `rm ~/.halcyonic/access-token`
+   (rotating away the token exposed to shared storage in step 1.2), and restart `pnpm start`.
+   Relaunch Halora with the stale token:
+
    ```bash
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
-   `pnpm quest:check -- --expect unproved`. Pass: the line above the stage says "This headset's
-   access code doesn't match your computer's, or something else is answering in its place …" and the
-   app stops trying; the control plane logs no `realtime client connected` and no 401. Then write the
-   new token as in Connect step 4, and `pnpm quest:check`: live. Record the stale token in
-   xr-loopback-proof.md and the replacement in headset-token-storage.md. Every other headset that
-   held the old token needs the new one the same way; paired headsets keep their own credential.
+
+   Run `pnpm quest:check -- --expect unproved`: verify the mismatch notice on screen and zero `401`
+   or `realtime client connected` lines on the Mac. Provision the rotated token as in Connect step 4
+   and confirm `pnpm quest:check` reports `live`.
 
 ### 2. The loopback proof and the realtime upgrade ([xr-loopback-proof.md](../validation/xr-loopback-proof.md))
 
-1. **In use.** Open a workstream's history and the choice of folders. Pass: both load, and
-   `pnpm quest:check` reads live. Record: REST and the realtime upgrade each prove the control plane
-   first, under IL2CPP.
-2. **Another program on the port.** Stop the control plane, and in a second terminal run a listener
-   that answers every request without a proof:
+1. **Proved REST and WebSocket:** open a task's history and folder picker; verify both load and
+   `pnpm quest:check` reports `live`.
+2. **Unproved listener on `47800`:** stop the control plane and run a dummy HTTP `200` responder:
+
    ```bash
    while true; do printf 'HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' | nc -l 127.0.0.1 47800; done
    ```
-   Restart the app. `pnpm quest:check -- --expect unproved`. Pass: the app shows the "doesn't match
-   … something else is answering" line and stops, and the listener's terminal shows only
-   `GET /api/health` with an `x-halcyonic-challenge` header, never `Authorization`. Ctrl-C it.
-3. **A listener that never answers.** `nc -l 127.0.0.1 47800` in the second terminal, restart the
-   app, `pnpm quest:check -- --expect unreachable`. Pass: "Can't reach your computer; trying again",
-   and the app keeps trying. Ctrl-C it.
-4. **A paused control plane.** `pnpm start`, wait for `control plane ready`, then pause whatever
-   listens on 47800, which is this control plane and no other worktree's:
-   `kill -STOP $(lsof -tiTCP:47800 -sTCP:LISTEN)`, and restart the app.
-   `pnpm quest:check -- --expect unreachable`. Pass: "Can't reach your computer" within a few
-   seconds. Then `kill -CONT $(lsof -tiTCP:47800 -sTCP:LISTEN)`; pass: `pnpm quest:check` reads live
-   within the retry delay. Record: under Mono, closing a connection ends a read that is never
-   answered.
+
+   Relaunch Halora and run `pnpm quest:check -- --expect unproved`. Pass: Halora halts with the
+   mismatch notice and sends only `GET /api/health` with `x-halcyonic-challenge`, never
+   `Authorization`. Stop `nc`.
+3. **Silent listener:** run `nc -l 127.0.0.1 47800`, relaunch Halora, and run
+   `pnpm quest:check -- --expect unreachable`. Pass: `"Can't reach your computer; trying again"`
+   while retrying. Stop `nc`.
+4. **Paused control plane:** start `pnpm start`, pause the listener with
+   `kill -STOP $(lsof -tiTCP:47800 -sTCP:LISTEN)`, relaunch Halora, and verify
+   `pnpm quest:check -- --expect unreachable` within a few seconds; run
+   `kill -CONT $(lsof -tiTCP:47800 -sTCP:LISTEN)` and verify `pnpm quest:check` returns to `live`.
 
 ### 3. The glance ([horizon-os-multitasking.md](../validation/horizon-os-multitasking.md))
 
-The steps are [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The glance on a Quest (spike)", 1 to 14, in
-this order. First write its token the same careful way, three commands, and wait for `written`:
+Provision the glance token using the three-step private write (`pnpm quest:device -- glance-token write`
+performs the same write via stdin) and follow [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The glance on
+a Quest", steps 1 to 14:
 
 ```bash
 adb shell run-as com.halcyonic.xr rm -f files/glance-access-token.tmp
@@ -335,318 +300,202 @@ adb exec-in "run-as com.halcyonic.xr sh -c 'umask 077; mkdir -p files && rm -f f
 adb shell "run-as com.halcyonic.xr sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do test \"\$(stat -c %s files/glance-access-token.tmp 2>/dev/null)\" = 44 && break; sleep 1; done; if test \"\$(stat -c %s files/glance-access-token.tmp 2>/dev/null)\" = 44 && chmod 600 files/glance-access-token.tmp && mv -f files/glance-access-token.tmp files/glance-access-token; then echo written; else rm -f files/glance-access-token.tmp; echo not written: the token file is not the 44 bytes the control plane makes, or it never arrived, so write it again; fi'"
 ```
 
-`pnpm quest:device -- glance-token write` does the same three steps, the token through standard
-input only, and `give-back` removes what it wrote. Open the glance (step 1): `pnpm quest:device --
-glance` opens it by intent, and refuses unless the app holds Android's notification permission, since
-the glance asks for it when it opens; with the owner in the headset to answer that prompt, run it with
-`--owner-answers`. Then `pnpm quest:check`. Pass: the glance token passes, the glance
-"polled ok", and no cleartext or StrictMode line. That is also the safety section's first check.
+Open the glance (`pnpm quest:device -- glance --owner-answers` when worn to grant
+`POST_NOTIFICATIONS`) and run `pnpm quest:check` (`polled ok`, zero `cleartext` or `StrictMode`
+lines), then verify:
 
-1. **Notify over a game** (steps 2, 3, 6, 7 and 8): the window over a game, the toast within one
-   poll and heard, opening Halcyonic from the toast and the button, Do Not Disturb, and whether a
-   notification ever fails (`pnpm quest:check` fails its glance line if one did).
-2. **The poller while minimised** (steps 4, 5 and 14): `glance polled` lines continue at the hidden
-   pace and stop when the window closes; `pnpm quest:session -- --minutes 60` for how long it lives.
-3. **The watchdog** (step 9): the poll ends `too_slow` near 10 seconds against a listener that answers
-   one byte a second. `pnpm quest:check` reads the mapping as wrong while it points there; put
-   `adb reverse tcp:47800 tcp:47800` back after, and the check passes again.
-4. **adbd and the token file** (steps 10 and 11): 127.0.0.1:47800 on loopback only, and
-   `token_not_private` for a link in place of the file (the check's glance line reads
-   `last poll token_not_private` then); write the glance token again after.
-5. **Recents and capture, and backups** (steps 12 and 13).
-6. **No cleartext lines.** Restart the app and the glance, then `pnpm quest:check` once more.
-
-Record each in horizon-os-multitasking.md.
+1. **Overlay and notifications** (steps 2, 3, 6, 7, 8): window over an immersive game, toast within
+   one poll, **Open Halora** from toast and button, Do Not Disturb, and zero failed notifications.
+2. **Minimised polling** (steps 4, 5, 14): `30 s` background polls while minimised, clean stop on
+   close, and 60-minute lifetime check (`pnpm quest:session -- --minutes 60`).
+3. **Socket deadline** (step 9): `too_slow` near `10 s` against a 1-byte/s responder, then restore
+   `adb reverse tcp:47800 tcp:47800`.
+4. **Loopback and symlink guards** (steps 10, 11): `127.0.0.1:47800` loopback-only listener and
+   `token_not_private` when replaced by a symlink, then rewrite `files/glance-access-token`.
+5. **Recents, captures, and backups** (steps 12, 13), followed by a clean restart and `pnpm quest:check`.
 
 ### 4. Workspace comfort ([OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md))
 
-Start without characters, then repeat with a deliberately placed optional shelf. Use the recorded
-demonstration for known evidence pages and designated live test work for real actions. Do not
-change connection credentials merely to enter a visual test.
+Verify first with **Agents** off, then with a deliberately placed optional shelf:
 
-- Open Projects, Tasks, Usage and Settings. The console's location remains stable as context
-  changes. Selection and connection/source information are readable independently of a long title.
-- Open a task from the list, then from an optional character. Both routes open the same task;
-  neither requires or automatically moves a character or the console.
-- Open complete question, approval, change and test details. Paging retains every word and choice.
-  A short display budget must not shrink text below the measured size or discard raw content.
-- Test every edge of a navigation target, row, section and review control with hands. Visible
-  controls and hit areas agree; hidden panels and docked views cannot receive input.
-- Move the workspace deliberately, release it, then reset its position. Try field edges and the
-  optional shelf. Record a refusal or collision instead of accepting an automatic position jump.
-- Minimize and restore while looking away and back. The dock remains findable and its scope is
-  clear. Record whether a separate summon interaction is needed; do not infer it from a render.
-- Repeat against a bright wall, with larger text and in the smallest supported headset field.
-  Read the first and last lines without leaning or a large head movement. Record clipping, tilt,
-  glare, hand misses and any overlap with optional agents.
+- Navigate **Projects**, **Tasks**, **Usage**, and **Settings**: console position stays fixed and
+  selection/source badges stay readable regardless of title length.
+- Open the same task from **Tasks** and from an optional character without moving either console or
+  shelf; page through long questions, approvals, **Changes**, and **Checks** without shrinking glyphs
+  below `14 dp` or dropping text.
+- Test hand ray and poke hit targets across edges, verify hidden/minimised panels accept no input,
+  drag and **Reset Position** on the workspace (checking shelf/field-edge refusals), and **Minimize
+  Workspace** / **Open Workspace** after turning away and back.
+- Repeat facing a bright passthrough wall, at **Larger Text**, and within Quest 3S field margins;
+  record device evidence in [quest-3-device.md](../validation/quest-3-device.md) and comfort findings
+  in [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md).
 
-Record exact build/device evidence in quest-3-device.md and the wearer's comfort judgment in the
-relevant OPEN_QUESTIONS rows. A fit measurement does not establish that the composition is usable.
+### 5. Motion ([quest-3-device.md](../validation/quest-3-device.md), [ADR 0027](../decisions/0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md))
 
-### 5. Motion ([quest-3-device.md](../validation/quest-3-device.md), ADR 0027)
+Interface motion answers direct input and active waits while remaining still during reading:
 
-In the sixth session the owner said "nothing moves". Since ADR 0027 the interface moves to answer the
-person and to show a wait, and nothing else. Check the build has it: this lists `Glaze.cs`, and no
-line means record "not in this build".
-
-```bash
-git grep -nF "ListeningPulseSeconds" -- apps/xr/Packages/com.halcyonic.client/Runtime/Glaze.cs
-```
-
-Live, on the development build with the token in place, voice set up on the Mac.
-1. **Slides.** Open the menu from its bar, then a task's file from Tasks, then close the file and
-   the menu. Pass: each part slides a short way into place, easing in and out, nothing overshoots
-   or bounces, and nothing moves while you read.
-2. **A state changing.** `pnpm demo --scenario approval_required` on the Mac. Pass: the character's
-   badge goes from Working to Waiting for you as a quick cross-fade, its word readable throughout,
-   then Waiting for you breathes.
-3. **Hold to talk's three states.** `pnpm demo --scenario question_asked`, then open its file on
-   Waiting. Hold Hold to talk. Pass: it reads "Listening", its cap filled and its words in the
-   active blue, its microphone pulsing; capture while held. Say "Dark", let go. Pass: it shows the
-   transcribe icon and "Writing down", a band of brightness sweeping across its words; capture. It
-   keeps its width and place throughout, and no line is added to the page.
-4. **Keep things still.** Settings, Comfort, Motion, Keep things still, then steps 2 and 3 again.
-   Pass: the breath, the turning icons, the microphone's pulse and the shimmer stop, a wait's words
-   standing highlighted in the active tone instead; every character stands at rest, its surface,
-   its sweep ring and Waiting for you's floor ring still, and Working, Running tests and State unknown
-   still tell apart by eyes, light and words; slides, presses, a file opening and the badge's
-   cross-fade remain. Put it back: Let things move.
-5. **The owner's judgement.** Does it move enough now, too much, or anywhere it shouldn't? Does the
-   shimmer read as noise beside the agent's own words, or the pulse draw the eye from the page?
-
-Record in quest-3-device.md, beside the sixth session's "nothing moves", and any value to change in
-ADR 0027's consequences.
+1. **Panel transitions:** open and close **Tasks** and a task file; verify smooth ease-in/out slides
+   with zero overshoot and zero motion while reading.
+2. **State cross-fade:** run `pnpm demo --scenario approval_required`; verify the badge cross-fades
+   cleanly from **Working** to **Needs You** and breathes softly.
+3. **Hold to Talk states:** run `pnpm demo --scenario question_asked`, hold **Hold to Talk** (verify
+   **Listening** with pulsing microphone; capture), speak `"Dark"`, and release (verify **Typing It
+   Out** shimmer with stable button width; capture).
+4. **Keep Still:** toggle **Settings > Comfort > Motion > Keep Still** and repeat steps 2 and 3;
+   verify ambient breathing, turning icons, microphone pulse, shimmer, and character float stop
+   (replaced by steady active-tone highlights and distinct eye/light cues across **Working**,
+   **Checking**, and **Unknown**), while direct press/open transitions remain. Restore **Allow
+   Motion** and record wearer judgment in [quest-3-device.md](../validation/quest-3-device.md).
 
 ### 6. The words heard for one word ([voice-transcription.md](../validation/voice-transcription.md))
 
-On the same `question_asked` file, on its colour scheme question (its answers are Light and Dark,
-and it takes typed words). For each of "Dark", "Dark", "Dark", "Light" and "Yes": hold Hold to talk,
-say the one word, let go, and read what lands in the typed row, character for character: a capital
-added or not, a period or any other mark at its end. Capture one. Record each word before the next
-hold, and send nothing until the last; then press Send answer and record what the file says was sent.
+On `question_asked`'s colour-scheme prompt (`Light` / `Dark` plus custom input), hold **Hold to
+Talk**, speak `"Dark"` three times, `"Light"` once, and `"Yes"` once (recording exact capitalization
+and trailing punctuation after each hold without sending; capture one), then press **Send Answer** on
+the final hold and record the exact transcribed strings (never audio clips) in
+[voice-transcription.md](../validation/voice-transcription.md).
 
-Record the words exactly as shown, never the clip, in voice-transcription.md: they decide whether a
-spoken answer can match an answer's label as written.
+### 7. Labels that read alike, under IL2CPP
 
-### 7. Labels that read alike, under IL2CPP (if present)
-
-Only with Prepare step 6 done. The headset compares answers as their rows show them, composed with
-Mono's `String.Normalize(NormalizationForm.FormC)`, which only an IL2CPP build on the headset runs.
-Stop the control plane and start it on the scenarios' copy:
+With Prepare step 6's scenario copy in place, restart the control plane against it:
 
 ```bash
 HALCYONIC_MOCK_SCENARIOS_DIR="$HOME/halcyonic-scenarios" pnpm start
 ```
 
-If it refuses the copy, record its message: the labels never reached the headset. Then
-`pnpm demo --scenario question_asked`, and open its file on Waiting.
-1. **The two Cafés.** Pass: they show as rows that can't be chosen, a line under the answers says
-   why, and Stop stands on Waiting as the way on; "Dark" can be chosen. That they read alike means
-   `Normalize` composed the decomposed one on the headset. Capture.
-2. **The noncharacter.** Pass: its row shows ‹U+FFFE›, and the file draws its page.
-3. **The log.** `adb logcat -d -s Unity | grep -i -E "exception|normaliz"`: nothing from the file.
-   Record any line whole.
+Run `pnpm demo --scenario question_asked` and open the waiting question:
 
-Stop the control plane and `pnpm start` it again without the variable. Record in
-quest-3-device.md: whether `String.Normalize` composed under IL2CPP, and what U+FFFE did.
+1. **Composed vs decomposed `Café`:** verify both `Café` rows are disabled as duplicate choices
+   (`String.Normalize(NormalizationForm.FormC)` under IL2CPP) with an explanation and **Stop**
+   available, while `Dark` remains selectable; capture.
+2. **Noncharacter `U+FFFE`:** verify the row renders literally as `‹U+FFFE›`.
+3. **Logs:** verify `adb logcat -d -s Unity | grep -i -E "exception|normaliz"` reports zero errors.
 
-### 8. Codex as a second agent app, on a local model (if registered)
+Restart `pnpm start` without `HALCYONIC_MOCK_SCENARIOS_DIR` and record results in
+[quest-3-device.md](../validation/quest-3-device.md).
 
-Codex runs only on a model the Mac serves ([LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md#codex)).
-Pass first: the control plane's `control plane ready` line lists the runtime `codex`, and its
-`agent_binaries` reads `matches` for it. Otherwise record "not registered" and go on.
+### 8. Codex as a second agent app, on a local model
 
-In a project with a folder, add a task (Projects, the project, Add a task), choose Codex and the
-local model in More options, and start it with a small change, such as adding a README line.
-Pass: its character starts and works under Codex's name with no Practice mark; whatever it asks
-waits in its file and is answered there; its round finishes, or says why it couldn't; its
-Activity shows what it did. Capture its file once it has finished.
+Confirm `control plane ready` lists `codex` with `agent_binaries` `matches`
+([LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md#codex)); if unconfigured, record `not registered`. In a
+folder-bound project, open **New Task**, select Codex and the local Ollama model under **How It
+Runs** / **Use Model**, and run a small edit (such as adding a `README` line). Verify no **Practice**
+mark appears, answer any prompt or approval, inspect **Activity** on completion, capture, and record
+timings and outcome in [codex-capabilities.md](../validation/codex-capabilities.md) and
+[local-models.md](../validation/local-models.md).
 
-Record in [codex-capabilities.md](../validation/codex-capabilities.md) and
-[local-models.md](../validation/local-models.md): how long to its first activity and to the
-round's end, what it asked, and whether the local model finished the change.
+### 9. A paired request that times out ([network-pairing.md](../validation/network-pairing.md))
 
-### 9. A paired request that times out (if the session pairs, [network-pairing.md](../validation/network-pairing.md))
+When testing Wi-Fi pairing ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Pairing checks on a Quest") on a
+freshly launched app before task history is cached:
 
-After [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Pairing checks on a Quest", with the headset paired
-and live over Wi-Fi, and the app restarted so no file's earlier activity has been read yet. A
-request over the pinned transport (`PinnedHttpHandler`) that outlives its 15 seconds should end
-cancelled, and Mono may fault instead.
 1. Pause the control plane: `kill -STOP $(lsof -tiTCP:47800 -sTCP:LISTEN)`.
-2. At once, press a character to open its file. Its Activity reads earlier activity, and after
-   about 15 seconds says "earlier activity unavailable, reopen to try again".
-3. `adb logcat -d -s Unity | grep "earlier activity could not be read"`. Pass: it names
-   `TaskCanceledException` or `OperationCanceledException`, a cancel. Any other type means Mono
-   faulted where the handler expects a cancel: record it whole.
-4. `kill -CONT $(lsof -tiTCP:47800 -sTCP:LISTEN)`: live again within the retry delay.
-
-Record in network-pairing.md, and in the pinned transports' row of OPEN_QUESTIONS.md.
+2. Immediately open a task file and wait ~15 seconds for `PinnedHttpHandler`'s timeout
+   (`"earlier activity unavailable, reopen to try again"`).
+3. Check `adb logcat -d -s Unity | grep "earlier activity could not be read"` for
+   `TaskCanceledException` or `OperationCanceledException` (any other exception indicates a Mono fault).
+4. Resume with `kill -CONT $(lsof -tiTCP:47800 -sTCP:LISTEN)` and confirm live reconnection.
 
 ### 10. The judge's path, on the release build ([demonstration-build.md](../validation/demonstration-build.md))
 
-1. **A release build over development data.** Set the token aside (a release build still reads a
-   private token), stop the control plane, put a token-shaped stand-in at the old place (the release
-   build removes it unread, so it needs no real token), and install the release build over the
-   development one:
+1. **Release APK over development data:** set the private token aside, stop the control plane, write
+   a dummy token-shaped string to shared storage, and install `Halcyonic-release.apk`:
+
    ```bash
    adb shell run-as com.halcyonic.xr mv files/access-token files/access-token.off
    adb shell "printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_-Z\n' > /sdcard/Android/data/com.halcyonic.xr/files/access-token"
    adb install -r apps/xr/Builds/Halcyonic-release.apk
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
-   `pnpm quest:check -- --release`. Pass: every line passes: `run-as` is refused, the move reads "a
-   release build removed the shared one unread", and there is no connection. A copy the app could not
-   remove reads as in step 1.2; remove it from the Mac the same way. Record in
-   headset-token-storage.md.
-2. **The walk.** Hands only, no token, no pairing: the walk in
-   [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The demonstration judges see". Its welcome was seen in
-   "The demonstration's first visit", which opens Projects without requiring characters. Look at the timeline in
-   demonstration-build.md. Pass: each beat when the timeline says. Record: whether a newcomer
-   finds the satisfying moment, the field of view split as the headset shows it, and a clean resume
-   after sleep, the system menu and another app.
-3. **The file's confirmations,** after the walk, in the same demonstration, on the waiting task's
-   file. Stop comes last, since its Yes ends the story.
-   1. *Another window drops a confirmation.* Press Approve and read to the request's second part,
-      then open the system menu, or another app, and come back. Pass: the page reads "You went to
-      another window, so nothing was sent. Press it again to confirm." Pressing Approve again reads
-      the request from its first part, and an answer already chosen on the question stays chosen.
-   2. *At the larger text size the request stays put.* Settings, Comfort, Text size, Make text
-      larger; press Approve and read to the last part. Pass: Yes appears, and the parts neither lay
-      out again nor jump back to the first part as it does. Put the text size back. At the standard
-      size the request fits one part, so this can't be seen there.
-   3. *Stop asks first.* On Activity, press Stop. Pass: Cancel stands in Stop's place and "Yes, stop"
-      in the middle. Press Cancel: nothing is sent and the recording goes on. Press Stop again and
-      leave it: after about 15 seconds the ask drops and the page reads "Nothing was sent: you
-      didn't confirm in time. Press it again." Last, press Stop and "Yes, stop", and record what the
-      task shows; restart the app before walking the demonstration again.
 
-### 11. The experience, from the eyes (ADR 0013, ADR 0026, ADR 0027; the owner's picks of 2026-10-08)
+   Run `pnpm quest:check -- --release`: confirm `run-as` is refused, the shared file is removed
+   unread (clean up via `adb shell rm -f` if `shell`-owned), and no connection is active.
+2. **Demonstration walk:** with hands only and no token or pairing, walk
+   [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "The demonstration judges see", against the timeline in
+   [demonstration-build.md](../validation/demonstration-build.md), including sleep/wake and
+   system-menu resume.
+3. **Confirmation guards:**
+   - *Focus loss:* press **Approve**, page partway through, open and close the system menu, and
+     verify `"You went to another window, so nothing was sent. Press it again to confirm."`
+   - *Larger text:* enable **Settings > Comfort > Larger Text**, page **Approve** to its final part,
+     verify confirmation becomes available without relaying or jumping pages, then restore **Standard Text**.
+   - *Stop confirmation and timeout:* press **Stop** then **Cancel** (nothing sent); press **Stop**
+     and wait `15 s` (`"Nothing was sent: you didn't confirm in time."`); press **Stop** and confirm
+     to end the round.
 
-About 20 minutes with the headset kept on, after the checks above, so the owner judges what was built from
-"One kit, four forms" and its outside words against their own tests: clean, makes sense, not crowded,
-distinct, and "wow this is the future". Lane V wrote it; the owner's words on each step are the record.
-Whoever is at the Mac runs the commands and writes down what the owner says. Each part names what it
-needs; where the build lacks it, record "not in this build" and go on. What is in, from the session's
-commit:
+### 11. Spatial presence, audio and passthrough ([ADR 0013](../decisions/0013-characters-are-bots-with-a-living-surface.md), [ADR 0026](../decisions/0026-the-headset-interface-is-a-game-menu-on-one-plane-facing-the-eyes.md), [ADR 0027](../decisions/0027-the-headset-moves-only-to-answer-the-person-or-show-a-wait.md))
 
-```bash
-git grep -nF "PartsAfterDraw" -- apps/xr/Packages/com.halcyonic.client/Runtime/Glaze.cs
-git grep -nF "Keep things still" -- apps/xr/Packages/com.halcyonic.client/Runtime/Comfort.cs
-git grep -nF "BlinkSeconds" -- apps/xr/Packages/com.halcyonic.client/Runtime/Glaze.cs
-git grep -nF "Something new" -- apps/xr/Packages/com.halcyonic.client/Runtime/
-git grep -nF "format_quote" -- apps/xr/tools/glaze_icons.py
-git log --oneline -40
-```
+Keep OVR Metrics' frame-rate overlay visible throughout (`72 fps` with up to six characters) and
+record wearer observations in [quest-3-device.md](../validation/quest-3-device.md):
 
-The first lines say the opening, Keep things still, the stage's new look, the first visit and outside
-words are in; the log names the rest by its lane's words (looking back, places and travel, the
-spatializer, and the trials behind development settings). Keep OVR Metrics' frame rate in view
-throughout: it stays at 72 with six characters on the stage, or the part where it drops is recorded and
-the trials are skipped.
+**A. Workspace entry.** Confirm uncoached navigation from [Workspace acceptance](#workspace-acceptance).
 
-**A. The first minute.** Run Current workspace acceptance above. The old introductory question,
-closed entry and mandatory character stage no longer define this flow. Record whether the wearer
-can find real work, understand its source and take the next action without coaching.
+**B. Optional agents, by eye** (after enabling and placing the agent shelf):
+5. **At rest:** characters stand on soft-shadowed rings with state pills, slow vertical float, and
+   occasional blinks, without background glow or cluttering titles.
+6. **Gaze dwell (`0.5 s`):** resting gaze on a working character draws eye contact, a slight turn and
+   lift, and its peek card, releasing `0.5 s` after looking away (`Unknown` and `Failed` characters
+   do not turn).
+7. **Head sweep:** sweeping gaze across the shelf triggers zero unintended look-backs.
+8. **Wearer judgment:** record whether idle motion feels calm in peripheral view.
 
-**B. Optional agents, by eye.** Enable and deliberately place the shelf first. These appearance
-checks do not replace the complete workspace journey or authorize automatic placement.
-5. **At rest.** Look across the stage without stopping on a character. Pass: each stands on its ring on
-   the desk with a soft shadow under it, no glow behind it; the ring's colour and the pill's word say
-   its state; no title shows; working ones float slowly on a thread of light and blink now and then.
-6. **A look back.** Rest your eyes on a working character for half a second. Pass: its eyes come to you,
-   then it turns and lifts a little; its label grows into the glance: the pill, its title leaning, what
-   its agent last said under Agent says, its project. Look away: it holds your look for half a second,
-   then goes back to its work. Look at a Can't tell yet or Couldn't finish: it doesn't answer.
-7. **A sweep.** Turn your head slowly across the whole stage and back. Pass: nothing looks back at you
-   unless you stopped on it. Count any that did.
-8. **The owner's judgement.** Alive, or busy? Does a look back feel like being noticed, or watched? Is
-   the floating calm in the corner of the eye?
+**C. Spatial audio and decision flow** (`pnpm demo --scenario question_asked`):
+9. **Where the sound comes from ([meta-xr-audio.md](../validation/meta-xr-audio.md)):** with eyes
+   closed, point toward the **Needs You** cue under Meta XR Audio's spatializer and compare against
+   Unity stereo panning (`adb logcat -s Unity | grep --line-buffered "Halcyonic: sound placed by"`).
+   Switch to panning with `/sdcard/Android/data/com.halcyonic.xr/files/sound-panned`:
 
-**C. A question, from start to confirmation.** `pnpm demo --scenario question_asked` on the Mac.
-9. **Where the sound comes from.** Before it comes, close your eyes. When Waiting for you sounds, point
-   at it, then open them. Pass: you point at the character. Do it once with the spatializer, then
-   once with Unity's panning, and say which you could place, and whether a cue above or behind read
-   as above or behind. The start's log line says which is in use:
-   `adb logcat -s Unity | grep --line-buffered "Halcyonic: sound placed by"`, "Meta XR Audio's
-   head-related spatializer" or "Unity's panning, because of the option sound-panned". The option is
-   a file in the app's data directory, `Application.persistentDataPath`, which on the headset is
-   shared storage, as for the while-away option, not the private folder `run-as` reaches (the
-   token's). To pan:
    ```bash
    adb shell touch /sdcard/Android/data/com.halcyonic.xr/files/sound-panned
    adb shell ls -l /sdcard/Android/data/com.halcyonic.xr/files/sound-panned
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
-   To go back to the spatializer, and before the session ends:
+
+   Restore the spatializer before ending the session:
+
    ```bash
    adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/sound-panned
    adb shell am force-stop com.halcyonic.xr
    adb shell am start -n com.halcyonic.xr/com.unity3d.player.UnityPlayerGameActivity
    ```
-   Then the cost, with six characters on the stage and their cues sounding, each way for a minute:
-   `adb shell top -H -b -d 1 -n 60 -p $(adb shell pidof com.halcyonic.xr) > ~/halcyonic-captures/audio-<way>.txt`,
-   reading the audio mixer thread's share (Unity's FMOD mixer thread; record its name as `top` shows
-   it). Keep the spatializer only if it is clearly better by ear and its extra cost stays under 1 ms
-   of CPU a frame (about 7% of one core at 72 frames a second). If it is silent, distorts or crashes
-   while cues play, put the file in place as above: every cue then goes through Unity's panning, with
-   no rebuild. If the app crashes at start before any cue, the file cannot help, since Unity loads
-   the spatializer as its audio starts: install the previous APK and record the crash
-   (`adb logcat -b crash`).
-10. **It comes to you.** Pass: it comes once to the front of the desk, amber, looking at you; its
-    project-mates look at it once as it goes; its glance shows its question under Agent asks.
-11. **Its file.** Pinch it. Pass: a line of light draws from it, then the file's parts arrive top to
-    bottom, alone, the menu staying closed. Is a third of a second too slow?
-12. **The answer.** Choose one and Send answer. Pass: the cap sinks at once, "Sent…" shimmers, and only
-    when your computer confirms does the character turn once and go back to work.
-13. **A request.** `pnpm demo --scenario approval_required`, then the same path with Approve. Pass: the
-    request's own words lean on their ground; Halcyonic's stand upright.
 
-**D. Keep things still.** Settings, Comfort, Motion, Keep things still; then 10 to 12 again.
-14. Pass: nothing floats, blinks, breathes or shimmers; "Sent…" stands in the active blue; a character
-    fades from home to the front instead of travelling and makes no turn; a look back moves only its
-    eyes; presses and the file's opening remain. Put it back: Let things move.
+   Measure mixer-thread CPU over 60 seconds with six active characters each way:
+   `adb shell top -H -b -d 1 -n 60 -p $(adb shell pidof com.halcyonic.xr) > ~/halcyonic-captures/audio-<way>.txt`
+   (spatializer overhead must remain under `1 ms`/frame, ~7% of one core at `72 fps`).
+10. **Character approach:** verify the asking character moves beside the panel/front of the shelf
+    without crossing the wearer's face.
+11. **Panel open:** pinch the character and check the light line and `~0.33 s` arrival cadence.
+12. **Answer confirmation:** submit an answer and verify `Sent…` shimmers until host/runtime
+    confirmation returns the character to work.
+13. **Outside-text distinction:** run `pnpm demo --scenario approval_required` and verify outside
+    command/agent text is visually distinct from Halora's own labels.
 
-**E. Words from outside, over a bright room.** Face a window or a lit wall.
-15. Pass: a leaning title and an agent's answer read at a glance on the plane and on a glance, and the
-    ground's edges show; the owner says whether the slant blurs at the smallest size.
-
-**F. The trials, behind development settings** (only if present; one at a time).
-16. **Hands in front.** With depth occlusion on, move a hand slowly in front of a character. Pass: the
-    hand hides it cleanly; record flicker at its edges and the frame rate.
-17. **The room quieting.** With it on, open a file. Pass, or not: the owner says whether the darker room
-    helps focus or feels heavy. It stays off unless they ask to keep it.
-
-**G. The verdict.** In the owner's words: which moments felt like the future, which felt fake, busy or
-crowded, and what to cut before the judge build.
-
-Record in quest-3-device.md as its own session; the owner's words beside each step; the values to change
-(the look's dwell, the opening's time, the travel speed, the float) in ADR 0013's and ADR 0027's
-consequences; and the OPEN_QUESTIONS.md rows on calm motion, outside words over a bright room, and the
-shimmer under Keep things still, each resolved or narrowed as its own rule says.
+**D. Keep Still, bright passthrough, and development trials:**
+14. Enable **Settings > Comfort > Motion > Keep Still**, repeat steps 10 to 12 (verifying zero float,
+    blink, pulse, shimmer, or travel turn), then restore **Allow Motion**.
+15. Against a bright window or lit wall, check edge visibility and outside-text legibility.
+16. In development builds exposing depth occlusion or room dimming, verify hand occlusion edges,
+    frame rate, and wearer comfort.
 
 ## Recording what the headset shows
 
-Put the headset on and say "record" in chat when you're ready, and "stop" when you're done; the
-clip lands in the footage folder with its sha256, nothing else to do.
+With headset media cloud sync confirmed off in the device log, record `1920x1080` `30 fps` single-eye
+footage (including app audio and headset microphone, ~48 MB/min;
+[quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)):
 
-A lane runs `pnpm quest:device -- record start --sync-is-off` on "record" and
-`pnpm quest:device -- record stop --out <footage folder>` on "stop" (or `record --seconds <n>` for a
-fixed length), only after the headset's own log has said its media sync is off: Meta's capture
-service records one eye at 1920 by 1080 and 30 fps, about 48 MB a minute, with the app's sound and
-the headset microphone, and a clip of 200 s was recorded whole
-([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). If no clip appears
-within two minutes of the stop, `status` says the recording may still be going: run `record stop` again.
+- Start: `pnpm quest:device -- record start --sync-is-off`
+- Stop and pull with SHA-256: `pnpm quest:device -- record stop --out <footage folder>` (or run fixed
+  duration `pnpm quest:device -- record --seconds <n> --sync-is-off`). If no clip lands within two
+  minutes, `status` flags an active recording; re-run `record stop`.
 
 ## Checking the headset without wearing it
 
-`pnpm quest:device` reads the headset and drives what a check needs without anyone wearing it
-([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). It goes to the
-headset's adb server on 5038 (`HALCYONIC_ADB_PORT`), names the headset (`HALCYONIC_QUEST_SERIAL`,
-else the one that server lists) and refuses the shared server on 5037. It never starts or restarts
-an adb server: it first asks the server on 127.0.0.1 its version, with adb's own `host:version`, and
-stops before running adb when nothing answers there or the version differs from its adb's, which adb
-would restart. `--package` takes only an Android package name. In order:
+`pnpm quest:device` inspects and drives a Quest without a wearer
+([quest-headset-in-the-loop.md](../validation/quest-headset-in-the-loop.md)). It connects to the
+headset's ADB server on port `5038` (`HALCYONIC_ADB_PORT`, serial `HALCYONIC_QUEST_SERIAL`), refuses
+port `5037`, and verifies `host:version` over TCP first so it never implicitly starts or restarts an
+ADB server:
 
 ```bash
 pnpm quest:device -- status
@@ -663,121 +512,71 @@ pnpm quest:device -- restore .private/quest/com.halcyonic.xr-installed-<sha>.apk
 pnpm quest:device -- give-back
 ```
 
-- `status` says in plain words whether it is awake and what is in front. "Can't find its position in
-  the room" is Meta's Guardian dialog: nothing opens until the headset sees the room, so stand it
-  facing the room or wear it. Meta's Headset Power menu (Sleep, Cancel, Power Options), which a
-  power-button hold leaves open, held a launch too; it stayed open through a sleep and a wake, and
-  only someone in the headset closes it. So did one of Meta's first-time tips ("Customize your
-  Library", closed with its X). `status` names each system dialog showing, as `front` and then `also`, since one
-  can show below another task. A dialog of any other package is caught only by the launch's hold line
-  and `am start`'s status. Never press anything in a system dialog.
-- `awake` keeps it awake on the desk (the proximity override); `give-back` hands the sensor back and
-  stops the apps this tool started. Run it at the end, every time. While the Guardian dialog holds the
-  headset, the override reads on until the headset sleeps; `give-back` says so and does not fail for it.
-- `save` pulls the installed APK and checks its bytes. `install` needs that copy as `--saved` (and
-  `--package` for any app but Halcyonic), refuses unless it is exactly what is installed, and checks
-  the headset's bytes after `install -r`, so `restore` puts it back exactly with its data. It refuses
-  while a system dialog is in front. Until the restore, `status` and `give-back` say the owner's app
-  is replaced and how to restore it (the tool's state file, `.private/quest/state.json`).
-- A check build (`HALCYONIC_TEST_ID=1`, [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md)) installs beside the
-  owner's app: `install <apk> --package com.halcyonic.xr.check`, with no saved copy, since nothing
-  of the owner's is replaced. `grant <permission> --package com.halcyonic.xr.check` gives it the
-  scene or the microphone where its first start would otherwise ask, and
-  `uninstall --package com.halcyonic.xr.check` removes it at the end. Both act on that package only.
-  `install` and `restore` first read the APK's own package with `aapt2` and refuse unless it is the
-  one named, and a check install fails if the owner's app's bytes changed.
-- `connect` makes the control plane's one mapping, the headset's 47800 to the Mac's (the `adb reverse`
-  of "Connect"), recorded first so `connect stop` and `give-back` remove it. It refuses while any other
-  mapping uses 47800, however spelled, and leaves one it did not make as it is. Each reverse the tool
-  makes is recorded with the headset's transport id (`adb devices -l`): a USB reconnect drops every
-  reverse and gives a new id, so an older record is forgotten and removes nothing. An adb server
-  restart can give the same id again, so after one, look at `adb reverse --list` before `give-back`.
-- `launch` fails, and stops the app again, when a system dialog holds the launch or `am start` does not
-  say ok. The hold is read by its words from the log since the launch, whatever its tag. A held launch
-  stays cached and may start when the dialog closes, so `give-back` stops it again. Launching the
-  owner's own Halcyonic rewrites one of its files; never run it with a real runtime behind it.
-  `--extra key=text` and `--extra-bool key=true|false` pass intent extras, letters, digits and
-  `._:/-` only, since the headset's shell reads the command.
-- A development build opens straight into a named view for a capture with nobody wearing it
-  (`CapturePresets`, compiled out of every other build). One preset a fresh launch: `stop`, then
-  `launch` with its extras.
-  - `--extra halcyonic.open=task:<execution id>:<section>` opens the task's file at activity, waiting,
-    changes or checks; `--extra halcyonic.open=screen:<project id>` shows the project's screen, with
-    `--extra-bool halcyonic.bar=true` its bar open; `--extra halcyonic.open=gallery` waits for the
-    gallery's headset view (none yet).
-  - `--extra-bool halcyonic.compose=true` opens the task's instruction without the keyboard;
-    `--extra halcyonic.agent=<runtime id>` chooses a registered runtime; `--extra-bool halcyonic.arm=true`
-    arms the waiting approval so its confirming bar shows; an approval is always confirmed, so nothing
-    is sent.
-  - `--extra-bool halcyonic.noask=true` skips the microphone's question at the first open
-    (`MicrophoneAtOpen`), so no system dialog holds a driven run; pass it on every launch that takes frames
-    while the headset has no kept answer. Nothing may press that dialog.
-  - A preset only presents: it never approves, denies, answers, starts, previews or confirms. It waits
-    up to a minute for the live snapshot to hold the id, then `logs` holds one line, "Halcyonic: capture
-    preset applied: ..." in fixed words, or "Halcyonic: capture preset found nothing to open; staying on
-    Projects."
-- `shot` takes one second of `screenrecord` (both eyes) and keeps a frame of the left eye when ffmpeg
-  is there. `clip --seconds <n>` records both eyes the same way for up to 180 s, with no sound and
-  nothing uploaded, and keeps `<clip>.sha256` beside it; `give-back` collects a clip a cut-off run
-  left, and `clip forget` lets one go that never pulls whole (it may stay on the headset). Both record
-  into the adb shell's own folder, `/data/local/tmp`, as the shell's alone (umask 077), never onto
-  shared storage that other apps read. Asleep, `screenrecord` records nothing: run `awake` first. `shot --service` and `record --seconds <n>` use Meta's capture service (one eye; a
-  recording includes the headset microphone) and run only with `--sync-is-off`, once the owner has
-  turned the headset's media sync off, and never while the headset's log says sync is on. Every capture is pulled, its bytes checked, and only then
-  removed from the headset by name. Captures show the room: keep them out of the repository.
-- `logs` keeps Halcyonic's own lines, its OpenXR session's states and the compositor's frame line,
-  from Halcyonic's process only; `--package com.halcyonic.xr.check` reads the check build's process
-  instead, and no other package is read.
-- `glance` opens the glance (check 3) by intent, with `launch`'s refusals; it refuses unless the app
-  holds `POST_NOTIFICATIONS`, and `--owner-answers` lets the prompt rise for the person in the headset,
-  which the tool never touches. `glance-token write` puts the glance's token in place from the control
-  plane's own file (a private 44-byte file, never a link), its bytes on adb's standard input only;
-  `glance-token remove` and `give-back` remove it. Android's permission prompt is a known system dialog.
-- `preview <project id>` opens a project's checked copy in Quest Browser at `http://127.0.0.1:<port>/`, only when its
-  latest check passed with the agents' reads confined and the host's own server serves it
-  ([quest-browser-preview.md](../validation/quest-browser-preview.md)). The check holds when the page opens, not after:
-  run `preview stop` as soon as the look is done, which removes its reverse.
+Key subcommands and invariants:
+
+- **`status` and `awake`:** reports wake state and foreground/background system dialogs (Guardian,
+  Power menu, first-time tips; never synthesize presses into system dialogs). `awake` enables the
+  proximity override; always run `give-back` at teardown to release the sensor and stop started apps.
+- **`save`, `install`, `restore`, and check builds:** `save` backs up and hashes the installed APK;
+  `install` requires `--saved` (unless targeting `--package com.halcyonic.xr.check` built with
+  `HALCYONIC_TEST_ID=1`, which installs alongside `com.halcyonic.xr` and supports `grant` and
+  `uninstall`) and verifies package name via `aapt2` and post-install bytes.
+- **`connect` and `launch`:** `connect` manages `tcp:47800` keyed by USB transport ID (`adb devices -l`);
+  `launch` aborts and stops the app if a system dialog holds startup. Never launch a personal install
+  against a live runtime.
+- **Development capture presets (`CapturePresets`, excluded from release builds):** stop first, then
+  launch with `--extra` / `--extra-bool` flags:
+  - `--extra halcyonic.open=task:<execution id>:<section>` (`activity`, `waiting`, `changes`, `checks`),
+    `--extra halcyonic.open=screen:<project id>` (up to `WorkspacePresentationState.ScreensMost = 3`
+    concurrent project screens with `PreviewRelay`, [ADR 0052](../decisions/0052-a-preview-reaches-a-paired-headset-through-a-loopback-relay.md)),
+    and `--extra-bool halcyonic.bar=true`.
+  - `--extra-bool halcyonic.compose=true`, `halcyonic.draft=true`, `halcyonic.heard=true`,
+    `halcyonic.choose=true`, `--extra halcyonic.agent=<runtime id>`, and `--extra-bool halcyonic.arm=true`
+    (presentation only: presets never approve, answer, start, or send commands).
+  - `--extra-bool halcyonic.generic=true` substitutes generic placeholder names (`CaptureNames`);
+    `--extra-bool halcyonic.panelcapture=true` enables recording the real native Android panel in that
+    process ([ADR 0029](../decisions/0029-workspace-is-complete-without-characters-and-continues-in-a-native-panel.md));
+    `--extra-bool halcyonic.noask=true` suppresses startup microphone prompts (`MicrophoneAtOpen`).
+- **`shot`, `clip`, `logs`, `glance`, and `preview`:** `shot` and `clip --seconds <n>` record stereo
+  frames via `screenrecord` into `/data/local/tmp` (`umask 077`, no audio, no cloud sync), verify
+  bytes on pull, and delete the remote file; `logs` filters Halora's own PID (`Unity`, OpenXR,
+  `VrApi`); `glance` and `glance-token write|remove` manage the 2D glance; `preview <project id>` and
+  `preview stop` manage Quest Browser loopback previews ([quest-browser-preview.md](../validation/quest-browser-preview.md)).
 
 ## Where time allows
 
-Each is its own section with what to see and record; fit them in between blocks, with the
-development build and the token in place:
-- [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md): "Pairing checks on a Quest", "Milestone 3 checks on a
-  Quest", "The first-time journey on a Quest", "Hold to talk on a Quest", "Room placement checks on a
-  Quest", "Sound checks on a Quest", "Beside a window on a Quest", "The interface on a Quest" and
-  "Device measures on a Quest" (`pnpm quest:cold-start`, `pnpm quest:session`).
-- [horizon-os-multitasking.md](../validation/horizon-os-multitasking.md), "To check on the headset",
-  1 to 6: a Virtual Display beside the characters, focus while typing on the Mac, another immersive
-  app, the stage staying put, returning focus with a pinch, recentering.
-- [quest-3-device.md](../validation/quest-3-device.md): what it lists as not exercised.
-- [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md): the rows a session answers, such as calm
-  motion, windows over the desk, sound while away, arrangements, the fold and its grace, the
-  closed bar after turning away, the passthrough window and returning focus, cues during focus, repeating Waiting, and the
-  socket across sleep, look and pinch, and recentering.
+Fit additional targeted suites between blocks with `Halcyonic.apk` and the private token installed:
+
+- [XR_DEVELOPMENT.md](XR_DEVELOPMENT.md): "Pairing checks on a Quest", "Interaction and outside-text
+  checks on a Quest", "The first-time journey on a Quest", "Hold to talk on a Quest", "Room placement
+  checks on a Quest", "Sound checks on a Quest", "Beside a window on a Quest", "The interface on a
+  Quest", and "Device measures on a Quest" (`pnpm quest:cold-start`, `pnpm quest:session`).
+- [horizon-os-multitasking.md](../validation/horizon-os-multitasking.md): Virtual Display coexistence,
+  Mac keyboard focus, immersive app switching, stage stability, pinch focus return, and recentering.
+- [quest-3-device.md](../validation/quest-3-device.md) and
+  [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md): remaining hardware verification rows.
 
 ## Close
 
-1. If the release build is installed, put the development build back over it, which keeps the data
-   and lets `run-as` reach it: `adb install -r apps/xr/Builds/Halcyonic.apk`.
-2. Remove the tokens, anything half written, and anything left on shared storage:
+1. If `Halcyonic-release.apk` is installed, reinstall `Halcyonic.apk` over it so `run-as` can clean
+   private storage: `adb install -r apps/xr/Builds/Halcyonic.apk`.
+2. Remove all private, backup, temporary, and shared-storage token files:
+
    ```bash
    adb shell run-as com.halcyonic.xr rm -f files/access-token files/access-token.off files/access-token.tmp files/access-token.new files/glance-access-token files/glance-access-token.tmp
    adb shell rm -f /sdcard/Android/data/com.halcyonic.xr/files/access-token
    ```
-3. `pnpm quest:check -- --closed`. Pass: every line passes.
-4. Undo what the session turned on: `adb shell am broadcast -a
-   com.oculus.vrpowermanager.automation_disable` if the headset was kept awake, and remove the sound
-   option files if they were made: the while-away one ([XR_DEVELOPMENT.md](XR_DEVELOPMENT.md), "Beside
-   a window on a Quest") and `sound-panned` (check 11, step 9).
-5. Never stop the headset's adb server (`adb kill-server`) while other work uses it, as the device
-   tools and Unity's builds do. An adb server answers every local account while it runs.
-   If check 11's first part made `~/halcyonic-fresh`, stop any control plane using it and remove it:
-   `rm -rf ~/halcyonic-fresh`.
-6. Pull this session's captures, by name, to a folder outside the repository; the folder holds the
-   owner's own captures too. Meta's capture service uploads every capture to the headset's account
-   while its media sync is on, so `pnpm quest:device -- shot` uses `screenrecord` unless told otherwise:
+
+3. Run `pnpm quest:check -- --closed`. Pass: every line passes.
+4. Disable proximity wake override (`adb shell am broadcast -a com.oculus.vrpowermanager.automation_disable`)
+   and remove any test option files (`waiting-for-you-sound-while-away`, `sound-panned`, and
+   `~/halcyonic-scenarios` on the Mac).
+5. Leave the headset's ADB server on port `5038` running (`adb kill-server` disrupts shared tooling).
+6. Pull session screenshots to a directory outside the repository:
+
    ```bash
    adb pull /sdcard/Oculus/Screenshots/<capture name> ~/halcyonic-captures/
    ```
-7. Record: the validation records above, the OPEN_QUESTIONS rows the session answered, and the
-   commit, date and headset.
+
+7. Record commit SHA, date, headset model, Horizon OS build, validation results, and resolved
+   [OPEN_QUESTIONS.md](../product/OPEN_QUESTIONS.md) rows.
