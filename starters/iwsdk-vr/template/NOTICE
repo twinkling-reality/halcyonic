@@ -3,12 +3,11 @@ desk, plant, banner and sound were removed so the app fetches nothing at run tim
 iwsdk.config.json, README.md and AGENTS.md are Halcyonic's own.
 The pieces in src/pieces.ts by Bach and Satie are compositions in the public domain, their notes typed by hand from
 public-domain editions of the score; an app made from this template may play them freely.
-The skies in public/skies/ are made from three Poly Haven skies, each under CC0 1.0 (public domain;
+The skies in public/skies/ are made from two Poly Haven skies, each under CC0 1.0 (public domain;
 https://polyhaven.com/license), by Greg Zaal with Jarod Guest: meadow.webp from "Kloofendal 48d Partly Cloudy (Pure
-Sky)" (https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky), garden.webp from "Kloppenheim 06 (Pure Sky)"
-(https://polyhaven.com/a/kloppenheim_06_puresky) and seaside.webp from "Qwantani Dusk 2 (Pure Sky)"
-(https://polyhaven.com/a/qwantani_dusk_2_puresky). Changed for this starter: each 2k HDR exposed, rolled off and cut to
-its upper half as an sRGB WebP (101 KB for the three).
+Sky)" (https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky) and garden.webp from "Kloppenheim 06 (Pure Sky)"
+(https://polyhaven.com/a/kloppenheim_06_puresky). Changed for this starter: each 2k HDR exposed, rolled off and cut to
+its upper half as an sRGB WebP (91 KB for the two).
 The models in public/models/nature/ are eleven from Quaternius's Stylized Nature MegaKit, free Standard edition, under
 CC0 1.0 (public domain; https://quaternius.com/packs/stylizednaturemegakit.html): CommonTree_1, CommonTree_2,
 CommonTree_5, Bush_Common, Bush_Common_Flowers, Flower_3_Group, Flower_4_Group, Rock_Medium_1, Rock_Medium_2,

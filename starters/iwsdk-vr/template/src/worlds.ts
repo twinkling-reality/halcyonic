@@ -169,24 +169,22 @@ const garden: WorldLook = {
   sound: { wind: 0.25, birds: 0.9 },
 };
 
-/** A seaside at dusk: a sandy island in a calm sea under a lilac sky, palms, rocks, shells and gulls. */
+/** A seaside at sunset: a sandy island in the sea, a big orange sun on the water, palms, rocks, shells and gulls. */
 const seaside: WorldLook = {
   name: 'seaside',
   sky: {
-    top: '#8D99C7',
-    middle: '#CABECD',
-    horizon: '#A394A6',
+    top: '#4B4EA8',
+    middle: '#EE7F94',
+    horizon: '#FFA867',
+    // Drawn, not photographed: its sun stands low on the horizon over its own glint on the water (CAST, assets1).
     disc: { at: [0.3, 0.05, -1], colour: '#FFE7A6', size: 0.065, glow: '#FF8A4C', glowStrength: 1.2 },
-    clouds: null,
-    // A clear dusk, lilac over a pale glow where the sun has set (Poly Haven's "Qwantani Dusk 2 (Pure Sky)", CC0;
-    // NOTICE).
-    picture: { file: 'skies/seaside.webp', sun: 0.5898, below: 0.06 },
+    clouds: '#FFC4A8',
   },
   light: {
-    sky: '#D8C4E0',
+    sky: '#FFBFA4',
     ground: '#6FA3C9',
     fill: 0.68,
-    sun: '#FFCBAE',
+    sun: '#FFB27A',
     sunAt: [3.4, 2.4, 2.9],
     sunStrength: 2.4,
     rim: '#FFC08A',
@@ -202,7 +200,7 @@ const seaside: WorldLook = {
     side: '#D9AE76',
     lip: '#B98A55',
     steps: ['#B07A4E', '#946240'],
-    sea: { near: '#2A7FB0', far: '#9A9CC8', glitter: '#FFD8C0', level: -0.3 },
+    sea: { near: '#1F86B8', far: '#7FA6D6', glitter: '#FFC27A', level: -0.3 },
   },
   dressing: 'seaside',
   sound: { waves: 0.9, wind: 0.2, gulls: 0.5 },

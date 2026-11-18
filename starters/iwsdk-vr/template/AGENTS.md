@@ -78,11 +78,11 @@ Make it fun to look at:
   game starts with, so pick the world in `src/worlds.ts` that fits the game and name it in `src/index.ts`, for
   example `setupLook(world, 'night')`:
   - `garden`: golden hour, hills, apple trees, sunflowers, pumpkins and a fence;
-  - `seaside`: a sandy island in a calm sea at dusk, palms, rocks, shells and gulls;
+  - `seaside`: a sandy island in the sea at sunset, palms, rocks, shells and gulls;
   - `night`: a starry sky and a moon, moon trees, crystals, glowing mushrooms and fireflies.
   If none fits, make one of your own from another, importing `worlds` from `./worlds`:
   `setupLook(world, { ...worlds.seaside, name: 'lagoon', sky: { ...worlds.seaside.sky, top: '#2F5FA8' } })`.
-  The meadow, garden and seaside skies are photographs (`sky.picture`, in `public/skies/`); drop `picture` from a
+  The meadow's and the garden's skies are photographs (`sky.picture`, in `public/skies/`); drop `picture` from a
   world of your own for the drawn sky of its `top` and `horizon`.
   A world brings its own sky, light, ground, dressing and sound; the toys keep the palette's colours in every world.
   Put the world's sky colours in `index.html`'s `background` too, so the page shows them while the game loads.

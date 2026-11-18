@@ -230,7 +230,8 @@ describe('a fresh island comes decorated and costs a headset few draw calls (U4)
     );
     assert.match(decor, /new InstancedMesh\(/);
     assert.match(decor, /vertexColors = true/);
-    assert.match(read('src/look.ts'), /mergeGeometries\(/);
+    // The woods on the land are the kit's modelled tree, instanced: one draw call for each of its parts.
+    assert.match(read('src/look.ts'), /natureInstances\('CommonTree_5', 3, woods, \{ tint \}\)/);
   });
 
   test('the agent is told the island comes decorated and how to change it', () => {
@@ -1653,13 +1654,16 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     assert.match(height, /Math\.sin\(a \* 3 \+ 1\.3\)/, 'ridges vary round the horizon');
     assert.match(
       look(),
-      /PLAIN_LEVEL \+ \(onHills \? hillHeight\(x, z\) : 0\) - 0\.35 \* s/,
+      /PLAIN_LEVEL \+ \(onHills \? hillHeight\(x, z\) : 0\) - 0\.1 \* s/,
       'far trees stand on the hills',
     );
-    assert.match(look(), /for \(let copse = 0; copse < 16; copse\+\+\)/, 'trees gather in copses');
+    // Since the starter's CC0 assets (CAST, assets1) the woods are modelled trees: fewer copses, spread evenly round
+    // the land so every way the person turns has woods, within a headset's budget.
+    assert.match(look(), /for \(let copse = 0; copse < 12; copse\+\+\)/, 'trees gather in copses');
+    assert.match(look(), /const a = \(\(copse \+ 0\.7 \* random\(\)\) \/ 12\) \* Math\.PI \* 2;/);
     assert.match(
       look(),
-      /for \(let line = 0; line < 5; line\+\+\)/,
+      /for \(let line = 0; line < 2; line\+\+\)/,
       'and in hedgerow lines, never an even scatter',
     );
   });
@@ -1680,18 +1684,18 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       clumps,
-      /new InstancedMesh\(tree, material, count\)/,
-      'far clumps cost one draw call',
+      /for \(const spot of spots\.slice\(0, 72\)\) \{/,
+      'at most 72 trees in the woods',
     );
     assert.match(
       clumps,
-      /natureInstances\('CommonTree_5', 2\.6, lone, tint\);\n\s+group\.add\(shadows, clumps, trees, natureInstances\('Bush_Common', 1\.1, bushes, tint\)\);/,
-      'the nearer lone trees and bushes are the modelled ones, one draw call per part',
+      /natureInstances\('CommonTree_5', 3, woods, \{ tint \}\),\n\s+natureInstances\('CommonTree_5', 2\.6, lone, \{ tint \}\),\n\s+natureInstances\('Bush_Common', 1\.1, bushes, \{ tint \}\),/,
+      'the woods, lone trees and bushes are the modelled ones, one draw call per part',
     );
-    assert.match(
+    assert.doesNotMatch(
       clumps,
-      /new CylinderGeometry\(0\.08, 0\.12, 0\.7, 6\)/,
-      'each clump stands on a trunk',
+      /CylinderGeometry|SphereGeometry/,
+      'no drawn crowns on drawn trunks left',
     );
     assert.doesNotMatch(
       look(),
@@ -1850,11 +1854,10 @@ describe("the starter's skies and nature models are free files of its own (the l
   const notice = read('NOTICE');
   const bytes = (path: string) => statSync(new URL(path, template)).size;
 
-  test('the meadow, garden and seaside have photographed skies in public/skies, small and credited; night keeps its drawn one', () => {
+  test('the meadow and the garden have photographed skies in public/skies, small and credited; the others keep drawn ones', () => {
     for (const [name, page] of [
       ['meadow', 'kloofendal_48d_partly_cloudy_puresky'],
       ['garden', 'kloppenheim_06_puresky'],
-      ['seaside', 'qwantani_dusk_2_puresky'],
     ] as const) {
       const body = worlds.slice(
         worlds.indexOf(`const ${name}: WorldLook = {`),
@@ -1871,8 +1874,17 @@ describe("the starter's skies and nature models are free files of its own (the l
       assert.ok(notice.includes(`https://polyhaven.com/a/${page}`), `NOTICE names ${page}'s page`);
     }
     assert.match(notice, /each under CC0 1\.0 \(public domain;/);
-    const night = worlds.slice(worlds.indexOf('const night: WorldLook = {'));
-    assert.doesNotMatch(night.slice(0, night.indexOf('\n};')), /picture:/);
+    // The seaside keeps its drawn sunset, its sun low over its own glint on the water (CAST, assets1), and night its
+    // drawn moon and stars.
+    for (const name of ['seaside', 'night']) {
+      const body = worlds.slice(worlds.indexOf(`const ${name}: WorldLook = {`));
+      assert.doesNotMatch(body.slice(0, body.indexOf('\n};')), /picture:/, name);
+    }
+    assert.match(worlds, /horizon: '#FFA867',\n\s+\/\/ Drawn, not photographed/);
+    assert.deepEqual(readdirSync(new URL('public/skies/', template)).sort(), [
+      'garden.webp',
+      'meadow.webp',
+    ]);
   });
 
   test("a photographed sky loads from the app's own files, turned so its sun stands at the world's, the drawn sky standing in", () => {
@@ -1938,6 +1950,37 @@ describe("the starter's skies and nature models are free files of its own (the l
       0,
     );
     assert.ok(total < 700_000, `the models are ${total} bytes, under 0.7 MB for a headset`);
+  });
+
+  test("the garden's apple trees are modelled trees with apples hung on their own leaves", () => {
+    const decor = read('src/decor.ts');
+    assert.match(
+      decor,
+      /fallback: \(\) => appleTree\(x, z\),\n\s+dress: \(slot\) => hangApples\(slot, 7\),/,
+    );
+    const hang = decor.slice(
+      decor.indexOf('function hangApples('),
+      decor.indexOf('/** A seaside:'),
+    );
+    assert.match(hang, /if \(mesh\.isMesh !== true \|\| !isLeaves\(mesh\)\) return;/);
+    assert.match(
+      hang,
+      /if \(chosen\.every\(\(q\) => q\.distanceTo\(p\) > 0\.18\)\) chosen\.push\(p\);/,
+    );
+    assert.match(read('src/nature.ts'), /look\.dress\?\.\(slot\);/);
+  });
+
+  test("the land and the hills have turf's clumps, and the seat mound reads as the lawn round it", () => {
+    const surface = read('src/surface.ts');
+    assert.match(surface, /export function turfColour\(\): DataTexture \{/);
+    assert.match(surface, /turf\.wrapS = turf\.wrapT = RepeatWrapping;/);
+    assert.match(look(), /withTurf\(material, 38\);/);
+    assert.match(look(), /return new Mesh\(geometry, withTurf\(material, 39\)\);/);
+    assert.match(
+      look(),
+      /withGrain\(toyMaterial\(lawnColour\(ground\), \{ ground: true \}\), 6, 0\.4\)/,
+    );
+    assert.match(look(), /\(tier\.material as MeshPhysicalMaterial\)\.sheen = 0;/);
   });
 
   test('the dressing places the models, each with a drawn one standing in if the files cannot be read', () => {

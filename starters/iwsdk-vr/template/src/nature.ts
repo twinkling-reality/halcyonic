@@ -79,9 +79,14 @@ function natureKit(): Promise<Map<string, Loaded> | null> {
 /**
  * A nature model, `height` metres tall from the ground, in a group you can place, turn and sway at once; the model
  * fills it as soon as the kit has loaded (before the first frame). `tint` multiplies its colours, for a world's own
- * stone or leaf. If the file cannot be read, `fallback` fills it instead, or nothing does.
+ * stone or leaf, and `dress` is called with the filled group once the model is in it (to hang fruit on its leaves,
+ * say). If the file cannot be read, `fallback` fills it instead, or nothing does.
  */
-export function natureModel(name: NatureModel, height: number, look: { tint?: string; fallback?: () => Object3D } = {}): Group {
+export function natureModel(
+  name: NatureModel,
+  height: number,
+  look: { tint?: string; fallback?: () => Object3D; dress?: (slot: Group) => void } = {},
+): Group {
   const slot = new Group();
   void natureKit().then((models) => {
     const loaded = models?.get(name);
@@ -104,8 +109,14 @@ export function natureModel(name: NatureModel, height: number, look: { tint?: st
       });
     }
     slot.add(copy);
+    look.dress?.(slot);
   });
   return slot;
+}
+
+/** Whether a mesh of the kit is leaves (its cut-out cards), not bark, petals or stone. */
+export function isLeaves(mesh: Mesh): boolean {
+  return (mesh.material as Material).name.startsWith('Leaves');
 }
 
 /**
@@ -118,7 +129,7 @@ export function natureInstances(
   name: NatureModel,
   height: number,
   places: readonly (readonly [number, number, number, number, number])[],
-  tint?: string,
+  look: { tint?: string } = {},
 ): Group {
   const group = new Group();
   void natureKit().then((models) => {
@@ -132,9 +143,9 @@ export function natureInstances(
       const mesh = object as Mesh;
       if (mesh.isMesh !== true) return;
       let material = mesh.material as Material;
-      if (tint !== undefined) {
+      if (look.tint !== undefined) {
         const tinted = material.clone() as MeshStandardMaterial;
-        tinted.color.multiply(new Color(tint));
+        tinted.color.multiply(new Color(look.tint));
         material = tinted;
       }
       const many = new InstancedMesh(mesh.geometry, material, places.length);

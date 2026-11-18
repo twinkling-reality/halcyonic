@@ -85,6 +85,7 @@ function normalMap(size: number, height: Float32Array, strength: number): DataTe
 
 let grain: DataTexture | null = null;
 let ripples: DataTexture | null = null;
+let turf: DataTexture | null = null;
 
 /** The fine relief of a natural surface (grass, soil, bark, stone): one map, shared, 256 square. */
 export function surfaceGrain(): DataTexture {
@@ -122,6 +123,64 @@ export function waterRipples(): DataTexture {
       4,
     );
   return ripples;
+}
+
+/**
+ * Turf seen from a few metres: clumps a little lighter and darker, some drier and warmer, some cooler and greener, as a
+ * colour map that multiplies a material's own colour (its mean about 0.82), 256 square and wrapping with no seam.
+ */
+export function turfColour(): DataTexture {
+  if (turf === null) {
+    const size = 256;
+    const value = heights(
+      size,
+      [
+        [6, 0.45],
+        [20, 0.3],
+        [64, 0.25],
+      ],
+      21,
+    );
+    const hue = heights(
+      size,
+      [
+        [5, 0.6],
+        [14, 0.4],
+      ],
+      22,
+    );
+    const data = new Uint8Array(size * size * 4);
+    for (let k = 0; k < size * size; k++) {
+      const v = 0.82 + 0.75 * ((value[k] ?? 0.5) - 0.5);
+      // Toward dry and warm where the second noise is high, cool and green where it is low.
+      const t = Math.min(1, Math.max(0, ((hue[k] ?? 0.5) - 0.5) * 3 + 0.5));
+      const r = v * (0.84 + 0.2 * t);
+      const g = v;
+      const b = v * (0.92 - 0.18 * t);
+      data[k * 4] = Math.round(Math.min(1, r) * 255);
+      data[k * 4 + 1] = Math.round(Math.min(1, g) * 255);
+      data[k * 4 + 2] = Math.round(Math.min(1, b) * 255);
+      data[k * 4 + 3] = 255;
+    }
+    turf = new DataTexture(data, size, size, RGBAFormat, UnsignedByteType);
+    turf.wrapS = turf.wrapT = RepeatWrapping;
+    turf.magFilter = LinearFilter;
+    turf.minFilter = LinearMipmapLinearFilter;
+    turf.generateMipmaps = true;
+    turf.colorSpace = NoColorSpace;
+    turf.anisotropy = 8;
+    turf.needsUpdate = true;
+  }
+  return turf;
+}
+
+/** Gives a ground material turf's colour (`turfColour`), repeated `repeat` times across its texture coordinates. */
+export function withTurf<M extends MeshPhysicalMaterial>(material: M, repeat: number): M {
+  const map = turfColour().clone();
+  map.repeat.set(repeat, repeat);
+  map.needsUpdate = true;
+  material.map = map;
+  return material;
 }
 
 /**

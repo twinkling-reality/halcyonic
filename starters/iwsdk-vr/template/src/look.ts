@@ -4,7 +4,6 @@ import {
   CanvasTexture,
   CircleGeometry,
   Color,
-  CylinderGeometry,
   DirectionalLight,
   FogExp2,
   Float32BufferAttribute,
@@ -37,13 +36,12 @@ import {
   Vector2,
   Vector3,
 } from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { seatPose, VIEW_CAMERA, type ViewPose, viewDrift } from './legible.js';
 import { drift } from './motion.js';
 import { toyMaterial } from './palette.js';
 import { grassCarpet } from './grass.js';
 import { natureInstances } from './nature.js';
-import { waterMaterial, withGrain } from './surface.js';
+import { waterMaterial, withGrain, withTurf } from './surface.js';
 import { startAmbience } from './sound.js';
 import { type WorldLook, type WorldName, worlds } from './worlds.js';
 
@@ -213,6 +211,16 @@ export function contactShadow(radius: number): Mesh {
   return blob;
 }
 
+/**
+ * The colour a grass island's lawn reads as from the seat, or its top's colour where it grows no grass: its blades'
+ * roots shade their tips, so open turf in that colour, which no blade shades, is darker still to read the same.
+ */
+function lawnColour(ground: WorldLook['ground']): string {
+  if (ground.grass === undefined) return ground.top;
+  const lawn = new Color(ground.grass.colour).lerp(new Color(ground.grass.tip), 0.3).multiplyScalar(0.72);
+  return `#${lawn.getHexString()}`;
+}
+
 function island(): Group {
   const group = new Group();
   const R = ISLAND_RADIUS;
@@ -263,9 +271,13 @@ function island(): Group {
   const tier = new Mesh(
     // A lathe faces out when its profile runs from the bottom up; this one was written from the top down.
     new LatheGeometry(bank.slice().reverse(), 96),
-    withGrain(toyMaterial(ground.top, { ground: true }), 6, 0.4),
+    // On a grass island, the lawn's own colour as the eye sees it, its blades' roots shading their tips: open turf in
+    // the island's top colour reads paler than the lawn round it, a plinth rather than a bank (CAST, seat42).
+    withGrain(toyMaterial(lawnColour(ground), { ground: true }), 6, 0.4),
   );
   tier.position.set(0, 0, t.z);
+  // Turf, not felt: no white sheen at the grazing angle the seat sees its top from, which paled it against the lawn.
+  (tier.material as MeshPhysicalMaterial).sheen = 0;
   // A low mound's shadow from a sun near the horizon would stretch across the whole island; it casts none.
   tier.castShadow = false;
   tier.receiveShadow = true;
@@ -785,6 +797,9 @@ function plainLand(colours: readonly [string, string], horizon: string): Mesh {
   const material = toyMaterial('#FFFFFF', { ground: true, roughness: 0.95 });
   material.vertexColors = true;
   material.sheen = 0;
+  // Turf's own clumps over the fields, one tile every two metres: a flat colour read as a plastic plane under the
+  // photographed sky (CAST, assets1).
+  withTurf(material, 38);
   const land = new Mesh(geometry, withGrain(material, 40, 0.25));
   land.position.y = PLAIN_LEVEL;
   land.receiveShadow = true;
@@ -818,60 +833,30 @@ function hillHeight(x: number, z: number): number {
 }
 
 /**
- * Far clumps of trees on the land between the island and the hills, as one instanced mesh (one draw call): each a
- * leafy crown low on the land, darker and hazed with distance like the hills, so the eye reads the land's depth.
+ * Woods on the land between the island and the hills, and nearer bushes and lone trees: the island's own modelled
+ * trees and bushes, instanced (one draw call for each part of each kind), each on a soft contact shadow, hazed with
+ * distance like the hills, so the eye reads the land's depth in one style from the island to the horizon.
  */
-function farClumps(colour: string, horizon: string, onHills: boolean): Group {
+function farClumps(colour: string, onHills: boolean): Group {
   const random = seeded(31 + Math.round(worldTurn() * 100));
   const grounded: [number, number, number][] = [];
-  const crown = new SphereGeometry(1, 20, 12);
-  const position = crown.getAttribute('position');
-  for (let i = 0; i < position.count; i++) {
-    const px = position.getX(i);
-    const py = position.getY(i);
-    const pz = position.getZ(i);
-    // A broken leafy edge: large clumps and smaller tufts at their rims.
-    const k =
-      1 +
-      0.2 * Math.sin(5 * px + 1) * Math.sin(4 * py + 2) * Math.sin(5 * pz) +
-      0.1 * Math.sin(13 * px + 2) * Math.sin(12 * py) * Math.sin(11 * pz + 1);
-    position.setXYZ(i, px * k, Math.max(-0.2, py) * k, pz * k);
-  }
-  crown.computeVertexNormals();
-  // A tree at a distance: the crown lifted on a short dark trunk, darker underneath where it shades itself.
-  crown.scale(1, 1.1, 1).translate(0, 1.15, 0);
-  const crownShade: number[] = [];
-  const lifted = crown.getAttribute('position');
-  for (let i = 0; i < lifted.count; i++) {
-    const s = 0.3 + 0.7 * Math.min(1, Math.max(0, (lifted.getY(i) - 0.93) / 1.3)) ** 0.8;
-    crownShade.push(s, s, s);
-  }
-  crown.setAttribute('color', new Float32BufferAttribute(crownShade, 3));
-  crown.deleteAttribute('uv');
-  const trunk = new CylinderGeometry(0.08, 0.12, 0.7, 6).translate(0, 0.35, 0);
-  trunk.deleteAttribute('uv');
-  trunk.setAttribute('color', new Float32BufferAttribute(new Array(trunk.getAttribute('position').count).fill([0.32, 0.24, 0.2]).flat(), 3));
-  const tree = mergeGeometries([crown.toNonIndexed(), trunk.toNonIndexed()]) ?? crown;
-  const material = new MeshPhysicalMaterial({ color: '#FFFFFF', vertexColors: true, roughness: 0.95, metalness: 0 });
-  const count = 150;
-  const clumps = new InstancedMesh(tree, material, count);
   const place = new Object3D();
   const base = new Color(colour);
-  const sky = new Color(horizon);
   // Trees gather as people plant and woods grow: copses of a few, and hedgerow lines along the folds, with open
   // ground between; never an even scatter. Only on the near faces of the hills, where their feet are seen.
   const spots: { x: number; z: number; size: number }[] = [];
-  for (let copse = 0; copse < 16; copse++) {
-    const a = random() * Math.PI * 2;
+  for (let copse = 0; copse < 12; copse++) {
+    // Spread round the whole land, each a little off its even place, so every way the person turns has woods.
+    const a = ((copse + 0.7 * random()) / 12) * Math.PI * 2;
     const d = 13 + random() * 13;
-    const many = 4 + Math.floor(random() * 7);
+    const many = 3 + Math.floor(random() * 4);
     for (let k = 0; k < many; k++) {
       const spread = 0.8 + random() * 2.2;
       const t = random() * Math.PI * 2;
       spots.push({ x: Math.cos(a) * d + Math.cos(t) * spread, z: Math.sin(a) * d + Math.sin(t) * spread, size: 0.75 + random() * 0.7 });
     }
   }
-  for (let line = 0; line < 5; line++) {
+  for (let line = 0; line < 2; line++) {
     // A hedgerow line running round the land at its own distance, a tree every metre or so along it.
     const a0 = random() * Math.PI * 2;
     const d = 12 + random() * 10;
@@ -881,20 +866,17 @@ function farClumps(colour: string, horizon: string, onHills: boolean): Group {
       spots.push({ x: Math.cos(a) * (d + 0.4 * Math.sin(k)), z: Math.sin(a) * (d + 0.4 * Math.sin(k)), size: 0.55 + random() * 0.35 });
     }
   }
-  for (let i = 0; i < count; i++) {
-    const spot = spots[i % spots.length] ?? { x: 20, z: 0, size: 1 };
+  // The island's own modelled tree, the lightest of the kit's (about 3,200 triangles): twelve copses and two
+  // hedgerows come to some sixty, never more than 72, a headset's budget for the woods.
+  const woods: [number, number, number, number, number][] = [];
+  for (const spot of spots.slice(0, 72)) {
     const x = spot.x;
     const z = spot.z;
-    const d = Math.hypot(x, z);
-    const s = (0.24 + random() * 0.22) * spot.size;
+    const s = (0.3 + random() * 0.22) * spot.size;
     // Its foot sunk into the ground: on a slope the mesh between its vertices can lie below the hill's true height.
-    place.position.set(x, PLAIN_LEVEL + (onHills ? hillHeight(x, z) : 0) - 0.35 * s, z);
-    place.scale.set(s * (1 + random() * 0.6), s * (0.85 + random() * 0.45), s);
-    place.rotation.set(0, random() * 6.28, 0);
-    place.updateMatrix();
-    clumps.setMatrixAt(i, place.matrix);
-    grounded.push([place.position.x, place.position.z, s]);
-    clumps.setColorAt(i, base.clone().multiplyScalar(0.7 + random() * 0.3).lerp(sky, Math.min(0.6, (d - 12) / 26)));
+    const y = PLAIN_LEVEL + (onHills ? hillHeight(x, z) : 0) - 0.1 * s;
+    woods.push([x, y, z, s, random() * 6.28]);
+    grounded.push([x, z, s]);
   }
   // Nearer, between the island and the far trees: modelled bushes on the land and a few lone trees, so the eye
   // steps from the island to the hills.
@@ -910,8 +892,6 @@ function farClumps(colour: string, horizon: string, onHills: boolean): Group {
     (tree ? lone : bushes).push([x, PLAIN_LEVEL - 0.02, z, s, random() * 6.28]);
     grounded.push([x, z, s]);
   }
-  clumps.instanceMatrix.needsUpdate = true;
-  clumps.computeBoundingSphere();
   // A soft shadow on the ground under every one, near and far, so none floats (CAST, seat31).
   contactShadow(1);
   const shadows = new InstancedMesh(
@@ -929,13 +909,17 @@ function farClumps(colour: string, horizon: string, onHills: boolean): Group {
   shadows.instanceMatrix.needsUpdate = true;
   shadows.computeBoundingSphere();
   const group = new Group();
-  // The modelled ones take on the world's own land colour, the more the darker that land is, so a night's are as dim
-  // and blue as its woods while a day's keep their leaves' own green.
+  // They take on the world's own land colour, the more the darker that land is, so a night's are as dim and blue as
+  // its land while a day's keep their leaves' own green.
   const lightness = base.getHSL({ h: 0, s: 0, l: 0 }).l;
   const amount = Math.min(0.95, Math.max(0.45, 1.3 - 1.8 * lightness));
   const tint = `#${new Color('#FFFFFF').lerp(base, amount).getHexString()}`;
-  const trees = natureInstances('CommonTree_5', 2.6, lone, tint);
-  group.add(shadows, clumps, trees, natureInstances('Bush_Common', 1.1, bushes, tint));
+  group.add(
+    shadows,
+    natureInstances('CommonTree_5', 3, woods, { tint }),
+    natureInstances('CommonTree_5', 2.6, lone, { tint }),
+    natureInstances('Bush_Common', 1.1, bushes, { tint }),
+  );
   return group;
 }
 
@@ -979,7 +963,8 @@ function hills(colours: readonly [string, string]): Mesh {
   const material = toyMaterial('#FFFFFF', { ground: true, roughness: 0.95 });
   material.vertexColors = true;
   material.sheen = 0;
-  return new Mesh(geometry, material);
+  // The same turf as the land below them, at the same size.
+  return new Mesh(geometry, withTurf(material, 39));
 }
 
 /**
@@ -1108,7 +1093,7 @@ export function setupLook(world: World, setting: WorldName | WorldLook = 'meadow
   if (look.ground.sea !== undefined) stage.add(sea(look.ground.sea, look.sky.disc?.at, look.sky.horizon));
   if (look.ground.plain !== undefined && look.ground.sea === undefined) {
     stage.add(plainLand(look.ground.plain, look.sky.horizon));
-    stage.add(farClumps(look.ground.hills?.[1] ?? look.ground.plain[1], look.sky.horizon, look.ground.hills !== undefined));
+    stage.add(farClumps(look.ground.hills?.[1] ?? look.ground.plain[1], look.ground.hills !== undefined));
   }
   if (look.ground.hills !== undefined) stage.add(hills(look.ground.hills));
   const clouds = look.sky.clouds;

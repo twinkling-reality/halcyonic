@@ -23,6 +23,7 @@ import {
   Object3D,
   OctahedronGeometry,
   PlaneGeometry,
+  Quaternion,
   Shape,
   ShapeGeometry,
   SphereGeometry,
@@ -40,7 +41,7 @@ import { withGrain } from './surface.js';
 import { wordsOn } from './legible.js';
 import { ambientMotion, contactShadow, currentWorld, gameIsland, gameTime, ISLAND_CENTRE, TIER } from './look.js';
 import { ambient, confettiPiece, flap, flight, juice, pulse, sway } from './motion.js';
-import { type NatureModel, natureModel } from './nature.js';
+import { isLeaves, type NatureModel, natureModel } from './nature.js';
 import { type PaletteName, palette, toyMaterial } from './palette.js';
 
 /**
@@ -331,25 +332,14 @@ function fence(decor: Group): void {
 /** A garden at golden hour: apple trees, pumpkins, sunflowers facing the player, grass, butterflies and a fence. */
 function gardenDressing(decor: Group, counts: DecorCounts): void {
   const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
-  for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
+  for (const [i, [x, z, size]] of LAYOUT.trees.slice(0, trees).entries()) {
     const tree = new Group();
-    const parts = [part(barkTrunk(0.06, 0.085, 0.55, x + z), '#8A5232', [0, 0, 0])];
-    const crown = [
-      [0, 0.78, 0, 0.38, '#63A83E'],
-      [0.22, 0.64, 0.06, 0.27, '#558F36'],
-      [-0.22, 0.66, -0.02, 0.28, '#6CB044'],
-    ] as const;
-    for (const [a, b, c, r] of crown) parts.push(part(foliage(r * 0.72, x * 3.1 + a * 7 + z), '#2E4F1E', [a, b, c]));
-    for (const [a, b, c] of [
-      [0.16, 0.86, 0.3],
-      [-0.2, 0.74, 0.27],
-      [0.05, 0.6, 0.34],
-      [0.34, 0.62, 0.17],
-      [-0.33, 0.8, 0.1],
-    ] as const)
-      parts.push(part(appleShape(), a > 0 ? '#C8323A' : '#B8402E', [a, b, c]), part(new CylinderGeometry(0.004, 0.005, 0.025, 5), '#5A3A1E', [a, b + 0.05, c]));
-    const swaying = prop(parts, { natural: true, roughness: 0.7 });
-    swaying.add(canopy(crown, x * 3.1 + z));
+    // A modelled tree hung with apples on its leaves; the drawn apple tree stands in if the models cannot be read.
+    const swaying = natureModel(i % 2 === 0 ? 'CommonTree_5' : 'CommonTree_1', 1.55, {
+      fallback: () => appleTree(x, z),
+      dress: (slot) => hangApples(slot, 7),
+    });
+    swaying.rotation.y = x * 1.3 - z;
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size);
@@ -418,6 +408,70 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
 
 /** The seaside's modelled rocks, one for each place in turn. */
 const SEA_ROCKS: readonly NatureModel[] = ['Rock_Medium_1', 'Rock_Medium_3', 'Rock_Medium_2'];
+
+/** The drawn apple tree: a bark trunk under a crown of leaf cards round dark cores, five apples on its front. */
+function appleTree(x: number, z: number): Mesh {
+  const parts = [part(barkTrunk(0.06, 0.085, 0.55, x + z), '#8A5232', [0, 0, 0])];
+  const crown = [
+    [0, 0.78, 0, 0.38, '#63A83E'],
+    [0.22, 0.64, 0.06, 0.27, '#558F36'],
+    [-0.22, 0.66, -0.02, 0.28, '#6CB044'],
+  ] as const;
+  for (const [a, b, c, r] of crown) parts.push(part(foliage(r * 0.72, x * 3.1 + a * 7 + z), '#2E4F1E', [a, b, c]));
+  for (const [a, b, c] of [
+    [0.16, 0.86, 0.3],
+    [-0.2, 0.74, 0.27],
+    [0.05, 0.6, 0.34],
+    [0.34, 0.62, 0.17],
+    [-0.33, 0.8, 0.1],
+  ] as const)
+    parts.push(
+      part(appleShape(), a > 0 ? '#C8323A' : '#B8402E', [a, b, c]),
+      part(new CylinderGeometry(0.004, 0.005, 0.025, 5), '#5A3A1E', [a, b + 0.05, c]),
+    );
+  const tree = prop(parts, { natural: true, roughness: 0.7 });
+  tree.add(canopy(crown, x * 3.1 + z));
+  return tree;
+}
+
+/**
+ * Apples hung on a modelled tree's leaves (`natureModel`'s `dress`): `count` of them, on the outside of its crown
+ * toward the player and spread apart, each tucked a little in from the leaf card's corner toward the crown's middle,
+ * all one mesh.
+ */
+function hangApples(slot: Group, count: number): void {
+  slot.updateWorldMatrix(true, true);
+  const toSlot = slot.matrixWorld.clone().invert();
+  const corners: Vector3[] = [];
+  slot.traverse((object) => {
+    const mesh = object as Mesh;
+    if (mesh.isMesh !== true || !isLeaves(mesh)) return;
+    const position = mesh.geometry.getAttribute('position');
+    const toHere = toSlot.clone().multiply(mesh.matrixWorld);
+    for (let k = 0; k < position.count; k += 5)
+      corners.push(new Vector3().fromBufferAttribute(position, k).applyMatrix4(toHere));
+  });
+  if (corners.length === 0) return;
+  const middle = corners.reduce((sum, p) => sum.add(p), new Vector3()).divideScalar(corners.length);
+  // Toward the player: the slot may be turned, so +z in the island's frame is turned back into the slot's.
+  const front = new Vector3(0, 0, 1).applyQuaternion(slot.getWorldQuaternion(new Quaternion()).invert());
+  const ranked = corners
+    .filter((p) => p.y > middle.y - 0.25)
+    .sort((a, b) => b.clone().sub(middle).dot(front) - a.clone().sub(middle).dot(front));
+  const chosen: Vector3[] = [];
+  for (const p of ranked) {
+    if (chosen.length >= count) break;
+    if (chosen.every((q) => q.distanceTo(p) > 0.18)) chosen.push(p);
+  }
+  const parts = chosen.flatMap((p, k) => {
+    const at = p.clone().lerp(middle, 0.12);
+    return [
+      part(appleShape(), k % 2 === 0 ? '#C8323A' : '#B8402E', [at.x, at.y, at.z]),
+      part(new CylinderGeometry(0.004, 0.005, 0.025, 5), '#5A3A1E', [at.x, at.y + 0.05, at.z]),
+    ];
+  });
+  if (parts.length > 0) slot.add(prop(parts, { roughness: 0.45 }));
+}
 
 /** A seaside: palms and a striped umbrella, rocks, shells and starfish on the sand, dune grass, and gulls. */
 function seasideDressing(decor: Group, counts: DecorCounts): void {
