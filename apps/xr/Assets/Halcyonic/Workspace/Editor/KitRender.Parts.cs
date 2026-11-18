@@ -83,7 +83,7 @@ namespace Halcyonic.XR.Workspace.Editor
                     var size = variant.Length == 0 ? "Standard" : variant;
                     var found = new List<string>();
                     var shown = 0;
-                    foreach (var state in BandStates.Concat(FieldStates).Concat(CursorStates).Concat(GlyphStates).Concat(AgentStates).Concat(RowsStates).Concat(StepsStates).Concat(BuildStates).Concat(BuildArcStates).Concat(RowsApartStates).Concat(TagStates).Concat(CardStates).Concat(RecapStates).Concat(StartFromStates).Concat(StartStoppedStates).Concat(NarrowStates).Concat(WidthStates).Concat(PairingStates).Concat(ProjectsStates).Concat(AskColumnStates).Concat(GeneralStates).Concat(ReviewStates).Concat(FlightStates))
+                    foreach (var state in BandStates.Concat(FieldStates).Concat(CursorStates).Concat(GlyphStates).Concat(AgentStates).Concat(RowsStates).Concat(StepsStates).Concat(BuildStates).Concat(BuildArcStates).Concat(RowsApartStates).Concat(TagStates).Concat(CardStates).Concat(RecapStates).Concat(StartFromStates).Concat(StartStoppedStates).Concat(NarrowStates).Concat(WidthStates).Concat(PairingStates).Concat(ProjectsStates).Concat(AskColumnStates).Concat(GeneralStates).Concat(ReviewStates).Concat(FlightStates).Concat(FlowStates).Concat(EvidenceChooseStates))
                     {
                         if (narrowed && !state.Contains(only!, StringComparison.OrdinalIgnoreCase)) continue;
                         shown++;
@@ -299,6 +299,8 @@ namespace Halcyonic.XR.Workspace.Editor
                     : GeneralStates.Contains(state) ? GeneralShot(state, root.transform, eyes, name)
                     : ReviewStates.Contains(state) ? ReviewShot(state, root.transform, eyes, name)
                     : FlightStates.Contains(state) ? FlightShot(state, root.transform, eyes, name)
+                    : FlowStates.Contains(state) ? FlowShot(state, root.transform, eyes, name)
+                    : EvidenceChooseStates.Contains(state) ? EvidenceChooseShot(state, root.transform, eyes, name)
                     : BandShot(state, root.transform, eyes, name);
                 failures.AddRange(shot.Failures.Select(failure => name + ": " + failure));
                 // Every bar the state laid stands within its largest footprint, the one the plane keeps a shelf clear of (AUDIT, 2026-11-13T1725Z).
