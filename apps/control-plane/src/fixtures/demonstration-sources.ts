@@ -394,6 +394,10 @@ interface Observed {
   toolErrors: number;
   firstErrorAt: string | null;
   readonly tokens: { input: number; output: number };
+  /** Completed tool calls and their errors by the tool's name, for Seorak's tool mix. */
+  readonly byTool: Map<string, { calls: number; errors: number }>;
+  /** When each piece of evidence happened, for Seorak's cadence. */
+  readonly moments: string[];
 }
 
 function observe(events: readonly EventEnvelope[], story: SourceStory): Observed {
@@ -416,6 +420,8 @@ function observe(events: readonly EventEnvelope[], story: SourceStory): Observed
     toolErrors: 0,
     firstErrorAt: null,
     tokens: { input: 0, output: 0 },
+    byTool: new Map(),
+    moments: [],
   };
   const tools = new Map<string, { name: string; title: string | null }>();
   const spend = (use: { readonly input: number; readonly output: number }) => {
@@ -425,6 +431,7 @@ function observe(events: readonly EventEnvelope[], story: SourceStory): Observed
   const evidence = (at: string) => {
     observed.sequence += 1;
     observed.newest = at;
+    observed.moments.push(at);
   };
   for (const event of events) {
     const at = event.occurred_at;
@@ -451,6 +458,10 @@ function observe(events: readonly EventEnvelope[], story: SourceStory): Observed
         const tool = tools.get(id);
         if (tool === undefined) throw new Error(`tool call ${id} completed before it started`);
         observed.toolCalls += 1;
+        const count = observed.byTool.get(tool.name) ?? { calls: 0, errors: 0 };
+        count.calls += 1;
+        if (event.payload.outcome === 'failed') count.errors += 1;
+        observed.byTool.set(tool.name, count);
         if (event.payload.outcome === 'failed') {
           observed.toolErrors += 1;
           observed.firstErrorAt ??= at;
@@ -945,11 +956,15 @@ function lastOf<T>(items: readonly T[]): T {
   return last;
 }
 
-/** The three documents the stand-in for Seorak serves about a session: resolve, outcome and lens. */
+/**
+ * The documents the stand-in for Seorak serves about a session: resolve, outcome, and the
+ * verification, tool-mix and cadence lenses, the last two as Seorak's reducer writes them
+ * (local-integration-replay-lenses.ts). No tool call's cost is measured, so none is given.
+ */
 function seorakDocuments(
   ref: string,
   observed: Observed,
-): { resolve: Json; outcome: Json; lens: Json } {
+): { resolve: Json; outcome: Json; lens: Json; toolMix: Json; cadence: Json } {
   const generatedAt = observed.newest;
   const day = generatedAt.slice(0, 10);
   const from = new Date(Date.parse(`${day}T00:00:00.000Z`) - (COVERAGE_DAYS - 1) * 86_400_000)
@@ -1041,7 +1056,59 @@ function seorakDocuments(
         nextCursor: null,
       },
     },
+    toolMix: lensOf(
+      'tool-mix',
+      [...observed.byTool.entries()]
+        .sort(([a, left], [b, right]) => right.calls - left.calls || a.localeCompare(b))
+        .map(([label, { calls, errors }]) => ({
+          label,
+          metrics: [
+            { key: 'calls', label: 'Tool calls', value: calls, unit: 'count' },
+            { key: 'errors', label: 'Errored calls', value: errors, unit: 'count' },
+            { key: 'costUsd', label: 'Measured cost', value: null, unit: 'usd' },
+          ],
+          share: calls / observed.toolCalls,
+        })),
+      'No tool-call evidence was captured.',
+    ),
+    cadence: lensOf('cadence', cadenceRows(observed.moments), 'No cadence moments were captured.'),
   };
+
+  function lensOf(lens: string, rows: Json[], empty: string): Json {
+    return {
+      ...envelope(true),
+      result: {
+        lens,
+        level: 'session',
+        target: { kind: 'session', sessionRef: ref },
+        headline: null,
+        rows,
+        emptyReason: rows.length === 0 ? empty : null,
+        loadedSessionCount: 1,
+        momentCount: observed.sequence,
+        nextCursor: null,
+      },
+    };
+  }
+}
+
+/** Seorak's one cadence row: the moments, and the mean and longest gap between consecutive ones. */
+function cadenceRows(moments: readonly string[]): Json[] {
+  const ordered = moments.map((at) => Date.parse(at)).sort((a, b) => a - b);
+  if (ordered.length === 0) return [];
+  const gaps = ordered.slice(1).map((at, index) => Math.max(0, at - (ordered[index] ?? at)));
+  const average = gaps.length > 0 ? gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length : null;
+  const longest = gaps.length > 0 ? Math.max(...gaps) : null;
+  return [
+    {
+      label: 'Observed cadence',
+      metrics: [
+        { key: 'moments', label: 'Observed moments', value: ordered.length, unit: 'count' },
+        { key: 'averageGap', label: 'Average gap', value: average, unit: 'milliseconds' },
+        { key: 'longestGap', label: 'Longest gap', value: longest, unit: 'milliseconds' },
+      ],
+    },
+  ];
 }
 
 /** The demonstration's runtimes are the mock runtime under other names. */
@@ -1250,6 +1317,8 @@ export class DemonstrationSources {
     session.resolve = documents.resolve;
     session.outcome = documents.outcome;
     session.lens = documents.lens;
+    session.toolMix = documents.toolMix;
+    session.cadence = documents.cadence;
   }
 
   /**
