@@ -231,7 +231,7 @@ describe('a fresh island comes decorated and costs a headset few draw calls (U4)
     assert.match(decor, /new InstancedMesh\(/);
     assert.match(decor, /vertexColors = true/);
     // The woods on the land are the kit's modelled trees, instanced: one draw call for each part of each kind.
-    assert.match(read('src/look.ts'), /natureInstances\('CommonTree_5', 3, round, \{ tint \}\)/);
+    assert.match(read('src/look.ts'), /byQuarter\('CommonTree_5', 3, round, tint\)/);
   });
 
   test('the agent is told the island comes decorated and how to change it', () => {
@@ -1684,13 +1684,24 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       clumps,
-      /for \(const spot of spots\.slice\(0, 40\)\) \{/,
-      "at most 40 trees in the woods, a headset's budget",
+      /for \(const spot of spots\.slice\(0, 72\)\) \{/,
+      'at most 72 trees in the woods',
     );
     assert.match(
       clumps,
-      /natureInstances\('CommonTree_5', 3, round, \{ tint \}\),\n\s+natureInstances\('CommonTree_3', 3\.6, tall, \{ tint \}\),\n\s+natureInstances\('CommonTree_4', 3\.4, slim, \{ tint \}\),\n\s+natureInstances\('Bush_Common', 1\.1, footBushes, \{ tint \}\),\n\s+natureInstances\('CommonTree_5', 2\.6, lone, \{ tint \}\),\n\s+natureInstances\('Bush_Common', 1\.1, bushes, \{ tint \}\),/,
+      /byQuarter\('CommonTree_5', 3, round, tint\),\n\s+byQuarter\('CommonTree_3', 3\.6, tall, tint\),\n\s+byQuarter\('CommonTree_4', 3\.4, slim, tint\),\n\s+byQuarter\('Bush_Common', 1\.1, footBushes, tint\),\n\s+byQuarter\('CommonTree_5', 2\.6, lone, tint\),\n\s+byQuarter\('Bush_Common', 1\.1, bushes, tint\),/,
       'the woods, lone trees and bushes are the modelled ones, one draw call per part',
+    );
+    // Drawn by quarters of the land, so a headset culls the quarters out of view: one instanced mesh for the whole
+    // land drew every tree behind the person too (the lead's 72 fps bar, 2026-11-18).
+    const quarter = look().slice(
+      look().indexOf('function byQuarter('),
+      look().indexOf('function hills('),
+    );
+    assert.match(quarter, /for \(let q = 0; q < 4; q\+\+\) \{/);
+    assert.match(
+      quarter,
+      /Math\.floor\(\(\(Math\.atan2\(z, x\) \+ Math\.PI\) \/ \(Math\.PI \* 2\)\) \* 4\) % 4 === q/,
     );
     // Three kinds mixed as a wood is, each its own size from 0.7 to 1.4 times, some with a bush at the foot (CAST,
     // assets2: one tree, copied).

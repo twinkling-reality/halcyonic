@@ -40,7 +40,7 @@ import { seatPose, VIEW_CAMERA, type ViewPose, viewDrift } from './legible.js';
 import { drift } from './motion.js';
 import { toyMaterial } from './palette.js';
 import { grassCarpet } from './grass.js';
-import { natureInstances } from './nature.js';
+import { type NatureModel, natureInstances } from './nature.js';
 import { waterMaterial, withGrain, withTurf } from './surface.js';
 import { startAmbience } from './sound.js';
 import { type WorldLook, type WorldName, worlds } from './worlds.js';
@@ -867,13 +867,14 @@ function farClumps(colour: string, onHills: boolean): Group {
     }
   }
   // The kit's three lightest trees (3,200 to 4,100 triangles), mixed as a wood is, each its own size from 0.7 to 1.4
-  // times and turned its own way, some with a bush at their foot: never more than 40, which keeps a view of the land
-  // near 400,000 triangles for a headset at 72 fps (CAST, assets2: one tree, copied; the lead, 2026-11-18).
+  // times and turned its own way, some with a bush at their foot: twelve copses and two hedgerows come to some sixty,
+  // never more than 72 (CAST, assets2: one tree, copied). Drawn by quarters of the land (`byQuarter`), so a view
+  // draws only the woods in front of it: about half of them, for a headset at 72 fps (the lead, 2026-11-18).
   const round: [number, number, number, number, number][] = [];
   const tall: [number, number, number, number, number][] = [];
   const slim: [number, number, number, number, number][] = [];
   const footBushes: [number, number, number, number, number][] = [];
-  for (const spot of spots.slice(0, 40)) {
+  for (const spot of spots.slice(0, 72)) {
     const x = spot.x;
     const z = spot.z;
     const s = (0.3 + random() * 0.22) * spot.size * (0.7 + 0.7 * random());
@@ -922,13 +923,32 @@ function farClumps(colour: string, onHills: boolean): Group {
   const tint = `#${new Color('#FFFFFF').lerp(base, amount).getHexString()}`;
   group.add(
     shadows,
-    natureInstances('CommonTree_5', 3, round, { tint }),
-    natureInstances('CommonTree_3', 3.6, tall, { tint }),
-    natureInstances('CommonTree_4', 3.4, slim, { tint }),
-    natureInstances('Bush_Common', 1.1, footBushes, { tint }),
-    natureInstances('CommonTree_5', 2.6, lone, { tint }),
-    natureInstances('Bush_Common', 1.1, bushes, { tint }),
+    byQuarter('CommonTree_5', 3, round, tint),
+    byQuarter('CommonTree_3', 3.6, tall, tint),
+    byQuarter('CommonTree_4', 3.4, slim, tint),
+    byQuarter('Bush_Common', 1.1, footBushes, tint),
+    byQuarter('CommonTree_5', 2.6, lone, tint),
+    byQuarter('Bush_Common', 1.1, bushes, tint),
   );
+  return group;
+}
+
+/**
+ * Many of one nature model on the land (`natureInstances`), split into four quarters round the island, each one
+ * instanced mesh for each part of the model: a headset culls a whole instanced mesh at once, so one for the whole land
+ * drew every tree behind the person too, and four let it draw only the quarters in view.
+ */
+function byQuarter(
+  name: NatureModel,
+  height: number,
+  places: readonly (readonly [number, number, number, number, number])[],
+  tint: string,
+): Group {
+  const group = new Group();
+  for (let q = 0; q < 4; q++) {
+    const mine = places.filter(([x, , z]) => Math.floor(((Math.atan2(z, x) + Math.PI) / (Math.PI * 2)) * 4) % 4 === q);
+    group.add(natureInstances(name, height, mine, { tint }));
+  }
   return group;
 }
 
