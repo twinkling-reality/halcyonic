@@ -91,6 +91,7 @@ import {
   type HeldRow,
   type ModelRun,
 } from './choices.ts';
+import { withClosingRequest } from './closing-words.ts';
 import {
   type Cause,
   causedBy,
@@ -2939,12 +2940,15 @@ export class CommandService {
             start.call(adapter, {
               execution,
               instruction: (() => {
-                const words = withCheckOutput(
-                  withMediaNote(
-                    withVersionNote(command.payload.instruction, firstFromVersion),
-                    media,
+                // The closing request last of the Mac's own lines, so the agent's last message can answer it.
+                const words = withClosingRequest(
+                  withCheckOutput(
+                    withMediaNote(
+                      withVersionNote(command.payload.instruction, firstFromVersion),
+                      media,
+                    ),
+                    checked,
                   ),
-                  checked,
                 );
                 return rules === null ? words : withRules(words, rules.file, rules.text);
               })(),
@@ -3638,7 +3642,9 @@ function actionFor(
   switch (command.command_type) {
     case 'execution.send_instruction': {
       const send = adapter.sendInstruction;
-      const text = withCheckOutput(withMediaNote(command.payload.text, media), checked);
+      const text = withClosingRequest(
+        withCheckOutput(withMediaNote(command.payload.text, media), checked),
+      );
       const leave = command.payload.leave_plan === true;
       return (
         send &&

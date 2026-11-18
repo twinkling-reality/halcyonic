@@ -1189,6 +1189,31 @@ export const ExecutionQuestionEndedByHost = executionEvent(
   ),
 );
 
+/** The longest sentence kept for one place of the agent's closing words. */
+export const CLOSING_WORDS_LIMIT = 300;
+
+/**
+ * The words the agent gave, at the end of a turn, for each place Halcyonic's closing request asks about (the lead,
+ * 2026-11-18): one plain sentence each, for someone who has never written code. `did`, what it did; `why`, why it did
+ * it that way; `how`, how it works now; `left`, what is left to do. A place it left out is null, never filled in.
+ * The agent's own claim, recorded `reported`, never `observed`, and never counted as evidence or as a check passed:
+ * shown as the agent's, beside the evidence. Read from the turn's last agent message after its redaction, each cut
+ * to `CLOSING_WORDS_LIMIT` characters.
+ */
+export const ExecutionClosingWords = executionEvent(
+  'execution.closing_words',
+  Type.Object(
+    {
+      turn_id: Nullable(NativeId),
+      did: Nullable(Text(CLOSING_WORDS_LIMIT)),
+      why: Nullable(Text(CLOSING_WORDS_LIMIT)),
+      how: Nullable(Text(CLOSING_WORDS_LIMIT)),
+      left: Nullable(Text(CLOSING_WORDS_LIMIT)),
+    },
+    strict,
+  ),
+);
+
 /** The adapter reported that the runtime could not start the execution. */
 export const ExecutionStartFailed = executionEvent(
   'execution.start_failed',
@@ -1702,6 +1727,7 @@ export const EVENT_VARIANTS = [
   ExecutionApprovalHostAnswerWithdrawn,
   ExecutionApprovalDeniedByHost,
   ExecutionQuestionEndedByHost,
+  ExecutionClosingWords,
   ExecutionStartFailed,
   ExecutionStateUnknown,
   CommandAccepted,

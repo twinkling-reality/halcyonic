@@ -738,6 +738,7 @@ describe('the C# bindings', () => {
     'ExecutionView.approval_level', // ADR 0043
     'ExecutionView.approvals', // how many requests the host answered and how many asked, absent until one
     'ExecutionView.auto_fix', // a failed check sent back on its own (ADR 0044)
+    'ExecutionView.closing_words', // the agent's closing words, absent until it answers (CORE, 2026-11-18)
     'ExecutionView.media', // the photos and videos its instructions carried (ADR 0066)
     'ExecutionView.plan', // whether its start recorded a plan (PLAN 4a)
     'ExecutionView.plan_left', // whether the plan was left to carry it out (PLAN 4a)

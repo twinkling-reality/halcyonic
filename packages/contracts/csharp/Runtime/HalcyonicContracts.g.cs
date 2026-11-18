@@ -3434,6 +3434,30 @@ namespace Halcyonic.Contracts
         public string AskedAt { get; set; } = default!;
     }
 
+    public sealed class ClosingWordsView
+    {
+        [global::Newtonsoft.Json.JsonProperty("at", Required = global::Newtonsoft.Json.Required.Always)]
+        public string At { get; set; } = default!;
+
+        [global::Newtonsoft.Json.JsonProperty("epistemic", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Epistemic { get; set; } = "reported";
+
+        [global::Newtonsoft.Json.JsonProperty("author", Required = global::Newtonsoft.Json.Required.Always)]
+        public string Author { get; set; } = "agent";
+
+        [global::Newtonsoft.Json.JsonProperty("did", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Did { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("why", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Why { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("how", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? How { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("left", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Left { get; set; }
+    }
+
     public sealed class ToolActivityView
     {
         [global::Newtonsoft.Json.JsonProperty("tool_call_id", Required = global::Newtonsoft.Json.Required.Always)]
@@ -3625,6 +3649,9 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("pending_questions", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<QuestionView> PendingQuestions { get; set; } = new global::System.Collections.Generic.List<QuestionView>();
+
+        [global::Newtonsoft.Json.JsonProperty("closing_words", Required = global::Newtonsoft.Json.Required.Default, NullValueHandling = global::Newtonsoft.Json.NullValueHandling.Ignore)]
+        public ClosingWordsView? ClosingWords { get; set; }
 
         [global::Newtonsoft.Json.JsonProperty("active_tools", Required = global::Newtonsoft.Json.Required.Always)]
         public global::System.Collections.Generic.List<ToolActivityView> ActiveTools { get; set; } = new global::System.Collections.Generic.List<ToolActivityView>();
@@ -5306,6 +5333,24 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("interrupt_requested", Required = global::Newtonsoft.Json.Required.Always)]
         public bool InterruptRequested { get; set; }
+    }
+
+    public sealed class ExecutionClosingWordsPayload
+    {
+        [global::Newtonsoft.Json.JsonProperty("turn_id", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? TurnId { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("did", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Did { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("why", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Why { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("how", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? How { get; set; }
+
+        [global::Newtonsoft.Json.JsonProperty("left", Required = global::Newtonsoft.Json.Required.AllowNull)]
+        public string? Left { get; set; }
     }
 
     public sealed class ExecutionStartFailedPayload
@@ -7112,6 +7157,7 @@ namespace Halcyonic.Contracts
                 "execution.approval.host_answer_withdrawn" => new ExecutionApprovalHostAnswerWithdrawnEvent(),
                 "execution.approval.denied_by_host" => new ExecutionApprovalDeniedByHostEvent(),
                 "execution.question.ended_by_host" => new ExecutionQuestionEndedByHostEvent(),
+                "execution.closing_words" => new ExecutionClosingWordsEvent(),
                 "execution.start_failed" => new ExecutionStartFailedEvent(),
                 "execution.state_unknown" => new ExecutionStateUnknownEvent(),
                 "command.accepted" => new CommandAcceptedEvent(),
@@ -7650,6 +7696,14 @@ namespace Halcyonic.Contracts
 
         [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
         public ExecutionQuestionEndedByHostPayload Payload { get; set; } = default!;
+    }
+
+    public sealed class ExecutionClosingWordsEvent : EventEnvelope
+    {
+        protected override string Discriminator => "execution.closing_words";
+
+        [global::Newtonsoft.Json.JsonProperty("payload", Required = global::Newtonsoft.Json.Required.Always)]
+        public ExecutionClosingWordsPayload Payload { get; set; } = default!;
     }
 
     public sealed class ExecutionStartFailedEvent : EventEnvelope

@@ -8,7 +8,7 @@ import {
   CommandType,
 } from './commands.ts';
 import { WorkstreamCopy } from './copies.ts';
-import { ApprovalSubject, QUEUED_INSTRUCTIONS_MAX } from './events.ts';
+import { ApprovalSubject, CLOSING_WORDS_LIMIT, QUEUED_INSTRUCTIONS_MAX } from './events.ts';
 import { ExecutionWritingView } from './file-changes.ts';
 import { ProjectPublishedView } from './github.ts';
 import { HostPath, ProjectLocation } from './locations.ts';
@@ -369,6 +369,25 @@ export const QueuedInstructionView = Type.Object(
 );
 export type QueuedInstructionView = Static<typeof QueuedInstructionView>;
 
+/**
+ * What the agent said, in one plain sentence each for someone who has never written code, for the places Halcyonic's
+ * closing request asks about: what it did, why, how it works now, and what is left. `reported` and by the `agent`
+ * always: its own claim, never an observation, never a check. A place it left out is null.
+ */
+export const ClosingWordsView = Type.Object(
+  {
+    at: Timestamp,
+    epistemic: Type.Literal('reported'),
+    author: Type.Literal('agent'),
+    did: Nullable(Text(CLOSING_WORDS_LIMIT)),
+    why: Nullable(Text(CLOSING_WORDS_LIMIT)),
+    how: Nullable(Text(CLOSING_WORDS_LIMIT)),
+    left: Nullable(Text(CLOSING_WORDS_LIMIT)),
+  },
+  strict,
+);
+export type ClosingWordsView = Static<typeof ClosingWordsView>;
+
 export const ExecutionView = Type.Object(
   {
     execution_id: ExecutionId,
@@ -433,6 +452,11 @@ export const ExecutionView = Type.Object(
       ),
     ),
     pending_questions: Type.Array(QuestionView),
+    /**
+     * The agent's own plain sentences from its latest turn that answered Halcyonic's closing request
+     * (`execution.closing_words`); absent until it answers. The agent's claim, never evidence: drawn as the agent's.
+     */
+    closing_words: Type.Optional(ClosingWordsView),
     active_tools: Type.Array(ToolActivityView),
     /**
      * Whether a tool call runs, from the facts alone. `running`: a turn is active, the status is not

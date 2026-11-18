@@ -2,6 +2,7 @@ import type {
   ApprovalLevel,
   ApprovalView,
   AutoFixView,
+  ClosingWordsView,
   CommandId,
   ErrorInfo,
   ExecutionId,
@@ -105,6 +106,11 @@ export interface ExecutionState {
    * admission, never shown to the person as a card.
    */
   hostAnswered: Set<string>;
+  /**
+   * The agent's latest answer to the closing request (`execution.closing_words`); absent or null until one, as in a
+   * checkpoint made before closing words were kept.
+   */
+  closingWords?: ClosingWordsView | null;
 }
 
 /**
@@ -487,6 +493,7 @@ export function toExecutionView(
     ...(state.approvals != null && {
       approvals: { went_ahead: state.approvals.wentAhead, asked: state.approvals.asked },
     }),
+    ...(state.closingWords != null && { closing_words: { ...state.closingWords } }),
     created_at: state.createdAt,
     started_at: state.startedAt,
     updated_at: state.updatedAt,

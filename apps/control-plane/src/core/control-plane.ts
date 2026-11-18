@@ -36,6 +36,7 @@ import { SecretStore } from '../secrets/store.ts';
 import { GitHubSender, type GitHubSenderDeps } from '../sending/github.ts';
 import type { HostStarters } from '../starters.ts';
 import { AutoFix } from './auto-fix.ts';
+import { ClosingWords } from './closing-words.ts';
 import { type CatalogLinks, CommandService } from './command-service.ts';
 import { controlPlaneDraft, NO_CAUSE } from './drafts.ts';
 import { GivenPictures } from './given-pictures.ts';
@@ -268,6 +269,7 @@ export class ControlPlane {
   readonly #hostAnswers: HostAnswers | null;
   readonly #confinedReads: NonNullable<ControlPlaneOptions['confinedReads']> | null;
   readonly #hostFolders: HostFolders | null;
+  #closingWords: ClosingWords | null = null;
   readonly #hostDenials: HostDenials;
   #closed = false;
   readonly #closeWaitMs: number;
@@ -572,6 +574,15 @@ export class ControlPlane {
       live: this.journal.info.origin === 'live',
     });
     this.#hostDenials.attach();
+    // The agent's own plain sentences at each turn's end, kept as its claim (the lead, 2026-11-18).
+    this.#closingWords = new ClosingWords({
+      recorder: this.recorder,
+      publisher: this.publisher,
+      clock: options.clock,
+      logger: options.logger,
+      live: this.journal.info.origin === 'live',
+    });
+    this.#closingWords.attach();
     // The person's instructions held for a runtime that cannot steer (ADR 0056).
     new InstructionQueue({
       projection: this.projection,
@@ -1010,6 +1021,7 @@ export class ControlPlane {
     this.#autoFix?.close();
     this.#hostAnswers?.close();
     this.#hostDenials.close();
+    this.#closingWords?.close();
     // A shared link stops before the preview it reaches.
     await this.shares?.close();
     await this.previews?.close();

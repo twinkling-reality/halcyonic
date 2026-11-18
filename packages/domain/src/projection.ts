@@ -2122,6 +2122,28 @@ export class Projection {
         this.#touchExecution(execution, event.ingested_at, changes);
         return;
       }
+      case 'execution.closing_words': {
+        // The agent's own words, kept as its claim (reported), never as evidence or a check (the lead, 2026-11-18).
+        const execution = this.#executions.get(event.execution_id);
+        if (execution === undefined) {
+          notes.push(
+            note('unknown_entity', event, `execution ${event.execution_id} does not exist`),
+          );
+          return;
+        }
+        const { did, why, how, left } = event.payload;
+        execution.closingWords = {
+          at: event.occurred_at,
+          epistemic: 'reported',
+          author: 'agent',
+          did,
+          why,
+          how,
+          left,
+        };
+        this.#touchExecution(execution, event.ingested_at, changes);
+        return;
+      }
       case 'execution.question.ended_by_host': {
         // The host asked for the turn's end; only the runtime's own `runtime.turn.interrupted` ends it, and no
         // question is settled here (ADR 0065).
