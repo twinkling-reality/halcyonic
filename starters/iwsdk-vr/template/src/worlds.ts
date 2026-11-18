@@ -228,8 +228,9 @@ const night: WorldLook = {
     sunAt: [-3.2, 4.6, 3.0],
     sunStrength: 3.4,
     exposure: 0.72,
-    // Less of the sky's light, so the moon's shadows read.
-    environment: 0.5,
+    // Little of the sky's light, so the moon's shadows read from the seat (CAST, turf1); the shadows are drawn either
+    // way, so this costs the headset nothing.
+    environment: 0.3,
     rim: '#B8C6FF',
     rimStrength: 1.6,
   },

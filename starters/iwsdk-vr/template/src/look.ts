@@ -904,19 +904,20 @@ function farClumps(colour: string, onHills: boolean): Group {
     grounded.push([x, z, s]);
     if (random() < 0.35) footBushes.push([x + 0.6 * s, y, z + 0.4 * s, s * 0.9, random() * 6.28]);
   }
-  // Patches of wildflowers in the middle ground, clumps close together in each, so the eye is carried out into
-  // the land as beds carry it (CAST, assets3: the fields between the trees were bare).
+  // Drifts of small wildflowers in the middle ground, each a loose trail of clumps along the land at its own
+  // distance, so the eye is carried out into the land (CAST, assets3: the fields between the trees were bare; turf1:
+  // beds as large as bushes in a row read as planted).
   const daisies: [number, number, number, number, number][] = [];
   const bells: [number, number, number, number, number][] = [];
-  for (let bed = 0; bed < 8; bed++) {
-    const a = ((bed + 0.6 * random()) / 8) * Math.PI * 2;
-    const d = 6 + random() * 10;
+  for (let drift = 0; drift < 8; drift++) {
+    const a = ((drift + 0.8 * random()) / 8) * Math.PI * 2;
+    const d = 5 + random() * 13;
+    const along = random() * Math.PI;
     for (let k = 0; k < 8; k++) {
-      const t = random() * Math.PI * 2;
-      const spread = random() * 1.5;
-      const x = Math.cos(a) * d + Math.cos(t) * spread;
-      const z = Math.sin(a) * d + Math.sin(t) * spread;
-      (k % 4 === 3 ? bells : daisies).push([x, PLAIN_LEVEL - 0.01, z, 0.8 + 0.5 * random(), random() * 6.28]);
+      const s = (k / 7 - 0.5) * (1.6 + random() * 1.4);
+      const x = Math.cos(a) * d + Math.cos(along) * s + (random() - 0.5) * 0.7;
+      const z = Math.sin(a) * d + Math.sin(along) * s + (random() - 0.5) * 0.7;
+      (k % 4 === 3 ? bells : daisies).push([x, PLAIN_LEVEL - 0.01, z, 0.7 + 0.6 * random(), random() * 6.28]);
     }
   }
   // Nearer, between the island and the far trees: modelled bushes on the land and a few lone trees, so the eye
@@ -955,7 +956,8 @@ function farClumps(colour: string, onHills: boolean): Group {
   const lightness = base.getHSL({ h: 0, s: 0, l: 0 }).l;
   const amount = Math.min(0.95, Math.max(0.45, 1.3 - 1.8 * lightness));
   const tint = `#${new Color('#FFFFFF').lerp(base, amount).getHexString()}`;
-  const bloom = `#${new Color('#FFFFFF').lerp(base, amount * 0.5).getHexString()}`;
+  // Flowers keep their own colours by day and close into the land's colour by night (CAST, turf1: they glowed).
+  const bloom = `#${new Color('#FFFFFF').lerp(base, amount * amount).getHexString()}`;
   group.add(
     shadows,
     byQuarter('CommonTree_5', 3, round, tint),
@@ -964,9 +966,8 @@ function farClumps(colour: string, onHills: boolean): Group {
     byQuarter('Bush_Common', 1.1, footBushes, tint),
     byQuarter('CommonTree_5', 2.6, lone, tint),
     byQuarter('Bush_Common', 1.1, bushes, tint),
-    // Flowers keep more of their own colours than the leaves round them: half the land's tint.
-    byQuarter('Flower_3_Group', 0.62, daisies, bloom),
-    byQuarter('Flower_4_Group', 0.7, bells, bloom),
+    byQuarter('Flower_3_Group', 0.25, daisies, bloom),
+    byQuarter('Flower_4_Group', 0.28, bells, bloom),
   );
   return group;
 }

@@ -2010,18 +2010,25 @@ describe("the starter's skies and nature models are free files of its own (the l
     assert.match(read('src/nature.ts'), /look\.dress\?\.\(slot\);/);
   });
 
-  test('beds of wildflowers carry the eye across the middle ground, in more of their own colours', () => {
+  test('small drifts of wildflowers carry the eye across the middle ground, closing up at night', () => {
     const clumps = look().slice(
       look().indexOf('function farClumps('),
       look().indexOf('function hills('),
     );
-    assert.match(clumps, /for \(let bed = 0; bed < 8; bed\+\+\) \{/);
-    assert.match(clumps, /natureInstances\('Flower_3_Group', 0\.62, daisies, \{ tint: bloom \}\),/);
-    assert.match(clumps, /natureInstances\('Flower_4_Group', 0\.7, bells, \{ tint: bloom \}\),/);
+    assert.match(clumps, /for \(let drift = 0; drift < 8; drift\+\+\) \{/);
     assert.match(
       clumps,
-      /const bloom = `#\$\{new Color\('#FFFFFF'\)\.lerp\(base, amount \* 0\.5\)\.getHexString\(\)\}`;/,
+      /const s = \(k \/ 7 - 0\.5\) \* \(1\.6 \+ random\(\) \* 1\.4\);/,
+      'each a loose trail, not a bed',
     );
+    assert.match(clumps, /byQuarter\('Flower_3_Group', 0\.25, daisies, bloom\),/);
+    assert.match(clumps, /byQuarter\('Flower_4_Group', 0\.28, bells, bloom\),/);
+    assert.match(
+      clumps,
+      /const bloom = `#\$\{new Color\('#FFFFFF'\)\.lerp\(base, amount \* amount\)\.getHexString\(\)\}`;/,
+    );
+    // Night's moon shadows read because little of the sky's light fills them.
+    assert.match(read('src/worlds.ts'), /environment: 0\.3,/);
   });
 
   test("the land and the hills have turf's clumps, and the seat mound reads as the lawn round it", () => {
