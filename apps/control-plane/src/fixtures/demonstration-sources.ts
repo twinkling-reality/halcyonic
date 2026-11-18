@@ -113,6 +113,16 @@ const SIGN_IN_WHY = {
 };
 
 /** The demonstration's three scenarios, as the stand-ins know them. */
+/** The pagination run's last message, as its scenario says it, closing lines included. */
+const ORDERS_LAST_MESSAGE = [
+  'GET /orders now returns 50 orders per page with a cursor for the next, and all 31 order tests pass.',
+  '',
+  'Did: Made the order history load 50 orders at a time.',
+  'Why: Loading every order at once made long histories slow.',
+  'How: Each page remembers where it stopped and loads the next 50 from there.',
+  'Left: Explain the new page option in the guide.',
+].join('\n');
+
 export const DEMONSTRATION_STORIES: Readonly<Record<string, SourceStory>> = {
   order_history_pagination: {
     revision: { branch: 'paginate-orders', head: '5c1e9a07d3b4f2861e0a7c95d4b3a2f1e0d9c8b7' },
@@ -128,34 +138,34 @@ export const DEMONSTRATION_STORIES: Readonly<Record<string, SourceStory>> = {
     planned: ['Document the cursor parameter in the API reference'],
     reported: {},
     explanations: {
-      'GET /orders now returns 50 orders per page with a cursor for the next, and all 31 order tests pass.':
-        {
-          what: {
-            summary: 'GET /orders sent every order at once, so long histories loaded slowly.',
-            currently: null,
-          },
-          why: {
-            summary: 'The route read the whole order table for every request.',
-            lanes: [
-              {
-                title: 'Order history page',
-                steps: ['Asks for every order', 'Waits for all of them'],
-              },
-              {
-                title: 'Orders route',
-                steps: ['Reads the whole order table', 'Sends it in one response'],
-              },
-            ],
-            chain: ['Every order in one response', 'Slow pages for long histories'],
-          },
-          how: {
-            summary:
-              'Orders are read 50 at a time by creation time, with a cursor for the next page.',
-            root: 'src/routes/orders.ts',
-            steps: ['Sort by creation time', 'Read 50 after the cursor', 'Return the next cursor'],
-          },
-          approachChange: null,
+      // The run's last message, its closing lines included (the closing request, 2026-11-18).
+      [ORDERS_LAST_MESSAGE]: {
+        what: {
+          summary: 'GET /orders sent every order at once, so long histories loaded slowly.',
+          currently: null,
         },
+        why: {
+          summary: 'The route read the whole order table for every request.',
+          lanes: [
+            {
+              title: 'Order history page',
+              steps: ['Asks for every order', 'Waits for all of them'],
+            },
+            {
+              title: 'Orders route',
+              steps: ['Reads the whole order table', 'Sends it in one response'],
+            },
+          ],
+          chain: ['Every order in one response', 'Slow pages for long histories'],
+        },
+        how: {
+          summary:
+            'Orders are read 50 at a time by creation time, with a cursor for the next page.',
+          root: 'src/routes/orders.ts',
+          steps: ['Sort by creation time', 'Read 50 after the cursor', 'Return the next cursor'],
+        },
+        approachChange: null,
+      },
     },
   },
   order_confirmation_email: {

@@ -346,7 +346,11 @@ class MockSession {
         'The mock runtime only accepts instructions between turns.',
       );
     }
-    this.#startTurn(this.#instructions.get(text) ?? CONTINUATION_STEPS);
+    // Scripted by the person's words: the host's own lines after them ("From Halora: ...") are not the script's.
+    const words = text.split('\n\nFrom Halora: ')[0] ?? text;
+    this.#startTurn(
+      this.#instructions.get(text) ?? this.#instructions.get(words) ?? CONTINUATION_STEPS,
+    );
   }
 
   resolveApproval(approvalId: string, decision: ApprovalDecision): void {

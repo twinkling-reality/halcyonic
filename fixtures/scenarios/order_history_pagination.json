@@ -81,7 +81,7 @@
       "emit": {
         "type": "runtime.agent_message",
         "payload": {
-          "text": "GET /orders now returns 50 orders per page with a cursor for the next, and all 31 order tests pass."
+          "text": "GET /orders now returns 50 orders per page with a cursor for the next, and all 31 order tests pass.\n\nDid: Made the order history load 50 orders at a time.\nWhy: Loading every order at once made long histories slow.\nHow: Each page remembers where it stopped and loads the next 50 from there.\nLeft: Explain the new page option in the guide."
         }
       }
     },

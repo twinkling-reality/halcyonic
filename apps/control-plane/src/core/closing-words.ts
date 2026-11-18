@@ -14,17 +14,28 @@ import type { Recorder } from './recorder.ts';
 /**
  * Halcyonic's closing request, sent after the person's words on every start and every instruction (the lead,
  * 2026-11-18), so each turn can end with the agent's own plain sentences for the evidence view's places. It asks for
- * one sentence a place, for someone who has never written code, and says a place may be left out, so nothing is
- * invented (AUDIT2, 03:07Z). Declared in docs/internal/architecture/SECURITY.md as part of what Halcyonic sends.
+ * up to one sentence a place, for someone who has never written code, and says a place may be left out, so nothing is
+ * invented (AUDIT2, 03:07Z and 03:20Z). Declared in docs/internal/architecture/SECURITY.md as part of what Halcyonic sends.
  */
 export const CLOSING_REQUEST = [
-  'From Halora: when you finish, end your last message with these four lines, each one plain sentence for someone who has never written code:',
+  'From Halora: when you finish, end your last message with up to four lines, each one plain sentence for someone who has never written code:',
   'Did: what you did.',
   'Why: why you did it that way.',
   'How: how it works now.',
   'Left: what is left to do.',
-  'Leave a line out when there is nothing true to say for it. Never guess.',
+  'Leave out any line you have nothing true to say for. Never guess.',
 ].join('\n');
+
+/**
+ * The request's own words for each place: a line that only echoes them is no answer (AUDIT2, 03:20Z), compared
+ * without case and without a final full stop.
+ */
+const TEMPLATE_WORDS: Readonly<Record<'did' | 'why' | 'how' | 'left', string>> = {
+  did: 'what you did',
+  why: 'why you did it that way',
+  how: 'how it works now',
+  left: 'what is left to do',
+};
 
 /** The person's words, then, apart, the closing request. */
 export function withClosingRequest(words: string): string {
@@ -69,8 +80,10 @@ export function closingPlacesOf(message: string): ClosingPlaces | null {
       true,
       CLOSING_WORDS_LIMIT,
     );
-    found[label] = words.length === 0 ? null : words;
-    any ||= words.length > 0;
+    const echoed = words.toLowerCase().replace(/\.$/, '') === TEMPLATE_WORDS[label];
+    const answer = words.length === 0 || echoed ? null : words;
+    found[label] = answer;
+    any ||= answer !== null;
   }
   return any ? found : null;
 }
@@ -80,8 +93,6 @@ export interface ClosingWordsDeps {
   readonly publisher: EventPublisher;
   readonly clock: Clock;
   readonly logger: Logger;
-  /** Whether the journal is the person's own (`live`); a fixture's journal is never appended to. */
-  readonly live: boolean;
 }
 
 /**
@@ -100,8 +111,11 @@ export class ClosingWords {
     this.#deps = deps;
   }
 
+  /**
+   * On every journal: it acts only on a runtime's events as they are published, so a fixture's journal, where no
+   * runtime runs, gains nothing, and the recorded demonstration keeps its practice agent's closing words.
+   */
   attach(): void {
-    if (!this.#deps.live) return;
     this.#unsubscribe = this.#deps.publisher.subscribe(({ event }) => this.#on(event));
   }
 
@@ -129,7 +143,11 @@ export class ClosingWords {
         if (message === undefined) return;
         const places = closingPlacesOf(message);
         if (places === null) return;
-        this.#record(event, executionId, event.payload.turn_id, places);
+        const turnId = event.payload.turn_id;
+        // After every listener has seen the turn's end, so the journal's order is the order each one sees.
+        queueMicrotask(() => {
+          if (this.#unsubscribe !== null) this.#record(event, executionId, turnId, places);
+        });
         return;
       }
       default:

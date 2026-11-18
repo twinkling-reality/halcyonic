@@ -46,6 +46,27 @@ describe("the agent's closing words are read from its own lines, nothing made up
     });
   });
 
+  test("a line that only echoes the request's own words is no answer (AUDIT2 03:20Z)", () => {
+    const echoed = [
+      'Did: what you did.',
+      'Why: Why you did it that way',
+      'How: how it works now.',
+      'Left: What is left to do.',
+    ].join('\n');
+    assert.equal(closingPlacesOf(echoed), null);
+    assert.equal(
+      closingPlacesOf(CLOSING_REQUEST),
+      null,
+      'the request itself, quoted back, answers nothing',
+    );
+    assert.deepEqual(closingPlacesOf(`${echoed}\nDid: Added paging.`), {
+      did: 'Added paging.',
+      why: null,
+      how: null,
+      left: null,
+    });
+  });
+
   test('a later line for a place replaces an earlier one, and long words are cut to the limit', () => {
     const places = closingPlacesOf(`Did: first\nDid: ${'x'.repeat(500)}`);
     assert.equal(places?.did?.length, CLOSING_WORDS_LIMIT);
@@ -55,9 +76,10 @@ describe("the agent's closing words are read from its own lines, nothing made up
     for (const label of ['Did:', 'Why:', 'How:', 'Left:'])
       assert.ok(CLOSING_REQUEST.includes(`\n${label} `));
     assert.match(CLOSING_REQUEST, /plain sentence for someone who has never written code/);
+    assert.match(CLOSING_REQUEST, /end your last message with up to four lines/);
     assert.match(
       CLOSING_REQUEST,
-      /Leave a line out when there is nothing true to say for it\. Never guess\./,
+      /Leave out any line you have nothing true to say for\. Never guess\./,
     );
     assert.equal(withClosingRequest('Fix it.'), `Fix it.\n\n${CLOSING_REQUEST}`);
   });

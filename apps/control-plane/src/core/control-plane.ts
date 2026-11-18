@@ -580,7 +580,6 @@ export class ControlPlane {
       publisher: this.publisher,
       clock: options.clock,
       logger: options.logger,
-      live: this.journal.info.origin === 'live',
     });
     this.#closingWords.attach();
     // The person's instructions held for a runtime that cannot steer (ADR 0056).

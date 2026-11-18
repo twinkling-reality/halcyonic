@@ -461,9 +461,10 @@ describe('mock runtime actions', () => {
       );
     assert.deepEqual(outcomes(), ['failed']);
 
+    // The host's own lines after the person's words do not change which turn is scripted.
     await runtime.sendInstruction({
       execution,
-      text: 'Count failed attempts per account as well as per address.',
+      text: 'Count failed attempts per account as well as per address.\n\nFrom Halora: when you finish, say so.',
     });
     await time.runUntilIdle();
     assert.deepEqual(outcomes(), ['failed', 'passed']);
