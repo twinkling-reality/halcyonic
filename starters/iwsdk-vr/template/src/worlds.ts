@@ -106,8 +106,11 @@ const meadow: WorldLook = {
     ground: '#8FC46E',
     fill: 0.55,
     sun: '#FFE2B4',
-    sunAt: [-4.4, 3.2, -5.6],
-    sunStrength: 2.6,
+    // High, as the photograph's sun is (48 degrees), and stronger over less of the sky's soft light, so the day has
+    // a clear key and its shadows read (CAST, assets2).
+    sunAt: [-4.4, 6.0, -5.6],
+    sunStrength: 3.1,
+    environment: 0.8,
     rim: '#CFE4FF',
     rimStrength: 0.6,
   },

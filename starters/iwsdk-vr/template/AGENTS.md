@@ -108,7 +108,7 @@ Make it fun to look at:
   `grassCarpet(...)` from `./kit.js`; the grass worlds already grow it over the island.
 - Trees, bushes, flowers, ferns and rocks are real models, never shapes of spheres: `natureModel('CommonTree_1',
   1.5)` from `./kit.js` is a group holding that tree 1.5 m tall, ready before the first frame; place it, turn it and
-  add it to `gameIsland()`. `NatureModel` lists the eleven (three round trees, two bushes, two clumps of flowers,
+  add it to `gameIsland()`. `NatureModel` lists the thirteen (five trees, two bushes, two clumps of flowers,
   three rocks, a fern), and `{ tint: '#F2E4CC' }` gives one a world's own colour. For many on the land beyond the
   island, `natureInstances(name, height, places)` draws them all in one call per part.
 - Colour every object with `toyMaterial('berry')` and the other names in `src/palette.ts`, never a colour of your

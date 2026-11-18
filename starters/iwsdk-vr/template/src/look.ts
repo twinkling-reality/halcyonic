@@ -866,17 +866,23 @@ function farClumps(colour: string, onHills: boolean): Group {
       spots.push({ x: Math.cos(a) * (d + 0.4 * Math.sin(k)), z: Math.sin(a) * (d + 0.4 * Math.sin(k)), size: 0.55 + random() * 0.35 });
     }
   }
-  // The island's own modelled tree, the lightest of the kit's (about 3,200 triangles): twelve copses and two
-  // hedgerows come to some sixty, never more than 72, a headset's budget for the woods.
-  const woods: [number, number, number, number, number][] = [];
+  // The kit's three lightest trees (3,200 to 4,100 triangles), mixed as a wood is, each its own size from 0.7 to 1.4
+  // times and turned its own way, some with a bush at their foot: twelve copses and two hedgerows come to some sixty,
+  // never more than 72, a headset's budget for the woods (CAST, assets2: one tree, copied).
+  const round: [number, number, number, number, number][] = [];
+  const tall: [number, number, number, number, number][] = [];
+  const slim: [number, number, number, number, number][] = [];
+  const footBushes: [number, number, number, number, number][] = [];
   for (const spot of spots.slice(0, 72)) {
     const x = spot.x;
     const z = spot.z;
-    const s = (0.3 + random() * 0.22) * spot.size;
+    const s = (0.3 + random() * 0.22) * spot.size * (0.7 + 0.7 * random());
     // Its foot sunk into the ground: on a slope the mesh between its vertices can lie below the hill's true height.
     const y = PLAIN_LEVEL + (onHills ? hillHeight(x, z) : 0) - 0.1 * s;
-    woods.push([x, y, z, s, random() * 6.28]);
+    const kind = random();
+    (kind < 0.45 ? round : kind < 0.75 ? tall : slim).push([x, y, z, s, random() * 6.28]);
     grounded.push([x, z, s]);
+    if (random() < 0.35) footBushes.push([x + 0.6 * s, y, z + 0.4 * s, s * 0.9, random() * 6.28]);
   }
   // Nearer, between the island and the far trees: modelled bushes on the land and a few lone trees, so the eye
   // steps from the island to the hills.
@@ -916,7 +922,10 @@ function farClumps(colour: string, onHills: boolean): Group {
   const tint = `#${new Color('#FFFFFF').lerp(base, amount).getHexString()}`;
   group.add(
     shadows,
-    natureInstances('CommonTree_5', 3, woods, { tint }),
+    natureInstances('CommonTree_5', 3, round, { tint }),
+    natureInstances('CommonTree_3', 3.6, tall, { tint }),
+    natureInstances('CommonTree_4', 3.4, slim, { tint }),
+    natureInstances('Bush_Common', 1.1, footBushes, { tint }),
     natureInstances('CommonTree_5', 2.6, lone, { tint }),
     natureInstances('Bush_Common', 1.1, bushes, { tint }),
   );

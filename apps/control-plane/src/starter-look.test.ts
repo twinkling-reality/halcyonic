@@ -230,8 +230,8 @@ describe('a fresh island comes decorated and costs a headset few draw calls (U4)
     );
     assert.match(decor, /new InstancedMesh\(/);
     assert.match(decor, /vertexColors = true/);
-    // The woods on the land are the kit's modelled tree, instanced: one draw call for each of its parts.
-    assert.match(read('src/look.ts'), /natureInstances\('CommonTree_5', 3, woods, \{ tint \}\)/);
+    // The woods on the land are the kit's modelled trees, instanced: one draw call for each part of each kind.
+    assert.match(read('src/look.ts'), /natureInstances\('CommonTree_5', 3, round, \{ tint \}\)/);
   });
 
   test('the agent is told the island comes decorated and how to change it', () => {
@@ -1689,8 +1689,20 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     );
     assert.match(
       clumps,
-      /natureInstances\('CommonTree_5', 3, woods, \{ tint \}\),\n\s+natureInstances\('CommonTree_5', 2\.6, lone, \{ tint \}\),\n\s+natureInstances\('Bush_Common', 1\.1, bushes, \{ tint \}\),/,
+      /natureInstances\('CommonTree_5', 3, round, \{ tint \}\),\n\s+natureInstances\('CommonTree_3', 3\.6, tall, \{ tint \}\),\n\s+natureInstances\('CommonTree_4', 3\.4, slim, \{ tint \}\),\n\s+natureInstances\('Bush_Common', 1\.1, footBushes, \{ tint \}\),\n\s+natureInstances\('CommonTree_5', 2\.6, lone, \{ tint \}\),\n\s+natureInstances\('Bush_Common', 1\.1, bushes, \{ tint \}\),/,
       'the woods, lone trees and bushes are the modelled ones, one draw call per part',
+    );
+    // Three kinds mixed as a wood is, each its own size from 0.7 to 1.4 times, some with a bush at the foot (CAST,
+    // assets2: one tree, copied).
+    assert.match(
+      clumps,
+      /const s = \(0\.3 \+ random\(\) \* 0\.22\) \* spot\.size \* \(0\.7 \+ 0\.7 \* random\(\)\);/,
+    );
+    assert.match(clumps, /\(kind < 0\.45 \? round : kind < 0\.75 \? tall : slim\)\.push/);
+    assert.match(
+      clumps,
+      /if \(random\(\) < 0\.35\) footBushes\.push\(/,
+      'some with a bush at their foot',
     );
     assert.doesNotMatch(
       clumps,
@@ -1817,11 +1829,11 @@ describe("the starter's worlds are lit and finished like a shipped scene (the le
     const decor = read('src/decor.ts');
     assert.doesNotMatch(decor, /part\(new SphereGeometry\(r, \d+, \d+\), '#47B04A'/);
     assert.match(decor, /part\(foliage\(r \* 0\.72, /, 'a dark core holds each crown');
-    assert.match(
-      decor,
-      /swaying\.add\(canopy\(crown, /,
-      'trees carry built canopies of leaf cards',
-    );
+    // Since the starter's CC0 assets the island's trees are models; the drawn ones that stand in for them, if the
+    // files cannot be read, still carry built canopies of leaf cards.
+    assert.match(decor, /tree\.add\(canopy\(crown, /, 'trees carry built canopies of leaf cards');
+    for (const drawn of ['roundTree', 'appleTree', 'moonTree'])
+      assert.match(decor, new RegExp(`fallback: \\(\\) => ${drawn}\\(x, z\\)`), drawn);
     assert.match(decor, /bush\.add\(canopy\(leafy, /, 'and so do bushes');
     assert.match(decor, /alphaTest: 0\.5,/, 'leaves cut out at their edges');
     assert.doesNotMatch(decor, /new ConeGeometry\(0\.025, 0\.12, 6\)/);
@@ -1915,7 +1927,7 @@ describe("the starter's skies and nature models are free files of its own (the l
     assert.match(read('src/nature.ts'), /holdFirstFrame\(kit\);/);
   });
 
-  test("eleven CC0 models load by three.js's own loader with its bundled meshopt decoder, textures as files of their own", () => {
+  test("thirteen CC0 models load by three.js's own loader with its bundled meshopt decoder, textures as files of their own", () => {
     const nature = read('src/nature.ts');
     assert.match(
       nature,
@@ -1938,18 +1950,18 @@ describe("the starter's skies and nature models are free files of its own (the l
     const names = gltf.scenes.flatMap((scene) => scene.nodes.map((k) => gltf.nodes[k]?.name));
     const listed = [...nature.matchAll(/\| '([A-Za-z_0-9]+)'/g)].map((m) => m[1]);
     assert.deepEqual([...names].sort(), [...listed].sort());
-    assert.equal(listed.length, 11);
+    assert.equal(listed.length, 13);
     for (const name of listed) assert.ok(notice.includes(name as string), `NOTICE names ${name}`);
     assert.match(
       notice,
-      /Quaternius's Stylized Nature MegaKit, free Standard edition, under\nCC0 1\.0/,
+      /Quaternius's Stylized Nature MegaKit, free Standard edition,\nunder CC0 1\.0/,
     );
     const folder = new URL('public/models/nature/', template);
     const total = readdirSync(folder).reduce(
       (sum, file) => sum + statSync(new URL(file, folder)).size,
       0,
     );
-    assert.ok(total < 700_000, `the models are ${total} bytes, under 0.7 MB for a headset`);
+    assert.ok(total < 800_000, `the models are ${total} bytes, under 0.8 MB for a headset`);
   });
 
   test("the garden's apple trees are modelled trees with apples hung on their own leaves", () => {

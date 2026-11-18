@@ -16,15 +16,17 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { holdFirstFrame } from './look.js';
 
 /**
- * The nature models in `public/models/nature/`: trees, bushes, flower clumps, rocks and a fern from Quaternius's
+ * The nature models in `public/models/nature/`: five trees, bushes, flower clumps, rocks and a fern from Quaternius's
  * Stylized Nature MegaKit (CC0, see NOTICE), compressed for a headset (meshopt geometry, 512 px WebP textures, about
- * 0.65 MB for all eleven). They load once from the app's own files, never from the network, and the first frame waits
+ * 0.77 MB for all thirteen). They load once from the app's own files, never from the network, and the first frame waits
  * for them, so nothing pops in. The textures are files of their own beside `nature.gltf`, not packed into one binary:
  * the page's security policy lets it fetch its own files but not the blob: addresses a packed file's pictures load from.
  */
 export type NatureModel =
   | 'CommonTree_1'
   | 'CommonTree_2'
+  | 'CommonTree_3'
+  | 'CommonTree_4'
   | 'CommonTree_5'
   | 'Bush_Common'
   | 'Bush_Common_Flowers'

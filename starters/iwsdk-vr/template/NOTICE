@@ -8,9 +8,9 @@ https://polyhaven.com/license), by Greg Zaal with Jarod Guest: meadow.webp from 
 Sky)" (https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky) and garden.webp from "Kloppenheim 06 (Pure Sky)"
 (https://polyhaven.com/a/kloppenheim_06_puresky). Changed for this starter: each 2k HDR exposed, rolled off and cut to
 its upper half as an sRGB WebP (91 KB for the two).
-The models in public/models/nature/ are eleven from Quaternius's Stylized Nature MegaKit, free Standard edition, under
-CC0 1.0 (public domain; https://quaternius.com/packs/stylizednaturemegakit.html): CommonTree_1, CommonTree_2,
-CommonTree_5, Bush_Common, Bush_Common_Flowers, Flower_3_Group, Flower_4_Group, Rock_Medium_1, Rock_Medium_2,
-Rock_Medium_3 and Fern_1. Changed for this starter: joined into one glTF, its geometry compressed with meshopt, its
-textures cut to 512 px WebP with their clear pixels filled with the leaf colour, and Bush_Common given the common
-tree's green leaves (604 KB for the eleven).
+The models in public/models/nature/ are thirteen from Quaternius's Stylized Nature MegaKit, free Standard edition,
+under CC0 1.0 (public domain; https://quaternius.com/packs/stylizednaturemegakit.html): CommonTree_1, CommonTree_2,
+CommonTree_3, CommonTree_4, CommonTree_5, Bush_Common, Bush_Common_Flowers, Flower_3_Group, Flower_4_Group,
+Rock_Medium_1, Rock_Medium_2, Rock_Medium_3 and Fern_1. Changed for this starter: joined into one glTF, its geometry
+compressed with meshopt, its textures cut to 512 px WebP with their clear pixels filled with the leaf colour, and
+Bush_Common given the common tree's green leaves (768 KB for the thirteen).

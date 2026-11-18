@@ -307,7 +307,8 @@ function fence(decor: Group): void {
       // Weathered wood, each post its own height and a little out of true.
       const lean = 0.05 * Math.sin(i * 2.3 + a * 5);
       const tall = 0.34 + 0.03 * Math.sin(i * 1.7);
-      const shade = i % 3 === 0 ? '#E2D4B8' : i % 3 === 1 ? '#EADFC8' : '#D8C9AA';
+      // Grey-brown weathered wood, never a clean white that glows at dusk (CAST, assets2).
+      const shade = i % 3 === 0 ? '#A69680' : i % 3 === 1 ? '#B2A28A' : '#9A8A72';
       parts.push(part(barkTrunk(0.026, 0.03, tall, i + a), shade, [x, 0, z], [1.2, 1, 0.6], [lean, turn, lean * 0.6]));
       parts.push(part(new ConeGeometry(0.04, 0.06, 4), shade, [x, tall + 0.03, z], [1, 1, 0.5], [lean, turn + Math.PI / 4, 0]));
       if (previous !== null) {
@@ -316,7 +317,7 @@ function fence(decor: Group): void {
         const along = Math.atan2(-(z - pz), x - px);
         for (const y of [0.1, 0.24])
           parts.push(
-            part(new BoxGeometry(length, 0.035, 0.02, 6, 1, 1), '#DCCDB0', [(x + px) / 2, y, (z + pz) / 2 - 0.0], [1, 1, 1], [
+            part(new BoxGeometry(length, 0.035, 0.02, 6, 1, 1), '#A89880', [(x + px) / 2, y, (z + pz) / 2 - 0.0], [1, 1, 1], [
               0,
               along,
               0,
@@ -408,6 +409,21 @@ function gardenDressing(decor: Group, counts: DecorCounts): void {
 
 /** The seaside's modelled rocks, one for each place in turn. */
 const SEA_ROCKS: readonly NatureModel[] = ['Rock_Medium_1', 'Rock_Medium_3', 'Rock_Medium_2'];
+
+/** The drawn moon tree: a violet trunk under a crown of blue leaf cards round dark cores. */
+function moonTree(x: number, z: number): Mesh {
+  const parts = [part(barkTrunk(0.05, 0.08, 0.6, x + z), '#4A3B6B', [0, 0, 0])];
+  const crown = [
+    [0, 0.86, 0, 0.3, '#2C3A66'],
+    [0.18, 0.66, 0.04, 0.22, '#24305A'],
+    [-0.17, 0.7, -0.02, 0.23, '#323F72'],
+    [0.02, 1.1, 0, 0.17, '#36457A'],
+  ] as const;
+  for (const [a, b, c, r] of crown) parts.push(part(foliage(r * 0.72, x * 3.1 + a * 7 + z), '#141A33', [a, b, c]));
+  const tree = prop(parts, { natural: true, roughness: 0.6 });
+  tree.add(canopy(crown, x * 3.1 + z));
+  return tree;
+}
 
 /** The drawn apple tree: a bark trunk under a crown of leaf cards round dark cores, five apples on its front. */
 function appleTree(x: number, z: number): Mesh {
@@ -694,18 +710,15 @@ function seasideDressing(decor: Group, counts: DecorCounts): void {
 /** A starry night: moon trees, glowing crystals and mushrooms, teal grass and swarms of fireflies. */
 function nightDressing(decor: Group, counts: DecorCounts): void {
   const { trees = 3, bushes = 3, flowers = 6, tufts = 26, butterflies = 2 } = counts;
-  for (const [x, z, size] of LAYOUT.trees.slice(0, trees)) {
+  for (const [i, [x, z, size]] of LAYOUT.trees.slice(0, trees).entries()) {
     const tree = new Group();
-    const parts = [part(barkTrunk(0.05, 0.08, 0.6, x + z), '#4A3B6B', [0, 0, 0])];
-    const crown = [
-      [0, 0.86, 0, 0.3, '#2C3A66'],
-      [0.18, 0.66, 0.04, 0.22, '#24305A'],
-      [-0.17, 0.7, -0.02, 0.23, '#323F72'],
-      [0.02, 1.1, 0, 0.17, '#36457A'],
-    ] as const;
-    for (const [a, b, c, r] of crown) parts.push(part(foliage(r * 0.72, x * 3.1 + a * 7 + z), '#141A33', [a, b, c]));
-    const swaying = prop(parts, { natural: true, roughness: 0.6 });
-    swaying.add(canopy(crown, x * 3.1 + z));
+    // A modelled tree in the moon's blue, as the woods on the land are; the drawn moon tree stands in if the models
+    // cannot be read (CAST, assets2: the last drawn crowns in any frame).
+    const swaying = natureModel(ROUND_TREES[i % ROUND_TREES.length], 1.55, {
+      tint: '#6E7CB8',
+      fallback: () => moonTree(x, z),
+    });
+    swaying.rotation.y = x * 1.9 + z;
     tree.add(swaying);
     tree.position.set(x, 0, z);
     tree.scale.setScalar(size);
@@ -795,7 +808,7 @@ function nightDressing(decor: Group, counts: DecorCounts): void {
       const sprite = new Sprite(
         new SpriteMaterial({ map: glow, color: '#EAFF86', transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false }),
       );
-      sprite.scale.setScalar(0.16);
+      sprite.scale.setScalar(0.22);
       decor.add(sprite);
       return sprite;
     });
